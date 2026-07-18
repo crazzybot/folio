@@ -1,0 +1,15 @@
+# Dependencies
+node_modules
+
+# Build output
+dist/
+
+# Vite cache
+.vite/
+
+# Environment overrides (keep .env.example, ignore local overrides)
+.env.local
+.env.*.local
+
+# Editor
+.DS_Store
