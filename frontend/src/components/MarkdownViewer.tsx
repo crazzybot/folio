@@ -57,7 +57,7 @@ function toSlug(children: React.ReactNode): string {
     .toLowerCase()
     .replace(/[^\w\s-]/g, "") // strip chars outside word chars, whitespace, hyphen
     .trim()
-    .replace(/\s+/g, "-");   // spaces → hyphens
+    .replace(/\s/g, "-");    // spaces → hyphens (one-to-one, preserves double-dash for stripped chars like &)
 }
 
 // ---------------------------------------------------------------------------
