@@ -251,3 +251,102 @@
 .article :global(p:first-child) {
   margin-top: 0;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Print
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media print {
+  .viewerRoot {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Page margins come from @page, so drop the on-screen gutters */
+  .article {
+    padding: 0;
+  }
+
+  .article :global(a:hover) { text-decoration: none; }
+  .article :global(tbody tr:hover) { background: transparent; }
+
+  /* Pagination: keep headings with their content, avoid splitting blocks */
+  .article :global(h1),
+  .article :global(h2),
+  .article :global(h3),
+  .article :global(h4),
+  .article :global(h5),
+  .article :global(h6) {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .article :global(pre),
+  .article :global(blockquote),
+  .article :global(tr),
+  .article :global(img) {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .article :global(thead) {
+    display: table-header-group;
+  }
+
+  /* Fixed 8pt mono fits ~100 columns on A4/Letter, matching the on-screen
+     line length; anything longer wraps instead of being clipped. */
+  .article :global(pre code) {
+    font-size: 8pt;
+    line-height: 1.5;
+    padding: var(--space-3) var(--space-4);
+    overflow: visible;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .article :global(code:not(pre code)) {
+    background: #eff1f3;
+    color: #cf222e;
+  }
+
+  /* Light syntax theme (github-light) in place of the on-screen dark one */
+  .article :global(.hljs) { background: #f6f8fa; color: #1f2328; }
+  .article :global(.hljs-doctag),
+  .article :global(.hljs-keyword),
+  .article :global(.hljs-meta .hljs-keyword),
+  .article :global(.hljs-template-tag),
+  .article :global(.hljs-template-variable),
+  .article :global(.hljs-type),
+  .article :global(.hljs-variable.language_) { color: #cf222e; }
+  .article :global(.hljs-title),
+  .article :global(.hljs-title.class_),
+  .article :global(.hljs-title.class_.inherited__),
+  .article :global(.hljs-title.function_) { color: #8250df; }
+  .article :global(.hljs-attr),
+  .article :global(.hljs-attribute),
+  .article :global(.hljs-literal),
+  .article :global(.hljs-meta),
+  .article :global(.hljs-number),
+  .article :global(.hljs-operator),
+  .article :global(.hljs-variable),
+  .article :global(.hljs-selector-attr),
+  .article :global(.hljs-selector-class),
+  .article :global(.hljs-selector-id) { color: #0550ae; }
+  .article :global(.hljs-regexp),
+  .article :global(.hljs-string),
+  .article :global(.hljs-meta .hljs-string) { color: #0a3069; }
+  .article :global(.hljs-built_in),
+  .article :global(.hljs-symbol) { color: #953800; }
+  .article :global(.hljs-comment),
+  .article :global(.hljs-code),
+  .article :global(.hljs-formula) { color: #6e7781; }
+  .article :global(.hljs-name),
+  .article :global(.hljs-quote),
+  .article :global(.hljs-selector-tag),
+  .article :global(.hljs-selector-pseudo) { color: #116329; }
+  .article :global(.hljs-subst) { color: #1f2328; }
+  .article :global(.hljs-section) { color: #0550ae; font-weight: bold; }
+  .article :global(.hljs-bullet) { color: #953800; }
+  .article :global(.hljs-addition) { color: #116329; background-color: #dafbe1; }
+  .article :global(.hljs-deletion) { color: #82071e; background-color: #ffebe9; }
+}

@@ -96,3 +96,39 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-subtle);
 }
+
+/* ─── Print ───────────────────────────────────────────────────────────────── */
+/* Swap to a light, ink-friendly palette and let the document flow across
+   pages instead of being clipped to the viewport. */
+@page {
+  margin: 18mm 16mm;
+}
+
+@media print {
+  :root {
+    --color-bg:            #ffffff;
+    --color-surface:       #f6f8fa;
+    --color-surface-hover: #f6f8fa;
+    --color-border:        #d0d7de;
+    --color-border-light:  #d8dee4;
+
+    --color-text:          #1f2328;
+    --color-text-muted:    #57606a;
+    --color-text-subtle:   #6e7781;
+
+    --color-accent:        #0969da;
+    --color-accent-dim:    #d0d7de;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Scale the root size so rem-based headings shrink along with body text */
+  html {
+    font-size: 10pt;
+  }
+}
