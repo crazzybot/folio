@@ -1,4 +1,4 @@
-import type { DocumentContent, DocumentMeta } from "./types";
+import type { DocumentContent, DocumentMeta, SearchResult } from "./types";
 
 const apiBase: string =
   (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "";
@@ -17,6 +17,13 @@ export async function fetchDocuments(): Promise<DocumentMeta[]> {
   if (desktopApi) return desktopApi.listDocuments();
   const res = await fetch(`${apiBase}/api/documents`);
   return handleResponse<DocumentMeta[]>(res);
+}
+
+/** Documents whose text contains `query` (case-insensitive; at least 2 characters). */
+export async function searchDocuments(query: string): Promise<SearchResult[]> {
+  if (desktopApi) return desktopApi.searchDocuments(query);
+  const res = await fetch(`${apiBase}/api/search?q=${encodeURIComponent(query)}`);
+  return handleResponse<SearchResult[]>(res);
 }
 
 /** URL of the workspace file at `location` (workspace-relative, "/"-separated). */

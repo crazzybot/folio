@@ -39,12 +39,13 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.scanner import IMAGE_TYPES, DocumentMeta, find_document, find_image, scan_workspace
+from app.search import search_workspace
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -129,6 +130,20 @@ class DocumentContent(TypedDict):
     content: str
 
 
+class SearchMatchItem(TypedDict):
+    line: int
+    text: str
+    start: int
+    end: int
+    occurrence: int
+
+
+class SearchResultItem(TypedDict):
+    id: str
+    matchCount: int
+    matches: list[SearchMatchItem]
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -186,6 +201,31 @@ def get_document_content(doc_id: str) -> DocumentContent:
         )
     doc, content = result
     return DocumentContent(id=doc.id, content=content)
+
+
+@app.get(
+    "/api/search",
+    response_model=list[SearchResultItem],
+    summary="Search the text of every document",
+)
+def search_documents(q: str = Query(..., max_length=500)) -> list[SearchResultItem]:
+    """
+    Return the documents whose text contains *q* (case-insensitive, plain
+    text), in document-list order, each with its match count and up to three
+    matching lines. Queries shorter than two characters return ``[]``.
+    """
+    results = search_workspace(_workspace(), q, skip_dirs=_skip_dirs(), max_depth=_max_depth())
+    return [
+        SearchResultItem(
+            id=r.id,
+            matchCount=r.match_count,
+            matches=[
+                SearchMatchItem(line=m.line, text=m.text, start=m.start, end=m.end, occurrence=m.occurrence)
+                for m in r.matches
+            ],
+        )
+        for r in results
+    ]
 
 
 # Images are only ever displayed, never run: an SVG opened directly must not

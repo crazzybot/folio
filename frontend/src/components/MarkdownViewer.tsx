@@ -10,6 +10,7 @@ import { workspaceFileUrl } from "../api";
 import { resolveImageSrc, resolveLink } from "../links";
 import type { ImageSource, LinkTarget } from "../links";
 import { saveScrollPosition } from "../scrollHistory";
+import { clearMatches, findMatches, showMatches } from "../searchHighlight";
 import type { DocumentMeta } from "../types";
 
 // Register only the languages we need (tree-shakeable subset)
@@ -46,6 +47,17 @@ interface MarkdownViewerProps {
   currentLocation?: string | null;
   /** Called when the user clicks a link to another workspace document. */
   onOpenDocument?: (id: string, anchor: string | null) => void;
+  /** Search text to highlight in the document ("" for none). */
+  searchQuery?: string;
+  /** A search match to scroll to once its document is shown. */
+  searchFocus?: SearchFocus | null;
+}
+
+/** "Scroll to the `occurrence`-th match in `docId`"; a new `nonce` asks again. */
+export interface SearchFocus {
+  docId: string;
+  occurrence: number;
+  nonce: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -332,8 +344,11 @@ export default function MarkdownViewer({
   documents = [],
   currentLocation = null,
   onOpenDocument,
+  searchQuery = "",
+  searchFocus = null,
 }: MarkdownViewerProps): React.ReactElement {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const articleRef = useRef<HTMLElement>(null);
 
   // -------------------------------------------------------------------------
   // Scroll restoration (Back/Forward)
@@ -455,6 +470,57 @@ export default function MarkdownViewer({
   }, [navigationKey, loading, content, contentId, selectedId]);
 
   // -------------------------------------------------------------------------
+  // Effect 4 — search highlights
+  //
+  // Highlights every match of the sidebar's search in the shown document,
+  // re-done on each render of new content (live reload included). A search
+  // result that was opened (searchFocus) is scrolled to once, and marked as
+  // the current match; declared after Effects 1–3 so it wins over their
+  // scroll-to-top on the same render.
+  // -------------------------------------------------------------------------
+  const focusedNonceRef = useRef<number | null>(null);
+  const currentMatchRef = useRef<number | null>(null);
+
+  // Another document (or none) is shown: its current match no longer applies.
+  // Must run before the effect below, which may set a new one.
+  useEffect(() => {
+    currentMatchRef.current = null;
+  }, [contentId]);
+
+  useEffect(() => {
+    const article = articleRef.current;
+    if (loading || content === null || article === null || searchQuery === "") {
+      clearMatches();
+      currentMatchRef.current = null;
+      return;
+    }
+    const ranges = findMatches(article, searchQuery);
+
+    const wantsFocus =
+      searchFocus !== null && searchFocus.docId === contentId && searchFocus.nonce !== focusedNonceRef.current;
+    if (wantsFocus) {
+      focusedNonceRef.current = searchFocus.nonce;
+      // Counted in the markdown source, where e.g. link URLs also match; the
+      // rendered text can have fewer, so fall back to the last one
+      currentMatchRef.current = ranges.length === 0 ? null : Math.min(searchFocus.occurrence, ranges.length - 1);
+    } else if (currentMatchRef.current !== null && currentMatchRef.current >= ranges.length) {
+      currentMatchRef.current = null;
+    }
+
+    const current = currentMatchRef.current === null ? null : (ranges[currentMatchRef.current] ?? null);
+    showMatches(ranges, current);
+
+    const scroller = scrollRef.current;
+    if (wantsFocus && current !== null && scroller !== null) {
+      // Bring the match to the upper third of the viewer
+      const offset = current.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      scroller.scrollTop += offset - scroller.clientHeight / 3;
+    }
+  }, [content, contentId, loading, searchQuery, searchFocus]);
+
+  useEffect(() => clearMatches, []);
+
+  // -------------------------------------------------------------------------
   // Link handlers shared with MarkdownLink via context
   // -------------------------------------------------------------------------
   const idsByLocation = useMemo(
@@ -547,7 +613,7 @@ export default function MarkdownViewer({
 
       {/* ── Rendered markdown ── */}
       {!loading && error === null && content !== null && (
-        <article className={styles.article} aria-label="Rendered markdown">
+        <article className={styles.article} aria-label="Rendered markdown" ref={articleRef}>
           <LinkContext.Provider value={linkHandlers}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
