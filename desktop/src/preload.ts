@@ -5,7 +5,7 @@
  * REST API in backend/app/main.py; see frontend/src/api.ts for the consumer.
  */
 
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { IpcRendererEvent } from "electron";
 
 interface NavigationState {
@@ -39,6 +39,10 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.removeListener("theme:changed", listener);
     };
   },
+  /** The file-system path of a dropped File ("" if it has none), for openPath. */
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  /** Open a markdown file or a folder, as File → Open Folder… or Open With would. */
+  openPath: (target: string) => ipcRenderer.invoke("workspace:open-path", target),
   /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */
   onWorkspaceChange: (callback: () => void) => {
     const listener = () => callback();

@@ -38,8 +38,28 @@
       "grantFileProtocolExtraPrivileges": false,
       "resetAdHocDarwinSignature": true
     },
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown"],
+        "name": "Markdown Document",
+        "description": "Markdown document",
+        "mimeType": "text/markdown",
+        "role": "Viewer",
+        "rank": "Alternate"
+      }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
+      "extendInfo": {
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "Folder",
+            "CFBundleTypeRole": "Viewer",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": ["public.folder"]
+          }
+        ]
+      },
       "target": [
         "dmg",
         "zip"

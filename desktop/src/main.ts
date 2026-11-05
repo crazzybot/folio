@@ -10,6 +10,8 @@
  *
  * Preferences (workspace, skipped folders, scan depth, theme) live in settings.json;
  * see settings.ts. Recently opened folders live in recent.json; see recent.ts.
+ * Files and folders can be opened from the system — command line, Open With,
+ * a second launch, a drop on the window — see openPaths.ts and cli.ts.
  * The workspace is watched for markdown changes (see watcher.ts), which the
  * renderer is told about so it can refresh without a reload.
  *
@@ -33,7 +35,9 @@ import {
   removeRecentWorkspace,
 } from "./recent";
 import { serveImage } from "./images";
-import { findDocument, scanWorkspace } from "./scanner";
+import { canInstallCommand, installCommand } from "./cli";
+import { classifyPath, locationInWorkspace, pathsFromArgv } from "./openPaths";
+import { findDocument, scanWorkspace, stableId } from "./scanner";
 import { searchWorkspace } from "./search";
 import type { SearchResult } from "./search";
 import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
@@ -207,6 +211,13 @@ function registerIpcHandlers(): void {
     return searchWorkspace(settings.workspace, query, scanOptions());
   });
 
+  // A file or folder dropped on the window (the renderer resolves its path)
+  ipcMain.handle("workspace:open-path", (event, target: unknown): void => {
+    assertTrustedSender(event);
+    if (typeof target !== "string" || !path.isAbsolute(target)) throw new Error("Path must be absolute");
+    requestOpen([target]);
+  });
+
   // The renderer asks once on load; later changes are pushed (see applyTheme)
   ipcMain.handle("theme:get", (event): Theme => {
     assertTrustedSender(event);
@@ -288,9 +299,13 @@ function updateWindowTitle(win: BrowserWindow): void {
   if (process.platform === "darwin") win.setRepresentedFilename(workspace ?? "");
 }
 
-/** Reload at the root so the first document of the new workspace is selected. */
-async function loadWorkspaceRoot(win: BrowserWindow): Promise<void> {
-  await win.loadURL(rendererUrl());
+/**
+ * Reload at the root so the first document of the new workspace is selected,
+ * or at `docId` when a particular document was asked for.
+ */
+async function loadWorkspaceRoot(win: BrowserWindow, docId?: string): Promise<void> {
+  const url = docId === undefined ? rendererUrl() : new URL(`doc/${encodeURIComponent(docId)}`, rendererUrl()).href;
+  await win.loadURL(url);
   // Documents of the previous workspace aren't reachable any more, so Back
   // must not lead to them
   win.webContents.navigationHistory.clear();
@@ -303,7 +318,7 @@ function rememberWorkspace(folder: string): void {
   Menu.setApplicationMenu(buildMenu());
 }
 
-async function openWorkspace(win: BrowserWindow, folder: string): Promise<void> {
+async function openWorkspace(win: BrowserWindow, folder: string, docId?: string): Promise<void> {
   if (!existsSync(folder)) {
     recentWorkspaces = removeRecentWorkspace(recentWorkspaces, folder);
     Menu.setApplicationMenu(buildMenu());
@@ -320,7 +335,77 @@ async function openWorkspace(win: BrowserWindow, folder: string): Promise<void> 
   restartWatcher();
   rememberWorkspace(folder);
   updateWindowTitle(win);
-  await loadWorkspaceRoot(win);
+  await loadWorkspaceRoot(win, docId);
+}
+
+// ---------------------------------------------------------------------------
+// Opening files and folders from the system
+// ---------------------------------------------------------------------------
+
+// Paths that arrived before the window could take them (launch, no window)
+let pendingPaths: string[] = [];
+let windowReady = false;
+
+/**
+ * Open a folder as the workspace, or a markdown file: in place when it's in
+ * the current workspace (keeping history), otherwise with its folder as
+ * the new workspace.
+ */
+async function openPath(win: BrowserWindow, target: string): Promise<void> {
+  const kind = await classifyPath(target);
+  if (kind === "folder") {
+    await openWorkspace(win, target);
+    return;
+  }
+  if (kind !== "markdown") {
+    await dialog.showMessageBox(win, {
+      type: "warning",
+      message: kind === "missing" ? "File not found" : "Folio opens Markdown files and folders",
+      detail: kind === "missing" ? target : `${path.basename(target)} isn't a .md or .markdown file.`,
+    });
+    return;
+  }
+
+  if (settings.workspace !== null) {
+    const location = await locationInWorkspace(target, settings.workspace);
+    // Not listed when inside a skipped folder or below the depth cap
+    const doc = location === null ? null : await findDocument(settings.workspace, stableId(location), scanOptions());
+    if (doc !== null) {
+      // Navigate as a user action: Chromium skips history entries a page adds
+      // without one when going Back, and Back should return to where you were.
+      // The renderer handles the event in App.tsx.
+      const detail = JSON.stringify(doc.meta.id);
+      await win.webContents.executeJavaScript(
+        `window.dispatchEvent(new CustomEvent("folio:open-document", { detail: ${detail} }))`,
+        true,
+      );
+      return;
+    }
+  }
+  await openWorkspace(win, path.dirname(target), stableId(path.basename(target)));
+}
+
+/** Open `paths` in the main window (the last one wins), creating it if needed. */
+function requestOpen(paths: readonly string[]): void {
+  if (paths.length === 0) return;
+  if (!app.isReady() || mainWindow === null || !windowReady) {
+    pendingPaths.push(...paths);
+    if (app.isReady() && mainWindow === null) mainWindow = createWindow();
+    return;
+  }
+  const win = mainWindow;
+  if (win.isMinimized()) win.restore();
+  win.focus();
+  void (async () => {
+    for (const target of paths) await openPath(win, target);
+  })();
+}
+
+/** Called once the window has loaded: open what was asked for, if anything. */
+function takePendingPaths(): string[] {
+  const paths = pendingPaths;
+  pendingPaths = [];
+  return paths;
 }
 
 async function chooseWorkspace(win: BrowserWindow): Promise<void> {
@@ -498,6 +583,9 @@ function buildMenu(): Menu {
               { role: "about" },
               { type: "separator" },
               settingsItem,
+              ...(canInstallCommand()
+                ? [{ label: "Install 'folio' Command in PATH…", click: withWindow(installCommand) }]
+                : []),
               { type: "separator" },
               { role: "services" },
               { type: "separator" },
@@ -626,12 +714,19 @@ function createWindow(): BrowserWindow {
   updateWindowTitle(win);
   void win.loadURL(rendererUrl());
 
-  if (settings.workspace === null) {
-    win.webContents.once("did-finish-load", () => void chooseWorkspace(win));
-  }
+  // A file or folder asked for at launch replaces the first-run folder prompt
+  win.webContents.once("did-finish-load", () => {
+    windowReady = true;
+    const paths = takePendingPaths();
+    if (paths.length > 0) requestOpen(paths);
+    else if (settings.workspace === null) void chooseWorkspace(win);
+  });
 
   win.on("closed", () => {
-    if (mainWindow === win) mainWindow = null;
+    if (mainWindow === win) {
+      mainWindow = null;
+      windowReady = false;
+    }
   });
   return win;
 }
@@ -642,7 +737,32 @@ function createWindow(): BrowserWindow {
 
 app.setName(APP_NAME);
 
+// One app instance: launching it again (e.g. `Folio.exe notes.md`) hands
+// the paths to the running one instead of opening a second window
+const isPrimaryInstance = app.requestSingleInstanceLock();
+if (!isPrimaryInstance) {
+  app.quit();
+} else {
+  app.on("second-instance", (_event, argv, workingDirectory) => {
+    const paths = pathsFromArgv(argv, workingDirectory, app.isPackaged);
+    if (paths.length > 0) requestOpen(paths);
+    else if (mainWindow !== null) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
+// macOS: Finder (double-click, Open With, drop on the Dock icon) and
+// `open -a Folio …`. Can arrive before `ready` when it launches the app.
+app.on("open-file", (event, target) => {
+  event.preventDefault();
+  requestOpen([target]);
+});
+
 void app.whenReady().then(() => {
+  if (!isPrimaryInstance) return;
+  pendingPaths.push(...pathsFromArgv(process.argv, process.cwd(), app.isPackaged));
   settings = loadSettings();
   applyTheme();
   // The OS switching light/dark (or our own setting) repaints the windows' background
