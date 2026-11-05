@@ -381,9 +381,18 @@ export default function MarkdownViewer({
   //                        so the viewport is not left stranded mid-document.
   //
   // Guard: skip when content isn't ready (loading or null) to avoid no-ops.
+  //
+  // A live reload changes `content` but neither the document nor the anchor:
+  // keep the reader's scroll position instead of jumping to the anchor or top.
   // -------------------------------------------------------------------------
+  const scrolledForRef = useRef<{ contentId: string | null; anchor: string | null } | null>(null);
+
   useEffect(() => {
     if (loading || content === null) return;
+    const scrolledFor = scrolledForRef.current;
+    const currentAnchor = anchor ?? null;
+    if (scrolledFor !== null && scrolledFor.contentId === contentId && scrolledFor.anchor === currentAnchor) return;
+    scrolledForRef.current = { contentId, anchor: currentAnchor };
     if (pendingRestoreRef.current !== null) return;
 
     if (!anchor) {
@@ -398,7 +407,7 @@ export default function MarkdownViewer({
     if (target) {
       target.scrollIntoView({ behavior: "auto", block: "start" });
     }
-  }, [anchor, loading, content]);
+  }, [anchor, loading, content, contentId]);
 
   // -------------------------------------------------------------------------
   // Effect 3 — apply a pending scroll restoration

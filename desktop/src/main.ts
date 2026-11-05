@@ -8,6 +8,8 @@
  *
  * Preferences (workspace, skipped folders, scan depth) live in settings.json;
  * see settings.ts. Recently opened folders live in recent.json; see recent.ts.
+ * The workspace is watched for markdown changes (see watcher.ts), which the
+ * renderer is told about so it can refresh without a reload.
  *
  * Environment variables
  * ---------------------
@@ -32,6 +34,7 @@ import { findDocument, scanWorkspace } from "./scanner";
 import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, settingsPath, watchSettings } from "./settings";
 import type { Settings } from "./settings";
+import { watchWorkspace } from "./watcher";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -218,6 +221,22 @@ function goForward(win: BrowserWindow): void {
 }
 
 // ---------------------------------------------------------------------------
+// Live reload
+// ---------------------------------------------------------------------------
+
+/** Tell every window that markdown files in the workspace changed. */
+function notifyWorkspaceChanged(): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send("workspace:changed");
+  }
+}
+
+/** (Re)start watching the current workspace with the current skipped folders. */
+function restartWatcher(): void {
+  watchWorkspace(settings.workspace, new Set(settings.skipDirs), notifyWorkspaceChanged);
+}
+
+// ---------------------------------------------------------------------------
 // Workspace selection
 // ---------------------------------------------------------------------------
 
@@ -256,6 +275,7 @@ async function openWorkspace(win: BrowserWindow, folder: string): Promise<void> 
 
   settings = { ...settings, workspace: folder };
   saveSettings(settings);
+  restartWatcher();
   rememberWorkspace(folder);
   updateWindowTitle(win);
   await loadWorkspaceRoot(win);
@@ -305,6 +325,7 @@ function applySettings(next: Settings): void {
   if (!workspaceChanged && !scanChanged) return;
 
   settings = next;
+  restartWatcher();
   if (workspaceChanged && next.workspace !== null) rememberWorkspace(next.workspace);
   for (const win of BrowserWindow.getAllWindows()) {
     updateWindowTitle(win);
@@ -529,6 +550,7 @@ void app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler(() => false);
   registerIpcHandlers();
   watchSettings(applySettings);
+  restartWatcher();
   Menu.setApplicationMenu(buildMenu());
   mainWindow = createWindow();
 
