@@ -2,7 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import rehypeRaw from 'rehype-raw';
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { Options as RehypeHighlightOptions } from "rehype-highlight";
 import type { Components, ExtraProps } from "react-markdown";
 import { resolveLink } from "../links";
@@ -238,10 +239,42 @@ const rehypeHighlightOptions: RehypeHighlightOptions = {
   detect: false,
 };
 
+// ---------------------------------------------------------------------------
+// HTML sanitizing
+// Documents may embed raw HTML (rehype-raw), and documents aren't trusted:
+// a workspace can hold cloned repos or vendored packages. Everything is
+// filtered through GitHub's allow-list (hast-util-sanitize defaultSchema),
+// which drops <script>, <style>, <iframe>, <form>, <meta>, <base>, <object>,
+// <embed>, <svg>, event handlers, style attributes and unsafe URL schemes.
+//
+// It also prefixes id/name values with "user-content-" so a document can't
+// clobber page globals (e.g. id="markdownApi"); findAnchorTarget() looks
+// for the prefixed id too. Highlighting runs after sanitizing so its
+// hljs-* class names survive.
+// ---------------------------------------------------------------------------
+
+const CLOBBER_PREFIX = defaultSchema.clobberPrefix ?? "user-content-";
+
 const rehypePlugins = [
-  [rehypeHighlight, rehypeHighlightOptions] as [typeof rehypeHighlight, RehypeHighlightOptions],
   rehypeRaw,
+  [rehypeSanitize, defaultSchema] as [typeof rehypeSanitize, typeof defaultSchema],
+  [rehypeHighlight, rehypeHighlightOptions] as [typeof rehypeHighlight, RehypeHighlightOptions],
 ];
+
+// Footnote ids are prefixed by the sanitizer instead, so they aren't doubled
+const remarkRehypeOptions = { clobberPrefix: "" };
+
+/**
+ * The element an in-document anchor points at: by id, then by legacy
+ * <a name="…">, each with and without the clobber prefix.
+ */
+function findAnchorTarget(anchorId: string): HTMLElement | null {
+  for (const candidate of [anchorId, CLOBBER_PREFIX + anchorId]) {
+    const target = document.getElementById(candidate) ?? document.getElementsByName(candidate)[0];
+    if (target) return target;
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -293,7 +326,7 @@ export default function MarkdownViewer({
     let attempts = 0;
     const MAX_ATTEMPTS = 20; // 20 × 50 ms = 1 s max wait
     const intervalId = setInterval(() => {
-      const target = document.getElementById(anchor);
+      const target = findAnchorTarget(anchor);
       if (target) {
         clearInterval(intervalId);
         target.scrollIntoView({ behavior: "instant", block: "start" });
@@ -332,7 +365,7 @@ export default function MarkdownViewer({
       return;
     }
 
-    const target = document.getElementById(anchor);
+    const target = findAnchorTarget(anchor);
     if (target) {
       target.scrollIntoView({ behavior: "auto", block: "start" });
     }
@@ -346,12 +379,11 @@ export default function MarkdownViewer({
     [documents],
   );
 
-  // Why document.getElementById instead of querySelector("#…")?
-  //   CSS id selectors reject ids that start with a digit unless escaped.
-  //   document.getElementById works with any valid HTML id string, so it is
-  //   safe for slugs like "3-core-concepts".
+  // findAnchorTarget uses document.getElementById rather than
+  // querySelector("#…"): CSS id selectors reject ids that start with a digit
+  // unless escaped, so getElementById is safe for slugs like "3-core-concepts".
   const scrollToAnchor = useCallback((anchorId: string) => {
-    document.getElementById(anchorId)?.scrollIntoView({ behavior: "auto", block: "start" });
+    findAnchorTarget(anchorId)?.scrollIntoView({ behavior: "auto", block: "start" });
   }, []);
 
   const linkHandlers = useMemo<LinkHandlers>(
@@ -425,6 +457,7 @@ export default function MarkdownViewer({
           <LinkContext.Provider value={linkHandlers}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
+              remarkRehypeOptions={remarkRehypeOptions}
               rehypePlugins={rehypePlugins}
               components={markdownComponents}
             >

@@ -33,6 +33,8 @@ export interface DocumentContent {
 
 const ATX_HEADING = /^#{1,6}\s+(.+)/m;
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
+// Titles come from the top of the file; don't read huge files whole
+const TITLE_SCAN_BYTES = 64 * 1024;
 
 /** SHA-1 of the normalised relative path string; full 40-char hex. */
 function stableId(relativePath: string): string {
@@ -49,7 +51,14 @@ async function extractTitle(filePath: string): Promise<string> {
   const stem = path.basename(filePath, path.extname(filePath));
   let text: string;
   try {
-    text = await fs.readFile(filePath, "utf8");
+    const handle = await fs.open(filePath, "r");
+    try {
+      const buffer = Buffer.alloc(TITLE_SCAN_BYTES);
+      const { bytesRead } = await handle.read(buffer, 0, TITLE_SCAN_BYTES, 0);
+      text = buffer.subarray(0, bytesRead).toString("utf8");
+    } finally {
+      await handle.close();
+    }
   } catch {
     return stem;
   }
@@ -65,12 +74,18 @@ async function extractTitle(filePath: string): Promise<string> {
   return stem;
 }
 
-/** Whether a directory entry is a file, following symlinks to files. */
-async function isFileEntry(entry: Dirent, fullPath: string): Promise<boolean> {
+/**
+ * Whether a directory entry is a file. Symlinks count only when they point
+ * at a file inside the workspace — a shared folder must not be able to
+ * surface e.g. `notes.md -> ~/.ssh/id_rsa`.
+ */
+async function isFileEntry(entry: Dirent, fullPath: string, realWorkspace: string): Promise<boolean> {
   if (entry.isFile()) return true;
   if (!entry.isSymbolicLink()) return false;
   try {
-    return (await fs.stat(fullPath)).isFile();
+    const target = await fs.realpath(fullPath);
+    if (!target.startsWith(realWorkspace + path.sep)) return false;
+    return (await fs.stat(target)).isFile();
   } catch {
     return false;
   }
@@ -78,6 +93,7 @@ async function isFileEntry(entry: Dirent, fullPath: string): Promise<boolean> {
 
 async function walk(
   workspace: string,
+  realWorkspace: string,
   dir: string,
   skipDirs: ReadonlySet<string>,
   results: DocumentMeta[],
@@ -95,13 +111,13 @@ async function walk(
     // Like os.walk(followlinks=False): never descend into symlinked folders.
     if (entry.isDirectory()) {
       if (!skipDirs.has(entry.name)) {
-        await walk(workspace, fullPath, skipDirs, results);
+        await walk(workspace, realWorkspace, fullPath, skipDirs, results);
       }
       continue;
     }
 
     if (!MARKDOWN_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue;
-    if (!(await isFileEntry(entry, fullPath))) continue;
+    if (!(await isFileEntry(entry, fullPath, realWorkspace))) continue;
 
     try {
       const location = path.relative(workspace, fullPath).split(path.sep).join("/");
@@ -133,8 +149,14 @@ export async function scanWorkspace(
   workspace: string,
   skipDirs: ReadonlySet<string> = new Set(),
 ): Promise<DocumentMeta[]> {
+  let realWorkspace: string;
+  try {
+    realWorkspace = await fs.realpath(workspace);
+  } catch {
+    return [];
+  }
   const results: DocumentMeta[] = [];
-  await walk(workspace, workspace, skipDirs, results);
+  await walk(workspace, realWorkspace, workspace, skipDirs, results);
   results.sort((a, b) => (a.location < b.location ? -1 : a.location > b.location ? 1 : 0));
   return results;
 }

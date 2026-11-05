@@ -13,6 +13,16 @@ MARKDOWN_SKIP_DIRS
     Example: ``MARKDOWN_SKIP_DIRS=.git,node_modules,.venv,__pycache__``
     Defaults to ``.git,node_modules,.venv,__pycache__,.cache``.
 
+MARKDOWN_CORS_ORIGINS
+    Comma-separated browser origins allowed to call the API cross-origin.
+    Defaults to the local Vite dev/preview servers. Set it empty to disable
+    CORS entirely (the Docker setup is same-origin through nginx).
+
+MARKDOWN_ALLOWED_HOSTS
+    Comma-separated Host header values the API answers to; anything else gets
+    400, which blocks DNS-rebinding attacks. Defaults to
+    ``localhost,127.0.0.1``.
+
 Usage
 -----
     uv run uvicorn app.main:app --reload --port 8000
@@ -25,6 +35,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.scanner import DocumentMeta, find_document, scan_workspace
 
@@ -33,6 +44,17 @@ from app.scanner import DocumentMeta, find_document, scan_workspace
 # ---------------------------------------------------------------------------
 
 _DEFAULT_SKIP_DIRS = ".git,node_modules,.venv,__pycache__,.cache"
+_DEFAULT_CORS_ORIGINS = (
+    "http://localhost:3000,http://127.0.0.1:3000,"
+    "http://localhost:5173,http://127.0.0.1:5173"
+)
+_DEFAULT_ALLOWED_HOSTS = "localhost,127.0.0.1"
+
+
+def _csv_env(name: str, default: str) -> list[str]:
+    """Parse a comma-separated environment variable into a list of values."""
+    raw = os.environ.get(name, default)
+    return [value.strip() for value in raw.split(",") if value.strip()]
 
 
 def _workspace() -> Path:
@@ -43,8 +65,7 @@ def _workspace() -> Path:
 
 def _skip_dirs() -> frozenset[str]:
     """Parse MARKDOWN_SKIP_DIRS into a frozenset of folder name strings."""
-    raw = os.environ.get("MARKDOWN_SKIP_DIRS", _DEFAULT_SKIP_DIRS)
-    return frozenset(name.strip() for name in raw.split(",") if name.strip())
+    return frozenset(_csv_env("MARKDOWN_SKIP_DIRS", _DEFAULT_SKIP_DIRS))
 
 
 # ---------------------------------------------------------------------------
@@ -57,14 +78,22 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Allow all origins so the React dev server (typically :5173 or :3000) can
-# call this API without browser CORS errors.
+# Answer only to expected Host headers. Without this, a web page on any
+# domain that DNS-rebinds to 127.0.0.1 could read the API as same-origin.
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    TrustedHostMiddleware,
+    allowed_hosts=_csv_env("MARKDOWN_ALLOWED_HOSTS", _DEFAULT_ALLOWED_HOSTS),
 )
+
+# Only the local frontend may call the API cross-origin — never "*", which
+# would let any website the user visits read their documents.
+_cors_origins = _csv_env("MARKDOWN_CORS_ORIGINS", _DEFAULT_CORS_ORIGINS)
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_methods=["GET"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +167,7 @@ def get_document_content(doc_id: str) -> DocumentContent:
     if result is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Document '{doc_id}' not found in workspace '{workspace}'.",
+            detail=f"Document '{doc_id}' not found.",
         )
     doc, content = result
     return DocumentContent(id=doc.id, content=content)
@@ -153,7 +182,7 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "app.main:app",
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=8000,
         reload=True,
     )
