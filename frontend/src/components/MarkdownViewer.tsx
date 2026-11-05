@@ -12,6 +12,7 @@ import type { ImageSource, LinkTarget } from "../links";
 import { saveScrollPosition } from "../scrollHistory";
 import { slugify } from "../slug";
 import { clearMatches, findMatches, showMatches } from "../searchHighlight";
+import FindBar from "./FindBar";
 import type { DocumentMeta } from "../types";
 
 // Register only the languages we need (tree-shakeable subset)
@@ -469,8 +470,12 @@ export default function MarkdownViewer({
   // re-done on each render of new content (live reload included). A search
   // result that was opened (searchFocus) is scrolled to once, and marked as
   // the current match; declared after Effects 1–3 so it wins over their
-  // scroll-to-top on the same render.
+  // scroll-to-top on the same render. Hidden while the find bar is in use.
   // -------------------------------------------------------------------------
+  const [findOpen, setFindOpen] = useState(false);
+  const [findQuery, setFindQuery] = useState("");
+  const findActive = findOpen && findQuery !== "";
+
   const focusedNonceRef = useRef<number | null>(null);
   const currentMatchRef = useRef<number | null>(null);
 
@@ -483,8 +488,12 @@ export default function MarkdownViewer({
   useEffect(() => {
     const article = articleRef.current;
     if (loading || content === null || article === null || searchQuery === "") {
-      clearMatches();
+      clearMatches("search");
       currentMatchRef.current = null;
+      return;
+    }
+    if (findActive) {
+      clearMatches("search");
       return;
     }
     const ranges = findMatches(article, searchQuery);
@@ -501,7 +510,7 @@ export default function MarkdownViewer({
     }
 
     const current = currentMatchRef.current === null ? null : (ranges[currentMatchRef.current] ?? null);
-    showMatches(ranges, current);
+    showMatches("search", ranges, current);
 
     const scroller = scrollRef.current;
     if (wantsFocus && current !== null && scroller !== null) {
@@ -509,9 +518,137 @@ export default function MarkdownViewer({
       const offset = current.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
       scroller.scrollTop += offset - scroller.clientHeight / 3;
     }
-  }, [content, contentId, loading, searchQuery, searchFocus]);
+  }, [content, contentId, loading, searchQuery, searchFocus, findActive]);
 
-  useEffect(() => clearMatches, []);
+  // -------------------------------------------------------------------------
+  // Effect 5 — find in document (⌘F / Ctrl+F)
+  //
+  // Typing jumps to the first match from the top of the view. A live reload
+  // keeps the current match (by index); another document starts with none
+  // selected until Next / Previous.
+  // -------------------------------------------------------------------------
+  const findInputRef = useRef<HTMLInputElement>(null);
+  const findRangesRef = useRef<Range[]>([]);
+  const findIndexRef = useRef(-1);
+  const findQueryRef = useRef<string | null>(null);
+  const findDocRef = useRef<string | null>(null);
+  const [findIndex, setFindIndex] = useState(-1);
+  const [findTotal, setFindTotal] = useState(0);
+
+  /** Scroll `range` into the upper third of the viewer, unless it's already comfortably visible. */
+  const revealRange = useCallback((range: Range) => {
+    const scroller = scrollRef.current;
+    if (scroller === null) return;
+    const viewTop = scroller.getBoundingClientRect().top;
+    const offset = range.getBoundingClientRect().top - viewTop;
+    // The find bar covers the top of the view
+    if (offset < 48 || offset > scroller.clientHeight - 48) scroller.scrollTop += offset - scroller.clientHeight / 3;
+  }, []);
+
+  /** Make match `index` (or none, -1) the current one. */
+  const selectFindMatch = useCallback(
+    (index: number, reveal: boolean) => {
+      const ranges = findRangesRef.current;
+      findIndexRef.current = index;
+      setFindIndex(index);
+      const current = ranges[index] ?? null;
+      showMatches("find", ranges, current);
+      if (reveal && current !== null) revealRange(current);
+    },
+    [revealRange],
+  );
+
+  /** The first match at or below the top of the view (wrapping to the first overall). */
+  const firstVisibleMatch = useCallback((): number => {
+    const scroller = scrollRef.current;
+    const ranges = findRangesRef.current;
+    if (scroller === null || ranges.length === 0) return -1;
+    const viewTop = scroller.getBoundingClientRect().top;
+    const index = ranges.findIndex((r) => r.getBoundingClientRect().top >= viewTop);
+    return index === -1 ? 0 : index;
+  }, []);
+
+  useEffect(() => {
+    const article = articleRef.current;
+    if (!findOpen || findQuery === "" || loading || content === null || article === null) {
+      findRangesRef.current = [];
+      findQueryRef.current = findOpen ? findQuery : null;
+      clearMatches("find");
+      setFindTotal(0);
+      findIndexRef.current = -1;
+      setFindIndex(-1);
+      return;
+    }
+    const ranges = findMatches(article, findQuery);
+    findRangesRef.current = ranges;
+    setFindTotal(ranges.length);
+
+    const queryChanged = findQueryRef.current !== findQuery;
+    const docChanged = findDocRef.current !== contentId;
+    findQueryRef.current = findQuery;
+    findDocRef.current = contentId;
+
+    if (queryChanged) selectFindMatch(firstVisibleMatch(), true);
+    else if (docChanged) selectFindMatch(-1, false);
+    else selectFindMatch(Math.min(findIndexRef.current, ranges.length - 1), false);
+  }, [findOpen, findQuery, content, contentId, loading, selectFindMatch, firstVisibleMatch]);
+
+  const findNext = useCallback(() => {
+    const total = findRangesRef.current.length;
+    if (total === 0) return;
+    const index = findIndexRef.current;
+    selectFindMatch(index < 0 ? firstVisibleMatch() : (index + 1) % total, true);
+  }, [selectFindMatch, firstVisibleMatch]);
+
+  const findPrevious = useCallback(() => {
+    const total = findRangesRef.current.length;
+    if (total === 0) return;
+    const index = findIndexRef.current;
+    const from = index < 0 ? firstVisibleMatch() : index;
+    selectFindMatch((from - 1 + total) % total, true);
+  }, [selectFindMatch, firstVisibleMatch]);
+
+  const closeFind = useCallback(() => {
+    setFindOpen(false);
+    scrollRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // ⌘F / Ctrl+F opens the find bar (or re-selects its text); ⌘G / F3 step
+  // through matches, with Shift going back
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+      const key = e.key.toLowerCase();
+      if (mod && !e.shiftKey && !e.altKey && key === "f") {
+        e.preventDefault();
+        setFindOpen(true);
+        findInputRef.current?.focus();
+        findInputRef.current?.select();
+      } else if (findOpen && ((mod && !e.altKey && key === "g") || e.key === "F3")) {
+        e.preventDefault();
+        if (e.shiftKey) findPrevious();
+        else findNext();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [findOpen, findNext, findPrevious]);
+
+  // Focus the input when the bar appears
+  useEffect(() => {
+    if (findOpen) {
+      findInputRef.current?.focus();
+      findInputRef.current?.select();
+    }
+  }, [findOpen]);
+
+  useEffect(
+    () => () => {
+      clearMatches("search");
+      clearMatches("find");
+    },
+    [],
+  );
 
   // -------------------------------------------------------------------------
   // Link handlers shared with MarkdownLink via context
@@ -554,71 +691,85 @@ export default function MarkdownViewer({
   );
 
   return (
-    <div className={styles.viewerRoot} ref={scrollRef}>
-      {/* ── Loading ── */}
-      {loading && (
-        <div className={styles.centeredState} aria-live="polite" aria-busy="true">
-          <span className={styles.spinnerLarge} aria-hidden="true" />
-          <span className={styles.stateLabel}>Loading document…</span>
-        </div>
+    <div className={styles.viewerFrame}>
+      {findOpen && (
+        <FindBar
+          query={findQuery}
+          onQueryChange={setFindQuery}
+          current={findIndex}
+          total={findTotal}
+          onNext={findNext}
+          onPrevious={findPrevious}
+          onClose={closeFind}
+          inputRef={findInputRef}
+        />
       )}
+      <div className={styles.viewerRoot} ref={scrollRef} tabIndex={-1}>
+        {/* ── Loading ── */}
+        {loading && (
+          <div className={styles.centeredState} aria-live="polite" aria-busy="true">
+            <span className={styles.spinnerLarge} aria-hidden="true" />
+            <span className={styles.stateLabel}>Loading document…</span>
+          </div>
+        )}
 
-      {/* ── Error ── */}
-      {!loading && error !== null && (
-        <div className={styles.centeredState} role="alert">
-          <span className={styles.errorIcon} aria-hidden="true">⚠</span>
-          <span className={styles.stateLabel}>{error}</span>
-        </div>
-      )}
+        {/* ── Error ── */}
+        {!loading && error !== null && (
+          <div className={styles.centeredState} role="alert">
+            <span className={styles.errorIcon} aria-hidden="true">⚠</span>
+            <span className={styles.stateLabel}>{error}</span>
+          </div>
+        )}
 
-      {/* ── Empty / no selection ── */}
-      {!loading && error === null && content === null && (
-        <div className={styles.centeredState}>
-          <svg
-            className={styles.emptyIcon}
-            width="48"
-            height="48"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path
-              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <polyline
-              points="14,2 14,8 20,8"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1="8" y1="17" x2="12" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <span className={styles.stateLabel}>Select a document to preview</span>
-        </div>
-      )}
-
-      {/* ── Rendered markdown ── */}
-      {!loading && error === null && content !== null && (
-        <article className={styles.article} aria-label="Rendered markdown" ref={articleRef}>
-          <LinkContext.Provider value={linkHandlers}>
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              remarkRehypeOptions={remarkRehypeOptions}
-              rehypePlugins={rehypePlugins}
-              components={markdownComponents}
+        {/* ── Empty / no selection ── */}
+        {!loading && error === null && content === null && (
+          <div className={styles.centeredState}>
+            <svg
+              className={styles.emptyIcon}
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+              focusable="false"
             >
-              {content}
-            </ReactMarkdown>
-          </LinkContext.Provider>
-        </article>
-      )}
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <polyline
+                points="14,2 14,8 20,8"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <line x1="8" y1="17" x2="12" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <span className={styles.stateLabel}>Select a document to preview</span>
+          </div>
+        )}
+
+        {/* ── Rendered markdown ── */}
+        {!loading && error === null && content !== null && (
+          <article className={styles.article} aria-label="Rendered markdown" ref={articleRef}>
+            <LinkContext.Provider value={linkHandlers}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                remarkRehypeOptions={remarkRehypeOptions}
+                rehypePlugins={rehypePlugins}
+                components={markdownComponents}
+              >
+                {content}
+              </ReactMarkdown>
+            </LinkContext.Provider>
+          </article>
+        )}
+      </div>
     </div>
   );
 }

@@ -194,12 +194,15 @@ body {
 }
 
 /* ─── Search highlights in the viewer ─────────────────────────────────────── */
-/* CSS Custom Highlight API ranges set by MarkdownViewer (searchHighlight.ts) */
-::highlight(folio-search) {
+/* CSS Custom Highlight API ranges set by MarkdownViewer (searchHighlight.ts):
+   "search" from the sidebar's text search, "find" from the find bar */
+::highlight(folio-search),
+::highlight(folio-find) {
   background-color: var(--color-search-match);
 }
 
-::highlight(folio-search-current) {
+::highlight(folio-search-current),
+::highlight(folio-find-current) {
   background-color: var(--color-search-current);
   color: var(--color-text-strong);
 }
@@ -261,7 +264,9 @@ body {
 
   /* Search highlights are for the screen only */
   ::highlight(folio-search),
-  ::highlight(folio-search-current) {
+  ::highlight(folio-search-current),
+  ::highlight(folio-find),
+  ::highlight(folio-find-current) {
     background-color: transparent;
     color: inherit;
   }

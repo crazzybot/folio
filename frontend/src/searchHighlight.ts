@@ -5,8 +5,11 @@
  * re-renders and live reload aren't disturbed.
  */
 
-const ALL = "folio-search";
-const CURRENT = "folio-search-current";
+/**
+ * Two independent layers: "search" for the sidebar's text search, "find"
+ * for the find bar. Each paints `folio-<layer>` and `folio-<layer>-current`.
+ */
+export type HighlightLayer = "search" | "find";
 
 const supported = typeof CSS !== "undefined" && "highlights" in CSS;
 
@@ -58,15 +61,15 @@ export function findMatches(root: HTMLElement, query: string): Range[] {
 }
 
 /** Paint `ranges` as matches and `current` (if any) as the focused one. */
-export function showMatches(ranges: Range[], current: Range | null): void {
+export function showMatches(layer: HighlightLayer, ranges: Range[], current: Range | null): void {
   if (!supported) return;
-  CSS.highlights.set(ALL, new Highlight(...ranges));
-  if (current === null) CSS.highlights.delete(CURRENT);
-  else CSS.highlights.set(CURRENT, new Highlight(current));
+  CSS.highlights.set(`folio-${layer}`, new Highlight(...ranges));
+  if (current === null) CSS.highlights.delete(`folio-${layer}-current`);
+  else CSS.highlights.set(`folio-${layer}-current`, new Highlight(current));
 }
 
-export function clearMatches(): void {
+export function clearMatches(layer: HighlightLayer): void {
   if (!supported) return;
-  CSS.highlights.delete(ALL);
-  CSS.highlights.delete(CURRENT);
+  CSS.highlights.delete(`folio-${layer}`);
+  CSS.highlights.delete(`folio-${layer}-current`);
 }

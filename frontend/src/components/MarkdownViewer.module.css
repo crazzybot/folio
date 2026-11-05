@@ -1,5 +1,15 @@
+/* ─── Frame: holds the find bar over the scroll container ────────────────── */
+.viewerFrame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ─── Root scroll container ───────────────────────────────────────────────── */
 .viewerRoot {
+  outline: none;
   flex: 1;
   min-height: 0;
   width: 100%;
