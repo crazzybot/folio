@@ -92,6 +92,21 @@ updates it in place (keeping your scroll position), and added, renamed or
 deleted files show up in the document list right away. Folders in `skipDirs`
 are ignored.
 
+**Opening files and folders from the system** — a Markdown file opens in
+place when it belongs to the current workspace (so Back returns to where you
+were); otherwise its folder becomes the workspace. A folder becomes the
+workspace. Any of these work:
+
+- **Finder / Explorer** — Folio registers for `.md` and `.markdown` (and, on
+  macOS, folders) as an alternative app: use **Open With → Folio**, or make it
+  the default for Markdown files.
+- **Drag and drop** a file or folder onto the window (or the Dock icon).
+- **Command line** — on macOS, run **Folio → Install 'folio' Command in
+  PATH…** once (it writes `/usr/local/bin/folio`, asking for your password if
+  needed), then `folio .`, `folio docs/` or `folio README.md`. On Windows and
+  Linux, pass the path to the executable. Launching again while Folio is open
+  hands the path to the running window.
+
 | Menu item | Shortcut | |
 |---|---|---|
 | Open Folder… | `⌘O` | Pick the workspace folder |
@@ -272,8 +287,10 @@ markdown-previewer/
 │   ├── package.json              # Electron + electron-builder config
 │   ├── scripts/copy-renderer.mjs # copies frontend/dist → desktop/renderer
 │   └── src/
+│       ├── cli.ts                # macOS: installs the `folio` shell command
 │       ├── images.ts             # serves workspace images under app://bundle/@workspace/
 │       ├── main.ts               # window, app:// scheme, IPC, menu, PDF export
+│       ├── openPaths.ts          # paths from the command line, Open With and drops
 │       ├── preload.ts            # exposes window.markdownApi
 │       ├── recent.ts             # recently opened workspace folders (recent.json)
 │       ├── scanner.ts            # Node port of backend/app/scanner.py

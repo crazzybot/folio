@@ -56,7 +56,7 @@ const HEADING_LINE = /^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /** SHA-1 of the normalised relative path string; full 40-char hex. */
-function stableId(relativePath: string): string {
+export function stableId(relativePath: string): string {
   return createHash("sha1").update(relativePath, "utf8").digest("hex");
 }
 

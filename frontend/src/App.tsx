@@ -7,6 +7,7 @@ import MarkdownViewer from "./components/MarkdownViewer";
 import type { SearchFocus } from "./components/MarkdownViewer";
 import Breadcrumb from "./components/Breadcrumb";
 import useDesktopHistory from "./useDesktopHistory";
+import useFileDrop from "./useFileDrop";
 import { useFontSize, useReadingWidth } from "./readerPrefs";
 import useTheme from "./theme";
 import DisplayMenu from "./components/DisplayMenu";
@@ -78,6 +79,22 @@ function AppInner(): React.ReactElement {
 
   // ── Back / forward (desktop app only; null in the browser) ─────────────────
   const history = useDesktopHistory();
+
+  // ── Opening from the system (desktop app only) ─────────────────────────────
+  // A file of this workspace opened from Finder, the command line or a drop
+  // is shown like any other navigation, so Back returns to where you were.
+  const dragging = useFileDrop();
+
+  // The main process dispatches it with a user gesture (see openPath in
+  // desktop/src/main.ts), so the new history entry isn't skipped by Back.
+  useEffect(() => {
+    function onOpenDocument(e: Event) {
+      const id = (e as CustomEvent<unknown>).detail;
+      if (typeof id === "string") navigate("/doc/" + encodeURIComponent(id));
+    }
+    window.addEventListener("folio:open-document", onOpenDocument);
+    return () => window.removeEventListener("folio:open-document", onOpenDocument);
+  }, [navigate]);
 
   // ── Display options (header menu) ─────────────────────────────────────────
   const [theme, setTheme] = useTheme();
@@ -467,6 +484,12 @@ function AppInner(): React.ReactElement {
           />
         </main>
       </div>
+
+      {dragging && (
+        <div className={styles.dropOverlay} aria-hidden="true">
+          <span className={styles.dropLabel}>Drop a Markdown file or folder to open it</span>
+        </div>
+      )}
 
       {/* ── Status bar ── */}
       <footer className={styles.statusBar}>
