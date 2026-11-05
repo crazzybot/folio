@@ -13,6 +13,8 @@ import { saveScrollPosition } from "../scrollHistory";
 import { slugify } from "../slug";
 import { clearMatches, findMatches, showMatches } from "../searchHighlight";
 import FindBar from "./FindBar";
+import Outline from "./Outline";
+import type { OutlineHeading } from "./Outline";
 import type { DocumentMeta } from "../types";
 
 // Register only the languages we need (tree-shakeable subset)
@@ -53,6 +55,8 @@ interface MarkdownViewerProps {
   searchQuery?: string;
   /** A search match to scroll to once its document is shown. */
   searchFocus?: SearchFocus | null;
+  /** Show the outline of headings beside the document. */
+  showOutline?: boolean;
 }
 
 /** "Scroll to the `occurrence`-th match in `docId`"; a new `nonce` asks again. */
@@ -340,6 +344,7 @@ export default function MarkdownViewer({
   onOpenDocument,
   searchQuery = "",
   searchFocus = null,
+  showOutline = false,
 }: MarkdownViewerProps): React.ReactElement {
   const scrollRef = useRef<HTMLDivElement>(null);
   const articleRef = useRef<HTMLElement>(null);
@@ -651,6 +656,67 @@ export default function MarkdownViewer({
   );
 
   // -------------------------------------------------------------------------
+  // Effect 6 — outline
+  //
+  // Headings are read from the rendered document, so ids, duplicates and
+  // inline formatting match what's on screen. The active heading is the last
+  // one at or above a line near the top of the view (or the last heading
+  // once scrolled to the bottom, where short final sections can't reach it).
+  // -------------------------------------------------------------------------
+  const [outlineHeadings, setOutlineHeadings] = useState<OutlineHeading[]>([]);
+  const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
+  const headingElementsRef = useRef<HTMLElement[]>([]);
+
+  useEffect(() => {
+    const article = articleRef.current;
+    const elements =
+      loading || content === null || article === null
+        ? []
+        : [...article.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")].filter((el) => el.id !== "");
+    headingElementsRef.current = elements;
+    const next = elements.map((el) => ({
+      id: el.id,
+      text: el.textContent?.trim() ?? "",
+      level: Number(el.tagName.slice(1)),
+    }));
+    // Keep the same array when nothing changed (live reload of body text)
+    setOutlineHeadings((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+  }, [content, contentId, loading]);
+
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!showOutline || scroller === null) return;
+    let frame = 0;
+
+    function update() {
+      frame = 0;
+      if (scroller === null) return;
+      const elements = headingElementsRef.current;
+      const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
+      // A heading counts as reached once it's within the top 80px of the view
+      const line = scroller.getBoundingClientRect().top + 80;
+      let active: HTMLElement | undefined = atBottom ? elements[elements.length - 1] : undefined;
+      if (active === undefined) {
+        for (const el of elements) {
+          if (el.getBoundingClientRect().top <= line) active = el;
+          else break;
+        }
+      }
+      setActiveHeadingId(active?.id ?? elements[0]?.id ?? null);
+    }
+    function onScroll() {
+      if (frame === 0) frame = requestAnimationFrame(update);
+    }
+
+    update();
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      scroller.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, [showOutline, outlineHeadings]);
+
+  // -------------------------------------------------------------------------
   // Link handlers shared with MarkdownLink via context
   // -------------------------------------------------------------------------
   const idsByLocation = useMemo(
@@ -692,84 +758,89 @@ export default function MarkdownViewer({
 
   return (
     <div className={styles.viewerFrame}>
-      {findOpen && (
-        <FindBar
-          query={findQuery}
-          onQueryChange={setFindQuery}
-          current={findIndex}
-          total={findTotal}
-          onNext={findNext}
-          onPrevious={findPrevious}
-          onClose={closeFind}
-          inputRef={findInputRef}
-        />
-      )}
-      <div className={styles.viewerRoot} ref={scrollRef} tabIndex={-1}>
-        {/* ── Loading ── */}
-        {loading && (
-          <div className={styles.centeredState} aria-live="polite" aria-busy="true">
-            <span className={styles.spinnerLarge} aria-hidden="true" />
-            <span className={styles.stateLabel}>Loading document…</span>
-          </div>
+      <div className={styles.documentColumn}>
+        {findOpen && (
+          <FindBar
+            query={findQuery}
+            onQueryChange={setFindQuery}
+            current={findIndex}
+            total={findTotal}
+            onNext={findNext}
+            onPrevious={findPrevious}
+            onClose={closeFind}
+            inputRef={findInputRef}
+          />
         )}
+        <div className={styles.viewerRoot} ref={scrollRef} tabIndex={-1}>
+          {/* ── Loading ── */}
+          {loading && (
+            <div className={styles.centeredState} aria-live="polite" aria-busy="true">
+              <span className={styles.spinnerLarge} aria-hidden="true" />
+              <span className={styles.stateLabel}>Loading document…</span>
+            </div>
+          )}
 
-        {/* ── Error ── */}
-        {!loading && error !== null && (
-          <div className={styles.centeredState} role="alert">
-            <span className={styles.errorIcon} aria-hidden="true">⚠</span>
-            <span className={styles.stateLabel}>{error}</span>
-          </div>
-        )}
+          {/* ── Error ── */}
+          {!loading && error !== null && (
+            <div className={styles.centeredState} role="alert">
+              <span className={styles.errorIcon} aria-hidden="true">⚠</span>
+              <span className={styles.stateLabel}>{error}</span>
+            </div>
+          )}
 
-        {/* ── Empty / no selection ── */}
-        {!loading && error === null && content === null && (
-          <div className={styles.centeredState}>
-            <svg
-              className={styles.emptyIcon}
-              width="48"
-              height="48"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <path
-                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <polyline
-                points="14,2 14,8 20,8"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              <line x1="8" y1="17" x2="12" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-            <span className={styles.stateLabel}>Select a document to preview</span>
-          </div>
-        )}
-
-        {/* ── Rendered markdown ── */}
-        {!loading && error === null && content !== null && (
-          <article className={styles.article} aria-label="Rendered markdown" ref={articleRef}>
-            <LinkContext.Provider value={linkHandlers}>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                remarkRehypeOptions={remarkRehypeOptions}
-                rehypePlugins={rehypePlugins}
-                components={markdownComponents}
+          {/* ── Empty / no selection ── */}
+          {!loading && error === null && content === null && (
+            <div className={styles.centeredState}>
+              <svg
+                className={styles.emptyIcon}
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+                focusable="false"
               >
-                {content}
-              </ReactMarkdown>
-            </LinkContext.Provider>
-          </article>
-        )}
+                <path
+                  d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <polyline
+                  points="14,2 14,8 20,8"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <line x1="8" y1="13" x2="16" y2="13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="8" y1="17" x2="12" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <span className={styles.stateLabel}>Select a document to preview</span>
+            </div>
+          )}
+
+          {/* ── Rendered markdown ── */}
+          {!loading && error === null && content !== null && (
+            <article className={styles.article} aria-label="Rendered markdown" ref={articleRef}>
+              <LinkContext.Provider value={linkHandlers}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  remarkRehypeOptions={remarkRehypeOptions}
+                  rehypePlugins={rehypePlugins}
+                  components={markdownComponents}
+                >
+                  {content}
+                </ReactMarkdown>
+              </LinkContext.Provider>
+            </article>
+          )}
+        </div>
       </div>
+      {showOutline && !loading && error === null && content !== null && (
+        <Outline headings={outlineHeadings} activeId={activeHeadingId} onSelect={linkHandlers.onAnchor} />
+      )}
     </div>
   );
 }

@@ -61,6 +61,28 @@ function useStoredOption<T extends Option>(
   return [current, choose];
 }
 
+const OUTLINE_KEY = "folio.outline";
+
+/** Whether the outline of headings is shown beside the document (header toggle). */
+export function useOutlineVisible(): [boolean, (visible: boolean) => void] {
+  const [visible, setVisible] = useState(() => {
+    try {
+      return localStorage.getItem(OUTLINE_KEY) !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const choose = useCallback((next: boolean) => {
+    setVisible(next);
+    try {
+      localStorage.setItem(OUTLINE_KEY, String(next));
+    } catch {
+      // Not remembered, but still applied
+    }
+  }, []);
+  return [visible, choose];
+}
+
 export function useReadingWidth(): [ReadingWidth, (id: ReadingWidth["id"]) => void] {
   return useStoredOption<ReadingWidth>(READING_WIDTHS, "folio.readingWidth", READING_WIDTHS[1]);
 }

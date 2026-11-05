@@ -8,7 +8,7 @@ import type { SearchFocus } from "./components/MarkdownViewer";
 import Breadcrumb from "./components/Breadcrumb";
 import useDesktopHistory from "./useDesktopHistory";
 import useFileDrop from "./useFileDrop";
-import { useFontSize, useReadingWidth } from "./readerPrefs";
+import { useFontSize, useOutlineVisible, useReadingWidth } from "./readerPrefs";
 import useTheme from "./theme";
 import DisplayMenu from "./components/DisplayMenu";
 import styles from "./App.module.css";
@@ -100,6 +100,7 @@ function AppInner(): React.ReactElement {
   const [theme, setTheme] = useTheme();
   const [readingWidth, setReadingWidth] = useReadingWidth();
   const [fontSize, setFontSize] = useFontSize();
+  const [showOutline, setShowOutline] = useOutlineVisible();
 
   // ── Panel / divider state ──────────────────────────────────────────────────
   const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
@@ -432,6 +433,20 @@ function AppInner(): React.ReactElement {
 
             <Breadcrumb location={selectedDoc?.location ?? null} />
 
+            <button
+              className={styles.iconBtn}
+              onClick={() => setShowOutline(!showOutline)}
+              aria-pressed={showOutline}
+              aria-label={showOutline ? "Hide outline" : "Show outline"}
+              title={showOutline ? "Hide outline" : "Show outline"}
+              type="button"
+            >
+              {/* A list of headings, indented by level */}
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinecap="round" aria-hidden="true">
+                <path d="M2.5 4h11M5 7.33h8.5M5 10.67h8.5M7.5 14h6" opacity={showOutline ? 1 : 0.7} />
+              </svg>
+            </button>
+
             <DisplayMenu
               theme={theme}
               onThemeChange={setTheme}
@@ -481,6 +496,7 @@ function AppInner(): React.ReactElement {
             onOpenDocument={handleOpenDocument}
             searchQuery={searchQuery}
             searchFocus={searchFocus}
+            showOutline={showOutline}
           />
         </main>
       </div>
