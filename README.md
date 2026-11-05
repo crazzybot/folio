@@ -1,4 +1,4 @@
-# Markdown Previewer
+# Folio
 
 A lightweight, two-pane Markdown browser. Drop `.md` files into a local workspace
 folder, and the app lets you navigate, search, and read them with full syntax
@@ -93,7 +93,7 @@ remembered. Change it with **File → Open Folder…** (`⌘O`).
 | Go → Back / Forward | `⌘[` / `⌘]` (`Alt+←` / `Alt+→` on Windows and Linux) | Step through visited documents and headings; also the header's arrow buttons and the mouse's back/forward buttons. History starts afresh when you switch workspace |
 
 **Settings** — `settings.json` (in the app's data folder, e.g.
-`~/Library/Application Support/Markdown Previewer/` on macOS) is applied as
+`~/Library/Application Support/Folio/` on macOS) is applied as
 soon as you save it:
 
 ```json
@@ -177,7 +177,7 @@ Returns the raw Markdown source for a single document.
 ```json
 {
   "id": "a3f1c2d4...",
-  "content": "# Welcome\n\nWelcome to **Markdown Previewer** …"
+  "content": "# Welcome\n\nWelcome to **Folio** …"
 }
 ```
 

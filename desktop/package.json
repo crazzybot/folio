@@ -1,6 +1,6 @@
 {
   "name": "markdown-previewer-desktop",
-  "productName": "Markdown Previewer",
+  "productName": "Folio",
   "version": "0.0.1",
   "private": true,
   "description": "Desktop app for browsing and reading a folder of Markdown files",
@@ -18,8 +18,8 @@
     "dist:linux": "npm run build && electron-builder --linux"
   },
   "build": {
-    "appId": "dev.pogrebtsov.markdown-previewer",
-    "productName": "Markdown Previewer",
+    "appId": "dev.pogrebtsov.folio",
+    "productName": "Folio",
     "directories": {
       "output": "release"
     },
