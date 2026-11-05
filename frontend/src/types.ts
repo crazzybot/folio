@@ -12,3 +12,9 @@ export interface DocumentContent {
 }
 
 export type PanelSide = "left" | "right";
+
+/** Whether the desktop window's history has entries behind / ahead of the current one. */
+export interface NavigationState {
+  canGoBack: boolean;
+  canGoForward: boolean;
+}

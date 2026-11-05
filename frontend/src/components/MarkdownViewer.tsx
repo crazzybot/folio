@@ -8,6 +8,7 @@ import type { Options as RehypeHighlightOptions } from "rehype-highlight";
 import type { Components, ExtraProps } from "react-markdown";
 import { resolveLink } from "../links";
 import type { LinkTarget } from "../links";
+import { saveScrollPosition } from "../scrollHistory";
 import type { DocumentMeta } from "../types";
 
 // Register only the languages we need (tree-shakeable subset)
@@ -25,11 +26,17 @@ import styles from "./MarkdownViewer.module.css";
 
 interface MarkdownViewerProps {
   content: string | null;
+  /** Id of the document `content` belongs to; lags `selectedId` while the next one loads. */
+  contentId?: string | null;
   loading: boolean;
   error: string | null;
   selectedId: string | null;
   /** The current in-document anchor (without the leading '#'), or null/empty. */
   anchor?: string | null;
+  /** Identifies the current history entry; changes on every navigation. */
+  navigationKey?: string;
+  /** Scroll position to return to for this history entry (Back/Forward), or null. */
+  restoreScrollTop?: number | null;
   /** Called when the user clicks an in-document '#...' link. */
   onAnchorClick?: (anchorId: string) => void;
   /** All workspace documents — used to resolve links between documents. */
@@ -282,16 +289,36 @@ function findAnchorTarget(anchorId: string): HTMLElement | null {
 
 export default function MarkdownViewer({
   content,
+  contentId = null,
   loading,
   error,
   selectedId,
   anchor,
+  navigationKey,
+  restoreScrollTop = null,
   onAnchorClick,
   documents = [],
   currentLocation = null,
   onOpenDocument,
 }: MarkdownViewerProps): React.ReactElement {
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // -------------------------------------------------------------------------
+  // Scroll restoration (Back/Forward)
+  //
+  // A position saved on this history entry takes precedence over Effects 1
+  // and 2 (anchor / top): they skip while it is pending, and the restore
+  // effect below applies it once this entry's document is rendered.
+  //
+  // Must stay declared before Effects 1 and 2 so they see the pending value.
+  // -------------------------------------------------------------------------
+  const pendingRestoreRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    pendingRestoreRef.current = restoreScrollTop;
+    // Only a new history entry brings a new position to restore.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigationKey]);
 
   // -------------------------------------------------------------------------
   // Effect 1 — document switch
@@ -312,6 +339,7 @@ export default function MarkdownViewer({
     // Ignore the very first render pass where selectedId hasn't changed yet.
     if (prevSelectedIdRef.current === selectedId) return;
     prevSelectedIdRef.current = selectedId;
+    if (pendingRestoreRef.current !== null) return;
 
     if (!anchor) {
       // No anchor → scroll container back to top immediately.
@@ -356,6 +384,7 @@ export default function MarkdownViewer({
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (loading || content === null) return;
+    if (pendingRestoreRef.current !== null) return;
 
     if (!anchor) {
       // No anchor in the current route — scroll the viewer back to the top.
@@ -372,6 +401,19 @@ export default function MarkdownViewer({
   }, [anchor, loading, content]);
 
   // -------------------------------------------------------------------------
+  // Effect 3 — apply a pending scroll restoration
+  //
+  // Waits for this entry's document: right after a document switch the old
+  // content is still shown (not yet loading), hence the contentId check.
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    const top = pendingRestoreRef.current;
+    if (top === null || loading || content === null || contentId !== selectedId) return;
+    pendingRestoreRef.current = null;
+    if (scrollRef.current) scrollRef.current.scrollTop = top;
+  }, [navigationKey, loading, content, contentId, selectedId]);
+
+  // -------------------------------------------------------------------------
   // Link handlers shared with MarkdownLink via context
   // -------------------------------------------------------------------------
   const idsByLocation = useMemo(
@@ -386,18 +428,28 @@ export default function MarkdownViewer({
     findAnchorTarget(anchorId)?.scrollIntoView({ behavior: "auto", block: "start" });
   }, []);
 
+  // Following a link in the document remembers where the reader was, so
+  // Back returns there (Effect 3). Sidebar selections don't record it.
+  const saveScroll = useCallback(() => {
+    if (scrollRef.current) saveScrollPosition(scrollRef.current.scrollTop);
+  }, []);
+
   const linkHandlers = useMemo<LinkHandlers>(
     () => ({
       resolve: (href) => resolveLink(href, currentLocation, idsByLocation),
       onAnchor: (anchorId) => {
+        saveScroll();
         // Scroll now — re-clicking the anchor already in the URL changes
         // nothing that Effect 2 would react to — then record it in history.
         scrollToAnchor(anchorId);
         onAnchorClick?.(anchorId);
       },
-      onOpenDocument: (id, anchorId) => onOpenDocument?.(id, anchorId),
+      onOpenDocument: (id, anchorId) => {
+        saveScroll();
+        onOpenDocument?.(id, anchorId);
+      },
     }),
-    [currentLocation, idsByLocation, scrollToAnchor, onAnchorClick, onOpenDocument],
+    [currentLocation, idsByLocation, saveScroll, scrollToAnchor, onAnchorClick, onOpenDocument],
   );
 
   return (
