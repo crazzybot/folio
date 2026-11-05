@@ -6,6 +6,9 @@ import DocumentList from "./components/DocumentList";
 import MarkdownViewer from "./components/MarkdownViewer";
 import Breadcrumb from "./components/Breadcrumb";
 import useDesktopHistory from "./useDesktopHistory";
+import { useFontSize, useReadingWidth } from "./readerPrefs";
+import useTheme from "./theme";
+import DisplayMenu from "./components/DisplayMenu";
 import styles from "./App.module.css";
 import type { DocumentMeta } from "./types";
 
@@ -70,6 +73,11 @@ function AppInner(): React.ReactElement {
 
   // ── Back / forward (desktop app only; null in the browser) ─────────────────
   const history = useDesktopHistory();
+
+  // ── Display options (header menu) ─────────────────────────────────────────
+  const [theme, setTheme] = useTheme();
+  const [readingWidth, setReadingWidth] = useReadingWidth();
+  const [fontSize, setFontSize] = useFontSize();
 
   // ── Panel / divider state ──────────────────────────────────────────────────
   const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
@@ -302,6 +310,7 @@ function AppInner(): React.ReactElement {
       className={styles.appRoot}
       ref={containerRef}
       data-titlebar={IS_MAC_DESKTOP ? "inset" : undefined}
+      style={{ "--reading-width": readingWidth.value, "--reading-font-size": fontSize.value } as React.CSSProperties}
     >
       <div className={styles.workbench}>
         {/* ── Left panel (document list) ── */}
@@ -395,6 +404,16 @@ function AppInner(): React.ReactElement {
             )}
 
             <Breadcrumb location={selectedDoc?.location ?? null} />
+
+            <DisplayMenu
+              theme={theme}
+              onThemeChange={setTheme}
+              readingWidth={readingWidth.id}
+              onReadingWidthChange={setReadingWidth}
+              fontSize={fontSize.id}
+              onFontSizeChange={setFontSize}
+              buttonClassName={styles.iconBtn}
+            />
 
             <button
               className={styles.iconBtn}

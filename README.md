@@ -17,7 +17,8 @@ highlighting — all without leaving your browser.
 - Recursive workspace scan — supports sub-folders
 - Live search across titles and filenames
 - Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)
-- VS Code-style dark theme with breadcrumb header and status bar
+- VS Code-style light and dark themes with breadcrumb header and status bar
+- Display options menu in the header (◐): appearance (System, Light, Dark), reading width (Narrow, Medium, Wide, Full) and font size (Small, Medium, Large, Extra large)
 - GFM support: tables, task lists, strikethrough
 - Images from the workspace (`![](img/diagram.png)`, relative to the document) and the web
 - Syntax-highlighted fenced code blocks (Python, JS/TS, JSON, Bash, CSS, HTML, YAML, Markdown)
@@ -96,6 +97,7 @@ are ignored.
 | Settings… | `⌘,` | Open `settings.json` in your default editor (app menu on macOS, File elsewhere) |
 | Print… | `⌘P` | System print dialog (print layout, no sidebar) |
 | Export as PDF… | `⇧⌘E` | Save the current document as a PDF |
+| View → Appearance | | System (follow the OS), Light or Dark; saved as `theme` in `settings.json`. The header's display options menu (◐) sets the same value |
 | Go → Back / Forward | `⌘[` / `⌘]` (`Alt+←` / `Alt+→` on Windows and Linux) | Step through visited documents and headings; also the header's arrow buttons and the mouse's back/forward buttons. History starts afresh when you switch workspace |
 
 **Settings** — `settings.json` (in the app's data folder, e.g.
@@ -106,14 +108,18 @@ soon as you save it:
 {
   "workspace": "/Users/me/notes",
   "skipDirs": [".git", "node_modules", ".venv", "__pycache__", ".cache"],
-  "maxDepth": null
+  "maxDepth": null,
+  "theme": "system"
 }
 ```
 
 `skipDirs` are folder names skipped wherever they appear; `maxDepth` caps how
 many folder levels below the workspace are scanned (`docs/guide.md` is depth
 1, `null` = unlimited) — the same as `MARKDOWN_SKIP_DIRS` / `MARKDOWN_MAX_DEPTH`
-for the backend.
+for the backend. `theme` is `"system"`, `"light"` or `"dark"`. In the browser
+the appearance, reading width and font size chosen in the display options
+menu are remembered in `localStorage`; in the desktop app the reading width
+and font size are too.
 
 **Live-reload development** — run the Vite dev server (`npm run dev` in
 `frontend/`, port 3000), then `npm run dev` in `desktop/`.
