@@ -16,6 +16,7 @@ highlighting — all without leaving your browser.
 
 - Recursive workspace scan — supports sub-folders
 - Instant search across titles, filenames and headings — a matching heading opens the document at that section
+- Outline of the open document's headings beside it (header toggle, remembered): the section being read is highlighted as you scroll, and clicking a heading jumps there (Back returns). Hidden in narrow windows
 - Find in the open document (`⌘F` / `Ctrl+F`): matches highlighted with a "3 of 12" count; Enter / Shift+Enter, `⌘G` / `⇧⌘G` or F3 / Shift+F3 step through them, Escape closes
 - Full-text search on demand (the page icon in the search box, `⇧⌘F` / `Ctrl+Shift+F`, remembered): matching lines appear under each document, and opening one highlights every match in the viewer and scrolls to it
 - Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)

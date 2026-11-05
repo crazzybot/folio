@@ -1,8 +1,15 @@
-/* ─── Frame: holds the find bar over the scroll container ────────────────── */
+/* ─── Frame: the document column and, beside it, the outline ─────────────── */
 .viewerFrame {
-  position: relative;
   flex: 1;
   min-height: 0;
+  display: flex;
+}
+
+/* Holds the find bar over the scroll container */
+.documentColumn {
+  position: relative;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
