@@ -1,6 +1,6 @@
 # Welcome
 
-Welcome to **Markdown Previewer** — a lightweight tool for browsing and reading
+Welcome to **Folio** — a lightweight tool for browsing and reading
 Markdown documents right in your browser.
 
 Use the panel on the left to navigate between documents. Click any file to render

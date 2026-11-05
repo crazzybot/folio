@@ -1,5 +1,5 @@
 """
-main.py — FastAPI application for the Markdown Previewer backend.
+main.py — FastAPI application for the Folio backend.
 
 Environment variables
 ---------------------
@@ -85,7 +85,7 @@ def _max_depth() -> int | None:
 # ---------------------------------------------------------------------------
 
 app = FastAPI(
-    title="Markdown Previewer API",
+    title="Folio API",
     description="Serves markdown file metadata and raw content from a workspace folder.",
     version="0.1.0",
 )

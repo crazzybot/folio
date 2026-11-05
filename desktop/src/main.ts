@@ -1,5 +1,5 @@
 /**
- * main.ts — Electron main process for the Markdown Previewer desktop app.
+ * main.ts — Electron main process for the Folio desktop app.
  *
  * Replaces the FastAPI backend: the workspace is scanned in-process and the
  * renderer reaches it over IPC (see preload.ts). The React build is served
@@ -37,7 +37,7 @@ import type { Settings } from "./settings";
 // Configuration
 // ---------------------------------------------------------------------------
 
-const APP_NAME = "Markdown Previewer";
+const APP_NAME = "Folio";
 const APP_SCHEME = "app";
 const APP_ORIGIN = `${APP_SCHEME}://bundle`;
 const RENDERER_DIR = path.join(__dirname, "..", "renderer");
