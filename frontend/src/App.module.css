@@ -1,10 +1,17 @@
 /* ─── Root layout ─────────────────────────────────────────────────────────── */
 .appRoot {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
   background: var(--color-bg);
+}
+
+.workbench {
+  flex: 1;
+  min-height: 0;
+  display: flex;
 }
 
 /* ─── Left panel ──────────────────────────────────────────────────────────── */
@@ -13,76 +20,35 @@
   height: 100%;
   overflow: hidden;
   background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
-  transition: width var(--transition-fast), min-width var(--transition-fast);
-  /* Don't let content spill during collapse animation */
+  transition: width var(--transition-fast);
   will-change: width;
 }
 
-/* ─── Divider ─────────────────────────────────────────────────────────────── */
+/* ─── Divider (sash) ──────────────────────────────────────────────────────── */
+/* A 1px line with a wider invisible hit area, highlighted on hover like
+   VS Code's sash. */
 .divider {
   flex-shrink: 0;
-  width: 5px;
+  width: 1px;
   height: 100%;
   position: relative;
-  background: var(--color-border-light);
-  cursor: col-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--transition-fast);
+  background: var(--color-border);
   z-index: 10;
+  transition: background var(--transition-fast);
+}
+
+.divider::before {
+  content: "";
+  position: absolute;
+  inset: 0 -3px;
+  cursor: col-resize;
 }
 
 .divider:hover,
 .divider:focus-visible {
   background: var(--color-accent);
   outline: none;
-}
-
-.divider:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-/* ─── Collapse button ─────────────────────────────────────────────────────── */
-.collapseBtn {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 20px;
-  height: 44px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast),
-    border-color var(--transition-fast);
-  z-index: 11;
-  padding: 0;
-}
-
-.collapseBtn:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-  border-color: var(--color-accent);
-}
-
-.collapseBtn:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.collapseIcon {
-  display: block;
-  transition: transform var(--transition-normal);
+  transition-delay: 150ms;
 }
 
 /* ─── Right panel ─────────────────────────────────────────────────────────── */
@@ -93,53 +59,97 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  position: relative;
 }
 
-/* ─── Print button ────────────────────────────────────────────────────────── */
-.printBtn {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-5);
-  z-index: 5;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--color-border);
+/* ─── Editor header (breadcrumb + actions) ────────────────────────────────── */
+.editorHeader {
+  flex-shrink: 0;
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  /* Doubles as the window drag area in the desktop app */
+  -webkit-app-region: drag;
+}
+
+/* Clear the macOS window buttons when the sidebar is hidden */
+.appRoot[data-titlebar="inset"] .editorHeaderInset {
+  padding-left: var(--traffic-lights-width);
+}
+
+/* ─── Icon buttons (VS Code action bar) ───────────────────────────────────── */
+.iconBtn {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: none;
   border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-text-muted);
+  background: transparent;
+  color: var(--color-text);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast),
-    border-color var(--transition-fast);
+  -webkit-app-region: no-drag;
 }
 
-.printBtn:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-  border-color: var(--color-accent);
+.iconBtn:hover {
+  background: rgba(90, 93, 94, 0.31);
 }
 
-.printBtn:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+.iconBtn:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
+.iconBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+}
+
+/* ─── Status bar ──────────────────────────────────────────────────────────── */
+.statusBar {
+  flex-shrink: 0;
+  height: var(--statusbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 0 var(--space-3);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.statusItem {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The document count always stays whole; the path gives way */
+.statusItem:last-child {
+  flex-shrink: 0;
 }
 
 /* ─── Print ───────────────────────────────────────────────────────────────── */
-/* Only the document content is printed — no side panel, divider or controls. */
+/* Only the document content is printed — no side panel, header or status bar. */
 @media print {
   .leftPanel,
   .divider,
-  .printBtn {
+  .editorHeader,
+  .statusBar {
     display: none !important;
   }
 
   .appRoot,
+  .workbench,
   .rightPanel {
     display: block;
     height: auto;

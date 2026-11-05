@@ -10,11 +10,13 @@
  * ---------------------
  * VITE_DEV_SERVER_URL
  *     Load the renderer from a running Vite dev server instead of the bundle.
+ *     Ignored in packaged builds, so it can't hand the document API to an
+ *     arbitrary page.
  * MARKDOWN_SKIP_DIRS
  *     Comma-separated folder names to skip (same default as the backend).
  */
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, session, shell } from "electron";
 import type { IpcMainInvokeEvent, MenuItemConstructorOptions } from "electron";
 import { promises as fs, statSync } from "node:fs";
 import path from "node:path";
@@ -31,10 +33,11 @@ const APP_NAME = "Markdown Previewer";
 const APP_SCHEME = "app";
 const APP_ORIGIN = `${APP_SCHEME}://bundle`;
 const RENDERER_DIR = path.join(__dirname, "..", "renderer");
-const DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
+const DEV_SERVER_URL = app.isPackaged ? undefined : process.env["VITE_DEV_SERVER_URL"];
+const DEV_SERVER_ORIGIN = DEV_SERVER_URL !== undefined ? new URL(DEV_SERVER_URL).origin : null;
 
 // Match --color-bg on screen and in print (frontend/src/index.css)
-const WINDOW_BACKGROUND_COLOR = "#0d1117";
+const WINDOW_BACKGROUND_COLOR = "#1f1f1f";
 const PRINT_BACKGROUND_COLOR = "#ffffff";
 
 const DEFAULT_SKIP_DIRS = ".git,node_modules,.venv,__pycache__,.cache";
@@ -46,12 +49,20 @@ const SKIP_DIRS: ReadonlySet<string> = new Set(
 );
 
 // Inline styles are needed for React `style` props; images may be remote.
+// Documents are sanitized before rendering (see MarkdownViewer.tsx); this
+// policy is the second layer: no inline scripts, frames, plugins, forms or
+// <base> rewriting even if markup slipped through.
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   "font-src 'self' data:",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "frame-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
 ].join("; ");
 
 const MIME_TYPES: Record<string, string> = {
@@ -119,7 +130,14 @@ function rendererUrl(): string {
 }
 
 function isRendererUrl(url: string): boolean {
-  return url.startsWith(`${APP_ORIGIN}/`) || (DEV_SERVER_URL !== undefined && url.startsWith(DEV_SERVER_URL));
+  try {
+    const parsed = new URL(url);
+    // Node reports custom-scheme origins as "null", so compare scheme + host
+    if (parsed.protocol === `${APP_SCHEME}:`) return `${parsed.protocol}//${parsed.host}` === APP_ORIGIN;
+    return parsed.origin === DEV_SERVER_ORIGIN;
+  } catch {
+    return false;
+  }
 }
 
 /** Open http(s)/mailto links in the default browser; ignore anything else. */
@@ -259,6 +277,11 @@ function createWindow(): BrowserWindow {
     title: APP_NAME,
     backgroundColor: WINDOW_BACKGROUND_COLOR,
     show: false,
+    // macOS: hide the title bar and inset the window buttons into the app's
+    // 35px header row (--header-height), as VS Code does
+    ...(process.platform === "darwin"
+      ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 13, y: 11 } }
+      : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -304,6 +327,9 @@ app.setName(APP_NAME);
 void app.whenReady().then(() => {
   settings = loadSettings();
   protocol.handle(APP_SCHEME, handleAppRequest);
+  // The app needs no camera, microphone, notifications, geolocation, …
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
   registerIpcHandlers();
   Menu.setApplicationMenu(buildMenu());
   mainWindow = createWindow();

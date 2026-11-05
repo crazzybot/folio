@@ -16,8 +16,8 @@ highlighting — all without leaving your browser.
 
 - Recursive workspace scan — supports sub-folders
 - Live search across titles and filenames
-- Resizable / collapsible sidebar (mouse drag + keyboard arrows)
-- GitHub-style dark theme
+- Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)
+- VS Code-style dark theme with breadcrumb header and status bar
 - GFM support: tables, task lists, strikethrough
 - Syntax-highlighted fenced code blocks (Python, JS/TS, JSON, Bash, CSS, HTML, YAML, Markdown)
 
@@ -58,7 +58,7 @@ cd markdown-previewer/frontend
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 > **Tip:** The `workspace/` folder already contains two sample documents
 > (`welcome.md` and `samples/code-demo.md`) so the app is usable immediately.
@@ -103,6 +103,8 @@ remembered. Change it with **File → Open Folder…** (`⌘O`).
 | Variable | Where it is read | Default | Description |
 |---|---|---|---|
 | `MARKDOWN_WORKSPACE` | Backend (runtime) | `./workspace` | Absolute or relative path to the folder the server scans for Markdown files. Relative paths are resolved from the backend's working directory. |
+| `MARKDOWN_CORS_ORIGINS` | Backend (runtime) | local dev servers (`http://localhost:3000`, `:5173`, and their `127.0.0.1` forms) | Comma-separated browser origins allowed to call the API cross-origin (GET only). Set it empty to disable CORS when the frontend is served from the same origin. |
+| `MARKDOWN_ALLOWED_HOSTS` | Backend (runtime) | `localhost,127.0.0.1` | Comma-separated `Host` header values the API answers to; anything else gets `400`, which blocks DNS rebinding. Add your domain when deploying. |
 | `VITE_API_BASE_URL` | Frontend (build time) | `http://localhost:8000` | Base URL the browser uses to call the backend API. Must be set before running `npm run build` for production deployments. |
 
 ---
@@ -180,7 +182,7 @@ markdown-previewer/
 │   ├── pyproject.toml            # uv project — FastAPI + uvicorn
 │   └── app/
 │       ├── __init__.py
-│       ├── main.py               # FastAPI app, CORS, two route handlers
+│       ├── main.py               # FastAPI app, CORS + trusted hosts, two route handlers
 │       └── scanner.py            # workspace scanner, ID generation, title extraction
 │
 ├── desktop/
@@ -232,7 +234,7 @@ uv run pytest
 ```bash
 cd markdown-previewer/frontend
 
-npm run dev          # Vite dev server at http://localhost:5173
+npm run dev          # Vite dev server at http://localhost:3000
 npm run build        # type-check + production bundle → dist/
 npm run preview      # serve the production build locally
 ```
@@ -245,5 +247,27 @@ npm run preview      # serve the production build locally
    Set `MARKDOWN_WORKSPACE` to a persistent volume path.
 2. **Frontend** — run `VITE_API_BASE_URL=https://your-backend.example.com npm run build`,
    then serve the `dist/` folder from any static host (Netlify, Vercel, GitHub Pages, nginx).
-3. **CORS** — the backend currently allows all origins (`*`). Tighten this to your
-   production frontend URL by setting `allow_origins` in `app/main.py`.
+3. **CORS / hosts** — set `MARKDOWN_CORS_ORIGINS` to your frontend's origin and
+   `MARKDOWN_ALLOWED_HOSTS` to the backend's domain. Never use `*`: the API
+   serves file contents, so any website could read them.
+
+---
+
+## Security
+
+Markdown files are treated as untrusted — a workspace may contain cloned
+repositories or vendored packages.
+
+- **Rendering** — raw HTML in documents is filtered through GitHub's
+  allow-list (`rehype-sanitize`): no scripts, event handlers, styles, frames,
+  forms, `<meta>`/`<base>` or `javascript:` URLs. A Content-Security-Policy
+  (nginx in Docker, the `app://` handler in the desktop app) is the second layer.
+- **Files** — only `.md`/`.markdown` files inside the workspace are served,
+  by ID rather than path; symlinks pointing outside the workspace are ignored.
+- **Network (Docker)** — only nginx is published, on `127.0.0.1:3000`; the
+  backend is reachable solely through it. Both containers run as non-root
+  users and the workspace is mounted read-only.
+- **Desktop** — context isolation and sandboxing, IPC limited to the app's own
+  page, external links opened only for `http(s)`/`mailto`, all permission
+  requests denied, and Electron fuses (no `ELECTRON_RUN_AS_NODE`,
+  `NODE_OPTIONS` or `--inspect`; ASAR integrity checks) in packaged builds.

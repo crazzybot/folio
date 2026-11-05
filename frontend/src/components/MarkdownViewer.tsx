@@ -1,10 +1,14 @@
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import rehypeRaw from 'rehype-raw';
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { Options as RehypeHighlightOptions } from "rehype-highlight";
-import type { Components } from "react-markdown";
+import type { Components, ExtraProps } from "react-markdown";
+import { resolveLink } from "../links";
+import type { LinkTarget } from "../links";
+import type { DocumentMeta } from "../types";
 
 // Register only the languages we need (tree-shakeable subset)
 import langJson from "highlight.js/lib/languages/json";
@@ -28,6 +32,12 @@ interface MarkdownViewerProps {
   anchor?: string | null;
   /** Called when the user clicks an in-document '#...' link. */
   onAnchorClick?: (anchorId: string) => void;
+  /** All workspace documents — used to resolve links between documents. */
+  documents?: DocumentMeta[];
+  /** Workspace-relative path of the displayed document (base for relative links). */
+  currentLocation?: string | null;
+  /** Called when the user clicks a link to another workspace document. */
+  onOpenDocument?: (id: string, anchor: string | null) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -84,8 +94,124 @@ function makeHeading(Tag: HeadingTag) {
   return Heading;
 }
 
+// ---------------------------------------------------------------------------
+// Links
+// Every <a> (markdown or raw HTML) is classified when rendered: anchors scroll
+// within the document, workspace links open that document, external links
+// get an icon and open in the browser, unresolvable ones are marked.
+// ---------------------------------------------------------------------------
+
+interface LinkHandlers {
+  resolve: (href: string) => LinkTarget | null;
+  onAnchor: (anchor: string) => void;
+  onOpenDocument: (id: string, anchor: string | null) => void;
+}
+
+const LinkContext = createContext<LinkHandlers | null>(null);
+
+/** Let the browser handle modified clicks (new tab / window / download). */
+function isPlainClick(e: React.MouseEvent): boolean {
+  return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+}
+
+function MarkdownLink({
+  href,
+  children,
+  node: _node,
+  ...rest
+}: React.AnchorHTMLAttributes<HTMLAnchorElement> & ExtraProps): React.ReactElement {
+  const handlers = useContext(LinkContext);
+  const target = href !== undefined && handlers ? handlers.resolve(href) : null;
+
+  if (target === null || handlers === null) {
+    return <a href={href} {...rest}>{children}</a>;
+  }
+
+  switch (target.kind) {
+    case "external":
+      return (
+        <a
+          {...rest}
+          href={target.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={rest.title ?? target.href}
+        >
+          {children}
+          <ExternalLinkIcon />
+        </a>
+      );
+
+    case "anchor":
+      return (
+        <a
+          {...rest}
+          href={`#${target.anchor}`}
+          onClick={(e) => {
+            e.preventDefault();
+            handlers.onAnchor(target.anchor);
+          }}
+        >
+          {children}
+        </a>
+      );
+
+    case "document":
+      return (
+        <a
+          {...rest}
+          // A real app URL, so modified clicks and "copy link" still work
+          href={`/doc/${encodeURIComponent(target.id)}${target.anchor ? `#${target.anchor}` : ""}`}
+          onClick={(e) => {
+            if (!isPlainClick(e)) return;
+            e.preventDefault();
+            handlers.onOpenDocument(target.id, target.anchor);
+          }}
+        >
+          {children}
+        </a>
+      );
+
+    case "missing":
+      return (
+        <a
+          {...rest}
+          className={styles.missingLink}
+          title={`Not found in workspace: ${target.location}`}
+          aria-disabled="true"
+          onClick={(e) => e.preventDefault()}
+        >
+          {children}
+        </a>
+      );
+  }
+}
+
+function ExternalLinkIcon(): React.ReactElement {
+  return (
+    <svg
+      className={styles.externalIcon}
+      width="10"
+      height="10"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-label="(opens in browser)"
+      role="img"
+    >
+      <path d="M12 9v4.5a1 1 0 0 1-1 1H2.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1H7" />
+      <path d="M10 1.5h4.5V6" />
+      <path d="M14.5 1.5L7 9" />
+    </svg>
+  );
+}
+
 // Build the components map once — stable reference, no re-creation on render.
 const markdownComponents: Components = {
+  a: MarkdownLink,
   h1: makeHeading("h1"),
   h2: makeHeading("h2"),
   h3: makeHeading("h3"),
@@ -113,10 +239,42 @@ const rehypeHighlightOptions: RehypeHighlightOptions = {
   detect: false,
 };
 
+// ---------------------------------------------------------------------------
+// HTML sanitizing
+// Documents may embed raw HTML (rehype-raw), and documents aren't trusted:
+// a workspace can hold cloned repos or vendored packages. Everything is
+// filtered through GitHub's allow-list (hast-util-sanitize defaultSchema),
+// which drops <script>, <style>, <iframe>, <form>, <meta>, <base>, <object>,
+// <embed>, <svg>, event handlers, style attributes and unsafe URL schemes.
+//
+// It also prefixes id/name values with "user-content-" so a document can't
+// clobber page globals (e.g. id="markdownApi"); findAnchorTarget() looks
+// for the prefixed id too. Highlighting runs after sanitizing so its
+// hljs-* class names survive.
+// ---------------------------------------------------------------------------
+
+const CLOBBER_PREFIX = defaultSchema.clobberPrefix ?? "user-content-";
+
 const rehypePlugins = [
-  [rehypeHighlight, rehypeHighlightOptions] as [typeof rehypeHighlight, RehypeHighlightOptions],
   rehypeRaw,
+  [rehypeSanitize, defaultSchema] as [typeof rehypeSanitize, typeof defaultSchema],
+  [rehypeHighlight, rehypeHighlightOptions] as [typeof rehypeHighlight, RehypeHighlightOptions],
 ];
+
+// Footnote ids are prefixed by the sanitizer instead, so they aren't doubled
+const remarkRehypeOptions = { clobberPrefix: "" };
+
+/**
+ * The element an in-document anchor points at: by id, then by legacy
+ * <a name="…">, each with and without the clobber prefix.
+ */
+function findAnchorTarget(anchorId: string): HTMLElement | null {
+  for (const candidate of [anchorId, CLOBBER_PREFIX + anchorId]) {
+    const target = document.getElementById(candidate) ?? document.getElementsByName(candidate)[0];
+    if (target) return target;
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -129,6 +287,9 @@ export default function MarkdownViewer({
   selectedId,
   anchor,
   onAnchorClick,
+  documents = [],
+  currentLocation = null,
+  onOpenDocument,
 }: MarkdownViewerProps): React.ReactElement {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -165,7 +326,7 @@ export default function MarkdownViewer({
     let attempts = 0;
     const MAX_ATTEMPTS = 20; // 20 × 50 ms = 1 s max wait
     const intervalId = setInterval(() => {
-      const target = document.getElementById(anchor);
+      const target = findAnchorTarget(anchor);
       if (target) {
         clearInterval(intervalId);
         target.scrollIntoView({ behavior: "instant", block: "start" });
@@ -204,67 +365,43 @@ export default function MarkdownViewer({
       return;
     }
 
-    const target = document.getElementById(anchor);
+    const target = findAnchorTarget(anchor);
     if (target) {
       target.scrollIntoView({ behavior: "auto", block: "start" });
     }
   }, [anchor, loading, content]);
 
   // -------------------------------------------------------------------------
-  // Intercept in-document anchor clicks and delegate to the parent handler.
-  //
-  // Why not use <a onClick> on the rendered anchors directly?
-  //   react-markdown renders <a> tags via its own pipeline. Attaching a single
-  //   delegated handler on the outer div is simpler and avoids touching the
-  //   anchor component map.
-  //
-  // Why document.getElementById instead of querySelector("#…")?
-  //   CSS id selectors reject ids that start with a digit unless escaped.
-  //   document.getElementById works with any valid HTML id string, so it is
-  //   safe for slugs like "3-core-concepts".
+  // Link handlers shared with MarkdownLink via context
   // -------------------------------------------------------------------------
-  const handleViewerClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      // Walk up from the click target until we find an <a> or reach the div.
-      let el: Element | null = e.target as Element;
-      const container = scrollRef.current;
-      if (!container) return;
+  const idsByLocation = useMemo(
+    () => new Map(documents.map((doc) => [doc.location, doc.id])),
+    [documents],
+  );
 
-      while (el && el !== container) {
-        if (el.tagName === "A") {
-          const href = el.getAttribute("href");
-          if (href && href.startsWith("#")) {
-            e.preventDefault();
-            const anchorId = href.slice(1); // strip the leading '#'
-            if (onAnchorClick) {
-              // Delegate to parent — it will update the URL (pushing a history
-              // entry) which feeds back via the `anchor` prop, triggering
-              // Effect 2 to scroll.
-              onAnchorClick(anchorId);
-            } else {
-              // Fallback when used without the parent handler (e.g. tests).
-              const target = document.getElementById(anchorId);
-              if (target) {
-                target.scrollIntoView({ behavior: "auto", block: "start" });
-              }
-            }
-          }
-          // Whether or not it was an internal anchor, stop walking.
-          return;
-        }
-        el = el.parentElement;
-      }
-    },
-    [onAnchorClick],
+  // findAnchorTarget uses document.getElementById rather than
+  // querySelector("#…"): CSS id selectors reject ids that start with a digit
+  // unless escaped, so getElementById is safe for slugs like "3-core-concepts".
+  const scrollToAnchor = useCallback((anchorId: string) => {
+    findAnchorTarget(anchorId)?.scrollIntoView({ behavior: "auto", block: "start" });
+  }, []);
+
+  const linkHandlers = useMemo<LinkHandlers>(
+    () => ({
+      resolve: (href) => resolveLink(href, currentLocation, idsByLocation),
+      onAnchor: (anchorId) => {
+        // Scroll now — re-clicking the anchor already in the URL changes
+        // nothing that Effect 2 would react to — then record it in history.
+        scrollToAnchor(anchorId);
+        onAnchorClick?.(anchorId);
+      },
+      onOpenDocument: (id, anchorId) => onOpenDocument?.(id, anchorId),
+    }),
+    [currentLocation, idsByLocation, scrollToAnchor, onAnchorClick, onOpenDocument],
   );
 
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <div
-      className={styles.viewerRoot}
-      ref={scrollRef}
-      onClick={handleViewerClick}
-    >
+    <div className={styles.viewerRoot} ref={scrollRef}>
       {/* ── Loading ── */}
       {loading && (
         <div className={styles.centeredState} aria-live="polite" aria-busy="true">
@@ -317,13 +454,16 @@ export default function MarkdownViewer({
       {/* ── Rendered markdown ── */}
       {!loading && error === null && content !== null && (
         <article className={styles.article} aria-label="Rendered markdown">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={rehypePlugins}
-            components={markdownComponents}
-          >
-            {content}
-          </ReactMarkdown>
+          <LinkContext.Provider value={linkHandlers}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              remarkRehypeOptions={remarkRehypeOptions}
+              rehypePlugins={rehypePlugins}
+              components={markdownComponents}
+            >
+              {content}
+            </ReactMarkdown>
+          </LinkContext.Provider>
         </article>
       )}
     </div>

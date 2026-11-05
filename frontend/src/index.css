@@ -8,21 +8,32 @@
 }
 
 :root {
-  /* Palette */
-  --color-bg:            #0d1117;
-  --color-surface:       #161b22;
-  --color-surface-hover: #1c2230;
-  --color-border:        #30363d;
-  --color-border-light:  #21262d;
+  /* Palette — modelled on VS Code "Dark Modern" */
+  --color-bg:            #1f1f1f; /* editor */
+  --color-surface:       #181818; /* sidebar, header & status bars */
+  --color-surface-hover: #2a2d2e;
+  --color-border:        #2b2b2b;
+  --color-border-light:  #2b2b2b;
 
-  --color-text:          #e6edf3;
-  --color-text-muted:    #8b949e;
-  --color-text-subtle:   #6e7681;
+  --color-text:          #cccccc;
+  --color-text-strong:   #e7e7e7;
+  --color-text-muted:    #9d9d9d;
+  --color-text-subtle:   #6e6e6e;
 
-  --color-accent:        #388bfd;
-  --color-accent-dim:    #1f3a5e;
-  --color-selected-bg:   #1f3a5e;
-  --color-selected-text: #58a6ff;
+  --color-accent:        #0078d4; /* focus rings, sash, active borders */
+  --color-accent-dim:    #3c3c3c;
+  --color-selected-bg:   #37373d; /* list selection while the list is unfocused */
+  --color-selected-focus-bg: #04395e; /* list selection while the list is focused */
+  --color-selected-text: #ffffff;
+
+  --color-input-bg:      #313131;
+  --color-input-border:  #3c3c3c;
+
+  --color-link:          #4daafc;
+  --color-code-bg:       #181818;
+  --color-inline-code-bg: #2b2b2b;
+  --color-inline-code-text: #d7ba7d;
+  --color-icon-markdown: #519aba;
 
   /* Spacing */
   --space-1: 0.25rem;
@@ -33,34 +44,29 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
 
-  /* Typography */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+  /* Typography — native system fonts at VS Code sizes */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", system-ui, Ubuntu, "Droid Sans", sans-serif;
+  --font-mono: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
-  --text-xs:   0.75rem;
-  --text-sm:   0.875rem;
-  --text-base: 1rem;
-  --text-lg:   1.125rem;
-  --text-xl:   1.25rem;
-  --text-2xl:  1.5rem;
+  --text-xs:      11px;
+  --text-sm:      12px;
+  --text-ui:      13px;
+  --text-content: 14px;
 
   /* Radius */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-
-  /* Shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
 
   /* Transitions */
-  --transition-fast:   120ms ease;
-  --transition-normal: 220ms ease;
+  --transition-fast:   100ms ease;
+  --transition-normal: 200ms ease;
 
-  /* Panel */
-  --panel-min-width: 160px;
-  --panel-default-width: 280px;
-  --divider-width: 5px;
+  /* Chrome sizes */
+  --header-height:    35px;
+  --statusbar-height: 22px;
+  /* Room for the macOS window buttons when the title bar is inset */
+  --traffic-lights-width: 78px;
 }
 
 html,
@@ -73,28 +79,34 @@ body,
 
 body {
   font-family: var(--font-sans);
-  font-size: var(--text-base);
-  line-height: 1.6;
+  font-size: var(--text-ui);
+  line-height: 1.4;
   color: var(--color-text);
   background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* App chrome behaves like native UI; the document opts back into selection */
+  user-select: none;
+  cursor: default;
 }
 
-/* Scrollbar */
+/* Scrollbar — VS Code style: square and translucent */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
-::-webkit-scrollbar-track {
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 99px;
+  background: rgba(121, 121, 121, 0.4);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-subtle);
+  background: rgba(100, 100, 100, 0.7);
+}
+::-webkit-scrollbar-thumb:active {
+  background: rgba(191, 191, 191, 0.4);
 }
 
 /* ─── Print ───────────────────────────────────────────────────────────────── */
@@ -113,11 +125,17 @@ body {
     --color-border-light:  #d8dee4;
 
     --color-text:          #1f2328;
+    --color-text-strong:   #1f2328;
     --color-text-muted:    #57606a;
     --color-text-subtle:   #6e7781;
 
     --color-accent:        #0969da;
     --color-accent-dim:    #d0d7de;
+
+    --color-link:          #0969da;
+    --color-code-bg:       #f6f8fa;
+    --color-inline-code-bg: #eff1f3;
+    --color-inline-code-text: #cf222e;
   }
 
   html,
@@ -127,7 +145,7 @@ body {
     overflow: visible;
   }
 
-  /* Scale the root size so rem-based headings shrink along with body text */
+  /* Scale the root size so rem-based content shrinks along with body text */
   html {
     font-size: 10pt;
   }

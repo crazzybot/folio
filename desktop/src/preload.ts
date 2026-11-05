@@ -8,6 +8,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("markdownApi", {
+  platform: process.platform,
   listDocuments: () => ipcRenderer.invoke("documents:list"),
   getDocumentContent: (id: string) => ipcRenderer.invoke("documents:content", id),
 });

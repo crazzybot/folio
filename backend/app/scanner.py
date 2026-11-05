@@ -35,6 +35,8 @@ class DocumentMeta:
 
 _ATX_HEADING = re.compile(r"^#{1,6}\s+(.+)", re.MULTILINE)
 _MARKDOWN_EXTENSIONS = {".md", ".markdown"}
+# Titles come from the top of the file; don't read huge files whole
+_TITLE_SCAN_CHARS = 64 * 1024
 
 
 def _stable_id(relative_path: str) -> str:
@@ -50,7 +52,8 @@ def _extract_title(path: Path, relative_path: str) -> str:
       3. Filename without extension
     """
     try:
-        text = path.read_text(encoding="utf-8", errors="replace")
+        with path.open(encoding="utf-8", errors="replace") as f:
+            text = f.read(_TITLE_SCAN_CHARS)
     except OSError:
         return path.stem
 
@@ -67,6 +70,18 @@ def _extract_title(path: Path, relative_path: str) -> str:
 
     # 3. Fallback: filename without extension
     return path.stem
+
+
+def _is_inside(path: Path, workspace: Path) -> bool:
+    """
+    Whether *path* is a file within *workspace*. Symlinks are allowed only
+    when they point at a file inside the workspace, so a shared folder can't
+    surface e.g. ``notes.md -> ~/.ssh/id_rsa``.
+    """
+    if not path.is_symlink():
+        return True
+    target = path.resolve()
+    return target.is_file() and target.is_relative_to(workspace.resolve())
 
 
 def _ctime_iso(path: Path) -> str:
@@ -106,6 +121,8 @@ def scan_workspace(
         for filename in files:
             file_path = root_path / filename
             if file_path.suffix.lower() not in _MARKDOWN_EXTENSIONS:
+                continue
+            if not _is_inside(file_path, workspace):
                 continue
 
             try:

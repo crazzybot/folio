@@ -3,14 +3,18 @@ services:
     build: ./backend
     environment:
       MARKDOWN_WORKSPACE: /workspace
+      # Same-origin through nginx, so no cross-origin access at all
+      MARKDOWN_CORS_ORIGINS: ""
     volumes:
       - ../../workspace:/workspace:ro
-    ports:
-      - "8000:8000"
+    # Not published: only nginx (frontend) reaches it, as backend:8000
+    expose:
+      - "8000"
 
   frontend:
     build: ./frontend
     ports:
-      - "3000:3000"
+      # Loopback only — not reachable from other machines on the network
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
