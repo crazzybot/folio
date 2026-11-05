@@ -40,10 +40,11 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-from app.scanner import DocumentMeta, find_document, scan_workspace
+from app.scanner import IMAGE_TYPES, DocumentMeta, find_document, find_image, scan_workspace
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -185,6 +186,33 @@ def get_document_content(doc_id: str) -> DocumentContent:
         )
     doc, content = result
     return DocumentContent(id=doc.id, content=content)
+
+
+# Images are only ever displayed, never run: an SVG opened directly must not
+# execute scripts or load anything (the same policy as the desktop app).
+_IMAGE_HEADERS = {
+    "Content-Security-Policy": "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
+    "X-Content-Type-Options": "nosniff",
+}
+
+
+@app.get(
+    "/api/files/{location:path}",
+    summary="Fetch an image embedded by a document",
+    response_class=FileResponse,
+)
+def get_image(location: str) -> FileResponse:
+    """
+    Return the image at *location* (workspace-relative, forward slashes), so
+    documents can embed ``![](img/diagram.png)``.
+
+    Only image files inside the workspace are served, never from a folder in
+    MARKDOWN_SKIP_DIRS. Raises **404** for anything else.
+    """
+    path = find_image(_workspace(), location, skip_dirs=_skip_dirs())
+    if path is None:
+        raise HTTPException(status_code=404, detail=f"Image '{location}' not found.")
+    return FileResponse(path, media_type=IMAGE_TYPES[path.suffix.lower()], headers=_IMAGE_HEADERS)
 
 
 # ---------------------------------------------------------------------------

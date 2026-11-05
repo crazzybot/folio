@@ -15,6 +15,8 @@ interface NavigationState {
 
 contextBridge.exposeInMainWorld("markdownApi", {
   platform: process.platform,
+  // Workspace images are served by the main process (images.ts) from the app's origin
+  workspaceFileBaseUrl: "app://bundle/@workspace/",
   listDocuments: () => ipcRenderer.invoke("documents:list"),
   getDocumentContent: (id: string) => ipcRenderer.invoke("documents:content", id),
   getNavigationState: () => ipcRenderer.invoke("navigation:state"),

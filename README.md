@@ -19,6 +19,7 @@ highlighting — all without leaving your browser.
 - Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)
 - VS Code-style dark theme with breadcrumb header and status bar
 - GFM support: tables, task lists, strikethrough
+- Images from the workspace (`![](img/diagram.png)`, relative to the document) and the web
 - Syntax-highlighted fenced code blocks (Python, JS/TS, JSON, Bash, CSS, HTML, YAML, Markdown)
 
 ---
@@ -192,6 +193,20 @@ Returns the raw Markdown source for a single document.
 { "detail": "Document a3f1c2d4 not found" }
 ```
 
+### `GET /api/files/{location}`
+
+Returns an image embedded by a document, so `![](img/diagram.png)` works.
+`location` is the image's workspace-relative path with forward slashes, e.g.
+`/api/files/docs/img/diagram.png`; the frontend resolves relative `src`
+values against the document's folder before calling it.
+
+Only image files (`png`, `jpg`/`jpeg`, `gif`, `webp`, `avif`, `bmp`, `ico`,
+`svg`) inside the workspace are served, never from a folder in
+`MARKDOWN_SKIP_DIRS`. Responses carry a `sandbox` Content-Security-Policy so
+an SVG opened directly can't run scripts.
+
+**Response** `404 Not Found` — for anything else.
+
 ---
 
 ## Project structure
@@ -216,11 +231,13 @@ markdown-previewer/
 │   ├── package.json              # Electron + electron-builder config
 │   ├── scripts/copy-renderer.mjs # copies frontend/dist → desktop/renderer
 │   └── src/
+│       ├── images.ts             # serves workspace images under app://bundle/@workspace/
 │       ├── main.ts               # window, app:// scheme, IPC, menu, PDF export
 │       ├── preload.ts            # exposes window.markdownApi
 │       ├── recent.ts             # recently opened workspace folders (recent.json)
 │       ├── scanner.ts            # Node port of backend/app/scanner.py
-│       └── settings.ts           # remembers the workspace folder
+│       ├── settings.ts           # remembers the workspace folder
+│       └── watcher.ts            # watches the workspace for live reload
 │
 └── frontend/
     ├── package.json              # Vite + React 18 + TypeScript
@@ -292,6 +309,8 @@ repositories or vendored packages.
   (nginx in Docker, the `app://` handler in the desktop app) is the second layer.
 - **Files** — only `.md`/`.markdown` files inside the workspace are served,
   by ID rather than path; symlinks pointing outside the workspace are ignored.
+  Images are served by path, but only image types inside the workspace and
+  outside skipped folders, with a sandboxing CSP so SVGs can't run scripts.
 - **Network (Docker)** — only nginx is published, on `127.0.0.1:3000`; the
   backend is reachable solely through it. Both containers run as non-root
   users and the workspace is mounted read-only.

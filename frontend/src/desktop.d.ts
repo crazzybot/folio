@@ -4,6 +4,8 @@ import type { DocumentContent, DocumentMeta, NavigationState } from "./types";
 interface MarkdownDesktopApi {
   /** Node's process.platform of the host, e.g. "darwin". */
   platform: string;
+  /** Base URL that workspace images are served from; append the encoded location. */
+  workspaceFileBaseUrl: string;
   listDocuments(): Promise<DocumentMeta[]>;
   getDocumentContent(id: string): Promise<DocumentContent>;
   getNavigationState(): Promise<NavigationState>;
