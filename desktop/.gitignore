@@ -1,0 +1,10 @@
+# Dependencies
+node_modules
+
+# Compiled main process, copied frontend build, packaged apps
+dist/
+renderer/
+release/
+
+# Editor
+.DS_Store

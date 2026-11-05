@@ -65,6 +65,39 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
 
+## Desktop app (Electron)
+
+The `desktop/` package wraps the same React frontend in an Electron app. The
+FastAPI backend isn't needed there: the workspace scanner is ported to Node
+(`desktop/src/scanner.ts`, same IDs and titles) and runs in the main process,
+reached from the UI over IPC.
+
+```bash
+cd markdown-previewer/desktop
+npm install
+
+npm start            # build frontend + main process, launch the app
+npm run dist:mac     # package → release/*.dmg and *.zip (also dist:win, dist:linux)
+```
+
+On first launch the app asks for a folder of Markdown files; the choice is
+remembered. Change it with **File → Open Folder…** (`⌘O`).
+
+| Menu item | Shortcut | |
+|---|---|---|
+| Open Folder… | `⌘O` | Pick the workspace folder |
+| Print… | `⌘P` | System print dialog (print layout, no sidebar) |
+| Export as PDF… | `⇧⌘E` | Save the current document as a PDF |
+
+**Live-reload development** — run the Vite dev server (`npm run dev` in
+`frontend/`, port 3000), then `npm run dev` in `desktop/`.
+
+> **Note:** builds are unsigned unless a valid "Developer ID Application"
+> certificate is in the keychain. If you launch Electron from a process that
+> sets `ELECTRON_RUN_AS_NODE=1` (some editor extensions do), unset it first.
+
+---
+
 ## Environment variables
 
 | Variable | Where it is read | Default | Description |
@@ -150,6 +183,15 @@ markdown-previewer/
 │       ├── main.py               # FastAPI app, CORS, two route handlers
 │       └── scanner.py            # workspace scanner, ID generation, title extraction
 │
+├── desktop/
+│   ├── package.json              # Electron + electron-builder config
+│   ├── scripts/copy-renderer.mjs # copies frontend/dist → desktop/renderer
+│   └── src/
+│       ├── main.ts               # window, app:// scheme, IPC, menu, PDF export
+│       ├── preload.ts            # exposes window.markdownApi
+│       ├── scanner.ts            # Node port of backend/app/scanner.py
+│       └── settings.ts           # remembers the workspace folder
+│
 └── frontend/
     ├── package.json              # Vite + React 18 + TypeScript
     ├── vite.config.ts            # manual chunk splitting, /api proxy
@@ -158,7 +200,8 @@ markdown-previewer/
     └── src/
         ├── main.tsx              # React root
         ├── types.ts              # DocumentMeta, DocumentContent
-        ├── api.ts                # fetch helpers
+        ├── api.ts                # fetch helpers (IPC bridge in the desktop app)
+        ├── desktop.d.ts          # window.markdownApi type
         ├── index.css             # design tokens (CSS custom properties)
         ├── App.tsx               # layout, drag-resize, data fetching
         ├── App.module.css
