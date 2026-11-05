@@ -7,7 +7,7 @@
  * frontend's BrowserRouter and /doc/<id>#anchor URLs work unchanged.
  *
  * Preferences (workspace, skipped folders, scan depth) live in settings.json;
- * see settings.ts.
+ * see settings.ts. Recently opened folders live in recent.json; see recent.ts.
  *
  * Environment variables
  * ---------------------
@@ -18,9 +18,16 @@
  */
 
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, session, shell } from "electron";
-import type { IpcMainInvokeEvent, MenuItemConstructorOptions } from "electron";
-import { promises as fs, statSync } from "node:fs";
+import type { IpcMainInvokeEvent, MenuItemConstructorOptions, WebContents } from "electron";
+import { existsSync, promises as fs, statSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import {
+  addRecentWorkspace,
+  clearRecentWorkspaces,
+  loadRecentWorkspaces,
+  removeRecentWorkspace,
+} from "./recent";
 import { findDocument, scanWorkspace } from "./scanner";
 import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, settingsPath, watchSettings } from "./settings";
@@ -71,6 +78,7 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 let settings: Settings = { ...DEFAULT_SETTINGS };
+let recentWorkspaces: string[] = [];
 
 function scanOptions(): ScanOptions {
   return { skipDirs: new Set(settings.skipDirs), maxDepth: settings.maxDepth };
@@ -166,6 +174,47 @@ function registerIpcHandlers(): void {
     if (result === null) throw new Error(`Document '${docId}' not found in workspace`);
     return { id: result.meta.id, content: result.content };
   });
+
+  // The renderer asks once on load; later changes are pushed (see updateNavigationState)
+  ipcMain.handle("navigation:state", (event): NavigationState => {
+    assertTrustedSender(event);
+    return navigationState(event.sender);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Back / forward navigation
+// ---------------------------------------------------------------------------
+
+interface NavigationState {
+  canGoBack: boolean;
+  canGoForward: boolean;
+}
+
+function navigationState(contents: WebContents): NavigationState {
+  const { navigationHistory } = contents;
+  return { canGoBack: navigationHistory.canGoBack(), canGoForward: navigationHistory.canGoForward() };
+}
+
+/** Sync the Go menu and the renderer's back/forward buttons with the window's history. */
+function updateNavigationState(win: BrowserWindow): void {
+  if (win.isDestroyed()) return;
+  const state = navigationState(win.webContents);
+  win.webContents.send("navigation:state", state);
+
+  const menu = Menu.getApplicationMenu();
+  const back = menu?.getMenuItemById("go-back");
+  const forward = menu?.getMenuItemById("go-forward");
+  if (back) back.enabled = state.canGoBack;
+  if (forward) forward.enabled = state.canGoForward;
+}
+
+function goBack(win: BrowserWindow): void {
+  if (win.webContents.navigationHistory.canGoBack()) win.webContents.navigationHistory.goBack();
+}
+
+function goForward(win: BrowserWindow): void {
+  if (win.webContents.navigationHistory.canGoForward()) win.webContents.navigationHistory.goForward();
 }
 
 // ---------------------------------------------------------------------------
@@ -178,6 +227,40 @@ function updateWindowTitle(win: BrowserWindow): void {
   if (process.platform === "darwin") win.setRepresentedFilename(workspace ?? "");
 }
 
+/** Reload at the root so the first document of the new workspace is selected. */
+async function loadWorkspaceRoot(win: BrowserWindow): Promise<void> {
+  await win.loadURL(rendererUrl());
+  // Documents of the previous workspace aren't reachable any more, so Back
+  // must not lead to them
+  win.webContents.navigationHistory.clear();
+  updateNavigationState(win);
+}
+
+/** Put `folder` at the top of File → Open Recent. */
+function rememberWorkspace(folder: string): void {
+  recentWorkspaces = addRecentWorkspace(recentWorkspaces, folder);
+  Menu.setApplicationMenu(buildMenu());
+}
+
+async function openWorkspace(win: BrowserWindow, folder: string): Promise<void> {
+  if (!existsSync(folder)) {
+    recentWorkspaces = removeRecentWorkspace(recentWorkspaces, folder);
+    Menu.setApplicationMenu(buildMenu());
+    await dialog.showMessageBox(win, {
+      type: "warning",
+      message: "Folder not found",
+      detail: `${folder}\n\nIt may have been moved or deleted, and has been removed from the recent list.`,
+    });
+    return;
+  }
+
+  settings = { ...settings, workspace: folder };
+  saveSettings(settings);
+  rememberWorkspace(folder);
+  updateWindowTitle(win);
+  await loadWorkspaceRoot(win);
+}
+
 async function chooseWorkspace(win: BrowserWindow): Promise<void> {
   const result = await dialog.showOpenDialog(win, {
     title: "Open Markdown Folder",
@@ -187,12 +270,12 @@ async function chooseWorkspace(win: BrowserWindow): Promise<void> {
   });
   const folder = result.filePaths[0];
   if (result.canceled || folder === undefined) return;
+  await openWorkspace(win, folder);
+}
 
-  settings = { ...settings, workspace: folder };
-  saveSettings(settings);
-  updateWindowTitle(win);
-  // Reload at the root so the first document of the new workspace is selected
-  await win.loadURL(rendererUrl());
+function clearRecent(): void {
+  recentWorkspaces = clearRecentWorkspaces(settings.workspace);
+  Menu.setApplicationMenu(buildMenu());
 }
 
 // ---------------------------------------------------------------------------
@@ -222,11 +305,12 @@ function applySettings(next: Settings): void {
   if (!workspaceChanged && !scanChanged) return;
 
   settings = next;
+  if (workspaceChanged && next.workspace !== null) rememberWorkspace(next.workspace);
   for (const win of BrowserWindow.getAllWindows()) {
     updateWindowTitle(win);
     // A new workspace starts at its first document; otherwise reload the
     // current route so the document list reflects the new scan options
-    if (workspaceChanged) void win.loadURL(rendererUrl());
+    if (workspaceChanged) void loadWorkspaceRoot(win);
     else win.webContents.reload();
   }
 }
@@ -279,8 +363,32 @@ function withWindow(action: (win: BrowserWindow) => unknown): () => void {
   };
 }
 
+/** A folder path for a menu label: "~" for the home folder, "&" not taken as a mnemonic. */
+function folderLabel(folder: string): string {
+  const home = os.homedir();
+  const label = folder === home || folder.startsWith(home + path.sep) ? "~" + folder.slice(home.length) : folder;
+  return process.platform === "win32" ? label.replaceAll("&", "&&") : label;
+}
+
+/** File → Open Recent: other recently opened folders (the current one is already open). */
+function recentMenu(): MenuItemConstructorOptions[] {
+  const folders = recentWorkspaces.filter((folder) => folder !== settings.workspace);
+  return [
+    ...folders.map(
+      (folder): MenuItemConstructorOptions => ({
+        label: folderLabel(folder),
+        click: withWindow((win) => openWorkspace(win, folder)),
+      }),
+    ),
+    ...(folders.length > 0 ? [{ type: "separator" } satisfies MenuItemConstructorOptions] : []),
+    { label: "Clear Recently Opened", enabled: folders.length > 0, click: clearRecent },
+  ];
+}
+
 function buildMenu(): Menu {
   const isMac = process.platform === "darwin";
+  const win = BrowserWindow.getFocusedWindow() ?? mainWindow;
+  const navigation = win !== null && !win.isDestroyed() ? navigationState(win.webContents) : null;
   const settingsItem: MenuItemConstructorOptions = {
     label: "Settings…",
     accelerator: "CmdOrCtrl+,",
@@ -312,6 +420,7 @@ function buildMenu(): Menu {
       label: "File",
       submenu: [
         { label: "Open Folder…", accelerator: "CmdOrCtrl+O", click: withWindow(chooseWorkspace) },
+        { label: "Open Recent", submenu: recentMenu() },
         ...(isMac ? [] : [settingsItem]),
         { type: "separator" },
         { label: "Print…", accelerator: "CmdOrCtrl+P", click: withWindow((win) => win.webContents.print()) },
@@ -322,6 +431,25 @@ function buildMenu(): Menu {
     },
     { role: "editMenu" },
     { role: "viewMenu" },
+    {
+      label: "Go",
+      submenu: [
+        {
+          id: "go-back",
+          label: "Back",
+          accelerator: isMac ? "Cmd+[" : "Alt+Left",
+          enabled: navigation?.canGoBack ?? false,
+          click: withWindow(goBack),
+        },
+        {
+          id: "go-forward",
+          label: "Forward",
+          accelerator: isMac ? "Cmd+]" : "Alt+Right",
+          enabled: navigation?.canGoForward ?? false,
+          click: withWindow(goForward),
+        },
+      ],
+    },
     { role: "windowMenu" },
   ];
   return Menu.buildFromTemplate(template);
@@ -364,6 +492,11 @@ function createWindow(): BrowserWindow {
     openExternal(url);
   });
 
+  // Router pushes (document switches, anchors) are in-page navigations
+  win.webContents.on("did-navigate", () => updateNavigationState(win));
+  win.webContents.on("did-navigate-in-page", () => updateNavigationState(win));
+  win.on("focus", () => updateNavigationState(win));
+
   updateWindowTitle(win);
   void win.loadURL(rendererUrl());
 
@@ -385,6 +518,11 @@ app.setName(APP_NAME);
 
 void app.whenReady().then(() => {
   settings = loadSettings();
+  recentWorkspaces = loadRecentWorkspaces();
+  // Also records the workspace of installs that predate the recent list
+  if (settings.workspace !== null && recentWorkspaces[0] !== settings.workspace) {
+    recentWorkspaces = addRecentWorkspace(recentWorkspaces, settings.workspace);
+  }
   protocol.handle(APP_SCHEME, handleAppRequest);
   // The app needs no camera, microphone, notifications, geolocation, …
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));

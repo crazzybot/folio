@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Routes, Route, useNavigate, useParams, useLocation } from "react-router-dom";
+import { Routes, Route, useNavigate, useNavigationType, useParams, useLocation } from "react-router-dom";
 import { fetchDocumentContent, fetchDocuments } from "./api";
+import { savedScrollPosition } from "./scrollHistory";
 import DocumentList from "./components/DocumentList";
 import MarkdownViewer from "./components/MarkdownViewer";
 import Breadcrumb from "./components/Breadcrumb";
+import useDesktopHistory from "./useDesktopHistory";
 import styles from "./App.module.css";
 import type { DocumentMeta } from "./types";
 
@@ -13,11 +15,13 @@ const PANEL_DEFAULT_WIDTH = 260;
 // The macOS desktop app hides the title bar and insets the window buttons
 // into the app's own header rows.
 const IS_MAC_DESKTOP = window.markdownApi?.platform === "darwin";
+const BACK_SHORTCUT = IS_MAC_DESKTOP ? "⌘[" : "Alt+←";
+const FORWARD_SHORTCUT = IS_MAC_DESKTOP ? "⌘]" : "Alt+→";
 
 type LoadState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "success"; content: string }
+  | { status: "success"; id: string; content: string }
   | { status: "error"; message: string };
 
 // ─── Routing shell ────────────────────────────────────────────────────────────
@@ -47,6 +51,11 @@ function AppInner(): React.ReactElement {
   const location = useLocation();
   const anchor = location.hash.length > 0 ? location.hash.slice(1) : null;
 
+  // Back/Forward (and reload) are POP navigations: return to the scroll
+  // position saved when a link in that document was followed, if any.
+  const navigationType = useNavigationType();
+  const restoreScrollTop = navigationType === "POP" ? savedScrollPosition() : null;
+
   // Decode the URL segment back to the raw document id.
   // selectedId preserves the existing string | null contract for all children.
   const selectedId: string | null = docId !== undefined ? decodeURIComponent(docId) : null;
@@ -58,6 +67,9 @@ function AppInner(): React.ReactElement {
 
   // ── Content state ──────────────────────────────────────────────────────────
   const [contentState, setContentState] = useState<LoadState>({ status: "idle" });
+
+  // ── Back / forward (desktop app only; null in the browser) ─────────────────
+  const history = useDesktopHistory();
 
   // ── Panel / divider state ──────────────────────────────────────────────────
   const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
@@ -110,7 +122,7 @@ function AppInner(): React.ReactElement {
     fetchDocumentContent(selectedId)
       .then((doc) => {
         if (cancelled) return;
-        setContentState({ status: "success", content: doc.content });
+        setContentState({ status: "success", id: selectedId, content: doc.content });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -225,6 +237,7 @@ function AppInner(): React.ReactElement {
 
   const contentValue =
     contentState.status === "success" ? contentState.content : null;
+  const contentId = contentState.status === "success" ? contentState.id : null;
   const contentLoading = contentState.status === "loading";
   const contentError =
     contentState.status === "error" ? contentState.message : null;
@@ -301,6 +314,35 @@ function AppInner(): React.ReactElement {
               </svg>
             </button>
 
+            {history !== null && (
+              <>
+                <button
+                  className={styles.iconBtn}
+                  onClick={() => navigate(-1)}
+                  disabled={!history.canGoBack}
+                  aria-label={`Go back (${BACK_SHORTCUT})`}
+                  title={`Go back (${BACK_SHORTCUT})`}
+                  type="button"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M13 8H3.5M7.5 3.5L3 8l4.5 4.5" stroke="currentColor" strokeWidth="1.2" />
+                  </svg>
+                </button>
+                <button
+                  className={styles.iconBtn}
+                  onClick={() => navigate(1)}
+                  disabled={!history.canGoForward}
+                  aria-label={`Go forward (${FORWARD_SHORTCUT})`}
+                  title={`Go forward (${FORWARD_SHORTCUT})`}
+                  type="button"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M3 8h9.5M8.5 3.5L13 8l-4.5 4.5" stroke="currentColor" strokeWidth="1.2" />
+                  </svg>
+                </button>
+              </>
+            )}
+
             <Breadcrumb location={selectedDoc?.location ?? null} />
 
             <button
@@ -329,10 +371,13 @@ function AppInner(): React.ReactElement {
 
           <MarkdownViewer
             content={contentValue}
+            contentId={contentId}
             loading={contentLoading}
             error={contentError}
             selectedId={selectedId}
             anchor={anchor}
+            navigationKey={location.key}
+            restoreScrollTop={restoreScrollTop}
             onAnchorClick={handleAnchorClick}
             documents={documents}
             currentLocation={selectedDoc?.location ?? null}

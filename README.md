@@ -86,9 +86,11 @@ remembered. Change it with **File → Open Folder…** (`⌘O`).
 | Menu item | Shortcut | |
 |---|---|---|
 | Open Folder… | `⌘O` | Pick the workspace folder |
+| Open Recent | | The last 10 workspace folders (missing ones are dropped); **Clear Recently Opened** forgets all but the current one |
 | Settings… | `⌘,` | Open `settings.json` in your default editor (app menu on macOS, File elsewhere) |
 | Print… | `⌘P` | System print dialog (print layout, no sidebar) |
 | Export as PDF… | `⇧⌘E` | Save the current document as a PDF |
+| Go → Back / Forward | `⌘[` / `⌘]` (`Alt+←` / `Alt+→` on Windows and Linux) | Step through visited documents and headings; also the header's arrow buttons and the mouse's back/forward buttons. History starts afresh when you switch workspace |
 
 **Settings** — `settings.json` (in the app's data folder, e.g.
 `~/Library/Application Support/Markdown Previewer/` on macOS) is applied as
@@ -211,6 +213,7 @@ markdown-previewer/
 │   └── src/
 │       ├── main.ts               # window, app:// scheme, IPC, menu, PDF export
 │       ├── preload.ts            # exposes window.markdownApi
+│       ├── recent.ts             # recently opened workspace folders (recent.json)
 │       ├── scanner.ts            # Node port of backend/app/scanner.py
 │       └── settings.ts           # remembers the workspace folder
 │

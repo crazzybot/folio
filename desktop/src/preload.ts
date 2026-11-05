@@ -6,9 +6,24 @@
  */
 
 import { contextBridge, ipcRenderer } from "electron";
+import type { IpcRendererEvent } from "electron";
+
+interface NavigationState {
+  canGoBack: boolean;
+  canGoForward: boolean;
+}
 
 contextBridge.exposeInMainWorld("markdownApi", {
   platform: process.platform,
   listDocuments: () => ipcRenderer.invoke("documents:list"),
   getDocumentContent: (id: string) => ipcRenderer.invoke("documents:content", id),
+  getNavigationState: () => ipcRenderer.invoke("navigation:state"),
+  /** Subscribe to back/forward availability; returns an unsubscribe function. */
+  onNavigationStateChange: (callback: (state: NavigationState) => void) => {
+    const listener = (_event: IpcRendererEvent, state: NavigationState) => callback(state);
+    ipcRenderer.on("navigation:state", listener);
+    return () => {
+      ipcRenderer.removeListener("navigation:state", listener);
+    };
+  },
 });
