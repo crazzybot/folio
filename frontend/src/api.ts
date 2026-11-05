@@ -19,6 +19,13 @@ export async function fetchDocuments(): Promise<DocumentMeta[]> {
   return handleResponse<DocumentMeta[]>(res);
 }
 
+/** URL of the workspace file at `location` (workspace-relative, "/"-separated). */
+export function workspaceFileUrl(location: string): string {
+  const encoded = location.split("/").map(encodeURIComponent).join("/");
+  if (desktopApi) return desktopApi.workspaceFileBaseUrl + encoded;
+  return `${apiBase}/api/files/${encoded}`;
+}
+
 export async function fetchDocumentContent(id: string): Promise<DocumentContent> {
   if (desktopApi) return desktopApi.getDocumentContent(id);
   const res = await fetch(`${apiBase}/api/documents/${encodeURIComponent(id)}/content`);

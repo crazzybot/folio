@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
@@ -6,8 +6,9 @@ import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { Options as RehypeHighlightOptions } from "rehype-highlight";
 import type { Components, ExtraProps } from "react-markdown";
-import { resolveLink } from "../links";
-import type { LinkTarget } from "../links";
+import { workspaceFileUrl } from "../api";
+import { resolveImageSrc, resolveLink } from "../links";
+import type { ImageSource, LinkTarget } from "../links";
 import { saveScrollPosition } from "../scrollHistory";
 import type { DocumentMeta } from "../types";
 
@@ -110,6 +111,7 @@ function makeHeading(Tag: HeadingTag) {
 
 interface LinkHandlers {
   resolve: (href: string) => LinkTarget | null;
+  resolveImage: (src: string) => ImageSource | null;
   onAnchor: (anchor: string) => void;
   onOpenDocument: (id: string, anchor: string | null) => void;
 }
@@ -216,9 +218,39 @@ function ExternalLinkIcon(): React.ReactElement {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Images
+// Relative paths resolve against the document's folder, like links, and are
+// loaded from the workspace. Images that can't be shown leave a labelled
+// placeholder instead of a broken-image icon.
+// ---------------------------------------------------------------------------
+
+function MarkdownImage({
+  src,
+  alt,
+  node: _node,
+  ...rest
+}: React.ImgHTMLAttributes<HTMLImageElement> & ExtraProps): React.ReactElement {
+  const handlers = useContext(LinkContext);
+  const source = src !== undefined && handlers ? handlers.resolveImage(src) : null;
+  const url = source === null ? null : source.kind === "url" ? source.src : workspaceFileUrl(source.location);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+
+  if (url === null || failedUrl === url) {
+    const where = source?.kind === "workspace" ? source.location : src;
+    return (
+      <span className={styles.missingImage} role="img" aria-label={alt || "Image"} title={`Image not found: ${where ?? ""}`}>
+        {alt || "Image"} (not found)
+      </span>
+    );
+  }
+  return <img {...rest} src={url} alt={alt ?? ""} loading="lazy" onError={() => setFailedUrl(url)} />;
+}
+
 // Build the components map once — stable reference, no re-creation on render.
 const markdownComponents: Components = {
   a: MarkdownLink,
+  img: MarkdownImage,
   h1: makeHeading("h1"),
   h2: makeHeading("h2"),
   h3: makeHeading("h3"),
@@ -446,6 +478,7 @@ export default function MarkdownViewer({
   const linkHandlers = useMemo<LinkHandlers>(
     () => ({
       resolve: (href) => resolveLink(href, currentLocation, idsByLocation),
+      resolveImage: (src) => resolveImageSrc(src, currentLocation),
       onAnchor: (anchorId) => {
         saveScroll();
         // Scroll now — re-clicking the anchor already in the URL changes

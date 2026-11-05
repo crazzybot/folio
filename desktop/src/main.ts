@@ -4,7 +4,9 @@
  * Replaces the FastAPI backend: the workspace is scanned in-process and the
  * renderer reaches it over IPC (see preload.ts). The React build is served
  * from a privileged `app://` scheme with an index.html fallback, so the
- * frontend's BrowserRouter and /doc/<id>#anchor URLs work unchanged.
+ * frontend's BrowserRouter and /doc/<id>#anchor URLs work unchanged. Images
+ * embedded by documents are served under app://bundle/@workspace/<location>
+ * (see images.ts).
  *
  * Preferences (workspace, skipped folders, scan depth) live in settings.json;
  * see settings.ts. Recently opened folders live in recent.json; see recent.ts.
@@ -30,6 +32,7 @@ import {
   loadRecentWorkspaces,
   removeRecentWorkspace,
 } from "./recent";
+import { serveImage } from "./images";
 import { findDocument, scanWorkspace } from "./scanner";
 import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, settingsPath, watchSettings } from "./settings";
@@ -43,6 +46,8 @@ import { watchWorkspace } from "./watcher";
 const APP_NAME = "Folio";
 const APP_SCHEME = "app";
 const APP_ORIGIN = `${APP_SCHEME}://bundle`;
+// Path prefix for workspace images; must match preload.ts
+const WORKSPACE_FILES_PREFIX = "/@workspace/";
 const RENDERER_DIR = path.join(__dirname, "..", "renderer");
 const DEV_SERVER_URL = app.isPackaged ? undefined : process.env["VITE_DEV_SERVER_URL"];
 const DEV_SERVER_ORIGIN = DEV_SERVER_URL !== undefined ? new URL(DEV_SERVER_URL).origin : null;
@@ -111,6 +116,15 @@ function isFile(filePath: string): boolean {
 /** Serve renderer files, falling back to index.html for client-side routes. */
 async function handleAppRequest(request: Request): Promise<Response> {
   const { pathname } = new URL(request.url);
+  if (pathname.startsWith(WORKSPACE_FILES_PREFIX)) {
+    let location: string;
+    try {
+      location = decodeURIComponent(pathname.slice(WORKSPACE_FILES_PREFIX.length));
+    } catch {
+      return new Response("Not found", { status: 404 });
+    }
+    return serveImage(settings.workspace, location, new Set(settings.skipDirs));
+  }
   const requested = path.normalize(path.join(RENDERER_DIR, decodeURIComponent(pathname)));
   const insideBundle = requested.startsWith(RENDERER_DIR + path.sep);
 

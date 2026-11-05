@@ -127,6 +127,18 @@
   cursor: not-allowed;
 }
 
+/* Images that can't be shown (missing file, outside the workspace, offline) */
+.missingImage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.15em 0.6em;
+  border: 1px dashed var(--color-border-light);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
 /* ─── Lists ───────────────────────────────────────────────────────────────── */
 .article :global(ul),
 .article :global(ol) {

@@ -239,3 +239,49 @@ def find_document(
     except (OSError, ValueError):
         return None
     return meta, content
+
+
+# ---------------------------------------------------------------------------
+# Images
+# ---------------------------------------------------------------------------
+
+# Image types a document may embed, with the content type they are served as
+IMAGE_TYPES: dict[str, str] = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".avif": "image/avif",
+    ".bmp": "image/bmp",
+    ".ico": "image/x-icon",
+    ".svg": "image/svg+xml",
+}
+
+
+def find_image(
+    workspace: Path,
+    location: str,
+    skip_dirs: frozenset[str] = frozenset(),
+) -> Path | None:
+    """
+    Return the path of the image at workspace-relative *location*, or ``None``.
+
+    Only image types are served, never from a skipped folder, and the
+    resolved file (symlinks included) must lie inside the workspace.
+    """
+    parts = location.split("/")
+    if any(part in ("", ".", "..") or "\\" in part for part in parts):
+        return None
+    if any(part in skip_dirs for part in parts[:-1]):
+        return None
+    file_path = workspace.joinpath(*parts)
+    if file_path.suffix.lower() not in IMAGE_TYPES:
+        return None
+    try:
+        resolved = file_path.resolve()
+        if not resolved.is_file() or not resolved.is_relative_to(workspace.resolve()):
+            return None
+    except OSError:
+        return None
+    return file_path

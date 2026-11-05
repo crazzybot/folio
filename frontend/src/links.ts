@@ -81,3 +81,29 @@ export function resolveLink(
   if (location === currentLocation && anchor !== null) return { kind: "anchor", anchor };
   return { kind: "document", id, anchor };
 }
+
+export type ImageSource =
+  /** "https://…" — loaded as it is */
+  | { kind: "url"; src: string }
+  /** "img/diagram.png" — a file in the workspace */
+  | { kind: "workspace"; location: string };
+
+/**
+ * Resolve an image `src` as it appears in the document at `currentLocation`:
+ * URLs with a scheme are used as they are, relative paths become a workspace
+ * location. Null when the path escapes the workspace.
+ */
+export function resolveImageSrc(src: string, currentLocation: string | null): ImageSource | null {
+  const trimmed = src.trim();
+  if (trimmed === "") return null;
+  if (EXTERNAL_HREF.test(trimmed)) return { kind: "url", src: trimmed };
+
+  const pathPart = trimmed.split(/[?#]/)[0] ?? "";
+  const baseDir =
+    currentLocation !== null && currentLocation.includes("/")
+      ? currentLocation.slice(0, currentLocation.lastIndexOf("/"))
+      : "";
+  const location = resolvePath(baseDir, safeDecode(pathPart));
+  if (location === null || location === "") return null;
+  return { kind: "workspace", location };
+}
