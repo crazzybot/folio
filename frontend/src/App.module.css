@@ -98,7 +98,7 @@
 }
 
 .iconBtn:hover {
-  background: rgba(90, 93, 94, 0.31);
+  background: var(--color-hover-bg);
 }
 
 .iconBtn:focus-visible {

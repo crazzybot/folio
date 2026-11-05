@@ -22,7 +22,7 @@ import langC from "highlight.js/lib/languages/c";
 import langCpp from "highlight.js/lib/languages/cpp";
 import langXml from "highlight.js/lib/languages/xml"; // covers html
 
-import "highlight.js/styles/github-dark.css";
+import "../syntax.css";
 import styles from "./MarkdownViewer.module.css";
 
 interface MarkdownViewerProps {

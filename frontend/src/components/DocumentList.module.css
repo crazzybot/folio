@@ -98,7 +98,7 @@
 
 .clearBtn:hover {
   color: var(--color-text);
-  background: rgba(90, 93, 94, 0.31);
+  background: var(--color-hover-bg);
 }
 
 .clearBtn:focus-visible {
@@ -139,7 +139,7 @@
 }
 
 .errorMessage {
-  color: #f48771;
+  color: var(--color-error);
   line-height: 1.5;
 }
 

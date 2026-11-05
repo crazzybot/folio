@@ -42,7 +42,7 @@
 
 .errorIcon {
   font-size: 1.5rem;
-  color: #f48771;
+  color: var(--color-error);
 }
 
 .emptyIcon {
@@ -54,7 +54,8 @@
 /* Typography follows VS Code's Markdown preview: 14px, line-height 1.6 */
 .article {
   width: 100%;
-  max-width: 880px;
+  /* Set from the header's reading-width button (readingWidth.ts) */
+  max-width: var(--reading-width, 880px);
   margin: 0 auto;
   padding: var(--space-6) var(--space-8) var(--space-8);
   font-size: var(--text-content);
@@ -253,7 +254,7 @@
 }
 
 .article :global(tbody tr:hover) {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-row-hover-bg);
 }
 
 /* ─── Images ──────────────────────────────────────────────────────────────── */
@@ -327,45 +328,4 @@
     white-space: pre-wrap;
     word-break: break-word;
   }
-
-  /* Light syntax theme (github-light) in place of the on-screen dark one */
-  .article :global(.hljs) { background: #f6f8fa; color: #1f2328; }
-  .article :global(.hljs-doctag),
-  .article :global(.hljs-keyword),
-  .article :global(.hljs-meta .hljs-keyword),
-  .article :global(.hljs-template-tag),
-  .article :global(.hljs-template-variable),
-  .article :global(.hljs-type),
-  .article :global(.hljs-variable.language_) { color: #cf222e; }
-  .article :global(.hljs-title),
-  .article :global(.hljs-title.class_),
-  .article :global(.hljs-title.class_.inherited__),
-  .article :global(.hljs-title.function_) { color: #8250df; }
-  .article :global(.hljs-attr),
-  .article :global(.hljs-attribute),
-  .article :global(.hljs-literal),
-  .article :global(.hljs-meta),
-  .article :global(.hljs-number),
-  .article :global(.hljs-operator),
-  .article :global(.hljs-variable),
-  .article :global(.hljs-selector-attr),
-  .article :global(.hljs-selector-class),
-  .article :global(.hljs-selector-id) { color: #0550ae; }
-  .article :global(.hljs-regexp),
-  .article :global(.hljs-string),
-  .article :global(.hljs-meta .hljs-string) { color: #0a3069; }
-  .article :global(.hljs-built_in),
-  .article :global(.hljs-symbol) { color: #953800; }
-  .article :global(.hljs-comment),
-  .article :global(.hljs-code),
-  .article :global(.hljs-formula) { color: #6e7781; }
-  .article :global(.hljs-name),
-  .article :global(.hljs-quote),
-  .article :global(.hljs-selector-tag),
-  .article :global(.hljs-selector-pseudo) { color: #116329; }
-  .article :global(.hljs-subst) { color: #1f2328; }
-  .article :global(.hljs-section) { color: #0550ae; font-weight: bold; }
-  .article :global(.hljs-bullet) { color: #953800; }
-  .article :global(.hljs-addition) { color: #116329; background-color: #dafbe1; }
-  .article :global(.hljs-deletion) { color: #82071e; background-color: #ffebe9; }
 }

@@ -8,7 +8,7 @@
  * embedded by documents are served under app://bundle/@workspace/<location>
  * (see images.ts).
  *
- * Preferences (workspace, skipped folders, scan depth) live in settings.json;
+ * Preferences (workspace, skipped folders, scan depth, theme) live in settings.json;
  * see settings.ts. Recently opened folders live in recent.json; see recent.ts.
  * The workspace is watched for markdown changes (see watcher.ts), which the
  * renderer is told about so it can refresh without a reload.
@@ -21,7 +21,7 @@
  *     arbitrary page.
  */
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, session, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, protocol, session, shell } from "electron";
 import type { IpcMainInvokeEvent, MenuItemConstructorOptions, WebContents } from "electron";
 import { existsSync, promises as fs, statSync } from "node:fs";
 import os from "node:os";
@@ -36,7 +36,7 @@ import { serveImage } from "./images";
 import { findDocument, scanWorkspace } from "./scanner";
 import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, settingsPath, watchSettings } from "./settings";
-import type { Settings } from "./settings";
+import type { Settings, Theme } from "./settings";
 import { watchWorkspace } from "./watcher";
 
 // ---------------------------------------------------------------------------
@@ -52,9 +52,15 @@ const RENDERER_DIR = path.join(__dirname, "..", "renderer");
 const DEV_SERVER_URL = app.isPackaged ? undefined : process.env["VITE_DEV_SERVER_URL"];
 const DEV_SERVER_ORIGIN = DEV_SERVER_URL !== undefined ? new URL(DEV_SERVER_URL).origin : null;
 
-// Match --color-bg on screen and in print (frontend/src/index.css)
-const WINDOW_BACKGROUND_COLOR = "#1f1f1f";
+// Match --color-bg of the dark and light themes and print (frontend/src/index.css)
+const DARK_BACKGROUND_COLOR = "#1f1f1f";
+const LIGHT_BACKGROUND_COLOR = "#ffffff";
 const PRINT_BACKGROUND_COLOR = "#ffffff";
+
+/** The window colour behind the page, shown before it paints. */
+function windowBackgroundColor(): string {
+  return nativeTheme.shouldUseDarkColors ? DARK_BACKGROUND_COLOR : LIGHT_BACKGROUND_COLOR;
+}
 
 // Inline styles are needed for React `style` props; images may be remote.
 // Documents are sanitized before rendering (see MarkdownViewer.tsx); this
@@ -313,6 +319,28 @@ function clearRecent(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Appearance
+// ---------------------------------------------------------------------------
+
+/**
+ * Apply the theme setting. nativeTheme drives the page's
+ * prefers-color-scheme, so the frontend's light/dark palettes follow it,
+ * along with native scrollbars, menus and the macOS title bar.
+ */
+function applyTheme(): void {
+  nativeTheme.themeSource = settings.theme;
+}
+
+/** View → Appearance: save the choice, which applies it and updates the menu. */
+function setTheme(theme: Theme): void {
+  if (theme === settings.theme) return;
+  settings = { ...settings, theme };
+  saveSettings(settings);
+  applyTheme();
+  Menu.setApplicationMenu(buildMenu());
+}
+
+// ---------------------------------------------------------------------------
 // Settings file
 // ---------------------------------------------------------------------------
 
@@ -335,6 +363,11 @@ function applySettings(next: Settings): void {
   const workspaceChanged = next.workspace !== settings.workspace;
   const scanChanged =
     next.maxDepth !== settings.maxDepth || next.skipDirs.join("\0") !== settings.skipDirs.join("\0");
+  if (next.theme !== settings.theme) {
+    settings = { ...settings, theme: next.theme };
+    applyTheme();
+    Menu.setApplicationMenu(buildMenu());
+  }
   // Our own saves (Open Folder, Settings…) come back here unchanged
   if (!workspaceChanged && !scanChanged) return;
 
@@ -383,7 +416,7 @@ async function exportPdf(win: BrowserWindow): Promise<void> {
     const data = await win.webContents.printToPDF({ printBackground: true, preferCSSPageSize: true });
     await fs.writeFile(filePath, data);
   } finally {
-    win.setBackgroundColor(WINDOW_BACKGROUND_COLOR);
+    win.setBackgroundColor(windowBackgroundColor());
   }
 }
 
@@ -465,7 +498,39 @@ function buildMenu(): Menu {
       ],
     },
     { role: "editMenu" },
-    { role: "viewMenu" },
+    {
+      label: "View",
+      submenu: [
+        {
+          label: "Appearance",
+          submenu: (
+            [
+              ["system", "System"],
+              ["light", "Light"],
+              ["dark", "Dark"],
+            ] as const
+          ).map(
+            ([theme, label]): MenuItemConstructorOptions => ({
+              label,
+              type: "radio",
+              checked: settings.theme === theme,
+              click: () => setTheme(theme),
+            }),
+          ),
+        },
+        { type: "separator" },
+        // The rest of Electron's default View menu
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
     {
       label: "Go",
       submenu: [
@@ -497,7 +562,7 @@ function createWindow(): BrowserWindow {
     minWidth: 640,
     minHeight: 400,
     title: APP_NAME,
-    backgroundColor: WINDOW_BACKGROUND_COLOR,
+    backgroundColor: windowBackgroundColor(),
     show: false,
     // macOS: hide the title bar and inset the window buttons into the app's
     // 35px header row (--header-height), as VS Code does
@@ -553,6 +618,11 @@ app.setName(APP_NAME);
 
 void app.whenReady().then(() => {
   settings = loadSettings();
+  applyTheme();
+  // The OS switching light/dark (or our own setting) repaints the windows' background
+  nativeTheme.on("updated", () => {
+    for (const win of BrowserWindow.getAllWindows()) win.setBackgroundColor(windowBackgroundColor());
+  });
   recentWorkspaces = loadRecentWorkspaces();
   // Also records the workspace of installs that predate the recent list
   if (settings.workspace !== null && recentWorkspaces[0] !== settings.workspace) {

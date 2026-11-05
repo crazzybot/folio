@@ -8,6 +8,10 @@ import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 
+export type Theme = "system" | "light" | "dark";
+
+const THEMES: readonly Theme[] = ["system", "light", "dark"];
+
 export interface Settings {
   /** Folder whose markdown files are listed; null until the user picks one. */
   workspace: string | null;
@@ -15,12 +19,15 @@ export interface Settings {
   skipDirs: string[];
   /** Folder levels below the workspace to scan ("docs/guide.md" is depth 1); null = unlimited. */
   maxDepth: number | null;
+  /** Light or dark appearance; "system" follows the OS setting. */
+  theme: Theme;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
   workspace: null,
   skipDirs: [".git", "node_modules", ".venv", "__pycache__", ".cache"],
   maxDepth: null,
+  theme: "system",
 };
 
 export function settingsPath(): string {
@@ -38,11 +45,13 @@ function normalize(raw: Partial<Record<keyof Settings, unknown>>): Settings {
     typeof raw.maxDepth === "number" && Number.isInteger(raw.maxDepth) && raw.maxDepth > 0
       ? raw.maxDepth
       : null;
+  const theme = THEMES.find((value) => value === raw.theme) ?? DEFAULT_SETTINGS.theme;
   return {
     // Forget a workspace that has been deleted or moved since the last run
     workspace: workspace !== null && fs.existsSync(workspace) ? workspace : null,
     skipDirs,
     maxDepth,
+    theme,
   };
 }
 
