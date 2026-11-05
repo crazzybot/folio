@@ -3,11 +3,16 @@ import { Routes, Route, useNavigate, useParams, useLocation } from "react-router
 import { fetchDocumentContent, fetchDocuments } from "./api";
 import DocumentList from "./components/DocumentList";
 import MarkdownViewer from "./components/MarkdownViewer";
+import Breadcrumb from "./components/Breadcrumb";
 import styles from "./App.module.css";
 import type { DocumentMeta } from "./types";
 
 const PANEL_MIN_WIDTH = 160;
-const PANEL_DEFAULT_WIDTH = 280;
+const PANEL_DEFAULT_WIDTH = 260;
+
+// The macOS desktop app hides the title bar and insets the window buttons
+// into the app's own header rows.
+const IS_MAC_DESKTOP = window.markdownApi?.platform === "darwin";
 
 type LoadState =
   | { status: "idle" }
@@ -141,6 +146,16 @@ function AppInner(): React.ReactElement {
     [navigate, selectedId],
   );
 
+  // ── Cross-document link handler passed to MarkdownViewer ────────────────
+  // A link to another workspace document opens it (optionally at an anchor),
+  // pushing a history entry like any other document switch.
+  const handleOpenDocument = useCallback(
+    (id: string, anchorId: string | null) => {
+      navigate("/doc/" + encodeURIComponent(id) + (anchorId ? "#" + anchorId : ""));
+    },
+    [navigate],
+  );
+
   // ── Drag handlers ──────────────────────────────────────────────────────────
   const handleDividerMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -187,6 +202,18 @@ function AppInner(): React.ReactElement {
     setCollapsed((c) => !c);
   }, []);
 
+  // ⌘B / Ctrl+B toggles the sidebar, as in VS Code
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        toggleCollapse();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [toggleCollapse]);
+
   // Print styles (see @media print rules) strip the side panel and other app
   // chrome, leaving only the rendered document.
   const handlePrint = useCallback(() => {
@@ -202,111 +229,129 @@ function AppInner(): React.ReactElement {
   const contentError =
     contentState.status === "error" ? contentState.message : null;
 
+  const selectedDoc = documents.find((doc) => doc.id === selectedId) ?? null;
+  const toggleLabel = collapsed ? "Show document list (⌘B)" : "Hide document list (⌘B)";
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className={styles.appRoot} ref={containerRef}>
-      {/* ── Left panel (document list) ── */}
-      <aside
-        className={styles.leftPanel}
-        style={{ width: effectivePanelWidth }}
-        aria-label="Document list"
-        aria-hidden={collapsed}
-      >
-        <DocumentList
-          documents={documents}
-          selectedId={selectedId}
-          onSelect={handleSelect}
-          loading={listLoading}
-          error={listError}
-        />
-      </aside>
-
-      {/* ── Divider ── */}
-      <div
-        className={styles.divider}
-        onMouseDown={handleDividerMouseDown}
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="Resize panels"
-        aria-valuenow={effectivePanelWidth}
-        aria-valuemin={PANEL_MIN_WIDTH}
-        aria-valuemax={600}
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowLeft") {
-            e.preventDefault();
-            setPanelWidth((w) => Math.max(PANEL_MIN_WIDTH, w - 20));
-            setCollapsed(false);
-          } else if (e.key === "ArrowRight") {
-            e.preventDefault();
-            setPanelWidth((w) => Math.min(w + 20, 600));
-            setCollapsed(false);
-          }
-        }}
-      >
-        <button
-          className={styles.collapseBtn}
-          onClick={toggleCollapse}
-          aria-label={collapsed ? "Expand document list" : "Collapse document list"}
-          title={collapsed ? "Expand document list" : "Collapse document list"}
-          type="button"
+    <div
+      className={styles.appRoot}
+      ref={containerRef}
+      data-titlebar={IS_MAC_DESKTOP ? "inset" : undefined}
+    >
+      <div className={styles.workbench}>
+        {/* ── Left panel (document list) ── */}
+        <aside
+          className={styles.leftPanel}
+          style={{ width: effectivePanelWidth }}
+          aria-label="Document list"
+          aria-hidden={collapsed}
         >
-          <svg
-            className={styles.collapseIcon}
-            style={{ transform: collapsed ? "rotate(180deg)" : "rotate(0deg)" }}
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            aria-hidden="true"
+          <DocumentList
+            documents={documents}
+            selectedId={selectedId}
+            onSelect={handleSelect}
+            loading={listLoading}
+            error={listError}
+          />
+        </aside>
+
+        {/* ── Divider ── */}
+        <div
+          className={styles.divider}
+          onMouseDown={handleDividerMouseDown}
+          onDoubleClick={toggleCollapse}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize panels"
+          aria-valuenow={effectivePanelWidth}
+          aria-valuemin={PANEL_MIN_WIDTH}
+          aria-valuemax={600}
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft") {
+              e.preventDefault();
+              setPanelWidth((w) => Math.max(PANEL_MIN_WIDTH, w - 20));
+              setCollapsed(false);
+            } else if (e.key === "ArrowRight") {
+              e.preventDefault();
+              setPanelWidth((w) => Math.min(w + 20, 600));
+              setCollapsed(false);
+            }
+          }}
+        />
+
+        {/* ── Right panel ── */}
+        <main className={styles.rightPanel} aria-label="Markdown viewer">
+          <header
+            className={`${styles.editorHeader} ${collapsed ? styles.editorHeaderInset : ""}`}
           >
-            <polyline
-              points="7,2 3,5 7,8"
-              strokeWidth="1.8"
-              stroke="currentColor"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+            <button
+              className={styles.iconBtn}
+              onClick={toggleCollapse}
+              aria-label={toggleLabel}
+              aria-pressed={!collapsed}
+              title={toggleLabel}
+              type="button"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" />
+                <line x1="6" y1="3" x2="6" y2="13" stroke="currentColor" />
+                {!collapsed && <rect x="2" y="3" width="4" height="10" fill="currentColor" opacity="0.35" />}
+              </svg>
+            </button>
+
+            <Breadcrumb location={selectedDoc?.location ?? null} />
+
+            <button
+              className={styles.iconBtn}
+              onClick={handlePrint}
+              disabled={contentValue === null}
+              aria-label="Print document"
+              title="Print document"
+              type="button"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M4.5 6V1.5h7V6" />
+                <path d="M4.5 12h-2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2" />
+                <rect x="4.5" y="9.5" width="7" height="5" />
+              </svg>
+            </button>
+          </header>
+
+          <MarkdownViewer
+            content={contentValue}
+            loading={contentLoading}
+            error={contentError}
+            selectedId={selectedId}
+            anchor={anchor}
+            onAnchorClick={handleAnchorClick}
+            documents={documents}
+            currentLocation={selectedDoc?.location ?? null}
+            onOpenDocument={handleOpenDocument}
+          />
+        </main>
       </div>
 
-      {/* ── Right panel ── */}
-      <main className={styles.rightPanel} aria-label="Markdown viewer">
-        {contentValue !== null && (
-          <button
-            className={styles.printBtn}
-            onClick={handlePrint}
-            aria-label="Print document"
-            title="Print document"
-            type="button"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <polyline points="6,9 6,2 18,2 18,9" />
-              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-              <rect x="6" y="14" width="12" height="8" />
-            </svg>
-          </button>
-        )}
-        <MarkdownViewer
-          content={contentValue}
-          loading={contentLoading}
-          error={contentError}
-          selectedId={selectedId}
-          anchor={anchor}
-          onAnchorClick={handleAnchorClick}
-        />
-      </main>
+      {/* ── Status bar ── */}
+      <footer className={styles.statusBar}>
+        <span className={styles.statusItem} title={selectedDoc?.location}>
+          {selectedDoc ? selectedDoc.location : ""}
+        </span>
+        <span className={styles.statusItem} aria-live="polite">
+          {listLoading
+            ? "Loading…"
+            : `${documents.length} document${documents.length !== 1 ? "s" : ""}`}
+        </span>
+      </footer>
     </div>
   );
 }

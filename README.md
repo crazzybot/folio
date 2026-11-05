@@ -16,8 +16,8 @@ highlighting — all without leaving your browser.
 
 - Recursive workspace scan — supports sub-folders
 - Live search across titles and filenames
-- Resizable / collapsible sidebar (mouse drag + keyboard arrows)
-- GitHub-style dark theme
+- Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)
+- VS Code-style dark theme with breadcrumb header and status bar
 - GFM support: tables, task lists, strikethrough
 - Syntax-highlighted fenced code blocks (Python, JS/TS, JSON, Bash, CSS, HTML, YAML, Markdown)
 

@@ -34,7 +34,7 @@ const RENDERER_DIR = path.join(__dirname, "..", "renderer");
 const DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 
 // Match --color-bg on screen and in print (frontend/src/index.css)
-const WINDOW_BACKGROUND_COLOR = "#0d1117";
+const WINDOW_BACKGROUND_COLOR = "#1f1f1f";
 const PRINT_BACKGROUND_COLOR = "#ffffff";
 
 const DEFAULT_SKIP_DIRS = ".git,node_modules,.venv,__pycache__,.cache";
@@ -259,6 +259,11 @@ function createWindow(): BrowserWindow {
     title: APP_NAME,
     backgroundColor: WINDOW_BACKGROUND_COLOR,
     show: false,
+    // macOS: hide the title bar and inset the window buttons into the app's
+    // 35px header row (--header-height), as VS Code does
+    ...(process.platform === "darwin"
+      ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 13, y: 11 } }
+      : {}),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

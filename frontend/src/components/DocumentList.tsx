@@ -1,5 +1,6 @@
 import React, { useId, useMemo, useState } from "react";
 import type { DocumentMeta } from "../types";
+import MarkdownIcon from "./MarkdownIcon";
 import styles from "./DocumentList.module.css";
 
 interface DocumentListProps {
@@ -117,15 +118,6 @@ export default function DocumentList({
           </ul>
         )}
       </div>
-
-      {/* ── Footer count ── */}
-      {!loading && documents.length > 0 && (
-        <footer className={styles.footer} aria-live="polite">
-          {filtered.length === documents.length
-            ? `${documents.length} document${documents.length !== 1 ? "s" : ""}`
-            : `${filtered.length} of ${documents.length}`}
-        </footer>
-      )}
     </div>
   );
 }
@@ -143,6 +135,10 @@ function DocumentEntry({
   isSelected,
   onSelect,
 }: DocumentEntryProps): React.ReactElement {
+  // Like VS Code's quick-open description: the containing folder, dimmed
+  const folder = doc.location.includes("/")
+    ? doc.location.slice(0, doc.location.lastIndexOf("/"))
+    : "";
   return (
     <li
       className={`${styles.entry} ${isSelected ? styles.entrySelected : ""}`}
@@ -157,11 +153,11 @@ function DocumentEntry({
       }}
       tabIndex={0}
       aria-label={`${doc.title} — ${doc.location}`}
+      title={doc.location}
     >
+      <MarkdownIcon className={styles.entryIcon} />
       <span className={styles.entryTitle}>{doc.title}</span>
-      <span className={styles.entryLocation} title={doc.location}>
-        {doc.location}
-      </span>
+      {folder && <span className={styles.entryFolder}>{folder}</span>}
     </li>
   );
 }
