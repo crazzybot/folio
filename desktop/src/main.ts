@@ -35,7 +35,7 @@ import {
 import { serveImage } from "./images";
 import { findDocument, scanWorkspace } from "./scanner";
 import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
-import { DEFAULT_SETTINGS, loadSettings, saveSettings, settingsPath, watchSettings } from "./settings";
+import { DEFAULT_SETTINGS, isTheme, loadSettings, saveSettings, settingsPath, watchSettings } from "./settings";
 import type { Settings, Theme } from "./settings";
 import { watchWorkspace } from "./watcher";
 
@@ -198,6 +198,19 @@ function registerIpcHandlers(): void {
     return { id: result.meta.id, content: result.content };
   });
 
+  // The renderer asks once on load; later changes are pushed (see applyTheme)
+  ipcMain.handle("theme:get", (event): Theme => {
+    assertTrustedSender(event);
+    return settings.theme;
+  });
+
+  // The header's display options menu
+  ipcMain.handle("theme:set", (event, theme: unknown): void => {
+    assertTrustedSender(event);
+    if (!isTheme(theme)) throw new Error("Theme must be system, light or dark");
+    setTheme(theme);
+  });
+
   // The renderer asks once on load; later changes are pushed (see updateNavigationState)
   ipcMain.handle("navigation:state", (event): NavigationState => {
     assertTrustedSender(event);
@@ -324,14 +337,18 @@ function clearRecent(): void {
 
 /**
  * Apply the theme setting. nativeTheme drives the page's
- * prefers-color-scheme, so the frontend's light/dark palettes follow it,
- * along with native scrollbars, menus and the macOS title bar.
+ * prefers-color-scheme, which the frontend resolves "system" with, along with
+ * native scrollbars, menus and the macOS title bar. The renderer is told the
+ * setting itself so its display options menu shows the current choice.
  */
 function applyTheme(): void {
   nativeTheme.themeSource = settings.theme;
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send("theme:changed", settings.theme);
+  }
 }
 
-/** View → Appearance: save the choice, which applies it and updates the menu. */
+/** View → Appearance or the display options menu: save, apply, and update the menu. */
 function setTheme(theme: Theme): void {
   if (theme === settings.theme) return;
   settings = { ...settings, theme };

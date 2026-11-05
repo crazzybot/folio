@@ -12,6 +12,10 @@ export type Theme = "system" | "light" | "dark";
 
 const THEMES: readonly Theme[] = ["system", "light", "dark"];
 
+export function isTheme(value: unknown): value is Theme {
+  return THEMES.some((theme) => theme === value);
+}
+
 export interface Settings {
   /** Folder whose markdown files are listed; null until the user picks one. */
   workspace: string | null;
@@ -45,7 +49,7 @@ function normalize(raw: Partial<Record<keyof Settings, unknown>>): Settings {
     typeof raw.maxDepth === "number" && Number.isInteger(raw.maxDepth) && raw.maxDepth > 0
       ? raw.maxDepth
       : null;
-  const theme = THEMES.find((value) => value === raw.theme) ?? DEFAULT_SETTINGS.theme;
+  const theme = isTheme(raw.theme) ? raw.theme : DEFAULT_SETTINGS.theme;
   return {
     // Forget a workspace that has been deleted or moved since the last run
     workspace: workspace !== null && fs.existsSync(workspace) ? workspace : null,

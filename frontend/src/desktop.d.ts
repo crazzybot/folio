@@ -11,6 +11,11 @@ interface MarkdownDesktopApi {
   getNavigationState(): Promise<NavigationState>;
   /** Subscribe to back/forward availability; returns an unsubscribe function. */
   onNavigationStateChange(callback: (state: NavigationState) => void): () => void;
+  /** The theme setting ("system", "light" or "dark"), shared with View → Appearance. */
+  getTheme(): Promise<string>;
+  setTheme(theme: string): Promise<void>;
+  /** Subscribe to theme setting changes (menu, settings.json); returns an unsubscribe function. */
+  onThemeChange(callback: (theme: string) => void): () => void;
   /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */
   onWorkspaceChange(callback: () => void): () => void;
 }

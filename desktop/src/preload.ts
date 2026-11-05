@@ -28,6 +28,16 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.removeListener("navigation:state", listener);
     };
   },
+  getTheme: () => ipcRenderer.invoke("theme:get"),
+  setTheme: (theme: string) => ipcRenderer.invoke("theme:set", theme),
+  /** Subscribe to theme setting changes (menu, settings.json); returns an unsubscribe function. */
+  onThemeChange: (callback: (theme: string) => void) => {
+    const listener = (_event: IpcRendererEvent, theme: string) => callback(theme);
+    ipcRenderer.on("theme:changed", listener);
+    return () => {
+      ipcRenderer.removeListener("theme:changed", listener);
+    };
+  },
   /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */
   onWorkspaceChange: (callback: () => void) => {
     const listener = () => callback();

@@ -7,6 +7,8 @@ import MarkdownViewer from "./components/MarkdownViewer";
 import Breadcrumb from "./components/Breadcrumb";
 import useDesktopHistory from "./useDesktopHistory";
 import useReadingWidth from "./readingWidth";
+import useTheme from "./theme";
+import DisplayMenu from "./components/DisplayMenu";
 import styles from "./App.module.css";
 import type { DocumentMeta } from "./types";
 
@@ -72,8 +74,9 @@ function AppInner(): React.ReactElement {
   // ── Back / forward (desktop app only; null in the browser) ─────────────────
   const history = useDesktopHistory();
 
-  // ── Reading width (header button) ──────────────────────────────────────────
-  const [readingWidth, cycleReadingWidth] = useReadingWidth();
+  // ── Display options (header menu) ─────────────────────────────────────────
+  const [theme, setTheme] = useTheme();
+  const [readingWidth, setReadingWidth] = useReadingWidth();
 
   // ── Panel / divider state ──────────────────────────────────────────────────
   const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
@@ -299,7 +302,6 @@ function AppInner(): React.ReactElement {
 
   const selectedDoc = documents.find((doc) => doc.id === selectedId) ?? null;
   const toggleLabel = collapsed ? "Show document list (⌘B)" : "Hide document list (⌘B)";
-  const widthLabel = `Reading width: ${readingWidth.label} (click to change)`;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -402,19 +404,13 @@ function AppInner(): React.ReactElement {
 
             <Breadcrumb location={selectedDoc?.location ?? null} />
 
-            <button
-              className={styles.iconBtn}
-              onClick={cycleReadingWidth}
-              aria-label={widthLabel}
-              title={widthLabel}
-              type="button"
-            >
-              {/* Arrows between two bars, which move out to the edges at Full width */}
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
-                <path d={readingWidth.id === "full" ? "M1.5 2.5v11M14.5 2.5v11" : "M3.5 2.5v11M12.5 2.5v11"} />
-                <path d="M5.5 8h5M7 6.5L5.5 8 7 9.5M9 6.5l1.5 1.5L9 9.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
+            <DisplayMenu
+              theme={theme}
+              onThemeChange={setTheme}
+              readingWidth={readingWidth.id}
+              onReadingWidthChange={setReadingWidth}
+              buttonClassName={styles.iconBtn}
+            />
 
             <button
               className={styles.iconBtn}

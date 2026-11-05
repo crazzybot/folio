@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-/** How wide the rendered document may grow; the header button cycles through these. */
+/** How wide the rendered document may grow; chosen in the header's display options menu. */
 export const READING_WIDTHS = [
   { id: "narrow", label: "Narrow", maxWidth: "720px" },
   { id: "medium", label: "Medium", maxWidth: "880px" },
@@ -23,21 +23,19 @@ function load(): ReadingWidth {
   return READING_WIDTHS.find((w) => w.id === saved) ?? DEFAULT_WIDTH;
 }
 
-/** The reader's chosen width, remembered per browser / desktop install, and a function to step to the next one. */
-export default function useReadingWidth(): [ReadingWidth, () => void] {
+/** The reader's chosen width, remembered per browser / desktop install, and a setter taking a width id. */
+export default function useReadingWidth(): [ReadingWidth, (id: ReadingWidth["id"]) => void] {
   const [width, setWidth] = useState(load);
 
-  const cycle = useCallback(() => {
-    setWidth((current) => {
-      const next = READING_WIDTHS[(READING_WIDTHS.indexOf(current) + 1) % READING_WIDTHS.length] ?? DEFAULT_WIDTH;
-      try {
-        localStorage.setItem(STORAGE_KEY, next.id);
-      } catch {
-        // Not remembered, but still applied
-      }
-      return next;
-    });
+  const choose = useCallback((id: ReadingWidth["id"]) => {
+    const next = READING_WIDTHS.find((w) => w.id === id) ?? DEFAULT_WIDTH;
+    setWidth(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, next.id);
+    } catch {
+      // Not remembered, but still applied
+    }
   }, []);
 
-  return [width, cycle];
+  return [width, choose];
 }
