@@ -54,11 +54,11 @@
 /* Typography follows VS Code's Markdown preview: 14px, line-height 1.6 */
 .article {
   width: 100%;
-  /* Set from the header's reading-width button (readingWidth.ts) */
+  /* Width and font size come from the display options menu (readerPrefs.ts) */
   max-width: var(--reading-width, 880px);
   margin: 0 auto;
   padding: var(--space-6) var(--space-8) var(--space-8);
-  font-size: var(--text-content);
+  font-size: var(--reading-font-size, var(--text-content));
   line-height: 1.6;
   color: var(--color-text);
   user-select: text;
@@ -137,7 +137,7 @@
   border: 1px dashed var(--color-border-light);
   border-radius: var(--radius-md);
   color: var(--color-text-muted);
-  font-size: var(--text-sm);
+  font-size: 0.85em;
 }
 
 /* ─── Lists ───────────────────────────────────────────────────────────────── */

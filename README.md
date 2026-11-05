@@ -18,7 +18,7 @@ highlighting — all without leaving your browser.
 - Live search across titles and filenames
 - Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)
 - VS Code-style light and dark themes with breadcrumb header and status bar
-- Display options menu in the header (◐): appearance (System, Light, Dark) and reading width (Narrow, Medium, Wide, Full)
+- Display options menu in the header (◐): appearance (System, Light, Dark), reading width (Narrow, Medium, Wide, Full) and font size (Small, Medium, Large, Extra large)
 - GFM support: tables, task lists, strikethrough
 - Images from the workspace (`![](img/diagram.png)`, relative to the document) and the web
 - Syntax-highlighted fenced code blocks (Python, JS/TS, JSON, Bash, CSS, HTML, YAML, Markdown)
@@ -117,8 +117,9 @@ soon as you save it:
 many folder levels below the workspace are scanned (`docs/guide.md` is depth
 1, `null` = unlimited) — the same as `MARKDOWN_SKIP_DIRS` / `MARKDOWN_MAX_DEPTH`
 for the backend. `theme` is `"system"`, `"light"` or `"dark"`. In the browser
-the appearance and reading width chosen in the display options menu are
-remembered in `localStorage`; in the desktop app the reading width is too.
+the appearance, reading width and font size chosen in the display options
+menu are remembered in `localStorage`; in the desktop app the reading width
+and font size are too.
 
 **Live-reload development** — run the Vite dev server (`npm run dev` in
 `frontend/`, port 3000), then `npm run dev` in `desktop/`.

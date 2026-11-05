@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
-import { READING_WIDTHS } from "../readingWidth";
-import type { ReadingWidth } from "../readingWidth";
+import { FONT_SIZES, READING_WIDTHS } from "../readerPrefs";
+import type { FontSize, ReadingWidth } from "../readerPrefs";
 import { THEME_OPTIONS } from "../theme";
 import type { ThemePreference } from "../theme";
 import styles from "./DisplayMenu.module.css";
@@ -10,13 +10,15 @@ interface DisplayMenuProps {
   onThemeChange: (theme: ThemePreference) => void;
   readingWidth: ReadingWidth["id"];
   onReadingWidthChange: (id: ReadingWidth["id"]) => void;
+  fontSize: FontSize["id"];
+  onFontSizeChange: (id: FontSize["id"]) => void;
   /** Class for the trigger button, so it matches the header's other icon buttons. */
   buttonClassName?: string | undefined;
 }
 
 /**
  * Header dropdown for display preferences: appearance (System / Light /
- * Dark) and reading width. Follows the WAI-ARIA menu button pattern: arrow
+ * Dark), reading width and font size. Follows the WAI-ARIA menu button pattern: arrow
  * keys move between options, Enter/Space picks one, Escape closes.
  */
 export default function DisplayMenu({
@@ -24,6 +26,8 @@ export default function DisplayMenu({
   onThemeChange,
   readingWidth,
   onReadingWidthChange,
+  fontSize,
+  onFontSizeChange,
   buttonClassName,
 }: DisplayMenuProps): React.ReactElement {
   const [open, setOpen] = useState(false);
@@ -154,6 +158,13 @@ export default function DisplayMenu({
               Reading width
             </div>
             {READING_WIDTHS.map((w) => option(w.id, w.label, w.id === readingWidth, onReadingWidthChange))}
+          </div>
+          <div role="separator" className={styles.separator} />
+          <div role="group" aria-labelledby={`${menuId}-font`}>
+            <div id={`${menuId}-font`} className={styles.heading}>
+              Font size
+            </div>
+            {FONT_SIZES.map((f) => option(f.id, f.label, f.id === fontSize, onFontSizeChange))}
           </div>
         </div>
       )}
