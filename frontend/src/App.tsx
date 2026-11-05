@@ -136,6 +136,57 @@ function AppInner(): React.ReactElement {
     };
   }, [selectedId]);
 
+  // ── Live reload (desktop app only) ───────────────────────────────────────
+  // When markdown files in the workspace change, refresh the list and the
+  // open document in place: no loading state, so the scroll position stays.
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+
+  useEffect(() => {
+    const api = window.markdownApi;
+    if (!api) return;
+    // Only the latest refresh may update state; older ones finish late
+    let generation = 0;
+    const unsubscribe = api.onWorkspaceChange(() => {
+      const current = ++generation;
+      const id = selectedIdRef.current;
+
+      fetchDocuments()
+        .then((docs) => {
+          if (current !== generation) return;
+          setDocuments(docs);
+          setListError(null);
+          // The workspace was empty until now: open its first document
+          const first = docs[0];
+          if (first !== undefined && selectedIdRef.current === null) {
+            navigate("/doc/" + encodeURIComponent(first.id), { replace: true });
+          }
+        })
+        .catch(() => {
+          // Keep showing the last list; the next change retries
+        });
+
+      if (id === null) return;
+      fetchDocumentContent(id)
+        .then((doc) => {
+          if (current !== generation || selectedIdRef.current !== id) return;
+          setContentState((prev) =>
+            prev.status === "success" && prev.id === id && prev.content === doc.content
+              ? prev
+              : { status: "success", id, content: doc.content },
+          );
+        })
+        .catch(() => {
+          if (current !== generation || selectedIdRef.current !== id) return;
+          setContentState({ status: "error", message: "This document was moved or deleted." });
+        });
+    });
+    return () => {
+      generation++;
+      unsubscribe();
+    };
+  }, [navigate]);
+
   // ── Navigation handler passed to DocumentList ──────────────────────────────
   // Replaces the old setSelectedId callback; pushes a new history entry so
   // the user can navigate back with the browser back-button.

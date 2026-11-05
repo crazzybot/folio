@@ -83,6 +83,11 @@ npm run dist:mac     # package → release/*.dmg and *.zip (also dist:win, dist:
 On first launch the app asks for a folder of Markdown files; the choice is
 remembered. Change it with **File → Open Folder…** (`⌘O`).
 
+The folder is watched while the app is open: saving a document in your editor
+updates it in place (keeping your scroll position), and added, renamed or
+deleted files show up in the document list right away. Folders in `skipDirs`
+are ignored.
+
 | Menu item | Shortcut | |
 |---|---|---|
 | Open Folder… | `⌘O` | Pick the workspace folder |

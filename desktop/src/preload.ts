@@ -26,4 +26,12 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.removeListener("navigation:state", listener);
     };
   },
+  /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */
+  onWorkspaceChange: (callback: () => void) => {
+    const listener = () => callback();
+    ipcRenderer.on("workspace:changed", listener);
+    return () => {
+      ipcRenderer.removeListener("workspace:changed", listener);
+    };
+  },
 });

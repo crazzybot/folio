@@ -9,6 +9,8 @@ interface MarkdownDesktopApi {
   getNavigationState(): Promise<NavigationState>;
   /** Subscribe to back/forward availability; returns an unsubscribe function. */
   onNavigationStateChange(callback: (state: NavigationState) => void): () => void;
+  /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */
+  onWorkspaceChange(callback: () => void): () => void;
 }
 
 declare global {
