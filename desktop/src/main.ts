@@ -6,14 +6,15 @@
  * from a privileged `app://` scheme with an index.html fallback, so the
  * frontend's BrowserRouter and /doc/<id>#anchor URLs work unchanged.
  *
+ * Preferences (workspace, skipped folders, scan depth) live in settings.json;
+ * see settings.ts.
+ *
  * Environment variables
  * ---------------------
  * VITE_DEV_SERVER_URL
  *     Load the renderer from a running Vite dev server instead of the bundle.
  *     Ignored in packaged builds, so it can't hand the document API to an
  *     arbitrary page.
- * MARKDOWN_SKIP_DIRS
- *     Comma-separated folder names to skip (same default as the backend).
  */
 
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, session, shell } from "electron";
@@ -21,8 +22,8 @@ import type { IpcMainInvokeEvent, MenuItemConstructorOptions } from "electron";
 import { promises as fs, statSync } from "node:fs";
 import path from "node:path";
 import { findDocument, scanWorkspace } from "./scanner";
-import type { DocumentContent, DocumentMeta } from "./scanner";
-import { loadSettings, saveSettings } from "./settings";
+import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, settingsPath, watchSettings } from "./settings";
 import type { Settings } from "./settings";
 
 // ---------------------------------------------------------------------------
@@ -39,14 +40,6 @@ const DEV_SERVER_ORIGIN = DEV_SERVER_URL !== undefined ? new URL(DEV_SERVER_URL)
 // Match --color-bg on screen and in print (frontend/src/index.css)
 const WINDOW_BACKGROUND_COLOR = "#1f1f1f";
 const PRINT_BACKGROUND_COLOR = "#ffffff";
-
-const DEFAULT_SKIP_DIRS = ".git,node_modules,.venv,__pycache__,.cache";
-const SKIP_DIRS: ReadonlySet<string> = new Set(
-  (process.env["MARKDOWN_SKIP_DIRS"] ?? DEFAULT_SKIP_DIRS)
-    .split(",")
-    .map((name) => name.trim())
-    .filter(Boolean),
-);
 
 // Inline styles are needed for React `style` props; images may be remote.
 // Documents are sanitized before rendering (see MarkdownViewer.tsx); this
@@ -77,7 +70,11 @@ const MIME_TYPES: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-let settings: Settings = { workspace: null };
+let settings: Settings = { ...DEFAULT_SETTINGS };
+
+function scanOptions(): ScanOptions {
+  return { skipDirs: new Set(settings.skipDirs), maxDepth: settings.maxDepth };
+}
 let mainWindow: BrowserWindow | null = null;
 
 // Must run before `ready`: lets app:// behave like https (fetch, storage, history).
@@ -158,14 +155,14 @@ function registerIpcHandlers(): void {
   ipcMain.handle("documents:list", async (event): Promise<DocumentMeta[]> => {
     assertTrustedSender(event);
     if (settings.workspace === null) return [];
-    return scanWorkspace(settings.workspace, SKIP_DIRS);
+    return scanWorkspace(settings.workspace, scanOptions());
   });
 
   ipcMain.handle("documents:content", async (event, docId: unknown): Promise<DocumentContent> => {
     assertTrustedSender(event);
     if (typeof docId !== "string") throw new Error("Document id must be a string");
     const result =
-      settings.workspace === null ? null : await findDocument(settings.workspace, docId, SKIP_DIRS);
+      settings.workspace === null ? null : await findDocument(settings.workspace, docId, scanOptions());
     if (result === null) throw new Error(`Document '${docId}' not found in workspace`);
     return { id: result.meta.id, content: result.content };
   });
@@ -199,6 +196,42 @@ async function chooseWorkspace(win: BrowserWindow): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Settings file
+// ---------------------------------------------------------------------------
+
+/** Open settings.json in the default editor, writing it out first if needed. */
+async function openSettingsFile(win: BrowserWindow): Promise<void> {
+  // Always write the current values so every option is visible to edit
+  saveSettings(settings);
+  const error = await shell.openPath(settingsPath());
+  if (error) {
+    await dialog.showMessageBox(win, {
+      type: "warning",
+      message: "Couldn't open the settings file",
+      detail: `${error}\n\nEdit it manually at:\n${settingsPath()}`,
+    });
+  }
+}
+
+/** Apply settings.json edits made while the app is running. */
+function applySettings(next: Settings): void {
+  const workspaceChanged = next.workspace !== settings.workspace;
+  const scanChanged =
+    next.maxDepth !== settings.maxDepth || next.skipDirs.join("\0") !== settings.skipDirs.join("\0");
+  // Our own saves (Open Folder, Settings…) come back here unchanged
+  if (!workspaceChanged && !scanChanged) return;
+
+  settings = next;
+  for (const win of BrowserWindow.getAllWindows()) {
+    updateWindowTitle(win);
+    // A new workspace starts at its first document; otherwise reload the
+    // current route so the document list reflects the new scan options
+    if (workspaceChanged) void win.loadURL(rendererUrl());
+    else win.webContents.reload();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Printing / PDF export
 // ---------------------------------------------------------------------------
 
@@ -213,7 +246,7 @@ async function exportPdf(win: BrowserWindow): Promise<void> {
   const docId = currentDocId(win);
   if (docId === null || settings.workspace === null) return;
 
-  const doc = await findDocument(settings.workspace, docId, SKIP_DIRS);
+  const doc = await findDocument(settings.workspace, docId, scanOptions());
   const stem = doc === null ? "document" : path.parse(doc.meta.filename).name;
 
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
@@ -248,12 +281,38 @@ function withWindow(action: (win: BrowserWindow) => unknown): () => void {
 
 function buildMenu(): Menu {
   const isMac = process.platform === "darwin";
+  const settingsItem: MenuItemConstructorOptions = {
+    label: "Settings…",
+    accelerator: "CmdOrCtrl+,",
+    click: withWindow(openSettingsFile),
+  };
   const template: MenuItemConstructorOptions[] = [
-    ...(isMac ? [{ role: "appMenu" } as const] : []),
+    // macOS keeps Settings… in the app menu; elsewhere it goes under File
+    ...(isMac
+      ? [
+          {
+            role: "appMenu",
+            submenu: [
+              { role: "about" },
+              { type: "separator" },
+              settingsItem,
+              { type: "separator" },
+              { role: "services" },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          } satisfies MenuItemConstructorOptions,
+        ]
+      : []),
     {
       label: "File",
       submenu: [
         { label: "Open Folder…", accelerator: "CmdOrCtrl+O", click: withWindow(chooseWorkspace) },
+        ...(isMac ? [] : [settingsItem]),
         { type: "separator" },
         { label: "Print…", accelerator: "CmdOrCtrl+P", click: withWindow((win) => win.webContents.print()) },
         { label: "Export as PDF…", accelerator: "CmdOrCtrl+Shift+E", click: withWindow(exportPdf) },
@@ -331,6 +390,7 @@ void app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   registerIpcHandlers();
+  watchSettings(applySettings);
   Menu.setApplicationMenu(buildMenu());
   mainWindow = createWindow();
 

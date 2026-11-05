@@ -86,8 +86,26 @@ remembered. Change it with **File → Open Folder…** (`⌘O`).
 | Menu item | Shortcut | |
 |---|---|---|
 | Open Folder… | `⌘O` | Pick the workspace folder |
+| Settings… | `⌘,` | Open `settings.json` in your default editor (app menu on macOS, File elsewhere) |
 | Print… | `⌘P` | System print dialog (print layout, no sidebar) |
 | Export as PDF… | `⇧⌘E` | Save the current document as a PDF |
+
+**Settings** — `settings.json` (in the app's data folder, e.g.
+`~/Library/Application Support/Markdown Previewer/` on macOS) is applied as
+soon as you save it:
+
+```json
+{
+  "workspace": "/Users/me/notes",
+  "skipDirs": [".git", "node_modules", ".venv", "__pycache__", ".cache"],
+  "maxDepth": null
+}
+```
+
+`skipDirs` are folder names skipped wherever they appear; `maxDepth` caps how
+many folder levels below the workspace are scanned (`docs/guide.md` is depth
+1, `null` = unlimited) — the same as `MARKDOWN_SKIP_DIRS` / `MARKDOWN_MAX_DEPTH`
+for the backend.
 
 **Live-reload development** — run the Vite dev server (`npm run dev` in
 `frontend/`, port 3000), then `npm run dev` in `desktop/`.
@@ -103,6 +121,8 @@ remembered. Change it with **File → Open Folder…** (`⌘O`).
 | Variable | Where it is read | Default | Description |
 |---|---|---|---|
 | `MARKDOWN_WORKSPACE` | Backend (runtime) | `./workspace` | Absolute or relative path to the folder the server scans for Markdown files. Relative paths are resolved from the backend's working directory. |
+| `MARKDOWN_SKIP_DIRS` | Backend (runtime) | `.git,node_modules,.venv,__pycache__,.cache` | Comma-separated folder **names** skipped wherever they appear. Skipping caches and build output is the most effective way to speed up scanning a large workspace. |
+| `MARKDOWN_MAX_DEPTH` | Backend (runtime) | unlimited | Folder levels below the workspace to scan (`docs/guide.md` is depth 1). A safety cap — documents deeper than this are not listed or served. |
 | `MARKDOWN_CORS_ORIGINS` | Backend (runtime) | local dev servers (`http://localhost:3000`, `:5173`, and their `127.0.0.1` forms) | Comma-separated browser origins allowed to call the API cross-origin (GET only). Set it empty to disable CORS when the frontend is served from the same origin. |
 | `MARKDOWN_ALLOWED_HOSTS` | Backend (runtime) | `localhost,127.0.0.1` | Comma-separated `Host` header values the API answers to; anything else gets `400`, which blocks DNS rebinding. Add your domain when deploying. |
 | `VITE_API_BASE_URL` | Frontend (build time) | `http://localhost:8000` | Base URL the browser uses to call the backend API. Must be set before running `npm run build` for production deployments. |

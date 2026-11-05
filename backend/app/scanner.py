@@ -91,6 +91,71 @@ def _ctime_iso(path: Path) -> str:
     return dt.isoformat()
 
 
+def _build_meta(file_path: Path, workspace: Path) -> DocumentMeta:
+    """Build the :class:`DocumentMeta` record for a file inside *workspace*."""
+    # Relative path from workspace root, normalised to forward slashes
+    location = file_path.relative_to(workspace).as_posix()
+    return DocumentMeta(
+        id=_stable_id(location),
+        filename=file_path.name,
+        location=location,
+        title=_extract_title(file_path, location),
+        created=_ctime_iso(file_path),
+    )
+
+
+# ---------------------------------------------------------------------------
+# ID index
+# Every scan records id -> location, so opening a document is a lookup plus
+# one file read instead of a full re-walk of the workspace (which costs ~1 s
+# for a few thousand folders on a Docker bind mount).
+# ---------------------------------------------------------------------------
+
+_index_key: tuple[Path, frozenset[str], int | None] | None = None
+_index: dict[str, str] = {}
+
+
+def _remember(
+    workspace: Path, skip_dirs: frozenset[str], max_depth: int | None, docs: list[DocumentMeta]
+) -> None:
+    global _index_key, _index
+    # Swap in a complete dict so concurrent readers never see a partial index
+    _index = {doc.id: doc.location for doc in docs}
+    _index_key = (workspace, skip_dirs, max_depth)
+
+
+def _indexed_location(
+    workspace: Path, skip_dirs: frozenset[str], max_depth: int | None, doc_id: str
+) -> str | None:
+    if _index_key != (workspace, skip_dirs, max_depth):
+        return None
+    return _index.get(doc_id)
+
+
+def _is_servable(
+    file_path: Path,
+    location: str,
+    workspace: Path,
+    skip_dirs: frozenset[str],
+    max_depth: int | None,
+) -> bool:
+    """
+    Re-check an indexed path before reading it: the file may have been
+    removed, or a folder on its path swapped for a symlink, since the scan.
+    """
+    folders = location.split("/")[:-1]
+    try:
+        return (
+            file_path.suffix.lower() in _MARKDOWN_EXTENSIONS
+            and not any(part in skip_dirs for part in folders)
+            and (max_depth is None or len(folders) <= max_depth)
+            and file_path.is_file()
+            and file_path.resolve().is_relative_to(workspace.resolve())
+        )
+    except OSError:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -98,6 +163,7 @@ def _ctime_iso(path: Path) -> str:
 def scan_workspace(
     workspace: Path,
     skip_dirs: frozenset[str] = frozenset(),
+    max_depth: int | None = None,
 ) -> list[DocumentMeta]:
     """
     Recursively scan *workspace* for markdown files and return a list of
@@ -105,6 +171,9 @@ def scan_workspace(
 
     *skip_dirs* is a set of folder **names** (not paths) that will be pruned
     from the walk entirely — e.g. ``frozenset({".git", "node_modules"})``.
+
+    *max_depth* caps how many folder levels below the workspace are scanned
+    (``docs/guide.md`` is depth 1); ``None`` means unlimited.
 
     If the workspace folder does not exist an empty list is returned so the
     server starts cleanly before the user has created any files.
@@ -115,9 +184,14 @@ def scan_workspace(
     results: list[DocumentMeta] = []
 
     for root, dirs, files in os.walk(workspace):
-        # Prune in-place so os.walk never descends into skipped directories.
-        dirs[:] = [d for d in dirs if d not in skip_dirs]
         root_path = Path(root)
+        depth = len(root_path.relative_to(workspace).parts)
+        # Prune in-place so os.walk never descends into skipped directories
+        # or below the depth limit.
+        if max_depth is not None and depth >= max_depth:
+            dirs[:] = []
+        else:
+            dirs[:] = [d for d in dirs if d not in skip_dirs]
         for filename in files:
             file_path = root_path / filename
             if file_path.suffix.lower() not in _MARKDOWN_EXTENSIONS:
@@ -126,23 +200,13 @@ def scan_workspace(
                 continue
 
             try:
-                # Relative path from workspace root, normalised to forward slashes
-                rel = file_path.relative_to(workspace)
-                location = rel.as_posix()
-
-                doc = DocumentMeta(
-                    id=_stable_id(location),
-                    filename=file_path.name,
-                    location=location,
-                    title=_extract_title(file_path, location),
-                    created=_ctime_iso(file_path),
-                )
-                results.append(doc)
+                results.append(_build_meta(file_path, workspace))
             except (OSError, ValueError):
                 # Skip files we cannot stat or that escape the workspace
                 continue
 
     results.sort(key=lambda d: d.location)
+    _remember(workspace, skip_dirs, max_depth, results)
     return results
 
 
@@ -150,17 +214,28 @@ def find_document(
     workspace: Path,
     doc_id: str,
     skip_dirs: frozenset[str] = frozenset(),
+    max_depth: int | None = None,
 ) -> tuple[DocumentMeta, str] | None:
     """
     Return *(meta, raw_content)* for the document whose ID matches *doc_id*,
     or ``None`` if not found.
+
+    Uses the index from the last scan; only an unknown ID (e.g. a file added
+    since, or a cold start) triggers a full rescan.
     """
-    for doc in scan_workspace(workspace, skip_dirs=skip_dirs):
-        if doc.id == doc_id:
-            file_path = workspace / doc.location
-            try:
-                content = file_path.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                return None
-            return doc, content
-    return None
+    location = _indexed_location(workspace, skip_dirs, max_depth, doc_id)
+    if location is None:
+        scan_workspace(workspace, skip_dirs=skip_dirs, max_depth=max_depth)
+        location = _indexed_location(workspace, skip_dirs, max_depth, doc_id)
+        if location is None:
+            return None
+
+    file_path = workspace / location
+    if not _is_servable(file_path, location, workspace, skip_dirs, max_depth):
+        return None
+    try:
+        meta = _build_meta(file_path, workspace)
+        content = file_path.read_text(encoding="utf-8", errors="replace")
+    except (OSError, ValueError):
+        return None
+    return meta, content

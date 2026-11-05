@@ -22,6 +22,13 @@ export interface DocumentMeta {
   created: string; // ISO-8601
 }
 
+export interface ScanOptions {
+  /** Folder **names** pruned from the walk entirely, e.g. "node_modules". */
+  skipDirs?: ReadonlySet<string>;
+  /** Folder levels below the workspace to scan ("docs/guide.md" is depth 1); unlimited if null. */
+  maxDepth?: number | null;
+}
+
 export interface DocumentContent {
   id: string;
   content: string;
@@ -91,11 +98,62 @@ async function isFileEntry(entry: Dirent, fullPath: string, realWorkspace: strin
   }
 }
 
+/** Build the DocumentMeta record for a file inside `workspace`. */
+async function buildMeta(workspace: string, fullPath: string): Promise<DocumentMeta> {
+  const location = path.relative(workspace, fullPath).split(path.sep).join("/");
+  const stat = await fs.stat(fullPath);
+  return {
+    id: stableId(location),
+    filename: path.basename(fullPath),
+    location,
+    title: await extractTitle(fullPath),
+    created: new Date(stat.ctimeMs).toISOString(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// ID index
+// Every scan records id -> location, so opening a document is a lookup plus
+// one file read instead of a full re-walk of the workspace.
+// ---------------------------------------------------------------------------
+
+let indexKey: string | null = null;
+let index = new Map<string, string>();
+
+function indexKeyFor(workspace: string, { skipDirs = new Set(), maxDepth = null }: ScanOptions): string {
+  return JSON.stringify([workspace, [...skipDirs].sort(), maxDepth]);
+}
+
+/**
+ * Re-check an indexed path before reading it: the file may have been
+ * removed, or a folder on its path swapped for a symlink, since the scan.
+ */
+async function isServable(
+  workspace: string,
+  location: string,
+  { skipDirs = new Set(), maxDepth = null }: ScanOptions,
+): Promise<boolean> {
+  const folders = location.split("/").slice(0, -1);
+  if (!MARKDOWN_EXTENSIONS.has(path.extname(location).toLowerCase())) return false;
+  if (folders.some((part) => skipDirs.has(part))) return false;
+  if (maxDepth !== null && folders.length > maxDepth) return false;
+  try {
+    const [realWorkspace, target] = await Promise.all([
+      fs.realpath(workspace),
+      fs.realpath(path.join(workspace, location)),
+    ]);
+    return target.startsWith(realWorkspace + path.sep) && (await fs.stat(target)).isFile();
+  } catch {
+    return false;
+  }
+}
+
 async function walk(
   workspace: string,
   realWorkspace: string,
   dir: string,
-  skipDirs: ReadonlySet<string>,
+  depth: number,
+  options: Required<ScanOptions>,
   results: DocumentMeta[],
 ): Promise<void> {
   let entries: Dirent[];
@@ -110,8 +168,9 @@ async function walk(
 
     // Like os.walk(followlinks=False): never descend into symlinked folders.
     if (entry.isDirectory()) {
-      if (!skipDirs.has(entry.name)) {
-        await walk(workspace, realWorkspace, fullPath, skipDirs, results);
+      const belowLimit = options.maxDepth === null || depth < options.maxDepth;
+      if (belowLimit && !options.skipDirs.has(entry.name)) {
+        await walk(workspace, realWorkspace, fullPath, depth + 1, options, results);
       }
       continue;
     }
@@ -120,15 +179,7 @@ async function walk(
     if (!(await isFileEntry(entry, fullPath, realWorkspace))) continue;
 
     try {
-      const location = path.relative(workspace, fullPath).split(path.sep).join("/");
-      const stat = await fs.stat(fullPath);
-      results.push({
-        id: stableId(location),
-        filename: entry.name,
-        location,
-        title: await extractTitle(fullPath),
-        created: new Date(stat.ctimeMs).toISOString(),
-      });
+      results.push(await buildMeta(workspace, fullPath));
     } catch {
       // Skip files we cannot stat
       continue;
@@ -142,12 +193,13 @@ async function walk(
 
 /**
  * Recursively scan `workspace` for markdown files, sorted by `location`.
- * `skipDirs` holds folder **names** pruned from the walk entirely.
+ * `options.skipDirs` holds folder **names** pruned from the walk entirely;
+ * `options.maxDepth` caps how many folder levels deep the walk goes.
  * Returns an empty list when the workspace does not exist.
  */
 export async function scanWorkspace(
   workspace: string,
-  skipDirs: ReadonlySet<string> = new Set(),
+  options: ScanOptions = {},
 ): Promise<DocumentMeta[]> {
   let realWorkspace: string;
   try {
@@ -156,22 +208,39 @@ export async function scanWorkspace(
     return [];
   }
   const results: DocumentMeta[] = [];
-  await walk(workspace, realWorkspace, workspace, skipDirs, results);
+  const resolved: Required<ScanOptions> = {
+    skipDirs: options.skipDirs ?? new Set(),
+    maxDepth: options.maxDepth ?? null,
+  };
+  await walk(workspace, realWorkspace, workspace, 0, resolved, results);
   results.sort((a, b) => (a.location < b.location ? -1 : a.location > b.location ? 1 : 0));
+  index = new Map(results.map((doc) => [doc.id, doc.location]));
+  indexKey = indexKeyFor(workspace, options);
   return results;
 }
 
-/** Return the metadata and raw content of the document with `docId`, or null. */
+/**
+ * Return the metadata and raw content of the document with `docId`, or null.
+ * Uses the index from the last scan; only an unknown id (a file added since,
+ * or a cold start) triggers a full rescan.
+ */
 export async function findDocument(
   workspace: string,
   docId: string,
-  skipDirs: ReadonlySet<string> = new Set(),
+  options: ScanOptions = {},
 ): Promise<{ meta: DocumentMeta; content: string } | null> {
-  const docs = await scanWorkspace(workspace, skipDirs);
-  const meta = docs.find((doc) => doc.id === docId);
-  if (meta === undefined) return null;
+  const key = indexKeyFor(workspace, options);
+  let location = indexKey === key ? index.get(docId) : undefined;
+  if (location === undefined) {
+    await scanWorkspace(workspace, options);
+    location = index.get(docId);
+    if (location === undefined) return null;
+  }
+
+  if (!(await isServable(workspace, location, options))) return null;
+  const fullPath = path.join(workspace, location);
   try {
-    const content = await fs.readFile(path.join(workspace, meta.location), "utf8");
+    const [meta, content] = await Promise.all([buildMeta(workspace, fullPath), fs.readFile(fullPath, "utf8")]);
     return { meta, content };
   } catch {
     return null;
