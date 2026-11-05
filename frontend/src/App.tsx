@@ -332,6 +332,7 @@ function AppInner(): React.ReactElement {
             documents={documents}
             selectedId={selectedId}
             onSelect={handleSelect}
+            onOpenSection={handleOpenDocument}
             onSearchQueryChange={setSearchQuery}
             loading={listLoading}
             error={listError}

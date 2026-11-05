@@ -60,7 +60,8 @@
   color: var(--color-text);
   font-size: var(--text-ui);
   font-family: var(--font-sans);
-  padding: 0 24px 0 26px;
+  /* Room for the text-search toggle and the clear button */
+  padding: 0 48px 0 26px;
   outline: none;
   user-select: text;
   /* Reset browser search input styles */
@@ -83,7 +84,7 @@
 
 .clearBtn {
   position: absolute;
-  right: 4px;
+  right: 26px;
   width: 18px;
   height: 18px;
   background: none;
@@ -102,6 +103,40 @@
 }
 
 .clearBtn:focus-visible {
+  outline: 1px solid var(--color-accent);
+}
+
+/* Toggle: search document text too (off = titles and headings only) */
+.fullTextBtn {
+  position: absolute;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fullTextBtn:hover {
+  color: var(--color-text);
+  background: var(--color-hover-bg);
+}
+
+/* On: VS Code's "input option active" look — accent border and tint */
+.fullTextBtnOn,
+.fullTextBtnOn:hover {
+  color: var(--color-text-strong);
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.fullTextBtn:focus-visible {
   outline: 1px solid var(--color-accent);
 }
 
@@ -275,6 +310,32 @@
   background: var(--color-search-match);
   color: var(--color-text-strong);
   border-radius: 2px;
+}
+
+/* "##" before a matching heading: its level */
+.headingMarker {
+  margin-right: 0.5em;
+  font-family: var(--font-mono);
+  color: var(--color-text-subtle);
+}
+
+/* "Search document text" in the empty state */
+.linkBtn {
+  margin-top: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-link);
+  font: inherit;
+  cursor: pointer;
+}
+
+.linkBtn:hover {
+  text-decoration: underline;
+}
+
+.linkBtn:focus-visible {
+  outline: 1px solid var(--color-accent);
 }
 
 .moreMatches {

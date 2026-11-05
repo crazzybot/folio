@@ -117,12 +117,18 @@ if _cors_origins:
 from typing import TypedDict
 
 
+class HeadingItem(TypedDict):
+    level: int
+    text: str
+
+
 class DocumentListItem(TypedDict):
     id: str
     filename: str
     location: str
     title: str
     created: str
+    headings: list[HeadingItem]
 
 
 class DocumentContent(TypedDict):
@@ -172,6 +178,7 @@ def list_documents() -> list[DocumentListItem]:
             location=doc.location,
             title=doc.title,
             created=doc.created,
+            headings=[HeadingItem(level=h.level, text=h.text) for h in doc.headings],
         )
         for doc in docs
     ]

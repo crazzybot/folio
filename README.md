@@ -15,7 +15,8 @@ highlighting — all without leaving your browser.
 **Key features**
 
 - Recursive workspace scan — supports sub-folders
-- Search across titles, filenames and document text: matching lines appear under each document, and opening one highlights every match in the viewer and scrolls to it
+- Instant search across titles, filenames and headings — a matching heading opens the document at that section
+- Full-text search on demand (the page icon in the search box, `⇧⌘F` / `Ctrl+Shift+F`, remembered): matching lines appear under each document, and opening one highlights every match in the viewer and scrolls to it
 - Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)
 - VS Code-style light and dark themes with breadcrumb header and status bar
 - Display options menu in the header (◐): appearance (System, Light, Dark), reading width (Narrow, Medium, Wide, Full) and font size (Small, Medium, Large, Extra large)
@@ -158,14 +159,22 @@ Returns a sorted list of every Markdown file found in the workspace.
     "filename": "welcome.md",
     "location": "welcome.md",
     "title": "Welcome",
-    "created": "2026-07-11T22:08:00Z"
+    "created": "2026-07-11T22:08:00Z",
+    "headings": [
+      { "level": 1, "text": "Welcome" },
+      { "level": 2, "text": "Getting started" }
+    ]
   },
   {
     "id": "b9e0d1f3...",
     "filename": "code-demo.md",
     "location": "samples/code-demo.md",
     "title": "Code Demo",
-    "created": "2026-07-11T22:08:00Z"
+    "created": "2026-07-11T22:08:00Z",
+    "headings": [
+      { "level": 1, "text": "Code Demo" },
+      { "level": 2, "text": "Python example" }
+    ]
   }
 ]
 ```
@@ -177,6 +186,7 @@ Returns a sorted list of every Markdown file found in the workspace.
 | `location` | string | Relative POSIX path from workspace root. |
 | `title` | string | First ATX heading, first non-empty line, or filename stem — in that order. |
 | `created` | string | File creation time as UTC ISO-8601. |
+| `headings` | array | ATX headings (`#` … `######`) outside fenced code blocks, as rendered text (links, emphasis and code markers removed), from the first 256 KB of the file. Used for instant heading search. |
 
 ---
 

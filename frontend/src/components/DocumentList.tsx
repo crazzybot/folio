@@ -1,12 +1,39 @@
-import React, { useEffect, useId, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { searchDocuments } from "../api";
-import type { DocumentMeta, SearchMatch, SearchResult } from "../types";
+import { slugify } from "../slug";
+import type { DocumentMeta, Heading, SearchMatch, SearchResult } from "../types";
 import MarkdownIcon from "./MarkdownIcon";
 import styles from "./DocumentList.module.css";
 
 // Searching document text starts at this many characters, after a pause in typing
 const MIN_CONTENT_QUERY = 2;
 const CONTENT_SEARCH_DELAY_MS = 200;
+// Matching headings listed under a document before "N more"
+const MAX_HEADING_ROWS = 3;
+
+const FULL_TEXT_KEY = "folio.searchDocumentText";
+const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
+const FULL_TEXT_SHORTCUT = IS_MAC ? "⇧⌘F" : "Ctrl+Shift+F";
+
+function loadFullText(): boolean {
+  try {
+    return localStorage.getItem(FULL_TEXT_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * One document in the results. Title / filename and heading matches are
+ * found instantly from the document list; text matches only when searching
+ * document text.
+ */
+interface ResultEntry {
+  doc: DocumentMeta;
+  titleMatch: boolean;
+  headings: Heading[];
+  content: SearchResult | undefined;
+}
 
 interface DocumentListProps {
   documents: DocumentMeta[];
@@ -15,6 +42,8 @@ interface DocumentListProps {
   error: string | null;
   /** Open a document; `occurrence` is the search match to scroll to, if any. */
   onSelect: (id: string, occurrence?: number) => void;
+  /** Open a document at a heading (by its anchor slug). */
+  onOpenSection: (id: string, anchor: string) => void;
   /** The query whose matches the viewer highlights ("" when none). */
   onSearchQueryChange?: (query: string) => void;
 }
@@ -31,17 +60,43 @@ export default function DocumentList({
   loading,
   error,
   onSelect,
+  onOpenSection,
   onSearchQueryChange,
 }: DocumentListProps): React.ReactElement {
   const [query, setQuery] = useState("");
+  const [fullText, setFullText] = useState(loadFullText);
   const [contentSearch, setContentSearch] = useState<ContentSearch>({ status: "idle" });
   const searchId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const trimmed = query.trim();
+
+  const chooseFullText = useCallback((on: boolean) => {
+    setFullText(on);
+    try {
+      localStorage.setItem(FULL_TEXT_KEY, String(on));
+    } catch {
+      // Not remembered, but still applied
+    }
+  }, []);
+
+  // ⇧⌘F / Ctrl+Shift+F: search document text, as in VS Code
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        chooseFullText(true);
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [chooseFullText]);
 
   // Search document text once typing pauses. Also re-runs when the document
   // list changes (live reload), so results follow edits.
   useEffect(() => {
-    if (trimmed.length < MIN_CONTENT_QUERY) {
+    if (!fullText || trimmed.length < MIN_CONTENT_QUERY) {
       setContentSearch({ status: "idle" });
       onSearchQueryChange?.("");
       return;
@@ -65,25 +120,37 @@ export default function DocumentList({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [trimmed, documents, onSearchQueryChange]);
+  }, [fullText, trimmed, documents, onSearchQueryChange]);
 
-  const contentResults = contentSearch.status === "done" ? contentSearch.results : null;
+  const contentResults = fullText && contentSearch.status === "done" ? contentSearch.results : null;
 
-  // Title / filename matches show instantly; text matches join once the search returns
-  const filtered = useMemo(() => {
+  // Title / filename and heading matches show instantly; text matches join
+  // once the search returns. Ranked: title, then heading, then text matches.
+  const results = useMemo((): ResultEntry[] => {
     const q = trimmed.toLowerCase();
-    if (!q) return documents;
-    return documents.filter(
-      (doc) =>
-        doc.title.toLowerCase().includes(q) ||
-        doc.filename.toLowerCase().includes(q) ||
-        contentResults?.has(doc.id) === true,
-    );
+    if (!q) return documents.map((doc) => ({ doc, titleMatch: false, headings: [], content: undefined }));
+    const entries: ResultEntry[] = [];
+    for (const doc of documents) {
+      const titleMatch = doc.title.toLowerCase().includes(q) || doc.filename.toLowerCase().includes(q);
+      // The h1 that is the document's title is already matched as the title
+      const headings = doc.headings.filter(
+        (h) => h.text.toLowerCase().includes(q) && !(h.level === 1 && h.text === doc.title),
+      );
+      const content = contentResults?.get(doc.id);
+      if (titleMatch || headings.length > 0 || content !== undefined) {
+        entries.push({ doc, titleMatch, headings, content });
+      }
+    }
+    const rank = (e: ResultEntry) => (e.titleMatch ? 0 : e.headings.length > 0 ? 1 : 2);
+    return entries.sort((a, b) => rank(a) - rank(b)); // stable: list order within a rank
   }, [documents, trimmed, contentResults]);
 
-  // Opening a document from a text search scrolls to its first match
-  const open = (id: string, occurrence?: number) => {
-    onSelect(id, occurrence ?? (contentResults?.has(id) ? 0 : undefined));
+  // Opening a result goes to its first text match, else its first matching heading
+  const openEntry = (entry: ResultEntry) => {
+    const heading = entry.headings[0];
+    if (entry.content !== undefined) onSelect(entry.doc.id, 0);
+    else if (!entry.titleMatch && heading !== undefined) onOpenSection(entry.doc.id, slugify(heading.text));
+    else onSelect(entry.doc.id);
   };
 
   const totalMatches = contentResults
@@ -118,20 +185,35 @@ export default function DocumentList({
             id={searchId}
             type="search"
             className={styles.searchInput}
-            placeholder="Search…"
+            ref={inputRef}
+            placeholder={fullText ? "Search document text…" : "Search titles and headings…"}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
               // Enter opens the first result
-              const first = filtered[0];
+              const first = results[0];
               if (e.key === "Enter" && first !== undefined) {
                 e.preventDefault();
-                open(first.id);
+                openEntry(first);
               }
             }}
-            aria-label="Search document titles and text"
+            aria-label={fullText ? "Search document titles, headings and text" : "Search document titles and headings"}
             aria-describedby={`${searchId}-status`}
           />
+          <button
+            type="button"
+            className={`${styles.fullTextBtn} ${fullText ? styles.fullTextBtnOn : ""}`}
+            onClick={() => chooseFullText(!fullText)}
+            aria-pressed={fullText}
+            aria-label={`Search document text (${FULL_TEXT_SHORTCUT})`}
+            title={`Search document text (${FULL_TEXT_SHORTCUT})`}
+          >
+            {/* A page with lines of text */}
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+              <path d="M3.5 1.5h6l3 3v10h-9z" strokeLinejoin="round" />
+              <path d="M5.5 7.5h5M5.5 10h5M5.5 12.5h3" strokeLinecap="round" />
+            </svg>
+          </button>
           {query && (
             <button
               type="button"
@@ -147,9 +229,9 @@ export default function DocumentList({
           )}
         </div>
         <p id={`${searchId}-status`} className={styles.searchStatus} aria-live="polite">
-          {contentSearch.status === "searching" && "Searching…"}
-          {contentSearch.status === "error" && "Couldn't search document text"}
-          {contentSearch.status === "done" &&
+          {fullText && contentSearch.status === "searching" && "Searching…"}
+          {fullText && contentSearch.status === "error" && "Couldn't search document text"}
+          {contentResults !== null &&
             (totalMatches === 0
               ? "No matches in document text"
               : `${totalMatches} ${totalMatches === 1 ? "match" : "matches"} in ${contentResults?.size} ${
@@ -173,38 +255,60 @@ export default function DocumentList({
           </div>
         )}
 
-        {!loading && error === null && filtered.length === 0 && contentSearch.status !== "searching" && (
+        {!loading && error === null && results.length === 0 && !(fullText && contentSearch.status === "searching") && (
           <div className={styles.emptyArea}>
-            {query ? (
+            {!query ? (
+              <p>No documents found.</p>
+            ) : fullText ? (
               <p>No documents match "<strong>{query}</strong>".</p>
             ) : (
-              <p>No documents found.</p>
+              <>
+                <p>No titles or headings match "<strong>{query}</strong>".</p>
+                <button type="button" className={styles.linkBtn} onClick={() => chooseFullText(true)}>
+                  Search document text
+                </button>
+              </>
             )}
           </div>
         )}
 
-        {!loading && error === null && filtered.length > 0 && (
+        {!loading && error === null && results.length > 0 && (
           <ul className={styles.list} role="listbox" aria-label="Document list">
-            {filtered.map((doc) => {
-              const result = contentResults?.get(doc.id);
+            {results.map((entry) => {
+              const { doc, content } = entry;
+              // Text matches already include heading lines, so they replace the heading rows
+              const headings = content === undefined ? entry.headings : [];
               return (
                 <React.Fragment key={doc.id}>
                   <DocumentEntry
                     doc={doc}
                     isSelected={doc.id === selectedId}
-                    matchCount={result?.matchCount ?? null}
-                    onOpen={() => open(doc.id)}
+                    matchCount={content?.matchCount ?? null}
+                    onOpen={() => openEntry(entry)}
                   />
-                  {result?.matches.map((match) => (
+                  {headings.slice(0, MAX_HEADING_ROWS).map((heading, i) => (
+                    <HeadingEntry
+                      key={i}
+                      heading={heading}
+                      query={trimmed}
+                      onOpen={() => onOpenSection(doc.id, slugify(heading.text))}
+                    />
+                  ))}
+                  {headings.length > MAX_HEADING_ROWS && (
+                    <li className={styles.moreMatches} aria-hidden="true">
+                      {headings.length - MAX_HEADING_ROWS} more headings
+                    </li>
+                  )}
+                  {content?.matches.map((match) => (
                     <MatchEntry
                       key={match.occurrence}
                       match={match}
-                      onOpen={() => open(doc.id, match.occurrence)}
+                      onOpen={() => onSelect(doc.id, match.occurrence)}
                     />
                   ))}
-                  {result !== undefined && result.matchCount > result.matches.length && (
+                  {content !== undefined && content.matchCount > content.matches.length && (
                     <li className={styles.moreMatches} aria-hidden="true">
-                      {result.matchCount - result.matches.length} more in this document
+                      {content.matchCount - content.matches.length} more in this document
                     </li>
                   )}
                 </React.Fragment>
@@ -265,6 +369,42 @@ function DocumentEntry({ doc, isSelected, matchCount, onOpen }: DocumentEntryPro
 interface MatchEntryProps {
   match: SearchMatch;
   onOpen: () => void;
+}
+
+interface HeadingEntryProps {
+  heading: Heading;
+  query: string;
+  onOpen: () => void;
+}
+
+/** A matching heading under its document; opens the document at that section. */
+function HeadingEntry({ heading, query, onOpen }: HeadingEntryProps): React.ReactElement {
+  const at = heading.text.toLowerCase().indexOf(query.toLowerCase());
+  return (
+    <li
+      className={styles.matchEntry}
+      role="option"
+      aria-selected={false}
+      onClick={onOpen}
+      onKeyDown={activateOnKey(onOpen)}
+      tabIndex={0}
+      aria-label={`Heading: ${heading.text}`}
+      title={heading.text}
+    >
+      <span className={styles.headingMarker} aria-hidden="true">
+        {"#".repeat(heading.level)}
+      </span>
+      {at < 0 ? (
+        heading.text
+      ) : (
+        <>
+          {heading.text.slice(0, at)}
+          <mark className={styles.matchText}>{heading.text.slice(at, at + query.length)}</mark>
+          {heading.text.slice(at + query.length)}
+        </>
+      )}
+    </li>
+  );
 }
 
 // The sidebar is narrow: keep only a little text before the match so the

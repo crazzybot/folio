@@ -1,9 +1,16 @@
+/** A section heading, as rendered (no markdown syntax). */
+export interface Heading {
+  level: number; // 1-6
+  text: string;
+}
+
 export interface DocumentMeta {
   id: string;
   filename: string;
   location: string; // relative path from workspace root
   title: string;
   created: string; // ISO-8601
+  headings: Heading[];
 }
 
 export interface DocumentContent {

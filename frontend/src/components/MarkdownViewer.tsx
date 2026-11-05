@@ -10,6 +10,7 @@ import { workspaceFileUrl } from "../api";
 import { resolveImageSrc, resolveLink } from "../links";
 import type { ImageSource, LinkTarget } from "../links";
 import { saveScrollPosition } from "../scrollHistory";
+import { slugify } from "../slug";
 import { clearMatches, findMatches, showMatches } from "../searchHighlight";
 import type { DocumentMeta } from "../types";
 
@@ -61,11 +62,7 @@ export interface SearchFocus {
 }
 
 // ---------------------------------------------------------------------------
-// GFM slug generation
-// Matches GitHub's anchor algorithm:
-//   1. Lowercase
-//   2. Strip anything that is not alphanumeric, space, hyphen, or underscore
-//   3. Replace spaces with hyphens
+// Heading anchors — GFM slugs of the heading's text (see slug.ts)
 // ---------------------------------------------------------------------------
 
 /** Recursively extract plain text from React children. */
@@ -83,11 +80,7 @@ function extractText(node: React.ReactNode): string {
 
 /** Convert a heading's text content to a GFM-compatible anchor slug. */
 function toSlug(children: React.ReactNode): string {
-  return extractText(children)
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, "") // strip chars outside word chars, whitespace, hyphen
-    .trim()
-    .replace(/\s/g, "-");    // spaces → hyphens (one-to-one, preserves double-dash for stripped chars like &)
+  return slugify(extractText(children));
 }
 
 // ---------------------------------------------------------------------------
