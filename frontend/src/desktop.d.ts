@@ -1,4 +1,4 @@
-import type { DocumentContent, DocumentMeta, NavigationState } from "./types";
+import type { DocumentContent, DocumentMeta, NavigationState, SearchResult } from "./types";
 
 /** Document API exposed by the Electron preload script (desktop/src/preload.ts). */
 interface MarkdownDesktopApi {
@@ -8,6 +8,7 @@ interface MarkdownDesktopApi {
   workspaceFileBaseUrl: string;
   listDocuments(): Promise<DocumentMeta[]>;
   getDocumentContent(id: string): Promise<DocumentContent>;
+  searchDocuments(query: string): Promise<SearchResult[]>;
   getNavigationState(): Promise<NavigationState>;
   /** Subscribe to back/forward availability; returns an unsubscribe function. */
   onNavigationStateChange(callback: (state: NavigationState) => void): () => void;

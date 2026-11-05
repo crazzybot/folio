@@ -34,6 +34,8 @@ import {
 } from "./recent";
 import { serveImage } from "./images";
 import { findDocument, scanWorkspace } from "./scanner";
+import { searchWorkspace } from "./search";
+import type { SearchResult } from "./search";
 import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
 import { DEFAULT_SETTINGS, isTheme, loadSettings, saveSettings, settingsPath, watchSettings } from "./settings";
 import type { Settings, Theme } from "./settings";
@@ -174,7 +176,7 @@ function openExternal(url: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Document API (IPC) — mirrors GET /api/documents and /api/documents/{id}/content
+// Document API (IPC) — mirrors GET /api/documents, /api/documents/{id}/content and /api/search
 // ---------------------------------------------------------------------------
 
 function assertTrustedSender(event: IpcMainInvokeEvent): void {
@@ -196,6 +198,13 @@ function registerIpcHandlers(): void {
       settings.workspace === null ? null : await findDocument(settings.workspace, docId, scanOptions());
     if (result === null) throw new Error(`Document '${docId}' not found in workspace`);
     return { id: result.meta.id, content: result.content };
+  });
+
+  ipcMain.handle("documents:search", async (event, query: unknown): Promise<SearchResult[]> => {
+    assertTrustedSender(event);
+    if (typeof query !== "string") throw new Error("Search query must be a string");
+    if (settings.workspace === null) return [];
+    return searchWorkspace(settings.workspace, query, scanOptions());
   });
 
   // The renderer asks once on load; later changes are pushed (see applyTheme)

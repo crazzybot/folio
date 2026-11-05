@@ -20,6 +20,13 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
+class Heading:
+    """A section heading, for searching titles and headings without reading files."""
+    level: int      # 1-6
+    text: str       # as rendered: no markdown syntax
+
+
+@dataclass(frozen=True)
 class DocumentMeta:
     """Lightweight record for the document listing endpoint."""
     id: str
@@ -27,6 +34,7 @@ class DocumentMeta:
     location: str   # relative path from workspace root, forward-slash separated
     title: str
     created: str    # ISO-8601 with timezone
+    headings: tuple[Heading, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -35,8 +43,14 @@ class DocumentMeta:
 
 _ATX_HEADING = re.compile(r"^#{1,6}\s+(.+)", re.MULTILINE)
 _MARKDOWN_EXTENSIONS = {".md", ".markdown"}
-# Titles come from the top of the file; don't read huge files whole
-_TITLE_SCAN_CHARS = 64 * 1024
+# Titles and headings come from the top of the file; don't read huge files whole
+_HEAD_SCAN_CHARS = 256 * 1024
+_MAX_HEADINGS = 200
+
+# One heading line: "## Text", optional closing #s; up to 3 spaces of indent
+_HEADING_LINE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
+_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+_LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
 
 
 def _stable_id(relative_path: str) -> str:
@@ -44,17 +58,58 @@ def _stable_id(relative_path: str) -> str:
     return hashlib.sha1(relative_path.encode("utf-8")).hexdigest()
 
 
-def _extract_title(path: Path, relative_path: str) -> str:
+def _read_head(path: Path) -> str | None:
+    """The start of the file (up to _HEAD_SCAN_CHARS), or None if it can't be read."""
+    try:
+        with path.open(encoding="utf-8", errors="replace") as f:
+            return f.read(_HEAD_SCAN_CHARS)
+    except OSError:
+        return None
+
+
+def _plain_heading(raw: str) -> str:
+    """Heading text as rendered: link text instead of links, no emphasis or code markers."""
+    text = _LINK.sub(r"\1", raw)
+    text = re.sub(r"[*`~]", "", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def extract_headings(text: str) -> tuple[Heading, ...]:
+    """ATX headings (# … ######) outside fenced code blocks, in document order."""
+    headings: list[Heading] = []
+    fence: str | None = None
+    for line in re.split(r"\r\n|\r|\n", text):
+        fence_match = _FENCE.match(line)
+        if fence_match:
+            marker = fence_match.group(1)
+            # A fence closes with the same character, at least as long
+            if fence is None:
+                fence = marker
+            elif marker[0] == fence[0] and len(marker) >= len(fence):
+                fence = None
+            continue
+        if fence is not None:
+            continue
+        match = _HEADING_LINE.match(line)
+        if not match:
+            continue
+        heading_text = _plain_heading(match.group(2))
+        if not heading_text:
+            continue
+        headings.append(Heading(len(match.group(1)), heading_text))
+        if len(headings) >= _MAX_HEADINGS:
+            break
+    return tuple(headings)
+
+
+def _extract_title(text: str | None, path: Path) -> str:
     """
     Return a human-readable title for the file using this priority:
       1. First ATX heading  (# Title)
       2. First non-empty line
       3. Filename without extension
     """
-    try:
-        with path.open(encoding="utf-8", errors="replace") as f:
-            text = f.read(_TITLE_SCAN_CHARS)
-    except OSError:
+    if text is None:
         return path.stem
 
     # 1. ATX heading
@@ -95,12 +150,14 @@ def _build_meta(file_path: Path, workspace: Path) -> DocumentMeta:
     """Build the :class:`DocumentMeta` record for a file inside *workspace*."""
     # Relative path from workspace root, normalised to forward slashes
     location = file_path.relative_to(workspace).as_posix()
+    head = _read_head(file_path)
     return DocumentMeta(
         id=_stable_id(location),
         filename=file_path.name,
         location=location,
-        title=_extract_title(file_path, location),
+        title=_extract_title(head, file_path),
         created=_ctime_iso(file_path),
+        headings=() if head is None else extract_headings(head),
     )
 
 

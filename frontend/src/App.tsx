@@ -4,6 +4,7 @@ import { fetchDocumentContent, fetchDocuments } from "./api";
 import { savedScrollPosition } from "./scrollHistory";
 import DocumentList from "./components/DocumentList";
 import MarkdownViewer from "./components/MarkdownViewer";
+import type { SearchFocus } from "./components/MarkdownViewer";
 import Breadcrumb from "./components/Breadcrumb";
 import useDesktopHistory from "./useDesktopHistory";
 import { useFontSize, useReadingWidth } from "./readerPrefs";
@@ -70,6 +71,10 @@ function AppInner(): React.ReactElement {
 
   // ── Content state ──────────────────────────────────────────────────────────
   const [contentState, setContentState] = useState<LoadState>({ status: "idle" });
+
+  // ── Search (sidebar) → highlights and scrolling in the viewer ─────────────
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFocus, setSearchFocus] = useState<SearchFocus | null>(null);
 
   // ── Back / forward (desktop app only; null in the browser) ─────────────────
   const history = useDesktopHistory();
@@ -198,11 +203,14 @@ function AppInner(): React.ReactElement {
   // ── Navigation handler passed to DocumentList ──────────────────────────────
   // Replaces the old setSelectedId callback; pushes a new history entry so
   // the user can navigate back with the browser back-button.
+  // A search result also asks the viewer to scroll to its match; for the
+  // document already shown, that's all it does (no duplicate history entry).
   const handleSelect = useCallback(
-    (id: string) => {
-      navigate("/doc/" + encodeURIComponent(id));
+    (id: string, occurrence?: number) => {
+      if (occurrence !== undefined) setSearchFocus({ docId: id, occurrence, nonce: Date.now() });
+      if (id !== selectedId || occurrence === undefined) navigate("/doc/" + encodeURIComponent(id));
     },
-    [navigate],
+    [navigate, selectedId],
   );
 
   // ── Anchor-click handler passed to MarkdownViewer ─────────────────────────
@@ -324,6 +332,8 @@ function AppInner(): React.ReactElement {
             documents={documents}
             selectedId={selectedId}
             onSelect={handleSelect}
+            onOpenSection={handleOpenDocument}
+            onSearchQueryChange={setSearchQuery}
             loading={listLoading}
             error={listError}
           />
@@ -452,6 +462,8 @@ function AppInner(): React.ReactElement {
             documents={documents}
             currentLocation={selectedDoc?.location ?? null}
             onOpenDocument={handleOpenDocument}
+            searchQuery={searchQuery}
+            searchFocus={searchFocus}
           />
         </main>
       </div>

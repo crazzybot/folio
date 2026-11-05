@@ -15,7 +15,9 @@ highlighting — all without leaving your browser.
 **Key features**
 
 - Recursive workspace scan — supports sub-folders
-- Live search across titles and filenames
+- Instant search across titles, filenames and headings — a matching heading opens the document at that section
+- Find in the open document (`⌘F` / `Ctrl+F`): matches highlighted with a "3 of 12" count; Enter / Shift+Enter, `⌘G` / `⇧⌘G` or F3 / Shift+F3 step through them, Escape closes
+- Full-text search on demand (the page icon in the search box, `⇧⌘F` / `Ctrl+Shift+F`, remembered): matching lines appear under each document, and opening one highlights every match in the viewer and scrolls to it
 - Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)
 - VS Code-style light and dark themes with breadcrumb header and status bar
 - Display options menu in the header (◐): appearance (System, Light, Dark), reading width (Narrow, Medium, Wide, Full) and font size (Small, Medium, Large, Extra large)
@@ -158,14 +160,22 @@ Returns a sorted list of every Markdown file found in the workspace.
     "filename": "welcome.md",
     "location": "welcome.md",
     "title": "Welcome",
-    "created": "2026-07-11T22:08:00Z"
+    "created": "2026-07-11T22:08:00Z",
+    "headings": [
+      { "level": 1, "text": "Welcome" },
+      { "level": 2, "text": "Getting started" }
+    ]
   },
   {
     "id": "b9e0d1f3...",
     "filename": "code-demo.md",
     "location": "samples/code-demo.md",
     "title": "Code Demo",
-    "created": "2026-07-11T22:08:00Z"
+    "created": "2026-07-11T22:08:00Z",
+    "headings": [
+      { "level": 1, "text": "Code Demo" },
+      { "level": 2, "text": "Python example" }
+    ]
   }
 ]
 ```
@@ -177,6 +187,7 @@ Returns a sorted list of every Markdown file found in the workspace.
 | `location` | string | Relative POSIX path from workspace root. |
 | `title` | string | First ATX heading, first non-empty line, or filename stem — in that order. |
 | `created` | string | File creation time as UTC ISO-8601. |
+| `headings` | array | ATX headings (`#` … `######`) outside fenced code blocks, as rendered text (links, emphasis and code markers removed), from the first 256 KB of the file. Used for instant heading search. |
 
 ---
 
@@ -197,6 +208,29 @@ Returns the raw Markdown source for a single document.
 
 ```json
 { "detail": "Document a3f1c2d4 not found" }
+```
+
+### `GET /api/search?q={query}`
+
+Searches the text of every document (case-insensitive, plain text — no
+regex). Returns matching documents in document-list order, each with its
+match count and up to three matching lines. `occurrence` is the match's
+index among all matches in the document, which the viewer uses to scroll to
+it. Queries shorter than two characters return `[]`; files over 2 MB are
+skipped.
+
+**Response** `200 OK`
+
+```json
+[
+  {
+    "id": "a3f1c2d4...",
+    "matchCount": 4,
+    "matches": [
+      { "line": 12, "text": "class Document:", "start": 6, "end": 14, "occurrence": 0 }
+    ]
+  }
+]
 ```
 
 ### `GET /api/files/{location}`
@@ -230,8 +264,9 @@ markdown-previewer/
 │   ├── pyproject.toml            # uv project — FastAPI + uvicorn
 │   └── app/
 │       ├── __init__.py
-│       ├── main.py               # FastAPI app, CORS + trusted hosts, two route handlers
-│       └── scanner.py            # workspace scanner, ID generation, title extraction
+│       ├── main.py               # FastAPI app, CORS + trusted hosts, route handlers
+│       ├── scanner.py            # workspace scanner, ID generation, title extraction
+│       └── search.py             # full-text search
 │
 ├── desktop/
 │   ├── package.json              # Electron + electron-builder config
@@ -242,6 +277,7 @@ markdown-previewer/
 │       ├── preload.ts            # exposes window.markdownApi
 │       ├── recent.ts             # recently opened workspace folders (recent.json)
 │       ├── scanner.ts            # Node port of backend/app/scanner.py
+│       ├── search.ts             # Node port of backend/app/search.py
 │       ├── settings.ts           # remembers the workspace folder
 │       └── watcher.ts            # watches the workspace for live reload
 │

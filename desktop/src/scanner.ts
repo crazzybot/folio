@@ -14,12 +14,19 @@ import path from "node:path";
 // Data model
 // ---------------------------------------------------------------------------
 
+/** A section heading, for searching titles and headings without reading files. */
+export interface Heading {
+  level: number; // 1-6
+  text: string; // as rendered: no markdown syntax
+}
+
 export interface DocumentMeta {
   id: string;
   filename: string;
   location: string; // relative path from workspace root, forward-slash separated
   title: string;
   created: string; // ISO-8601
+  headings: Heading[];
 }
 
 export interface ScanOptions {
@@ -40,12 +47,66 @@ export interface DocumentContent {
 
 const ATX_HEADING = /^#{1,6}\s+(.+)/m;
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
-// Titles come from the top of the file; don't read huge files whole
-const TITLE_SCAN_BYTES = 64 * 1024;
+// Titles and headings come from the top of the file; don't read huge files whole
+const HEAD_SCAN_BYTES = 256 * 1024;
+const MAX_HEADINGS = 200;
+
+// One heading line: "## Text", optional closing #s; up to 3 spaces of indent
+const HEADING_LINE = /^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/;
+const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /** SHA-1 of the normalised relative path string; full 40-char hex. */
 function stableId(relativePath: string): string {
   return createHash("sha1").update(relativePath, "utf8").digest("hex");
+}
+
+/** The start of the file (up to HEAD_SCAN_BYTES), or null if it can't be read. */
+async function readHead(filePath: string): Promise<string | null> {
+  try {
+    const handle = await fs.open(filePath, "r");
+    try {
+      const buffer = Buffer.alloc(HEAD_SCAN_BYTES);
+      const { bytesRead } = await handle.read(buffer, 0, HEAD_SCAN_BYTES, 0);
+      return buffer.subarray(0, bytesRead).toString("utf8");
+    } finally {
+      await handle.close();
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Heading text as rendered: link text instead of links, no emphasis or code markers. */
+function plainHeading(raw: string): string {
+  return raw
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*`~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** ATX headings (# … ######) outside fenced code blocks, in document order. */
+export function extractHeadings(text: string): Heading[] {
+  const headings: Heading[] = [];
+  let fence: string | null = null;
+  for (const line of text.split(/\r\n|\r|\n/)) {
+    const fenceMatch = FENCE.exec(line);
+    if (fenceMatch?.[1] !== undefined) {
+      const marker = fenceMatch[1];
+      // A fence closes with the same character, at least as long
+      if (fence === null) fence = marker;
+      else if (marker[0] === fence[0] && marker.length >= fence.length) fence = null;
+      continue;
+    }
+    if (fence !== null) continue;
+    const match = HEADING_LINE.exec(line);
+    if (match?.[1] === undefined || match[2] === undefined) continue;
+    const headingText = plainHeading(match[2]);
+    if (headingText === "") continue;
+    headings.push({ level: match[1].length, text: headingText });
+    if (headings.length >= MAX_HEADINGS) break;
+  }
+  return headings;
 }
 
 /**
@@ -54,21 +115,8 @@ function stableId(relativePath: string): string {
  *   2. First non-empty line
  *   3. Filename without extension
  */
-async function extractTitle(filePath: string): Promise<string> {
-  const stem = path.basename(filePath, path.extname(filePath));
-  let text: string;
-  try {
-    const handle = await fs.open(filePath, "r");
-    try {
-      const buffer = Buffer.alloc(TITLE_SCAN_BYTES);
-      const { bytesRead } = await handle.read(buffer, 0, TITLE_SCAN_BYTES, 0);
-      text = buffer.subarray(0, bytesRead).toString("utf8");
-    } finally {
-      await handle.close();
-    }
-  } catch {
-    return stem;
-  }
+function extractTitle(text: string | null, stem: string): string {
+  if (text === null) return stem;
 
   const match = ATX_HEADING.exec(text);
   if (match?.[1] !== undefined) return match[1].trim();
@@ -101,13 +149,14 @@ async function isFileEntry(entry: Dirent, fullPath: string, realWorkspace: strin
 /** Build the DocumentMeta record for a file inside `workspace`. */
 async function buildMeta(workspace: string, fullPath: string): Promise<DocumentMeta> {
   const location = path.relative(workspace, fullPath).split(path.sep).join("/");
-  const stat = await fs.stat(fullPath);
+  const [stat, head] = await Promise.all([fs.stat(fullPath), readHead(fullPath)]);
   return {
     id: stableId(location),
     filename: path.basename(fullPath),
     location,
-    title: await extractTitle(fullPath),
+    title: extractTitle(head, path.basename(fullPath, path.extname(fullPath))),
     created: new Date(stat.ctimeMs).toISOString(),
+    headings: head === null ? [] : extractHeadings(head),
   };
 }
 
