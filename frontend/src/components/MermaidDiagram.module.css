@@ -1,0 +1,51 @@
+/* ─── Mermaid diagrams (```mermaid blocks) ────────────────────────────────── */
+.diagram {
+  margin: 0 0 1em;
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+}
+
+/* Never wider than the column; tall diagrams keep their proportions */
+.diagram :global(svg) {
+  max-width: 100%;
+  height: auto;
+}
+
+.placeholder {
+  margin: 0 0 1em;
+  padding: var(--space-6);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.error {
+  margin: 0 0 1em;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-error);
+  border-radius: var(--radius-md);
+}
+
+.errorTitle {
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.errorMessage {
+  margin: var(--space-1) 0 var(--space-2);
+  color: var(--color-error);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+}
+
+@media print {
+  .diagram,
+  .error {
+    break-inside: avoid;
+  }
+}

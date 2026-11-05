@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
@@ -28,6 +30,9 @@ import langCpp from "highlight.js/lib/languages/cpp";
 import langXml from "highlight.js/lib/languages/xml"; // covers html
 
 import "../syntax.css";
+import "katex/dist/katex.min.css";
+import remarkMathDollars from "../mathDollars";
+import MermaidDiagram from "./MermaidDiagram";
 import styles from "./MarkdownViewer.module.css";
 
 interface MarkdownViewerProps {
@@ -258,8 +263,35 @@ function MarkdownImage({
 }
 
 // Build the components map once — stable reference, no re-creation on render.
+// ---------------------------------------------------------------------------
+// Code blocks
+// ```mermaid blocks become diagrams; every other block renders as usual.
+// ---------------------------------------------------------------------------
+
+interface HastNode {
+  type: string;
+  tagName?: string;
+  value?: string;
+  properties?: { className?: unknown };
+  children?: HastNode[];
+}
+
+function hastText(node: HastNode): string {
+  return node.value ?? (node.children ?? []).map(hastText).join("");
+}
+
+function MarkdownPre({ node, children, ...rest }: React.HTMLAttributes<HTMLPreElement> & ExtraProps): React.ReactElement {
+  const code = (node as HastNode | undefined)?.children?.find((child) => child.type === "element");
+  const classes = code?.tagName === "code" ? [code.properties?.className].flat() : [];
+  if (code !== undefined && classes.includes("language-mermaid")) {
+    return <MermaidDiagram code={hastText(code)} />;
+  }
+  return <pre {...rest}>{children}</pre>;
+}
+
 const markdownComponents: Components = {
   a: MarkdownLink,
+  pre: MarkdownPre,
   img: MarkdownImage,
   h1: makeHeading("h1"),
   h2: makeHeading("h2"),
@@ -298,8 +330,9 @@ const rehypeHighlightOptions: RehypeHighlightOptions = {
 //
 // It also prefixes id/name values with "user-content-" so a document can't
 // clobber page globals (e.g. id="markdownApi"); findAnchorTarget() looks
-// for the prefixed id too. Highlighting runs after sanitizing so its
-// hljs-* class names survive.
+// for the prefixed id too. KaTeX and highlighting run after sanitizing so
+// their generated markup (KaTeX's inline styles, hljs-* class names)
+// survives; both only produce markup from the math / code text itself.
 // ---------------------------------------------------------------------------
 
 const CLOBBER_PREFIX = defaultSchema.clobberPrefix ?? "user-content-";
@@ -307,8 +340,12 @@ const CLOBBER_PREFIX = defaultSchema.clobberPrefix ?? "user-content-";
 const rehypePlugins = [
   rehypeRaw,
   [rehypeSanitize, defaultSchema] as [typeof rehypeSanitize, typeof defaultSchema],
+  rehypeKatex,
   [rehypeHighlight, rehypeHighlightOptions] as [typeof rehypeHighlight, RehypeHighlightOptions],
 ];
+
+// $…$ / $$…$$ / ```math math (KaTeX), with GitHub's rules for single dollars
+const remarkPlugins = [remarkGfm, remarkMath, remarkMathDollars];
 
 // Footnote ids are prefixed by the sanitizer instead, so they aren't doubled
 const remarkRehypeOptions = { clobberPrefix: "" };
@@ -710,8 +747,14 @@ export default function MarkdownViewer({
 
     update();
     scroller.addEventListener("scroll", onScroll, { passive: true });
+    // The document's height also changes without scrolling: images loading,
+    // Mermaid diagrams replacing their placeholders, the window resizing
+    const resizes = new ResizeObserver(onScroll);
+    if (articleRef.current !== null) resizes.observe(articleRef.current);
+    resizes.observe(scroller);
     return () => {
       scroller.removeEventListener("scroll", onScroll);
+      resizes.disconnect();
       cancelAnimationFrame(frame);
     };
   }, [showOutline, outlineHeadings]);
@@ -826,7 +869,7 @@ export default function MarkdownViewer({
             <article className={styles.article} aria-label="Rendered markdown" ref={articleRef}>
               <LinkContext.Provider value={linkHandlers}>
                 <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
+                  remarkPlugins={remarkPlugins}
                   remarkRehypeOptions={remarkRehypeOptions}
                   rehypePlugins={rehypePlugins}
                   components={markdownComponents}

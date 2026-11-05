@@ -89,3 +89,15 @@ export default function useTheme(): [ThemePreference, (preference: ThemePreferen
 
   return [preference, choose];
 }
+
+/** The palette in use ("light" or "dark"), following <html data-theme>. */
+export function useAppliedTheme(): "light" | "dark" {
+  const read = () => (document.documentElement.dataset["theme"] === "light" ? "light" : "dark");
+  const [applied, setApplied] = useState<"light" | "dark">(read);
+  useEffect(() => {
+    const observer = new MutationObserver(() => setApplied(read()));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+  return applied;
+}
