@@ -1,0 +1,73 @@
+/* ─── Document styles ─────────────────────────────────────────────────────── */
+/* The built-in styles chosen in the display options menu (readerPrefs.ts),
+   applied to the rendered document on screen and in print / PDF. "Default"
+   is MarkdownViewer.module.css as it is; these override parts of it. The app
+   root carries data-doc-style; .folio-document is the article's stable class
+   (also the hook for a desktop custom.css). System fonts only.
+
+   Specificity is kept equal to the base rules' (.article h1 and the like):
+   the style condition sits in :where(), and this file loads after
+   MarkdownViewer.module.css, so a style overrides the base by order, and a
+   custom.css (added last) overrides both with plain `.folio-document h1`.  */
+
+/* Book: serif type and airy spacing, for long-form reading */
+:where([data-doc-style="book"]) .folio-document {
+  font-family: "Iowan Old Style", Charter, "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  line-height: 1.75;
+  hyphens: auto;
+  text-wrap: pretty;
+}
+
+:where([data-doc-style="book"]) .folio-document :is(h1, h2, h3, h4, h5, h6) {
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-top: 1.8em;
+}
+
+:where([data-doc-style="book"]) .folio-document h1 {
+  font-size: 2.2em;
+  margin-top: 0.4em;
+}
+
+:where([data-doc-style="book"]) .folio-document p {
+  margin-bottom: 1.15em;
+}
+
+:where([data-doc-style="book"]) .folio-document blockquote {
+  font-style: italic;
+}
+
+:where([data-doc-style="book"]) .folio-document :is(pre, code, table) {
+  hyphens: manual;
+}
+
+/* Compact: tighter spacing and smaller headings, for dense reference docs */
+:where([data-doc-style="compact"]) .folio-document {
+  line-height: 1.45;
+  padding-top: var(--space-4);
+}
+
+:where([data-doc-style="compact"]) .folio-document :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 1.1em;
+  margin-bottom: 0.4em;
+}
+
+:where([data-doc-style="compact"]) .folio-document h1 { font-size: 1.6em; margin-top: 0.2em; }
+:where([data-doc-style="compact"]) .folio-document h2 { font-size: 1.3em; }
+:where([data-doc-style="compact"]) .folio-document h3 { font-size: 1.1em; }
+
+:where([data-doc-style="compact"]) .folio-document :is(p, ul, ol, blockquote, table, pre) {
+  margin-bottom: 0.6em;
+}
+
+:where([data-doc-style="compact"]) .folio-document li {
+  margin-bottom: 0.1em;
+}
+
+:where([data-doc-style="compact"]) .folio-document :is(th, td) {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}

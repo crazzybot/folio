@@ -23,7 +23,15 @@ export const FONT_SIZES = [
   { id: "x-large", label: "Extra large", value: "18px" },
 ] as const;
 
+/** The document's built-in style (documentStyles.css); "default" adds nothing. */
+export const DOC_STYLES = [
+  { id: "default", label: "Default", value: "default" },
+  { id: "book", label: "Book", value: "book" },
+  { id: "compact", label: "Compact", value: "compact" },
+] as const;
+
 export type ReadingWidth = (typeof READING_WIDTHS)[number];
+export type DocStyle = (typeof DOC_STYLES)[number];
 export type FontSize = (typeof FONT_SIZES)[number];
 
 interface Option {
@@ -67,6 +75,10 @@ export function useOutlineVisible(): [boolean, (visible: boolean) => void] {
 
 export function useReadingWidth(): [ReadingWidth, (id: ReadingWidth["id"]) => void] {
   return useStoredOption<ReadingWidth>(READING_WIDTHS, "folio.readingWidth", READING_WIDTHS[1]);
+}
+
+export function useDocStyle(): [DocStyle, (id: DocStyle["id"]) => void] {
+  return useStoredOption<DocStyle>(DOC_STYLES, "folio.docStyle", DOC_STYLES[0]);
 }
 
 export function useFontSize(): [FontSize, (id: FontSize["id"]) => void] {

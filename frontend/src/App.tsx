@@ -8,7 +8,8 @@ import type { SearchFocus } from "./components/MarkdownViewer";
 import Breadcrumb from "./components/Breadcrumb";
 import useDesktopHistory from "./useDesktopHistory";
 import useFileDrop from "./useFileDrop";
-import { useFontSize, useOutlineVisible, useReadingWidth } from "./readerPrefs";
+import useCustomCss from "./customCss";
+import { useDocStyle, useFontSize, useOutlineVisible, useReadingWidth } from "./readerPrefs";
 import useTheme from "./theme";
 import DisplayMenu from "./components/DisplayMenu";
 import styles from "./App.module.css";
@@ -142,6 +143,8 @@ function AppInner(): React.ReactElement {
   const [theme, setTheme] = useTheme();
   const [readingWidth, setReadingWidth] = useReadingWidth();
   const [fontSize, setFontSize] = useFontSize();
+  const [docStyle, setDocStyle] = useDocStyle();
+  useCustomCss();
   const [showOutline, setShowOutline] = useOutlineVisible();
 
   // ── Panel / divider state ──────────────────────────────────────────────────
@@ -407,6 +410,7 @@ function AppInner(): React.ReactElement {
       className={styles.appRoot}
       ref={containerRef}
       data-titlebar={IS_MAC_DESKTOP ? "inset" : undefined}
+      data-doc-style={docStyle.id}
       style={{ "--reading-width": readingWidth.value, "--reading-font-size": fontSize.value } as React.CSSProperties}
     >
       <div className={styles.workbench}>
@@ -542,6 +546,8 @@ function AppInner(): React.ReactElement {
               onReadingWidthChange={setReadingWidth}
               fontSize={fontSize.id}
               onFontSizeChange={setFontSize}
+              docStyle={docStyle.id}
+              onDocStyleChange={setDocStyle}
               buttonClassName={styles.iconBtn}
             />
 

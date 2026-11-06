@@ -36,6 +36,7 @@ import {
 } from "./recent";
 import { serveImage } from "./images";
 import { canInstallCommand, installCommand } from "./cli";
+import { ensureCustomCss, readCustomCss, watchCustomCss } from "./customCss";
 import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
 import { classifyPath, locationInWorkspace, pathsFromArgv } from "./openPaths";
@@ -219,6 +220,12 @@ function registerIpcHandlers(): void {
     if (typeof query !== "string") throw new Error("Search query must be a string");
     if (settings.workspace === null) return [];
     return searchWorkspace(settings.workspace, query, scanOptions());
+  });
+
+  // The user's custom.css: asked for at page load, then pushed on each save
+  ipcMain.handle("custom-css:get", (event): string | null => {
+    assertTrustedSender(event);
+    return readCustomCss();
   });
 
   // View preferences: all of them once at page load (synchronously, so the
@@ -589,6 +596,20 @@ async function openCurrentInEditor(win: BrowserWindow): Promise<void> {
   }
 }
 
+/** View → Edit Custom CSS…: create custom.css from its template if needed, and open it. */
+async function editCustomCss(win: BrowserWindow): Promise<void> {
+  const file = ensureCustomCss();
+  try {
+    await openInEditor(file, settings.editor);
+  } catch (error) {
+    await dialog.showMessageBox(win, {
+      type: "warning",
+      message: "Couldn't open custom.css",
+      detail: `${error instanceof Error ? error.message : String(error)}\n\nEdit it at:\n${file}`,
+    });
+  }
+}
+
 /** File → Reveal in Finder / Show in Folder. */
 async function revealCurrent(win: BrowserWindow): Promise<void> {
   const file = await currentDocPath(win);
@@ -733,6 +754,7 @@ function buildMenu(): Menu {
             }),
           ),
         },
+        { label: "Edit Custom CSS…", click: withWindow(editCustomCss) },
         { type: "separator" },
         // The rest of Electron's default View menu
         { role: "reload" },
@@ -889,6 +911,9 @@ void app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) => allowed(permission));
   registerIpcHandlers();
   watchSettings(applySettings);
+  watchCustomCss((css) => {
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send("custom-css:changed", css);
+  });
   restartWatcher();
   Menu.setApplicationMenu(buildMenu());
   mainWindow = createWindow();

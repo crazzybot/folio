@@ -38,6 +38,8 @@ import remarkMathDollars from "../mathDollars";
 import remarkObsidian from "../obsidian";
 import MermaidDiagram from "./MermaidDiagram";
 import styles from "./MarkdownViewer.module.css";
+// After the module CSS: document styles override the base rules by order
+import "../documentStyles.css";
 
 interface MarkdownViewerProps {
   content: string | null;
@@ -983,7 +985,7 @@ export default function MarkdownViewer({
 
           {/* ── Rendered markdown ── */}
           {!loading && error === null && content !== null && (
-            <article className={styles.article} aria-label="Rendered markdown" ref={articleRef}>
+            <article className={`${styles.article} folio-document`} aria-label="Rendered markdown" ref={articleRef}>
               <LinkContext.Provider value={linkHandlers}>
                 <ReactMarkdown
                   remarkPlugins={remarkPlugins}
