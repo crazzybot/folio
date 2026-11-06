@@ -181,6 +181,36 @@ and font size are too.
 
 ---
 
+## Releasing the desktop app
+
+Releases are built by GitHub Actions (`.github/workflows/release.yml`) and
+published as GitHub Releases, where installed copies of Folio look for
+updates (**Folio → Check for Updates…**, also checked quietly at launch).
+
+1. Bump `"version"` in `desktop/package.json` (e.g. `0.2.0`) and merge it to `main`.
+2. Tag that commit and push the tag:
+   ```bash
+   git tag v0.2.0 && git push origin v0.2.0
+   ```
+3. The workflow checks the tag matches the version, creates a **draft**
+   release with generated notes, and uploads:
+   - macOS: `Folio-0.2.0-universal.dmg` and `…-universal-mac.zip` (Intel and
+     Apple Silicon), signed with the Developer ID certificate and notarized
+   - Windows: `Folio Setup 0.2.0.exe` (unsigned for now — SmartScreen warns)
+   - Linux: an AppImage
+   - `latest*.yml` files the updater reads
+4. Review the draft on GitHub (edit the notes), then **Publish** it. Installed
+   apps see the update from then on.
+
+Signing and notarization use secrets in the repository's `release`
+environment (tags `v*` only): `CSC_LINK` (the Developer ID `.p12`,
+base64-encoded), `CSC_KEY_PASSWORD`, `APPLE_API_KEY_P8` (the App Store
+Connect API key's `.p8` text), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`.
+`.github/workflows/ci.yml` lints, type-checks and tests every push to `main`
+and every pull request.
+
+---
+
 ## Environment variables
 
 | Variable | Where it is read | Default | Description |

@@ -56,6 +56,7 @@ import {
 } from "./settings";
 import type { Settings, Theme } from "./settings";
 import { hasPendingViewState, loadViewState, saveViewState, setViewState, viewStateSnapshot } from "./viewState";
+import { checkForUpdatesNow, initUpdater } from "./updater";
 import { watchWorkspace } from "./watcher";
 import { DEFAULT_SIZE, loadWindowState, trackWindowState } from "./windowState";
 
@@ -765,6 +766,7 @@ function buildMenu(): Menu {
             role: "appMenu",
             submenu: [
               { role: "about" },
+              { label: "Check for Updates…", click: () => void checkForUpdatesNow() },
               { type: "separator" },
               settingsItem,
               ...(canInstallCommand()
@@ -861,6 +863,8 @@ function buildMenu(): Menu {
       ],
     },
     { role: "windowMenu" },
+    // macOS has Check for Updates… in the app menu
+    ...(isMac ? [] : [{ role: "help", submenu: [{ label: "Check for Updates…", click: () => void checkForUpdatesNow() }] } satisfies MenuItemConstructorOptions]),
   ];
   return Menu.buildFromTemplate(template);
 }
@@ -990,6 +994,7 @@ void app.whenReady().then(() => {
   restartWatcher();
   Menu.setApplicationMenu(buildMenu());
   mainWindow = createWindow();
+  initUpdater();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
