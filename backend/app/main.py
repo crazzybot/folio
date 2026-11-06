@@ -46,7 +46,15 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-from app.scanner import IMAGE_TYPES, DocumentMeta, find_document, find_image, scan_attachments, scan_workspace
+from app.scanner import (
+    IMAGE_TYPES,
+    LINKED_FILE_TYPES,
+    DocumentMeta,
+    find_document,
+    find_file,
+    scan_attachments,
+    scan_workspace,
+)
 from app.search import search_workspace
 
 # ---------------------------------------------------------------------------
@@ -258,9 +266,12 @@ def search_documents(q: str = Query(..., max_length=500)) -> list[SearchResultIt
     ]
 
 
-# Images are only ever displayed, never run: an SVG opened directly must not
-# execute scripts or load anything (the same policy as the desktop app).
-_IMAGE_HEADERS = {
+# Files are only ever displayed or downloaded, never run: an SVG or other file
+# opened directly must not execute scripts or load anything (the same policy
+# as the desktop app).
+_SERVED_TYPES = {**IMAGE_TYPES, **LINKED_FILE_TYPES}
+
+_FILE_HEADERS = {
     "Content-Security-Policy": "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
     "X-Content-Type-Options": "nosniff",
 }
@@ -268,21 +279,24 @@ _IMAGE_HEADERS = {
 
 @app.get(
     "/api/files/{location:path}",
-    summary="Fetch an image embedded by a document",
+    summary="Fetch an image or linked file from the workspace",
     response_class=FileResponse,
 )
-def get_image(location: str) -> FileResponse:
+def get_file(location: str) -> FileResponse:
     """
-    Return the image at *location* (workspace-relative, forward slashes), so
-    documents can embed ``![](img/diagram.png)``.
+    Return the file at *location* (workspace-relative, forward slashes): an
+    image a document embeds (``![](img/diagram.png)``) or a file it links to
+    (``[data](report.pdf)``).
 
-    Only image files inside the workspace are served, never from a folder in
+    Only images and the document, data, office and media types in
+    ``LINKED_FILE_TYPES`` are served — never HTML, scripts, executables or
+    archives — only from inside the workspace and never from a folder in
     MARKDOWN_SKIP_DIRS. Raises **404** for anything else.
     """
-    path = find_image(_workspace(), location, skip_dirs=_skip_dirs())
+    path = find_file(_workspace(), location, _SERVED_TYPES, skip_dirs=_skip_dirs())
     if path is None:
-        raise HTTPException(status_code=404, detail=f"Image '{location}' not found.")
-    return FileResponse(path, media_type=IMAGE_TYPES[path.suffix.lower()], headers=_IMAGE_HEADERS)
+        raise HTTPException(status_code=404, detail=f"File '{location}' not found.")
+    return FileResponse(path, media_type=_SERVED_TYPES[path.suffix.lower()], headers=_FILE_HEADERS)
 
 
 # ---------------------------------------------------------------------------

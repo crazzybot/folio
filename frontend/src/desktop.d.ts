@@ -32,6 +32,8 @@ interface MarkdownDesktopApi {
   onEditorChange(callback: (name: string | null) => void): () => void;
   /** The file-system path of a dropped File ("" if it has none). */
   getPathForFile(file: File): string;
+  /** Open a file a document links to (workspace location) in its default app. */
+  openLinkedFile(location: string): Promise<void>;
   /** Open a markdown file or a folder (absolute path), as Open With would. */
   openPath(target: string): Promise<void>;
   /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */

@@ -65,6 +65,8 @@ contextBridge.exposeInMainWorld("markdownApi", {
   },
   /** The file-system path of a dropped File ("" if it has none), for openPath. */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  /** Open a file a document links to, in its default app (only safe types; see files.ts). */
+  openLinkedFile: (location: string) => ipcRenderer.invoke("workspace:open-file", location),
   /** Open a markdown file or a folder, as File → Open Folder… or Open With would. */
   openPath: (target: string) => ipcRenderer.invoke("workspace:open-path", target),
   /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */

@@ -351,16 +351,64 @@ IMAGE_TYPES: dict[str, str] = {
 }
 
 
-def find_image(
+# Other files a document may link to ([data](report.pdf)), with the content
+# type they are served as. Documents, data, office files and media only: no
+# HTML or SVG (they'd run scripts), executables, scripts, launchers
+# (.command, .webloc), archives, disk images or macro-enabled Office files;
+# not .key either (Keynote, but also private keys). Mirrored by the desktop
+# app's LINKED_FILE_TYPES (desktop/src/files.ts).
+_TEXT = "text/plain; charset=utf-8"
+LINKED_FILE_TYPES: dict[str, str] = {
+    ".pdf": "application/pdf",
+    ".txt": _TEXT,
+    ".log": _TEXT,
+    ".csv": "text/csv; charset=utf-8",
+    ".tsv": "text/tab-separated-values; charset=utf-8",
+    ".json": "application/json",
+    ".yaml": _TEXT,
+    ".yml": _TEXT,
+    ".xml": _TEXT,
+    ".rtf": "application/rtf",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xls": "application/vnd.ms-excel",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".odt": "application/vnd.oasis.opendocument.text",
+    ".ods": "application/vnd.oasis.opendocument.spreadsheet",
+    ".odp": "application/vnd.oasis.opendocument.presentation",
+    ".pages": "application/vnd.apple.pages",
+    ".numbers": "application/vnd.apple.numbers",
+    ".epub": "application/epub+zip",
+    ".heic": "image/heic",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+    ".mp3": "audio/mpeg",
+    ".m4a": "audio/mp4",
+    ".aac": "audio/aac",
+    ".wav": "audio/wav",
+    ".flac": "audio/flac",
+    ".ogg": "audio/ogg",
+    ".mp4": "video/mp4",
+    ".m4v": "video/mp4",
+    ".mov": "video/quicktime",
+    ".webm": "video/webm",
+}
+
+
+def find_file(
     workspace: Path,
     location: str,
+    types: dict[str, str],
     skip_dirs: frozenset[str] = frozenset(),
 ) -> Path | None:
     """
-    Return the path of the image at workspace-relative *location*, or ``None``.
+    Return the path of the file at workspace-relative *location*, or ``None``.
 
-    Only image types are served, never from a skipped folder, and the
-    resolved file (symlinks included) must lie inside the workspace.
+    Only files whose extension is in *types* are served, never from a
+    skipped folder, and the resolved file (symlinks included) must lie
+    inside the workspace.
     """
     parts = location.split("/")
     if any(part in ("", ".", "..") or "\\" in part for part in parts):
@@ -368,7 +416,7 @@ def find_image(
     if any(part in skip_dirs for part in parts[:-1]):
         return None
     file_path = workspace.joinpath(*parts)
-    if file_path.suffix.lower() not in IMAGE_TYPES:
+    if file_path.suffix.lower() not in types:
         return None
     try:
         resolved = file_path.resolve()

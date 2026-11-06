@@ -19,6 +19,12 @@ describe("resolveLink", () => {
     ["setup", "docs/guide.md", { kind: "document", id: "setup", anchor: null }],
     ["guide.md#part", "docs/guide.md", { kind: "anchor", anchor: "part" }],
     ["docs/my%20file.md", "README.md", { kind: "missing", location: "docs/my file.md" }],
+    ["data/report.PDF", "docs/guide.md", { kind: "file", location: "docs/data/report.PDF", openable: true }],
+    ["../tables.csv#row", "docs/guide.md", { kind: "file", location: "tables.csv", openable: true }],
+    ["install.command", "README.md", { kind: "file", location: "install.command", openable: false }],
+    ["page.html", "README.md", { kind: "file", location: "page.html", openable: false }],
+    ["docs/no-extension", "README.md", { kind: "missing", location: "docs/no-extension" }],
+    [".gitignore", "README.md", { kind: "missing", location: ".gitignore" }],
     ["../../escape.md", "docs/guide.md", { kind: "missing", location: "../../escape.md" }],
   ])("%s from %s", (href, from, target) => {
     expect(resolveLink(href, from, ids)).toEqual(target);

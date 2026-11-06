@@ -10,6 +10,8 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { Options as RehypeHighlightOptions } from "rehype-highlight";
 import type { Components, ExtraProps, Options as MarkdownOptions } from "react-markdown";
 import { workspaceFileUrl } from "../api";
+
+const desktopApi = window.markdownApi;
 import { resolveImageSrc, resolveLink } from "../links";
 import type { ImageSource, LinkTarget } from "../links";
 import { saveScrollPosition } from "../scrollHistory";
@@ -201,6 +203,47 @@ function MarkdownLink({
         </a>
       );
 
+    case "file": {
+      const name = target.location.slice(target.location.lastIndexOf("/") + 1);
+      if (!target.openable) {
+        return (
+          <a
+            {...rest}
+            className={styles.missingLink}
+            title={`Folio doesn't open ${name.slice(name.lastIndexOf("."))} files from documents: ${target.location}`}
+            aria-disabled="true"
+            onClick={(e) => e.preventDefault()}
+          >
+            {children}
+          </a>
+        );
+      }
+      // Desktop: the main process opens it in its default app (safe types
+      // only). Browser: the backend serves it, in a new tab.
+      if (desktopApi) {
+        return (
+          <a
+            {...rest}
+            href={`#${encodeURIComponent(target.location)}`}
+            title={rest.title ?? `Open ${name}`}
+            onClick={(e) => {
+              e.preventDefault();
+              void desktopApi.openLinkedFile(target.location);
+            }}
+          >
+            {children}
+            <ExternalLinkIcon label="(opens in another app)" />
+          </a>
+        );
+      }
+      return (
+        <a {...rest} href={workspaceFileUrl(target.location)} target="_blank" rel="noopener noreferrer" title={rest.title ?? `Open ${name}`}>
+          {children}
+          <ExternalLinkIcon label="(opens in a new tab)" />
+        </a>
+      );
+    }
+
     case "missing":
       return (
         <a
@@ -216,7 +259,7 @@ function MarkdownLink({
   }
 }
 
-function ExternalLinkIcon(): React.ReactElement {
+function ExternalLinkIcon({ label = "(opens in browser)" }: { label?: string }): React.ReactElement {
   return (
     <svg
       className={styles.externalIcon}
@@ -228,7 +271,7 @@ function ExternalLinkIcon(): React.ReactElement {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      aria-label="(opens in browser)"
+      aria-label={label}
       role="img"
     >
       <path d="M12 9v4.5a1 1 0 0 1-1 1H2.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1H7" />

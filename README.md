@@ -29,6 +29,7 @@ highlighting — all without leaving your browser.
 - Mermaid diagrams from ```` ```mermaid ```` blocks, drawn in the current light / dark theme (Mermaid loads only when a document has one). A diagram that sets its own colours (`rect rgb(…)`, `fill:`) or theme (`%%{init: {"theme": …}}%%`) is drawn for the background it was written for, on a card of that background, so its text stays readable in either theme. Hover a diagram and click its expand button (or double-click it) to open it in the whole window, under a title bar with its caption (the diagram's `title`, or the nearest heading) that still drags the window: zoom with the toolbar, ⌘ / Ctrl + scroll, a trackpad pinch or `+` / `-`; pan by dragging, scrolling or with the arrow keys; `0` fits and recentres, `1` shows actual size, Escape closes
 - Images from the workspace (`![](img/diagram.png)`, relative to the document) and the web
 - Copy button on code blocks (on hover or keyboard focus)
+- Links to other files (`[data](report.pdf)`) open in their app on the desktop, or in a new tab in the browser — documents, data, office files, images and media only; links to scripts, executables, HTML and the like are shown as unavailable
 - Syntax-highlighted fenced code blocks (Python, JS/TS, JSON, Bash, CSS, HTML, YAML, Markdown)
 
 ---
@@ -290,13 +291,16 @@ skipped.
 
 ### `GET /api/files/{location}`
 
-Returns an image embedded by a document, so `![](img/diagram.png)` works.
+Returns an image embedded by a document, so `![](img/diagram.png)` works, or
+a file a document links to (`[data](report.pdf)`).
 `location` is the image's workspace-relative path with forward slashes, e.g.
 `/api/files/docs/img/diagram.png`; the frontend resolves relative `src`
 values against the document's folder before calling it.
 
 Only image files (`png`, `jpg`/`jpeg`, `gif`, `webp`, `avif`, `bmp`, `ico`,
-`svg`) inside the workspace are served, never from a folder in
+`svg`) and linkable document, data, office and media files (`pdf`, `txt`,
+`csv`, `json`, `yaml`, `docx`, `xlsx`, `mp4`… — `LINKED_FILE_TYPES` in
+`backend/app/scanner.py`) inside the workspace are served, never from a folder in
 `MARKDOWN_SKIP_DIRS`. Responses carry a `sandbox` Content-Security-Policy so
 an SVG opened directly can't run scripts.
 
@@ -427,8 +431,12 @@ repositories or vendored packages.
   (nginx in Docker, the `app://` handler in the desktop app) is the second layer.
 - **Files** — only `.md`/`.markdown` files inside the workspace are served,
   by ID rather than path; symlinks pointing outside the workspace are ignored.
-  Images are served by path, but only image types inside the workspace and
-  outside skipped folders, with a sandboxing CSP so SVGs can't run scripts.
+  Images and linked files are served by path, but only allowlisted types
+  (images; documents, data, office files and media — never HTML, scripts,
+  executables, launchers, archives or macro-enabled Office files) inside the
+  workspace and outside skipped folders, with a sandboxing CSP so nothing
+  served can run scripts. The desktop app opens linked files in their default
+  app under the same allowlist, checked again after resolving symlinks.
 - **Network (Docker)** — only nginx is published, on `127.0.0.1:3000`; the
   backend is reachable solely through it. Both containers run as non-root
   users and the workspace is mounted read-only.

@@ -37,6 +37,7 @@ import {
 import { serveImage } from "./images";
 import { canInstallCommand, installCommand } from "./cli";
 import { editorName, openInEditor } from "./editor";
+import { openLinkedFile } from "./files";
 import { classifyPath, locationInWorkspace, pathsFromArgv } from "./openPaths";
 import { findDocument, scanAttachments, scanWorkspace, stableId } from "./scanner";
 import { searchWorkspace } from "./search";
@@ -227,6 +228,26 @@ function registerIpcHandlers(): void {
   });
   ipcMain.on("view-state:set", (event, key: unknown, value: unknown) => {
     if (isRendererUrl(event.senderFrame?.url ?? "")) setViewState(key, value);
+  });
+
+  // A file a document links to ([report](report.pdf)), by workspace location
+  ipcMain.handle("workspace:open-file", async (event, location: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    if (typeof location !== "string") throw new Error("Location must be a string");
+    const result = await openLinkedFile(settings.workspace, location, new Set(settings.skipDirs));
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (result === "opened" || win === null) return;
+    const name = path.basename(location);
+    const messages = {
+      "not-allowed": [
+        `Folio doesn't open ${path.extname(location) || "this kind of"} files from documents`,
+        `${name} could run code or isn't a document. Open it from ${process.platform === "darwin" ? "Finder" : "your file manager"} if you trust it.`,
+      ],
+      "not-found": ["File not found", `${location} isn't in this workspace.`],
+      failed: ["Couldn't open the file", `No app could open ${name}.`],
+    } as const;
+    const [message, detail] = messages[result];
+    await dialog.showMessageBox(win, { type: "warning", message, detail });
   });
 
   // A file or folder dropped on the window (the renderer resolves its path)

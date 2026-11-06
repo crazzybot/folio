@@ -13,8 +13,24 @@ export type LinkTarget =
   | { kind: "document"; id: string; anchor: string | null }
   /** "https://…", "mailto:…" — opens outside the app */
   | { kind: "external"; href: string }
+  /** "data.csv", "../report.pdf" — another kind of file in the workspace */
+  | { kind: "file"; location: string; openable: boolean }
   /** A relative link to something that isn't a workspace document */
   | { kind: "missing"; location: string };
+
+/**
+ * Files a link may open (in its app on the desktop, from the backend in the
+ * browser): documents, data, office files, images and media — never HTML,
+ * SVG, scripts, executables, launchers or archives. Enforced by the desktop
+ * app (desktop/src/files.ts) and the backend (LINKED_FILE_TYPES); here it
+ * only decides how a link looks.
+ */
+const OPENABLE_EXTENSIONS = new Set(
+  (
+    "pdf txt log csv tsv json yaml yml xml rtf epub doc docx xls xlsx ppt pptx odt ods odp pages numbers " +
+    "png jpg jpeg gif webp avif bmp ico heic tif tiff mp3 m4a aac wav flac ogg mp4 m4v mov webm"
+  ).split(" "),
+);
 
 // RFC 3986 scheme ("https:", "mailto:", …) or a protocol-relative "//host"
 const EXTERNAL_HREF = /^([a-z][a-z\d+.-]*:|\/\/)/i;
@@ -76,7 +92,16 @@ export function resolveLink(
     idsByLocation.get(location) ??
     idsByLocation.get(`${location}.md`) ??
     idsByLocation.get(`${location}.markdown`);
-  if (id === undefined) return { kind: "missing", location };
+  if (id === undefined) {
+    // A file name with a (non-markdown) extension: some other file, opened
+    // outside the viewer if it exists and is a safe type
+    const name = location.slice(location.lastIndexOf("/") + 1);
+    const hasExtension = name.lastIndexOf(".") > 0;
+    const isMarkdown = /\.(md|markdown)$/i.test(name);
+    if (!hasExtension || isMarkdown) return { kind: "missing", location };
+    const extension = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+    return { kind: "file", location, openable: OPENABLE_EXTENSIONS.has(extension) };
+  }
 
   if (location === currentLocation && anchor !== null) return { kind: "anchor", anchor };
   return { kind: "document", id, anchor };
