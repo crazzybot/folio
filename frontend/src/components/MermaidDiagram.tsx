@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { authoredTheme } from "../mermaidTheme";
 import { useAppliedTheme } from "../theme";
 import DiagramViewer from "./DiagramViewer";
@@ -54,6 +54,27 @@ function renderDiagram(code: string, theme: "light" | "dark"): Promise<string> {
   return result;
 }
 
+/** The diagram's own title: front-matter `title:` or a `title …` line (gantt, pie, journey…). */
+function diagramTitle(code: string): string | null {
+  const match =
+    /^\s*---[\s\S]*?^\s*title\s*:\s*["']?(.+?)["']?\s*$/m.exec(code) ?? /^\s*(?:pie\s+)?title\s+(.+?)\s*$/m.exec(code);
+  return match?.[1] ?? null;
+}
+
+/**
+ * The caption for the full-window view: the document's title, then the
+ * diagram's own title or else the nearest heading above it.
+ */
+function diagramCaption(figure: HTMLElement, code: string): string {
+  const article = figure.closest("article");
+  const headings = article === null ? [] : [...article.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")];
+  const documentTitle = headings[0]?.textContent?.trim() ?? "";
+  const above = headings.filter((h) => h.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING).pop();
+  const own = diagramTitle(code) ?? above?.textContent?.trim() ?? "";
+  const parts = [documentTitle, own].filter((part, i, all) => part !== "" && all.indexOf(part) === i);
+  return parts.length > 0 ? parts.join(" — ") : "Diagram";
+}
+
 type State = { status: "rendering" } | { status: "done"; svg: string } | { status: "error"; message: string };
 
 export default function MermaidDiagram({ code }: { code: string }): React.ReactElement {
@@ -64,6 +85,7 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
   const card = theme !== appTheme ? (theme === "dark" ? styles.darkCard : styles.lightCard) : "";
   const [state, setState] = useState<State>({ status: "rendering" });
   const [fullWindow, setFullWindow] = useState(false);
+  const figureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +120,7 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
     );
   }
   return (
-    <div className={styles.figure}>
+    <div className={styles.figure} ref={figureRef}>
       <div
         className={`${styles.diagram} ${card}`}
         role="img"
@@ -122,6 +144,7 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
       {fullWindow && (
         <DiagramViewer
           svg={state.svg}
+          caption={figureRef.current === null ? "Diagram" : diagramCaption(figureRef.current, code)}
           // The card's colour for a diagram drawn for the other theme
           background={card === "" ? "var(--color-bg)" : theme === "dark" ? "#1f1f1f" : "#ffffff"}
           onClose={() => setFullWindow(false)}

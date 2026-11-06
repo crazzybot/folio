@@ -2,9 +2,15 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createPortal } from "react-dom";
 import styles from "./DiagramViewer.module.css";
 
+// The macOS desktop app hides the title bar; its window buttons sit in the
+// top-left of the header row, which doubles as the window's drag area
+const IS_MAC_DESKTOP = window.markdownApi?.platform === "darwin";
+
 interface DiagramViewerProps {
   /** The diagram's SVG markup (Mermaid's output, already sanitized). */
   svg: string;
+  /** What the diagram is, shown in the title bar: its title or nearest heading. */
+  caption: string;
   /** Background behind the diagram: its card colour, or the app's. */
   background: string;
   onClose: () => void;
@@ -33,13 +39,15 @@ function clampScale(scale: number): number {
 }
 
 /**
- * A diagram in the whole window, over the sidebar, header and outline:
+ * A diagram in the whole window, over the sidebar, header and outline. Its
+ * own title bar (caption and controls) takes the header's place, so the
+ * window can still be dragged by it:
  * zoom (buttons, ⌘/Ctrl + scroll or pinch, + / -), pan (drag, scroll,
  * arrow keys), fit and recentre (0), actual size (1); Escape closes.
  *
  * The SVG is scaled with a CSS transform, so it stays sharp at any zoom.
  */
-export default function DiagramViewer({ svg, background, onClose }: DiagramViewerProps): React.ReactElement {
+export default function DiagramViewer({ svg, caption, background, onClose }: DiagramViewerProps): React.ReactElement {
   const overlayRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -173,9 +181,49 @@ export default function DiagramViewer({ svg, background, onClose }: DiagramViewe
       style={{ background }}
       role="dialog"
       aria-modal="true"
-      aria-label="Diagram"
+      aria-label={caption}
       onKeyDown={onKeyDown}
     >
+      {/* Doubles as the window's drag area; the controls opt out of it */}
+      <div className={`${styles.titleBar} ${IS_MAC_DESKTOP ? styles.titleBarInset : ""}`}>
+        <h2 className={styles.caption} title={caption}>
+          {caption}
+        </h2>
+        <div className={styles.toolbar} role="toolbar" aria-label="Diagram view">
+          <button type="button" className={styles.btn} onClick={() => zoom((scale) => scale / STEP)} title="Zoom out (−)" aria-label="Zoom out">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M3.5 8h9" strokeWidth="1.3" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={`${styles.btn} ${styles.zoomLevel}`}
+            onClick={() => zoom(() => 1)}
+            title="Actual size (1)"
+            aria-label={`Zoom ${Math.round(view.scale * 100)}%, show actual size`}
+          >
+            {Math.round(view.scale * 100)}%
+          </button>
+          <button type="button" className={styles.btn} onClick={() => zoom((scale) => scale * STEP)} title="Zoom in (+)" aria-label="Zoom in">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M3.5 8h9M8 3.5v9" strokeWidth="1.3" />
+            </svg>
+          </button>
+          <span className={styles.divider} aria-hidden="true" />
+          <button type="button" className={styles.btn} onClick={fit} title="Fit and centre (0)" aria-label="Fit and centre">
+            {/* Four corners: fit to window */}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+              <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
+            </svg>
+          </button>
+          <button ref={closeRef} type="button" className={styles.btn} onClick={onClose} title="Close (Escape)" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+              <path d="M4 4l8 8M12 4l-8 8" strokeWidth="1.3" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <div
         ref={stageRef}
         className={`${styles.stage} ${dragging ? styles.dragging : ""}`}
@@ -194,40 +242,6 @@ export default function DiagramViewer({ svg, background, onClose }: DiagramViewe
           style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
           dangerouslySetInnerHTML={{ __html: svg }}
         />
-      </div>
-
-      <div className={styles.toolbar} role="toolbar" aria-label="Diagram view">
-        <button type="button" className={styles.btn} onClick={() => zoom((scale) => scale / STEP)} title="Zoom out (−)" aria-label="Zoom out">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
-            <path d="M3.5 8h9" strokeWidth="1.3" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          className={`${styles.btn} ${styles.zoomLevel}`}
-          onClick={() => zoom(() => 1)}
-          title="Actual size (1)"
-          aria-label={`Zoom ${Math.round(view.scale * 100)}%, show actual size`}
-        >
-          {Math.round(view.scale * 100)}%
-        </button>
-        <button type="button" className={styles.btn} onClick={() => zoom((scale) => scale * STEP)} title="Zoom in (+)" aria-label="Zoom in">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
-            <path d="M3.5 8h9M8 3.5v9" strokeWidth="1.3" />
-          </svg>
-        </button>
-        <span className={styles.divider} aria-hidden="true" />
-        <button type="button" className={styles.btn} onClick={fit} title="Fit and centre (0)" aria-label="Fit and centre">
-          {/* Four corners: fit to window */}
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-            <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
-          </svg>
-        </button>
-        <button ref={closeRef} type="button" className={styles.btn} onClick={onClose} title="Close (Escape)" aria-label="Close">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
-            <path d="M4 4l8 8M12 4l-8 8" strokeWidth="1.3" />
-          </svg>
-        </button>
       </div>
 
       <p className={styles.hint} aria-hidden="true">

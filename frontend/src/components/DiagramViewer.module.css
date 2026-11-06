@@ -5,12 +5,45 @@
   inset: 0;
   z-index: 100;
   outline: none;
+  display: flex;
+  flex-direction: column;
   /* background: set inline, the diagram's own (card) or the app's */
 }
 
+/* Takes the place of the app's header row: caption and controls. Doubles
+   as the window drag area in the desktop app, like the header */
+.titleBar {
+  flex-shrink: 0;
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2) 0 var(--space-4);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  -webkit-app-region: drag;
+}
+
+/* Clear the macOS window buttons */
+.titleBarInset {
+  padding-left: var(--traffic-lights-width);
+}
+
+.caption {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-ui);
+  font-weight: 400;
+  color: var(--color-text);
+}
+
 .stage {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   cursor: grab;
   touch-action: none;
@@ -32,24 +65,18 @@
   display: block;
 }
 
-/* Floating controls, top right, on the app's surface colour */
+/* Controls at the right of the title bar; clickable, not a drag area */
 .toolbar {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 4px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-input-border);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  -webkit-app-region: no-drag;
 }
 
 .btn {
-  min-width: 28px;
-  height: 28px;
+  min-width: 26px;
+  height: 26px;
   padding: 0 6px;
   border: none;
   border-radius: var(--radius-md);
@@ -79,7 +106,7 @@
 
 .divider {
   width: 1px;
-  height: 18px;
+  height: 16px;
   margin: 0 4px;
   background: var(--color-border);
 }
