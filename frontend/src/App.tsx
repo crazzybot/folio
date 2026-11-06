@@ -21,6 +21,7 @@ const PANEL_DEFAULT_WIDTH = 260;
 // into the app's own header rows.
 const IS_MAC_DESKTOP = window.markdownApi?.platform === "darwin";
 const BACK_SHORTCUT = IS_MAC_DESKTOP ? "⌘[" : "Alt+←";
+const EDITOR_SHORTCUT = IS_MAC_DESKTOP ? "⌘E" : "Ctrl+E";
 const FORWARD_SHORTCUT = IS_MAC_DESKTOP ? "⌘]" : "Alt+→";
 
 type LoadState =
@@ -79,6 +80,24 @@ function AppInner(): React.ReactElement {
 
   // ── Back / forward (desktop app only; null in the browser) ─────────────────
   const history = useDesktopHistory();
+
+  // ── Open in editor (desktop app only) ───────────────────────────────────────
+  // undefined: not the desktop app; null: the system's default app
+  const [editorName, setEditorName] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    const api = window.markdownApi;
+    if (!api) return;
+    let cancelled = false;
+    void api.getEditorName().then((name) => {
+      if (!cancelled) setEditorName(name);
+    });
+    const unsubscribe = api.onEditorChange(setEditorName);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
 
   // ── Opening from the system (desktop app only) ─────────────────────────────
   // A file of this workspace opened from Finder, the command line or a drop
@@ -432,6 +451,23 @@ function AppInner(): React.ReactElement {
             )}
 
             <Breadcrumb location={selectedDoc?.location ?? null} />
+
+            {editorName !== undefined && (
+              <button
+                className={styles.iconBtn}
+                onClick={() => void window.markdownApi?.openInEditor()}
+                disabled={contentValue === null}
+                aria-label={`Open in ${editorName ?? "editor"} (${EDITOR_SHORTCUT})`}
+                title={`Open in ${editorName ?? "editor"} (${EDITOR_SHORTCUT})`}
+                type="button"
+              >
+                {/* A pencil */}
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M10.5 2.5l3 3L6 13H3v-3z" />
+                  <path d="M9 4l3 3" />
+                </svg>
+              </button>
+            )}
 
             <button
               className={styles.iconBtn}

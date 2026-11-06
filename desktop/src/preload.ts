@@ -39,6 +39,18 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.removeListener("theme:changed", listener);
     };
   },
+  /** The editor File → Open in Editor uses, by name; null for the default app. */
+  getEditorName: () => ipcRenderer.invoke("editor:name"),
+  /** Open the shown document in that editor. */
+  openInEditor: () => ipcRenderer.invoke("editor:open"),
+  /** Subscribe to changes of the editor setting; returns an unsubscribe function. */
+  onEditorChange: (callback: (name: string | null) => void) => {
+    const listener = (_event: IpcRendererEvent, name: string | null) => callback(name);
+    ipcRenderer.on("editor:changed", listener);
+    return () => {
+      ipcRenderer.removeListener("editor:changed", listener);
+    };
+  },
   /** The file-system path of a dropped File ("" if it has none), for openPath. */
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   /** Open a markdown file or a folder, as File → Open Folder… or Open With would. */

@@ -17,6 +17,12 @@ interface MarkdownDesktopApi {
   setTheme(theme: string): Promise<void>;
   /** Subscribe to theme setting changes (menu, settings.json); returns an unsubscribe function. */
   onThemeChange(callback: (theme: string) => void): () => void;
+  /** The editor File → Open in Editor uses, by name; null for the default app. */
+  getEditorName(): Promise<string | null>;
+  /** Open the shown document in that editor. */
+  openInEditor(): Promise<void>;
+  /** Subscribe to changes of the editor setting; returns an unsubscribe function. */
+  onEditorChange(callback: (name: string | null) => void): () => void;
   /** The file-system path of a dropped File ("" if it has none). */
   getPathForFile(file: File): string;
   /** Open a markdown file or a folder (absolute path), as Open With would. */

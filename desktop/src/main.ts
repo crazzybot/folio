@@ -36,6 +36,7 @@ import {
 } from "./recent";
 import { serveImage } from "./images";
 import { canInstallCommand, installCommand } from "./cli";
+import { editorName, openInEditor } from "./editor";
 import { classifyPath, locationInWorkspace, pathsFromArgv } from "./openPaths";
 import { findDocument, scanWorkspace, stableId } from "./scanner";
 import { searchWorkspace } from "./search";
@@ -216,6 +217,17 @@ function registerIpcHandlers(): void {
     assertTrustedSender(event);
     if (typeof target !== "string" || !path.isAbsolute(target)) throw new Error("Path must be absolute");
     requestOpen([target]);
+  });
+
+  // The header's Open in Editor button: its label, and the action
+  ipcMain.handle("editor:name", (event): string | null => {
+    assertTrustedSender(event);
+    return editorName(settings.editor);
+  });
+  ipcMain.handle("editor:open", async (event): Promise<void> => {
+    assertTrustedSender(event);
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win !== null) await openCurrentInEditor(win);
   });
 
   // The renderer asks once on load; later changes are pushed (see applyTheme)
@@ -479,6 +491,13 @@ function applySettings(next: Settings): void {
     applyTheme();
     Menu.setApplicationMenu(buildMenu());
   }
+  if (next.editor !== settings.editor) {
+    settings = { ...settings, editor: next.editor };
+    Menu.setApplicationMenu(buildMenu());
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send("editor:changed", editorName(settings.editor));
+    }
+  }
   // Our own saves (Open Folder, Settings…) come back here unchanged
   if (!workspaceChanged && !scanChanged) return;
 
@@ -503,6 +522,39 @@ function currentDocId(win: BrowserWindow): string | null {
   const { pathname } = new URL(win.webContents.getURL());
   const match = /^\/doc\/([^/]+)/.exec(pathname);
   return match?.[1] !== undefined ? decodeURIComponent(match[1]) : null;
+}
+
+/** The file of the document shown in `win`, or null when none is. */
+async function currentDocPath(win: BrowserWindow): Promise<string | null> {
+  const docId = currentDocId(win);
+  if (docId === null || settings.workspace === null) return null;
+  const doc = await findDocument(settings.workspace, docId, scanOptions());
+  return doc === null ? null : path.join(settings.workspace, doc.meta.location);
+}
+
+/** File → Open in Editor (and the header button). */
+async function openCurrentInEditor(win: BrowserWindow): Promise<void> {
+  const file = await currentDocPath(win);
+  if (file === null) return;
+  try {
+    await openInEditor(file, settings.editor);
+  } catch (error) {
+    const name = editorName(settings.editor);
+    await dialog.showMessageBox(win, {
+      type: "warning",
+      message: name === null ? "Couldn't open the document in an editor" : `Couldn't open the document in ${name}`,
+      detail:
+        `${error instanceof Error ? error.message : String(error)}\n\n` +
+        `Choose the editor with "editor" in settings.json (Settings…): ` +
+        (process.platform === "darwin" ? `an app name, e.g. "Visual Studio Code".` : `a command, e.g. "code".`),
+    });
+  }
+}
+
+/** File → Reveal in Finder / Show in Folder. */
+async function revealCurrent(win: BrowserWindow): Promise<void> {
+  const file = await currentDocPath(win);
+  if (file !== null) shell.showItemInFolder(file);
 }
 
 async function exportPdf(win: BrowserWindow): Promise<void> {
@@ -604,6 +656,17 @@ function buildMenu(): Menu {
         { label: "Open Folder…", accelerator: "CmdOrCtrl+O", click: withWindow(chooseWorkspace) },
         { label: "Open Recent", submenu: recentMenu() },
         ...(isMac ? [] : [settingsItem]),
+        { type: "separator" },
+        {
+          label: `Open in ${editorName(settings.editor) ?? "Editor"}`,
+          accelerator: "CmdOrCtrl+E",
+          click: withWindow(openCurrentInEditor),
+        },
+        {
+          label: isMac ? "Reveal in Finder" : "Show in Folder",
+          accelerator: isMac ? "Alt+Cmd+R" : "Shift+Alt+R",
+          click: withWindow(revealCurrent),
+        },
         { type: "separator" },
         { label: "Print…", accelerator: "CmdOrCtrl+P", click: withWindow((win) => win.webContents.print()) },
         { label: "Export as PDF…", accelerator: "CmdOrCtrl+Shift+E", click: withWindow(exportPdf) },

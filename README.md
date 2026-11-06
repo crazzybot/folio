@@ -115,6 +115,8 @@ workspace. Any of these work:
 | Open Folder… | `⌘O` | Pick the workspace folder |
 | Open Recent | | The last 10 workspace folders (missing ones are dropped); **Clear Recently Opened** forgets all but the current one |
 | Settings… | `⌘,` | Open `settings.json` in your default editor (app menu on macOS, File elsewhere) |
+| Open in Editor | `⌘E` | Open the shown document in your editor (also the pencil button in the header); the menu names the editor |
+| Reveal in Finder / Show in Folder | `⌥⌘R` / `Shift+Alt+R` | Show the document's file in Finder / Explorer / the file manager |
 | Print… | `⌘P` | System print dialog (print layout, no sidebar) |
 | Export as PDF… | `⇧⌘E` | Save the current document as a PDF |
 | View → Appearance | | System (follow the OS), Light or Dark; saved as `theme` in `settings.json`. The header's display options menu (◐) sets the same value |
@@ -129,14 +131,21 @@ soon as you save it:
   "workspace": "/Users/me/notes",
   "skipDirs": [".git", "node_modules", ".venv", "__pycache__", ".cache"],
   "maxDepth": null,
-  "theme": "system"
+  "theme": "system",
+  "editor": null
 }
 ```
 
 `skipDirs` are folder names skipped wherever they appear; `maxDepth` caps how
 many folder levels below the workspace are scanned (`docs/guide.md` is depth
 1, `null` = unlimited) — the same as `MARKDOWN_SKIP_DIRS` / `MARKDOWN_MAX_DEPTH`
-for the backend. `theme` is `"system"`, `"light"` or `"dark"`. In the browser
+for the backend. `theme` is `"system"`, `"light"` or `"dark"`. `editor` chooses
+the editor for **Open in Editor**: on macOS an app name (`"Visual Studio
+Code"`, `"Cursor"`, `"Typora"`…), elsewhere a command on the `PATH`
+(`"code"`, `"subl"`…). Left `null`, macOS uses the first of VS Code, Cursor,
+Zed, Windsurf, Sublime Text, BBEdit, Nova, Typora, iA Writer and MarkText
+that's installed (else the default text editor), and Windows / Linux use the
+default app for Markdown files. In the browser
 the appearance, reading width and font size chosen in the display options
 menu are remembered in `localStorage`; in the desktop app the reading width
 and font size are too.
