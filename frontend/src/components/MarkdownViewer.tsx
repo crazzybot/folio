@@ -291,7 +291,57 @@ function MarkdownPre({ node, children, ...rest }: React.HTMLAttributes<HTMLPreEl
   if (code !== undefined && classes.includes("language-mermaid")) {
     return <MermaidDiagram code={hastText(code)} />;
   }
-  return <pre {...rest}>{children}</pre>;
+  return <CodeBlock {...rest}>{children}</CodeBlock>;
+}
+
+/** A code block with a copy button, shown on hover or keyboard focus. */
+function CodeBlock({ children, ...rest }: React.HTMLAttributes<HTMLPreElement>): React.ReactElement {
+  const preRef = useRef<HTMLPreElement>(null);
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  useEffect(() => {
+    if (status === "idle") return;
+    const timer = setTimeout(() => setStatus("idle"), 1500);
+    return () => clearTimeout(timer);
+  }, [status]);
+
+  const copy = () => {
+    const text = preRef.current?.querySelector("code")?.textContent ?? preRef.current?.textContent ?? "";
+    navigator.clipboard.writeText(text).then(
+      () => setStatus("copied"),
+      () => setStatus("failed"),
+    );
+  };
+
+  const label = status === "copied" ? "Copied" : status === "failed" ? "Couldn't copy" : "Copy code";
+  return (
+    <div className={styles.codeBlock}>
+      <pre ref={preRef} {...rest}>
+        {children}
+      </pre>
+      <button
+        type="button"
+        className={`${styles.copyBtn} ${status !== "idle" ? styles.copyBtnShown : ""}`}
+        onClick={copy}
+        aria-label={label}
+        title={label}
+      >
+        {status === "copied" ? (
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <path d="M3 8.5l3.5 3.5L13 4.5" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+            <rect x="5.5" y="5.5" width="8" height="8" rx="1" />
+            <path d="M10.5 3.5v-1a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h1" />
+          </svg>
+        )}
+        <span className={styles.srOnlyLive} aria-live="polite">
+          {status === "idle" ? "" : label}
+        </span>
+      </button>
+    </div>
+  );
 }
 
 const markdownComponents: Components = {

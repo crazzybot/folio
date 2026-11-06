@@ -248,6 +248,60 @@
   border-radius: 0;
 }
 
+/* Copy button: top right of a code block, on hover / focus */
+.codeBlock {
+  position: relative;
+}
+
+.copyBtn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.codeBlock:hover .copyBtn,
+.copyBtn:focus-visible,
+.copyBtnShown {
+  opacity: 1;
+}
+
+.copyBtn:hover {
+  color: var(--color-text);
+}
+
+.copyBtn:focus-visible {
+  outline: 1px solid var(--color-accent);
+}
+
+/* Announces "Copied" to screen readers */
+.srOnlyLive {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media print {
+  .copyBtn {
+    display: none;
+  }
+}
+
 /* ─── Tables (GFM) ────────────────────────────────────────────────────────── */
 .article :global(table) {
   border-collapse: collapse;

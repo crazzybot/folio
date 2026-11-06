@@ -862,8 +862,10 @@ void app.whenReady().then(() => {
   }
   protocol.handle(APP_SCHEME, handleAppRequest);
   // The app needs no camera, microphone, notifications, geolocation, …
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  session.defaultSession.setPermissionCheckHandler(() => false);
+  // Only writing to the clipboard, for code blocks' copy buttons.
+  const allowed = (permission: string) => permission === "clipboard-sanitized-write";
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => callback(allowed(permission)));
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => allowed(permission));
   registerIpcHandlers();
   watchSettings(applySettings);
   restartWatcher();
