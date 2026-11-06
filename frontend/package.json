@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
-    "preview": "vite preview"
+    "lint": "eslint src --max-warnings 0",
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "highlight.js": "^11.10.0",
@@ -26,11 +27,19 @@
     "remark-math": "^6.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
+    "@vitejs/plugin-react": "^5.0.0",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^17.14.0",
+    "remark-parse": "^11.0.0",
     "typescript": "^5.5.3",
-    "vite": "^5.4.1"
+    "typescript-eslint": "^8.72.1",
+    "unified": "^11.0.5",
+    "vite": "^7.3.0",
+    "vitest": "^4.1.12"
   },
   "overrides": {
     "katex": "$katex"
