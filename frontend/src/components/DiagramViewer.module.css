@@ -1,0 +1,121 @@
+/* ─── Diagram in the whole window ─────────────────────────────────────────── */
+/* Covers the sidebar, header, outline and status bar */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  outline: none;
+  /* background: set inline, the diagram's own (card) or the app's */
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.dragging {
+  cursor: grabbing;
+}
+
+.content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.content :global(svg) {
+  display: block;
+}
+
+/* Floating controls, top right, on the app's surface colour */
+.toolbar {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.btn {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.btn:hover {
+  background: var(--color-hover-bg);
+}
+
+.btn:focus-visible {
+  outline: 1px solid var(--color-accent);
+}
+
+/* "125%" — fixed width so the buttons don't shift */
+.zoomLevel {
+  width: 52px;
+  font-variant-numeric: tabular-nums;
+}
+
+.divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--color-border);
+}
+
+.hint {
+  position: absolute;
+  bottom: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-input-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  pointer-events: none;
+  /* A reminder, not chrome: gone after a few seconds so it doesn't cover the diagram */
+  animation: hint-fade 0.4s ease 4s forwards;
+}
+
+@keyframes hint-fade {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint {
+    animation-duration: 0s;
+  }
+}
+
+@media print {
+  .overlay {
+    display: none;
+  }
+}

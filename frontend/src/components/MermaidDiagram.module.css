@@ -1,6 +1,44 @@
 /* ─── Mermaid diagrams (```mermaid blocks) ────────────────────────────────── */
-.diagram {
+/* Holds the diagram and its "open in full window" button */
+.figure {
+  position: relative;
   margin: 0 0 1em;
+}
+
+/* Shown while the diagram is hovered, or when the button has focus */
+.expandBtn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.figure:hover .expandBtn,
+.expandBtn:focus-visible {
+  opacity: 1;
+}
+
+.expandBtn:hover {
+  background: var(--color-surface-hover);
+}
+
+.expandBtn:focus-visible {
+  outline: 1px solid var(--color-accent);
+}
+
+.diagram {
   display: flex;
   justify-content: center;
   overflow-x: auto;
@@ -65,5 +103,9 @@
   .diagram,
   .error {
     break-inside: avoid;
+  }
+
+  .expandBtn {
+    display: none;
   }
 }

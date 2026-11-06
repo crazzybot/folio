@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { authoredTheme } from "../mermaidTheme";
 import { useAppliedTheme } from "../theme";
+import DiagramViewer from "./DiagramViewer";
 import styles from "./MermaidDiagram.module.css";
 
 /**
@@ -62,6 +63,7 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
   // Drawn for the other background: show it on a card of its own
   const card = theme !== appTheme ? (theme === "dark" ? styles.darkCard : styles.lightCard) : "";
   const [state, setState] = useState<State>({ status: "rendering" });
+  const [fullWindow, setFullWindow] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -96,12 +98,35 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
     );
   }
   return (
-    <div
-      className={`${styles.diagram} ${card}`}
-      role="img"
-      aria-label="Mermaid diagram"
-      // Mermaid's output, sanitized by Mermaid in strict mode
-      dangerouslySetInnerHTML={{ __html: state.svg }}
-    />
+    <div className={styles.figure}>
+      <div
+        className={`${styles.diagram} ${card}`}
+        role="img"
+        aria-label="Mermaid diagram"
+        onDoubleClick={() => setFullWindow(true)}
+        // Mermaid's output, sanitized by Mermaid in strict mode
+        dangerouslySetInnerHTML={{ __html: state.svg }}
+      />
+      <button
+        type="button"
+        className={styles.expandBtn}
+        onClick={() => setFullWindow(true)}
+        aria-label="Open diagram in full window"
+        title="Open in full window (or double-click the diagram)"
+      >
+        {/* Arrows to the corners */}
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
+          <path d="M9.5 2.5h4v4M13.5 2.5L9 7M6.5 13.5h-4v-4M2.5 13.5L7 9" />
+        </svg>
+      </button>
+      {fullWindow && (
+        <DiagramViewer
+          svg={state.svg}
+          // The card's colour for a diagram drawn for the other theme
+          background={card === "" ? "var(--color-bg)" : theme === "dark" ? "#1f1f1f" : "#ffffff"}
+          onClose={() => setFullWindow(false)}
+        />
+      )}
+    </div>
   );
 }
