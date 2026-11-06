@@ -428,3 +428,9 @@ repositories or vendored packages.
   page, external links opened only for `http(s)`/`mailto`, all permission
   requests denied, and Electron fuses (no `ELECTRON_RUN_AS_NODE`,
   `NODE_OPTIONS` or `--inspect`; ASAR integrity checks) in packaged builds.
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Alexei Pogrebtsov

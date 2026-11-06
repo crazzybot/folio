@@ -5,6 +5,7 @@
   "private": true,
   "description": "Desktop app for browsing and reading a folder of Markdown files",
   "author": "Alexei Pogrebtsov",
+  "license": "MIT",
   "main": "dist/main.js",
   "scripts": {
     "build:renderer": "npm --prefix ../frontend run build && node scripts/copy-renderer.mjs",
