@@ -9,8 +9,11 @@
 //   [data-status]                shown when there's no release to offer
 //   .build[data-key]             the matching row gets .is-yours
 //
-// Without a published release, or when GitHub can't be reached, the links
-// fall back to the repository's releases page.
+// The main buttons download this computer's build straight away, or else go
+// to download.html, never to GitHub's releases page (its installers sit in a
+// collapsed Assets section). Builds on download.html with no file to offer
+// are marked unavailable; only when GitHub can't be reached do they fall
+// back to the releases page.
 
 const REPO = "crazzybot/markdown-viewer";
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`;
@@ -53,7 +56,7 @@ async function detectBuild() {
   return null;
 }
 
-/** The latest published release, or null if there is none or GitHub can't be reached. */
+/** The latest published release, null if there is none, undefined if GitHub can't be reached. */
 async function latestRelease() {
   try {
     const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY));
@@ -74,10 +77,10 @@ async function latestRelease() {
         assets: data.assets.map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size })),
       };
     } else if (res.status !== 404) {
-      return null; // rate limited or down: don't cache
+      return undefined; // rate limited or down: don't cache
     }
   } catch {
-    return null;
+    return undefined;
   }
   try {
     sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), release }));
@@ -109,7 +112,15 @@ async function init() {
 
   for (const el of document.querySelectorAll("[data-build]")) {
     const file = files[el.dataset.build];
-    el.href = file ? file.url : RELEASES_PAGE;
+    if (file) {
+      el.href = file.url;
+    } else if (release === undefined) {
+      el.href = RELEASES_PAGE;
+    } else {
+      el.removeAttribute("href");
+      el.setAttribute("aria-disabled", "true");
+      el.textContent = "Not available yet";
+    }
   }
   for (const el of document.querySelectorAll("[data-file]")) {
     const file = files[el.dataset.file];
@@ -118,7 +129,7 @@ async function init() {
 
   if (release) {
     setText("[data-version]", `Version ${release.version}, released ${formatDate(release.date)}`);
-  } else {
+  } else if (release === null) {
     for (const el of document.querySelectorAll("[data-status]")) el.hidden = false;
   }
 
@@ -138,12 +149,8 @@ async function init() {
       button.href = ownFile.url;
       label.textContent = `Download for ${b.os}`;
       detail.textContent = `${b.detail}, version ${release.version}`;
-    } else if (build && !release) {
-      button.href = RELEASES_PAGE;
-      label.textContent = "Download";
-      detail.textContent = "See releases on GitHub";
     }
-    // Otherwise (phones, unknown systems) the button keeps pointing at download.html
+    // Otherwise (no release yet, phones, unknown systems) it keeps pointing at download.html
   }
 
   // An uncertain Mac guess gets a link to the other Mac build
