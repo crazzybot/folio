@@ -28,6 +28,8 @@ highlighting — all without leaving your browser.
 - Math with KaTeX: `$E=mc^2$` inline (GitHub's rules, so prices like "$5 and $10" stay text), `$$…$$` and ```` ```math ```` blocks
 - Mermaid diagrams from ```` ```mermaid ```` blocks, drawn in the current light / dark theme (Mermaid loads only when a document has one). A diagram that sets its own colours (`rect rgb(…)`, `fill:`) or theme (`%%{init: {"theme": …}}%%`) is drawn for the background it was written for, on a card of that background, so its text stays readable in either theme. Hover a diagram and click its expand button (or double-click it) to open it in the whole window, under a title bar with its caption (the diagram's `title`, or the nearest heading) that still drags the window: zoom with the toolbar, ⌘ / Ctrl + scroll, a trackpad pinch or `+` / `-`; pan by dragging, scrolling or with the arrow keys; `0` fits and recentres, `1` shows actual size, Escape closes
 - Images from the workspace (`![](img/diagram.png)`, relative to the document) and the web
+- Copy button on code blocks (on hover or keyboard focus)
+- Links to other files (`[data](report.pdf)`) open in their app on the desktop, or in a new tab in the browser — documents, data, office files, images and media only; links to scripts, executables, HTML and the like are shown as unavailable
 - Syntax-highlighted fenced code blocks (Python, JS/TS, JSON, Bash, CSS, HTML, YAML, Markdown)
 
 ---
@@ -139,14 +141,21 @@ soon as you save it:
 ```json
 {
   "workspace": "/Users/me/notes",
-  "skipDirs": [".git", "node_modules", ".venv", "__pycache__", ".cache"],
+  "skipDirs": [".git", "node_modules", ".venv", "venv", "__pycache__", ".cache", ".local", "…"],
   "maxDepth": null,
   "theme": "system",
   "editor": null
 }
 ```
 
-`skipDirs` are folder names skipped wherever they appear; `maxDepth` caps how
+`skipDirs` are folder names skipped wherever they appear. The default covers
+version control, dependencies, virtual environments, caches and tool data:
+`.git`, `node_modules`, `.venv`, `venv`, `__pycache__`, `.cache`, `.local`,
+`.tox`, `.nox`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `.next`,
+`.nuxt`, `.svelte-kit`, `.yarn`, `bower_components`, `.terraform`, `Pods`,
+`.gradle` (not `dist`, `build`, `vendor` or `target`, which some projects use
+for real documentation — add them if yours don't). A list left at an earlier
+default is upgraded to this one; a customised list is kept as it is. `maxDepth` caps how
 many folder levels below the workspace are scanned (`docs/guide.md` is depth
 1, `null` = unlimited) — the same as `MARKDOWN_SKIP_DIRS` / `MARKDOWN_MAX_DEPTH`
 for the backend. `theme` is `"system"`, `"light"` or `"dark"`. `editor` chooses
@@ -174,7 +183,7 @@ and font size are too.
 | Variable | Where it is read | Default | Description |
 |---|---|---|---|
 | `MARKDOWN_WORKSPACE` | Backend (runtime) | `./workspace` | Absolute or relative path to the folder the server scans for Markdown files. Relative paths are resolved from the backend's working directory. |
-| `MARKDOWN_SKIP_DIRS` | Backend (runtime) | `.git,node_modules,.venv,__pycache__,.cache` | Comma-separated folder **names** skipped wherever they appear. Skipping caches and build output is the most effective way to speed up scanning a large workspace. |
+| `MARKDOWN_SKIP_DIRS` | Backend (runtime) | the desktop app's default list (see Settings above) | Comma-separated folder **names** skipped wherever they appear. Skipping caches and build output is the most effective way to speed up scanning a large workspace. |
 | `MARKDOWN_MAX_DEPTH` | Backend (runtime) | unlimited | Folder levels below the workspace to scan (`docs/guide.md` is depth 1). A safety cap — documents deeper than this are not listed or served. |
 | `MARKDOWN_CORS_ORIGINS` | Backend (runtime) | local dev servers (`http://localhost:3000`, `:5173`, and their `127.0.0.1` forms) | Comma-separated browser origins allowed to call the API cross-origin (GET only). Set it empty to disable CORS when the frontend is served from the same origin. |
 | `MARKDOWN_ALLOWED_HOSTS` | Backend (runtime) | `localhost,127.0.0.1` | Comma-separated `Host` header values the API answers to; anything else gets `400`, which blocks DNS rebinding. Add your domain when deploying. |
@@ -282,13 +291,16 @@ skipped.
 
 ### `GET /api/files/{location}`
 
-Returns an image embedded by a document, so `![](img/diagram.png)` works.
+Returns an image embedded by a document, so `![](img/diagram.png)` works, or
+a file a document links to (`[data](report.pdf)`).
 `location` is the image's workspace-relative path with forward slashes, e.g.
 `/api/files/docs/img/diagram.png`; the frontend resolves relative `src`
 values against the document's folder before calling it.
 
 Only image files (`png`, `jpg`/`jpeg`, `gif`, `webp`, `avif`, `bmp`, `ico`,
-`svg`) inside the workspace are served, never from a folder in
+`svg`) and linkable document, data, office and media files (`pdf`, `txt`,
+`csv`, `json`, `yaml`, `docx`, `xlsx`, `mp4`… — `LINKED_FILE_TYPES` in
+`backend/app/scanner.py`) inside the workspace are served, never from a folder in
 `MARKDOWN_SKIP_DIRS`. Responses carry a `sandbox` Content-Security-Policy so
 an SVG opened directly can't run scripts.
 
@@ -419,8 +431,12 @@ repositories or vendored packages.
   (nginx in Docker, the `app://` handler in the desktop app) is the second layer.
 - **Files** — only `.md`/`.markdown` files inside the workspace are served,
   by ID rather than path; symlinks pointing outside the workspace are ignored.
-  Images are served by path, but only image types inside the workspace and
-  outside skipped folders, with a sandboxing CSP so SVGs can't run scripts.
+  Images and linked files are served by path, but only allowlisted types
+  (images; documents, data, office files and media — never HTML, scripts,
+  executables, launchers, archives or macro-enabled Office files) inside the
+  workspace and outside skipped folders, with a sandboxing CSP so nothing
+  served can run scripts. The desktop app opens linked files in their default
+  app under the same allowlist, checked again after resolving symlinks.
 - **Network (Docker)** — only nginx is published, on `127.0.0.1:3000`; the
   backend is reachable solely through it. Both containers run as non-root
   users and the workspace is mounted read-only.

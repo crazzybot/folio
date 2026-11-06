@@ -10,6 +10,8 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { Options as RehypeHighlightOptions } from "rehype-highlight";
 import type { Components, ExtraProps, Options as MarkdownOptions } from "react-markdown";
 import { workspaceFileUrl } from "../api";
+
+const desktopApi = window.markdownApi;
 import { resolveImageSrc, resolveLink } from "../links";
 import type { ImageSource, LinkTarget } from "../links";
 import { saveScrollPosition } from "../scrollHistory";
@@ -201,6 +203,47 @@ function MarkdownLink({
         </a>
       );
 
+    case "file": {
+      const name = target.location.slice(target.location.lastIndexOf("/") + 1);
+      if (!target.openable) {
+        return (
+          <a
+            {...rest}
+            className={styles.missingLink}
+            title={`Folio doesn't open ${name.slice(name.lastIndexOf("."))} files from documents: ${target.location}`}
+            aria-disabled="true"
+            onClick={(e) => e.preventDefault()}
+          >
+            {children}
+          </a>
+        );
+      }
+      // Desktop: the main process opens it in its default app (safe types
+      // only). Browser: the backend serves it, in a new tab.
+      if (desktopApi) {
+        return (
+          <a
+            {...rest}
+            href={`#${encodeURIComponent(target.location)}`}
+            title={rest.title ?? `Open ${name}`}
+            onClick={(e) => {
+              e.preventDefault();
+              void desktopApi.openLinkedFile(target.location);
+            }}
+          >
+            {children}
+            <ExternalLinkIcon label="(opens in another app)" />
+          </a>
+        );
+      }
+      return (
+        <a {...rest} href={workspaceFileUrl(target.location)} target="_blank" rel="noopener noreferrer" title={rest.title ?? `Open ${name}`}>
+          {children}
+          <ExternalLinkIcon label="(opens in a new tab)" />
+        </a>
+      );
+    }
+
     case "missing":
       return (
         <a
@@ -216,7 +259,7 @@ function MarkdownLink({
   }
 }
 
-function ExternalLinkIcon(): React.ReactElement {
+function ExternalLinkIcon({ label = "(opens in browser)" }: { label?: string }): React.ReactElement {
   return (
     <svg
       className={styles.externalIcon}
@@ -228,7 +271,7 @@ function ExternalLinkIcon(): React.ReactElement {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      aria-label="(opens in browser)"
+      aria-label={label}
       role="img"
     >
       <path d="M12 9v4.5a1 1 0 0 1-1 1H2.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1H7" />
@@ -291,7 +334,57 @@ function MarkdownPre({ node, children, ...rest }: React.HTMLAttributes<HTMLPreEl
   if (code !== undefined && classes.includes("language-mermaid")) {
     return <MermaidDiagram code={hastText(code)} />;
   }
-  return <pre {...rest}>{children}</pre>;
+  return <CodeBlock {...rest}>{children}</CodeBlock>;
+}
+
+/** A code block with a copy button, shown on hover or keyboard focus. */
+function CodeBlock({ children, ...rest }: React.HTMLAttributes<HTMLPreElement>): React.ReactElement {
+  const preRef = useRef<HTMLPreElement>(null);
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+
+  useEffect(() => {
+    if (status === "idle") return;
+    const timer = setTimeout(() => setStatus("idle"), 1500);
+    return () => clearTimeout(timer);
+  }, [status]);
+
+  const copy = () => {
+    const text = preRef.current?.querySelector("code")?.textContent ?? preRef.current?.textContent ?? "";
+    navigator.clipboard.writeText(text).then(
+      () => setStatus("copied"),
+      () => setStatus("failed"),
+    );
+  };
+
+  const label = status === "copied" ? "Copied" : status === "failed" ? "Couldn't copy" : "Copy code";
+  return (
+    <div className={styles.codeBlock}>
+      <pre ref={preRef} {...rest}>
+        {children}
+      </pre>
+      <button
+        type="button"
+        className={`${styles.copyBtn} ${status !== "idle" ? styles.copyBtnShown : ""}`}
+        onClick={copy}
+        aria-label={label}
+        title={label}
+      >
+        {status === "copied" ? (
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <path d="M3 8.5l3.5 3.5L13 4.5" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+            <rect x="5.5" y="5.5" width="8" height="8" rx="1" />
+            <path d="M10.5 3.5v-1a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h1" />
+          </svg>
+        )}
+        <span className={styles.srOnlyLive} aria-live="polite">
+          {status === "idle" ? "" : label}
+        </span>
+      </button>
+    </div>
+  );
 }
 
 const markdownComponents: Components = {

@@ -42,9 +42,25 @@ def test_serves_images_with_a_sandboxing_policy(client):
     assert "sandbox" in res.headers["content-security-policy"]
 
 
+def test_serves_linked_files(client):
+    res = client.get("/api/files/docs/data.csv")
+    assert res.status_code == 200
+    assert res.headers["content-type"].startswith("text/csv")
+    assert "sandbox" in res.headers["content-security-policy"]
+
+
 @pytest.mark.parametrize(
     "location",
-    ["node_modules/pkg/skipped.png", "docs/plain.md", "missing.png", "%2E%2E/expected-scan.json", "docs/outside-link.md"],
+    [
+        "node_modules/pkg/skipped.png",
+        "docs/plain.md",
+        "missing.png",
+        "%2E%2E/expected-scan.json",
+        "docs/outside-link.md",
+        "docs/install.command",
+        "docs/page.html",
+        "docs/notes.txt.md",
+    ],
 )
 def test_refuses_other_files(client, location):
     assert client.get(f"/api/files/{location}").status_code == 404
