@@ -19,6 +19,13 @@ export async function fetchDocuments(): Promise<DocumentMeta[]> {
   return handleResponse<DocumentMeta[]>(res);
 }
 
+/** Workspace-relative paths of the image files, for ![[image.png]] embeds. */
+export async function fetchAttachments(): Promise<string[]> {
+  if (desktopApi) return desktopApi.listAttachments();
+  const res = await fetch(`${apiBase}/api/attachments`);
+  return handleResponse<string[]>(res);
+}
+
 /** Documents whose text contains `query` (case-insensitive; at least 2 characters). */
 export async function searchDocuments(query: string): Promise<SearchResult[]> {
   if (desktopApi) return desktopApi.searchDocuments(query);

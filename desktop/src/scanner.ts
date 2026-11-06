@@ -9,6 +9,7 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import type { Dirent } from "node:fs";
 import path from "node:path";
+import { IMAGE_TYPES } from "./images";
 
 // ---------------------------------------------------------------------------
 // Data model
@@ -77,8 +78,36 @@ async function readHead(filePath: string): Promise<string | null> {
 }
 
 /** Heading text as rendered: link text instead of links, no emphasis or code markers. */
+// YAML front matter at the very start of a file (as Obsidian, Jekyll, Hugo… write it)
+const FRONT_MATTER = /^\uFEFF?---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)?(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/;
+const FRONT_MATTER_TITLE = /^title[ \t]*:[ \t]*(.+?)[ \t]*$/m;
+const MAX_ATTACHMENTS = 10000;
+
+/** The text after any front matter, and the front matter's `title:`, if set. */
+export function splitFrontMatter(text: string): { body: string; title: string | null } {
+  const match = FRONT_MATTER.exec(text);
+  if (match === null) return { body: text, title: null };
+  const raw = FRONT_MATTER_TITLE.exec(match[1] ?? "")?.[1];
+  const title = raw === undefined ? null : raw.replace(/^(["'])(.*)\1$/, "$2").trim() || null;
+  return { body: text.slice(match[0].length), title };
+}
+
+/**
+ * How a [[wiki link]] reads: its alias, else "Note > Heading", "Note" or
+ * "Heading" (block references, #^id, are left out). Matches the viewer.
+ */
+export function wikiLinkText(inner: string): string {
+  const bar = inner.indexOf("|");
+  if (bar >= 0) return inner.slice(bar + 1).trim();
+  const hash = inner.indexOf("#");
+  const name = (hash >= 0 ? inner.slice(0, hash) : inner).trim();
+  const heading = hash >= 0 && !inner.slice(hash + 1).startsWith("^") ? inner.slice(hash + 1).trim() : "";
+  return name && heading ? `${name} > ${heading}` : name || heading;
+}
+
 function plainHeading(raw: string): string {
   return raw
+    .replace(/!?\[\[([^\]]*)\]\]/g, (_match, inner: string) => wikiLinkText(inner))
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/[*`~]/g, "")
     .replace(/\s+/g, " ")
@@ -89,7 +118,7 @@ function plainHeading(raw: string): string {
 export function extractHeadings(text: string): Heading[] {
   const headings: Heading[] = [];
   let fence: string | null = null;
-  for (const line of text.split(/\r\n|\r|\n/)) {
+  for (const line of splitFrontMatter(text).body.split(/\r\n|\r|\n/)) {
     const fenceMatch = FENCE.exec(line);
     if (fenceMatch?.[1] !== undefined) {
       const marker = fenceMatch[1];
@@ -111,17 +140,21 @@ export function extractHeadings(text: string): Heading[] {
 
 /**
  * Return a human-readable title for the file using this priority:
- *   1. First ATX heading  (# Title)
- *   2. First non-empty line
- *   3. Filename without extension
+ *   1. Front matter `title:`
+ *   2. First ATX heading  (# Title)
+ *   3. First non-empty line
+ *   4. Filename without extension
  */
 function extractTitle(text: string | null, stem: string): string {
   if (text === null) return stem;
+  const { body, title } = splitFrontMatter(text);
+  if (title !== null) return title;
 
-  const match = ATX_HEADING.exec(text);
-  if (match?.[1] !== undefined) return match[1].trim();
+  // As the heading reads: "About [[Note|the note]]" is "About the note"
+  const match = ATX_HEADING.exec(body);
+  if (match?.[1] !== undefined) return plainHeading(match[1]) || match[1].trim();
 
-  for (const line of text.split(/\r\n|\r|\n/)) {
+  for (const line of body.split(/\r\n|\r|\n/)) {
     const stripped = line.trim();
     if (stripped) return stripped;
   }
@@ -294,4 +327,45 @@ export async function findDocument(
   } catch {
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Attachments — images in the workspace, for ![[image.png]] embeds, which
+// name a file without its folder. Same pruning as the document scan.
+// ---------------------------------------------------------------------------
+
+/** Workspace-relative locations of the image files in `workspace`, sorted. */
+export async function scanAttachments(workspace: string, options: ScanOptions = {}): Promise<string[]> {
+  let realWorkspace: string;
+  try {
+    realWorkspace = await fs.realpath(workspace);
+  } catch {
+    return [];
+  }
+  const skipDirs = options.skipDirs ?? new Set<string>();
+  const maxDepth = options.maxDepth ?? null;
+  const found: string[] = [];
+
+  async function visit(dir: string, depth: number): Promise<void> {
+    let entries: Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (found.length >= MAX_ATTACHMENTS) return;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if ((maxDepth === null || depth < maxDepth) && !skipDirs.has(entry.name)) await visit(fullPath, depth + 1);
+        continue;
+      }
+      if (!(path.extname(entry.name).toLowerCase() in IMAGE_TYPES)) continue;
+      if (!(await isFileEntry(entry, fullPath, realWorkspace))) continue;
+      found.push(path.relative(workspace, fullPath).split(path.sep).join("/"));
+    }
+  }
+
+  await visit(workspace, 0);
+  return found.sort();
 }

@@ -2,12 +2,13 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import remarkFrontmatter from "remark-frontmatter";
 import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { Options as RehypeHighlightOptions } from "rehype-highlight";
-import type { Components, ExtraProps } from "react-markdown";
+import type { Components, ExtraProps, Options as MarkdownOptions } from "react-markdown";
 import { workspaceFileUrl } from "../api";
 import { resolveImageSrc, resolveLink } from "../links";
 import type { ImageSource, LinkTarget } from "../links";
@@ -32,6 +33,7 @@ import langXml from "highlight.js/lib/languages/xml"; // covers html
 import "../syntax.css";
 import "katex/dist/katex.min.css";
 import remarkMathDollars from "../mathDollars";
+import remarkObsidian from "../obsidian";
 import MermaidDiagram from "./MermaidDiagram";
 import styles from "./MarkdownViewer.module.css";
 
@@ -52,6 +54,8 @@ interface MarkdownViewerProps {
   onAnchorClick?: (anchorId: string) => void;
   /** All workspace documents — used to resolve links between documents. */
   documents?: DocumentMeta[];
+  /** Workspace-relative paths of the images, for ![[image.png]] embeds. */
+  attachments?: string[];
   /** Workspace-relative path of the displayed document (base for relative links). */
   currentLocation?: string | null;
   /** Called when the user clicks a link to another workspace document. */
@@ -104,8 +108,9 @@ function makeHeading(Tag: HeadingTag) {
   // Named so React DevTools shows a useful label
   function Heading({
     children,
+    node: _node,
     ...rest
-  }: React.HTMLAttributes<HTMLHeadingElement>): React.ReactElement {
+  }: React.HTMLAttributes<HTMLHeadingElement> & ExtraProps): React.ReactElement {
     const id = toSlug(children);
     return (
       <Tag id={id} {...rest}>
@@ -345,10 +350,19 @@ const rehypePlugins = [
 ];
 
 // $…$ / $$…$$ / ```math math (KaTeX), with GitHub's rules for single dollars
-const remarkPlugins = [remarkGfm, remarkMath, remarkMathDollars];
+// (Plus Obsidian's [[wiki links]], added per document; see remarkPlugins below.)
+// Front matter (YAML / TOML at the top of a file) is parsed so it can be dropped.
+type PluginList = NonNullable<MarkdownOptions["remarkPlugins"]>;
+const baseRemarkPlugins: PluginList = [remarkGfm, [remarkFrontmatter, ["yaml", "toml"]], remarkMath, remarkMathDollars];
 
-// Footnote ids are prefixed by the sanitizer instead, so they aren't doubled
-const remarkRehypeOptions = { clobberPrefix: "" };
+const NO_ATTACHMENTS: string[] = [];
+
+const remarkRehypeOptions = {
+  // Footnote ids are prefixed by the sanitizer instead, so they aren't doubled
+  clobberPrefix: "",
+  // Front matter is metadata, not content: render nothing for it
+  handlers: { yaml: () => undefined, toml: () => undefined },
+};
 
 /**
  * The element an in-document anchor points at: by id, then by legacy
@@ -377,6 +391,7 @@ export default function MarkdownViewer({
   restoreScrollTop = null,
   onAnchorClick,
   documents = [],
+  attachments = NO_ATTACHMENTS,
   currentLocation = null,
   onOpenDocument,
   searchQuery = "",
@@ -762,6 +777,15 @@ export default function MarkdownViewer({
   // -------------------------------------------------------------------------
   // Link handlers shared with MarkdownLink via context
   // -------------------------------------------------------------------------
+  // Obsidian [[links]] resolve against this workspace and document
+  const remarkPlugins = useMemo(
+    (): PluginList => [
+      ...baseRemarkPlugins,
+      [remarkObsidian, { documents: documents.map((doc) => doc.location), attachments, currentLocation }],
+    ],
+    [documents, attachments, currentLocation],
+  );
+
   const idsByLocation = useMemo(
     () => new Map(documents.map((doc) => [doc.location, doc.id])),
     [documents],

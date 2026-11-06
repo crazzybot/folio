@@ -9,6 +9,8 @@ interface MarkdownDesktopApi {
   listDocuments(): Promise<DocumentMeta[]>;
   getDocumentContent(id: string): Promise<DocumentContent>;
   searchDocuments(query: string): Promise<SearchResult[]>;
+  /** Workspace-relative paths of the image files. */
+  listAttachments(): Promise<string[]>;
   getNavigationState(): Promise<NavigationState>;
   /** Subscribe to back/forward availability; returns an unsubscribe function. */
   onNavigationStateChange(callback: (state: NavigationState) => void): () => void;

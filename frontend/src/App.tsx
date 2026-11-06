@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Routes, Route, useNavigate, useNavigationType, useParams, useLocation } from "react-router-dom";
-import { fetchDocumentContent, fetchDocuments } from "./api";
+import { fetchAttachments, fetchDocumentContent, fetchDocuments } from "./api";
 import { savedScrollPosition } from "./scrollHistory";
 import DocumentList from "./components/DocumentList";
 import MarkdownViewer from "./components/MarkdownViewer";
@@ -128,6 +128,29 @@ function AppInner(): React.ReactElement {
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // ── Images in the workspace, for Obsidian's ![[image.png]] embeds ──────────
+  // Loaded once, and again when the workspace changes (desktop live reload)
+  const [attachments, setAttachments] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      fetchAttachments()
+        .then((list) => {
+          if (!cancelled) setAttachments(list);
+        })
+        .catch(() => {
+          // Embeds by name show as "not found"; everything else still works
+        });
+    };
+    load();
+    const unsubscribe = window.markdownApi?.onWorkspaceChange(load);
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, []);
 
   // ── Fetch document list on mount ───────────────────────────────────────────
   // When the list loads and no docId is present in the URL, navigate to the
@@ -528,6 +551,7 @@ function AppInner(): React.ReactElement {
             restoreScrollTop={restoreScrollTop}
             onAnchorClick={handleAnchorClick}
             documents={documents}
+            attachments={attachments}
             currentLocation={selectedDoc?.location ?? null}
             onOpenDocument={handleOpenDocument}
             searchQuery={searchQuery}
