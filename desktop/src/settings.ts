@@ -25,6 +25,11 @@ export interface Settings {
   maxDepth: number | null;
   /** Light or dark appearance; "system" follows the OS setting. */
   theme: Theme;
+  /**
+   * File → Open in Editor: an app name on macOS ("Visual Studio Code"), a
+   * command elsewhere ("code"); null picks one (see editor.ts).
+   */
+  editor: string | null;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -32,6 +37,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   skipDirs: [".git", "node_modules", ".venv", "__pycache__", ".cache"],
   maxDepth: null,
   theme: "system",
+  editor: null,
 };
 
 export function settingsPath(): string {
@@ -50,12 +56,14 @@ function normalize(raw: Partial<Record<keyof Settings, unknown>>): Settings {
       ? raw.maxDepth
       : null;
   const theme = isTheme(raw.theme) ? raw.theme : DEFAULT_SETTINGS.theme;
+  const editor = typeof raw.editor === "string" && raw.editor.trim() !== "" ? raw.editor.trim() : null;
   return {
     // Forget a workspace that has been deleted or moved since the last run
     workspace: workspace !== null && fs.existsSync(workspace) ? workspace : null,
     skipDirs,
     maxDepth,
     theme,
+    editor,
   };
 }
 
