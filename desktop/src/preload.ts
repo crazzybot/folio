@@ -13,8 +13,19 @@ interface NavigationState {
   canGoForward: boolean;
 }
 
+// View preferences, loaded once so the page can read them synchronously
+// (see frontend/src/storage.ts and viewState.ts)
+const viewState = new Map<string, string>(Object.entries(ipcRenderer.sendSync("view-state:load") as Record<string, string>));
+
 contextBridge.exposeInMainWorld("markdownApi", {
   platform: process.platform,
+  viewState: {
+    get: (key: string): string | null => viewState.get(key) ?? null,
+    set: (key: string, value: string): void => {
+      viewState.set(key, value);
+      ipcRenderer.send("view-state:set", key, value);
+    },
+  },
   // Workspace images are served by the main process (images.ts) from the app's origin
   workspaceFileBaseUrl: "app://bundle/@workspace/",
   listDocuments: () => ipcRenderer.invoke("documents:list"),

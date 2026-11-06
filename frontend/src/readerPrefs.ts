@@ -1,8 +1,9 @@
 import { useCallback, useState } from "react";
+import { getItem, setItem } from "./storage";
 
 /**
  * Reading preferences chosen in the header's display options menu, each
- * remembered per browser / desktop install in localStorage. Applied as CSS
+ * remembered per browser / desktop install (storage.ts). Applied as CSS
  * variables on the app root (see App.tsx and MarkdownViewer.module.css).
  */
 
@@ -36,12 +37,7 @@ function useStoredOption<T extends Option>(
   fallback: T,
 ): [T, (id: T["id"]) => void] {
   const [current, setCurrent] = useState<T>(() => {
-    let saved: string | null = null;
-    try {
-      saved = localStorage.getItem(storageKey);
-    } catch {
-      // Storage unavailable: use the default
-    }
+    const saved = getItem(storageKey);
     return options.find((o) => o.id === saved) ?? fallback;
   });
 
@@ -49,11 +45,7 @@ function useStoredOption<T extends Option>(
     (id: T["id"]) => {
       const next = options.find((o) => o.id === id) ?? fallback;
       setCurrent(next);
-      try {
-        localStorage.setItem(storageKey, next.id);
-      } catch {
-        // Not remembered, but still applied
-      }
+      setItem(storageKey, next.id);
     },
     [options, storageKey, fallback],
   );
@@ -65,20 +57,10 @@ const OUTLINE_KEY = "folio.outline";
 
 /** Whether the outline of headings is shown beside the document (header toggle). */
 export function useOutlineVisible(): [boolean, (visible: boolean) => void] {
-  const [visible, setVisible] = useState(() => {
-    try {
-      return localStorage.getItem(OUTLINE_KEY) !== "false";
-    } catch {
-      return true;
-    }
-  });
+  const [visible, setVisible] = useState(() => getItem(OUTLINE_KEY) !== "false");
   const choose = useCallback((next: boolean) => {
     setVisible(next);
-    try {
-      localStorage.setItem(OUTLINE_KEY, String(next));
-    } catch {
-      // Not remembered, but still applied
-    }
+    setItem(OUTLINE_KEY, String(next));
   }, []);
   return [visible, choose];
 }

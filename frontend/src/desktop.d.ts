@@ -4,6 +4,11 @@ import type { DocumentContent, DocumentMeta, NavigationState, SearchResult } fro
 interface MarkdownDesktopApi {
   /** Node's process.platform of the host, e.g. "darwin". */
   platform: string;
+  /** View preferences, kept in view-state.json by the main process (see storage.ts). */
+  viewState: {
+    get(key: string): string | null;
+    set(key: string, value: string): void;
+  };
   /** Base URL that workspace images are served from; append the encoded location. */
   workspaceFileBaseUrl: string;
   listDocuments(): Promise<DocumentMeta[]>;
