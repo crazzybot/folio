@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Folio: a reader for folders of Markdown</title>
+  <meta name="description" content="Folio opens a folder of Markdown notes, docs or an Obsidian vault and shows every file properly rendered, with search across all of them. Free for macOS, Windows and Linux.">
+  <meta property="og:title" content="Folio: a reader for folders of Markdown">
+  <meta property="og:description" content="Browse, search and read a folder of Markdown files, properly rendered. Free and open source.">
+  <meta property="og:image" content="img/app-dark.webp">
+  <meta name="theme-color" content="#0f141d">
+  <link rel="icon" href="img/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&family=Schibsted+Grotesk:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="download.js"></script>
+</head>
+<body>
+  <a class="skip" href="#features">Skip to features</a>
+
+  <section class="hero night">
+    <div class="wrap hero-inner">
+      <header class="site-header">
+        <a class="brand" href="./"><img src="img/icon.png" alt="">Folio</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="#features">Features</a>
+          <a href="download.html">Download</a>
+          <a class="wide-only" href="https://github.com/crazzybot/markdown-viewer">GitHub</a>
+        </nav>
+      </header>
+
+      <a class="ribbon" href="download.html" data-primary>
+        <span class="ribbon-action" data-label>Download</span>
+        <span class="ribbon-detail" data-detail>For macOS, Windows and Linux</span>
+      </a>
+
+      <div class="hero-text">
+        <h1>Your Markdown folder, ready to read.</h1>
+        <p class="hero-lede">
+          Folio opens a folder of notes, docs or an Obsidian vault and shows every
+          file properly rendered, with search across all of them. Free and open
+          source, for macOS, Windows and Linux.
+        </p>
+        <div class="hero-links">
+          <p class="alt-link" data-alt hidden>Intel Mac? <a href="download.html">Download the Intel version</a></p>
+          <a href="download.html">All downloads</a>
+          <a href="https://github.com/crazzybot/markdown-viewer">Source code on GitHub</a>
+        </div>
+      </div>
+
+      <div class="shot-frame">
+        <img src="img/app-dark.webp" width="2880" height="1800"
+             alt="Folio in its dark theme: a sidebar of documents grouped by folder, an architecture note with a flowchart, a formula and code, and an outline of its headings on the right.">
+      </div>
+    </div>
+  </section>
+
+  <main id="features">
+    <div class="wrap spreads">
+
+      <section class="spread">
+        <div class="spread-text">
+          <h2>Every file, in its place</h2>
+          <p>
+            Point Folio at a folder and it lists every Markdown file inside,
+            including sub-folders, grouped the way you filed them. Edits you make
+            in any other app show up straight away.
+          </p>
+          <ul>
+            <li><strong>Folders stay tidy.</strong> Single-file folders fold away and chains like api / v2 merge into one row.</li>
+            <li><strong>An outline beside each page</strong> marks the section you're reading and jumps to any heading.</li>
+            <li><strong>Links between notes work.</strong> Click through, and Back returns you to where you were.</li>
+          </ul>
+        </div>
+        <div class="spread-shot">
+          <img src="img/app-light.webp" width="2880" height="1800" loading="lazy"
+               alt="Folio in its light theme, showing the folder tree in the sidebar and the outline of the open note.">
+        </div>
+      </section>
+
+      <section class="spread flip">
+        <div class="spread-text">
+          <h2>Find the line you half remember</h2>
+          <p>
+            Search titles and headings as you type, and a matching heading opens
+            the document at that section. Switch to full-text search to see every
+            matching line under its document, highlighted where it appears.
+          </p>
+          <ul>
+            <li><strong>Full-text search</strong> with <kbd>⇧⌘F</kbd> or <kbd>Ctrl+Shift+F</kbd></li>
+            <li><strong>Find in the open page</strong> with <kbd>⌘F</kbd> or <kbd>Ctrl+F</kbd>, with a running match count</li>
+          </ul>
+        </div>
+        <div class="spread-shot">
+          <img src="img/search.webp" width="2880" height="1800" loading="lazy"
+               alt="Full-text search for the word batch: nine matches in three documents listed in the sidebar, each match highlighted in the open note.">
+        </div>
+      </section>
+
+      <section class="spread">
+        <div class="spread-text">
+          <h2>Set the page the way you like to read</h2>
+          <p>
+            Choose a light or dark theme, or follow your system. The Book style
+            sets text in a serif with room to breathe; Compact fits more on screen.
+            Reading width and font size are one click away, and your choices apply
+            when you print or save a PDF too.
+          </p>
+          <ul>
+            <li><strong>Your own CSS</strong> on top of any style, reloaded as you save it</li>
+          </ul>
+        </div>
+        <div class="spread-shot">
+          <img src="img/book.webp" width="2880" height="1800" loading="lazy"
+               alt="A reading note in Folio's Book style: serif type in a narrow column on a light page.">
+        </div>
+      </section>
+
+    </div>
+
+    <section class="formats">
+      <div class="wrap">
+        <h2>Renders what you actually write</h2>
+        <p class="formats-intro">
+          Folio reads the Markdown found in real notes and docs, not just the
+          basics. Nothing to install or switch on.
+        </p>
+        <dl class="format-list">
+          <div>
+            <dt>GitHub-flavoured Markdown</dt>
+            <dd>Tables, task lists, strikethrough and autolinks.</dd>
+          </div>
+          <div>
+            <dt>Obsidian vaults</dt>
+            <dd><code>[[Note]]</code> links, aliases, links to headings and <code>![[image.png]]</code> embeds. Front matter is hidden, and its title names the page.</dd>
+          </div>
+          <div>
+            <dt>Mermaid diagrams</dt>
+            <dd>Drawn to match your theme. Open any diagram in the full window to zoom and pan.</dd>
+          </div>
+          <div>
+            <dt>Math</dt>
+            <dd>Inline <code>$…$</code> and display <code>$$…$$</code> formulas, typeset with KaTeX.</dd>
+          </div>
+          <div>
+            <dt>Code</dt>
+            <dd>Syntax highlighting for common languages, and a copy button on every block.</dd>
+          </div>
+          <div>
+            <dt>Images and attachments</dt>
+            <dd>Images from your folder or the web. Linked PDFs, spreadsheets and other files open in their own apps.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="keys">
+      <div class="wrap">
+        <h2>Made for the keyboard</h2>
+        <table class="key-table">
+          <tbody>
+            <tr><th><kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> <kbd>Enter</kbd></th><td>Move through the document list, open and close folders</td></tr>
+            <tr><th><kbd>⌘B</kbd> / <kbd>Ctrl+B</kbd></th><td>Show or hide the sidebar</td></tr>
+            <tr><th><kbd>⌘F</kbd> / <kbd>Ctrl+F</kbd></th><td>Find in the open document</td></tr>
+            <tr><th><kbd>⇧⌘F</kbd> / <kbd>Ctrl+Shift+F</kbd></th><td>Search the text of every document</td></tr>
+            <tr><th><kbd>⌘,</kbd> / <kbd>Ctrl+,</kbd></th><td>Open settings</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <section class="closing night">
+    <div class="wrap">
+      <h2>Open your notes in Folio</h2>
+      <p>
+        Free for macOS, Windows and Linux. Folio updates itself when a new
+        version is out.
+      </p>
+      <a class="button" href="download.html" data-primary>
+        <span class="button-action" data-label>Download</span>
+        <span class="button-detail" data-detail>For macOS, Windows and Linux</span>
+      </a>
+      <p class="alt-link" data-alt hidden>Intel Mac? <a href="download.html">Download the Intel version</a></p>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>Folio is free and open source under the MIT license.</p>
+      <p><a href="https://github.com/crazzybot/markdown-viewer">GitHub</a>&emsp;<a href="download.html">Download</a></p>
+    </div>
+  </footer>
+</body>
+</html>
