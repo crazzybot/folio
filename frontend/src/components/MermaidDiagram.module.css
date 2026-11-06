@@ -1,0 +1,111 @@
+/* ─── Mermaid diagrams (```mermaid blocks) ────────────────────────────────── */
+/* Holds the diagram and its "open in full window" button */
+.figure {
+  position: relative;
+  margin: 0 0 1em;
+}
+
+/* Shown while the diagram is hovered, or when the button has focus */
+.expandBtn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.figure:hover .expandBtn,
+.expandBtn:focus-visible {
+  opacity: 1;
+}
+
+.expandBtn:hover {
+  background: var(--color-surface-hover);
+}
+
+.expandBtn:focus-visible {
+  outline: 1px solid var(--color-accent);
+}
+
+.diagram {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+}
+
+/* Never wider than the column; tall diagrams keep their proportions */
+.diagram :global(svg) {
+  max-width: 100%;
+  height: auto;
+}
+
+/* A diagram written for the other theme's background (its own colours or
+   theme), on a card of that background. Fixed colours, as the card must not
+   follow the app's theme. */
+.darkCard,
+.lightCard {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+.darkCard {
+  background: #1f1f1f;
+}
+
+.lightCard {
+  background: #ffffff;
+}
+
+.placeholder {
+  margin: 0 0 1em;
+  padding: var(--space-6);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.error {
+  margin: 0 0 1em;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-error);
+  border-radius: var(--radius-md);
+}
+
+.errorTitle {
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+
+.errorMessage {
+  margin: var(--space-1) 0 var(--space-2);
+  color: var(--color-error);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+}
+
+@media print {
+  .diagram,
+  .error {
+    break-inside: avoid;
+  }
+
+  .expandBtn {
+    display: none;
+  }
+}
