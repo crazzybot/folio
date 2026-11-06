@@ -1,0 +1,658 @@
+/* Folio product site. Colours come from the app icon: the midnight tile,
+   the paper page and the blue bookmark ribbon. */
+
+:root {
+  --night: #0f141d;
+  --night-raised: #1a2130;
+  --night-text: #c9d0dc;
+  --paper: #f4f5f7;
+  --paper-raised: #ffffff;
+  --ink: #161a22;
+  --slate: #586172;
+  --rule: #dde1e7;
+  --ribbon: #1f6ff2;
+  --ribbon-deep: #1557c7;
+  --ribbon-light: #7fb0ff;
+
+  --serif: "Literata", Georgia, serif;
+  --sans: "Schibsted Grotesk", system-ui, sans-serif;
+
+  --gutter: clamp(16px, 5vw, 48px);
+  --max: 1160px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 17px/1.6 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+a {
+  color: var(--ribbon-deep);
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ribbon);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--serif);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+}
+
+kbd {
+  font: 500 0.82em/1 var(--sans);
+  padding: 0.2em 0.45em;
+  border: 1px solid var(--rule);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--paper-raised);
+  white-space: nowrap;
+}
+
+code {
+  font: 0.88em/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.wrap {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.skip {
+  position: absolute;
+  left: -9999px;
+}
+.skip:focus {
+  left: 16px;
+  top: 16px;
+  z-index: 10;
+  background: var(--paper-raised);
+  padding: 8px 12px;
+}
+
+/* ─── Night sections (hero, closing call to action) ─────────────────────── */
+
+.night {
+  background: var(--night);
+  color: var(--night-text);
+}
+.night h1,
+.night h2 {
+  color: #fff;
+}
+.night a {
+  color: var(--ribbon-light);
+}
+
+/* ─── Header ────────────────────────────────────────────────────────────── */
+
+.site-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  height: 76px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 600 22px/1 var(--serif);
+  color: inherit;
+  text-decoration: none;
+}
+.night .brand {
+  color: #fff;
+}
+.brand img {
+  width: 36px;
+  height: 36px;
+  margin: -4px;
+}
+
+.site-nav {
+  display: flex;
+  gap: 24px;
+  font-size: 15px;
+}
+.site-nav a {
+  color: inherit;
+  text-decoration: none;
+}
+.site-nav a:hover,
+.site-nav a[aria-current="page"] {
+  text-decoration: underline;
+}
+
+/* ─── The ribbon: the bookmark from the icon, hanging from the top edge ─── */
+
+.ribbon {
+  position: absolute;
+  top: 0;
+  right: var(--gutter);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  width: 248px;
+  padding: 26px 22px 54px;
+  background: var(--ribbon);
+  color: #fff !important;
+  text-decoration: none;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 30px), 0 100%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.1);
+  transition: background 0.15s, padding 0.2s;
+}
+.ribbon:hover {
+  background: var(--ribbon-deep);
+  padding-top: 32px;
+}
+.ribbon:focus-visible {
+  outline-color: #fff;
+  outline-offset: -6px;
+}
+.ribbon-action {
+  font: 600 24px/1.1 var(--serif);
+}
+.ribbon-detail {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.35;
+  opacity: 0.88;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ribbon {
+    animation: ribbon-drop 0.7s cubic-bezier(0.2, 1.3, 0.4, 1) 0.25s both;
+  }
+  @keyframes ribbon-drop {
+    from {
+      transform: translateY(-100%);
+    }
+  }
+}
+
+/* ─── Hero ──────────────────────────────────────────────────────────────── */
+
+.hero {
+  overflow: hidden;
+}
+.hero-inner {
+  position: relative;
+}
+
+.hero-text {
+  max-width: 820px;
+  padding: clamp(40px, 9vw, 104px) 0 clamp(40px, 6vw, 64px);
+}
+
+.hero h1 {
+  font-size: clamp(40px, 6.4vw, 76px);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.hero-lede {
+  margin-top: 24px;
+  max-width: 34em;
+  font-size: clamp(17px, 1.6vw, 20px);
+  line-height: 1.55;
+}
+
+.hero-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-top: 28px;
+  font-size: 15px;
+}
+
+.shot-frame {
+  border-radius: 12px 12px 0 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 0;
+  box-shadow: 0 -20px 80px rgba(31, 111, 242, 0.16);
+}
+.shot-frame img {
+  width: 100%;
+}
+
+/* ─── Feature spreads ───────────────────────────────────────────────────── */
+
+.spreads {
+  padding: clamp(64px, 10vw, 128px) 0 0;
+}
+
+.spread {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+  margin-bottom: clamp(72px, 11vw, 136px);
+}
+.spread.flip {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+}
+.spread.flip .spread-text {
+  order: 2;
+}
+
+.spread h2 {
+  font-size: clamp(30px, 3.6vw, 42px);
+}
+.spread-text p {
+  margin-top: 18px;
+  color: var(--slate);
+  max-width: 30em;
+}
+.spread-text ul {
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--slate);
+}
+.spread-text li {
+  padding: 10px 0;
+  border-top: 1px solid var(--rule);
+}
+.spread-text li strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.spread-shot {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  box-shadow: 0 24px 60px -24px rgba(15, 20, 29, 0.35);
+}
+
+/* ─── Renders what you write: a two-column list of formats ──────────────── */
+
+.formats {
+  padding: clamp(64px, 9vw, 112px) 0;
+  border-top: 1px solid var(--rule);
+}
+.formats h2 {
+  font-size: clamp(30px, 3.6vw, 42px);
+  max-width: 16em;
+}
+.formats-intro {
+  margin-top: 18px;
+  color: var(--slate);
+  max-width: 36em;
+}
+.format-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(32px, 6vw, 96px);
+  margin: 40px 0 0;
+}
+.format-list div {
+  padding: 18px 0;
+  border-top: 1px solid var(--rule);
+}
+.format-list dt {
+  font: 600 19px/1.3 var(--serif);
+}
+.format-list dd {
+  margin: 6px 0 0;
+  color: var(--slate);
+  font-size: 16px;
+}
+
+/* ─── Keyboard ──────────────────────────────────────────────────────────── */
+
+.keys {
+  padding: 0 0 clamp(64px, 9vw, 112px);
+}
+.keys h2 {
+  font-size: clamp(30px, 3.6vw, 42px);
+}
+.key-table {
+  margin-top: 32px;
+  width: 100%;
+  max-width: 720px;
+  border-collapse: collapse;
+  font-size: 16px;
+}
+.key-table th,
+.key-table td {
+  text-align: left;
+  font-weight: 400;
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  vertical-align: top;
+}
+.key-table th {
+  width: 45%;
+  padding-right: 24px;
+  white-space: nowrap;
+}
+.key-table td {
+  color: var(--slate);
+}
+
+/* ─── Closing call to action ────────────────────────────────────────────── */
+
+.closing {
+  padding: clamp(64px, 9vw, 112px) 0;
+}
+.closing h2 {
+  font-size: clamp(34px, 4.6vw, 56px);
+  font-weight: 500;
+}
+.closing p {
+  margin-top: 16px;
+  max-width: 34em;
+}
+
+.button {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 32px;
+  padding: 14px 26px;
+  border-radius: 8px;
+  background: var(--ribbon);
+  color: #fff !important;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.button:hover {
+  background: var(--ribbon-deep);
+}
+.button-action {
+  font-weight: 600;
+  font-size: 18px;
+}
+.button-detail {
+  font-size: 14px;
+  opacity: 0.88;
+}
+
+.alt-link {
+  margin-top: 14px;
+  font-size: 15px;
+  color: var(--slate);
+}
+.night .alt-link {
+  color: inherit;
+}
+.alt-link[hidden] {
+  display: none;
+}
+
+/* ─── Footer ────────────────────────────────────────────────────────────── */
+
+.site-footer {
+  padding: 32px 0 48px;
+  font-size: 14px;
+  color: var(--slate);
+  border-top: 1px solid var(--rule);
+}
+.night + .site-footer {
+  border-top: 0;
+}
+.site-footer .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 32px;
+}
+.site-footer a {
+  color: inherit;
+}
+
+/* ─── Download page ─────────────────────────────────────────────────────── */
+
+.dl-head {
+  padding: clamp(48px, 8vw, 96px) 0 clamp(40px, 6vw, 72px);
+}
+.dl-head h1 {
+  font-size: clamp(40px, 6vw, 68px);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+.dl-version {
+  margin-top: 12px;
+  font-size: 17px;
+}
+.dl-status {
+  margin-top: 20px;
+  max-width: 36em;
+  padding: 14px 18px;
+  border-left: 3px solid var(--ribbon-light);
+  background: var(--night-raised);
+}
+.dl-status[hidden] {
+  display: none;
+}
+
+.builds {
+  margin-top: clamp(48px, 7vw, 80px);
+}
+.builds h2,
+.install h2,
+.more h2 {
+  font-size: clamp(26px, 3vw, 34px);
+}
+
+.build-list {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+  border-bottom: 1px solid var(--rule);
+}
+.build {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 24px;
+  padding: 20px 0 20px 0;
+  border-top: 1px solid var(--rule);
+}
+.build-name {
+  font: 600 20px/1.3 var(--serif);
+}
+.build-meta {
+  margin-top: 2px;
+  font-size: 15px;
+  color: var(--slate);
+  overflow-wrap: anywhere;
+}
+.build-get {
+  padding: 10px 18px;
+  border: 1px solid var(--ribbon);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.build-get:hover {
+  background: var(--ribbon);
+  color: #fff;
+}
+
+/* The build that matches this computer gets the bookmark */
+.build.is-yours {
+  padding-left: 44px;
+}
+.build.is-yours::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 22px;
+  height: 52px;
+  background: var(--ribbon);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 9px), 0 100%);
+}
+.build.is-yours .build-get {
+  background: var(--ribbon);
+  color: #fff;
+}
+.build.is-yours .build-get:hover {
+  background: var(--ribbon-deep);
+  border-color: var(--ribbon-deep);
+}
+.yours-note {
+  display: none;
+  font-size: 14px;
+  color: var(--ribbon-deep);
+  font-weight: 600;
+}
+.build.is-yours .yours-note {
+  display: block;
+}
+
+.install {
+  margin-top: clamp(56px, 8vw, 96px);
+}
+.install-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px clamp(24px, 4vw, 48px);
+  margin-top: 28px;
+}
+.install h3 {
+  font-size: 20px;
+  padding-top: 14px;
+  border-top: 2px solid var(--ink);
+}
+.install ol {
+  margin: 12px 0 0;
+  padding-left: 1.2em;
+  color: var(--slate);
+  font-size: 16px;
+}
+.install li + li {
+  margin-top: 8px;
+}
+.install .req {
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--slate);
+}
+
+.more {
+  margin: clamp(56px, 8vw, 96px) 0 clamp(64px, 9vw, 112px);
+}
+.more p {
+  margin-top: 14px;
+  max-width: 40em;
+  color: var(--slate);
+}
+
+/* ─── Narrow screens ────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .spread,
+  .spread.flip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .spread.flip .spread-text {
+    order: 0;
+  }
+  .install-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  body {
+    font-size: 16px;
+  }
+  .site-header {
+    gap: 20px;
+  }
+  .site-nav {
+    gap: 16px;
+  }
+  .site-nav .wide-only {
+    display: none;
+  }
+  .ribbon {
+    position: static;
+    width: auto;
+    margin-top: 28px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    clip-path: none;
+    animation: none;
+  }
+  .ribbon:hover {
+    padding-top: 16px;
+  }
+  .hero-inner {
+    display: flex;
+    flex-direction: column;
+  }
+  .hero-inner .ribbon {
+    order: 2;
+    margin: 0 0 40px;
+  }
+  .hero-inner .shot-frame {
+    order: 3;
+  }
+  .hero-text {
+    padding: 32px 0 28px;
+  }
+  .format-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .key-table th {
+    white-space: normal;
+  }
+  .build {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .build-get {
+    justify-self: start;
+  }
+}
+
+/* The ribbon sits inside the header on wide screens; keep the nav clear of it */
+@media (min-width: 721px) {
+  .hero .site-header {
+    padding-right: 268px;
+  }
+}

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Download Folio</title>
+  <meta name="description" content="Download Folio for macOS (Apple Silicon or Intel), Windows or Linux.">
+  <meta name="theme-color" content="#0f141d">
+  <link rel="icon" href="img/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600&family=Schibsted+Grotesk:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="download.js"></script>
+</head>
+<body>
+  <section class="night">
+    <div class="wrap">
+      <header class="site-header">
+        <a class="brand" href="./"><img src="img/icon.png" alt="">Folio</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="./#features">Features</a>
+          <a href="download.html" aria-current="page">Download</a>
+          <a class="wide-only" href="https://github.com/crazzybot/markdown-viewer">GitHub</a>
+        </nav>
+      </header>
+      <div class="dl-head">
+        <h1>Download Folio</h1>
+        <p class="dl-version" data-version>Free for macOS, Windows and Linux.</p>
+        <p class="dl-status" data-status hidden>
+          The first release isn't published yet. Watch the
+          <a href="https://github.com/crazzybot/markdown-viewer">repository on GitHub</a>
+          to hear when it's out.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <main class="wrap">
+    <section class="builds" aria-labelledby="builds-title">
+      <h2 id="builds-title">Choose your system</h2>
+      <ul class="build-list">
+        <li class="build" data-key="mac-arm">
+          <div>
+            <span class="yours-note">For this computer</span>
+            <p class="build-name">macOS, Apple Silicon</p>
+            <p class="build-meta" data-file="mac-arm">Macs with an M-series chip, 2020 and later</p>
+          </div>
+          <a class="build-get" data-build="mac-arm" href="https://github.com/crazzybot/markdown-viewer/releases/latest">Download .dmg</a>
+        </li>
+        <li class="build" data-key="mac-intel">
+          <div>
+            <span class="yours-note">For this computer</span>
+            <p class="build-name">macOS, Intel</p>
+            <p class="build-meta" data-file="mac-intel">Macs with an Intel processor</p>
+          </div>
+          <a class="build-get" data-build="mac-intel" href="https://github.com/crazzybot/markdown-viewer/releases/latest">Download .dmg</a>
+        </li>
+        <li class="build" data-key="win">
+          <div>
+            <span class="yours-note">For this computer</span>
+            <p class="build-name">Windows</p>
+            <p class="build-meta" data-file="win">64-bit installer</p>
+          </div>
+          <a class="build-get" data-build="win" href="https://github.com/crazzybot/markdown-viewer/releases/latest">Download .exe</a>
+        </li>
+        <li class="build" data-key="linux">
+          <div>
+            <span class="yours-note">For this computer</span>
+            <p class="build-name">Linux</p>
+            <p class="build-meta" data-file="linux">AppImage for x64</p>
+          </div>
+          <a class="build-get" data-build="linux" href="https://github.com/crazzybot/markdown-viewer/releases/latest">Download .AppImage</a>
+        </li>
+      </ul>
+      <p class="alt-link">
+        Not sure which Mac you have? Open the Apple menu and choose About This Mac.
+        The Chip line says Apple M1 or later for Apple Silicon; a Processor line means Intel.
+      </p>
+    </section>
+
+    <section class="install" aria-labelledby="install-title">
+      <h2 id="install-title">Install</h2>
+      <div class="install-grid">
+        <div>
+          <h3>macOS</h3>
+          <ol>
+            <li>Open the downloaded .dmg.</li>
+            <li>Drag Folio into Applications.</li>
+            <li>Open Folio and choose the folder you want to read.</li>
+          </ol>
+          <p class="req">Requires macOS 12 Monterey or later. Signed and notarized by Apple.</p>
+        </div>
+        <div>
+          <h3>Windows</h3>
+          <ol>
+            <li>Run the downloaded installer.</li>
+            <li>If Windows SmartScreen says it protected your PC, choose More info, then Run anyway. The installer isn't code-signed yet.</li>
+            <li>Open Folio from the Start menu.</li>
+          </ol>
+          <p class="req">Requires Windows 10 or later, 64-bit.</p>
+        </div>
+        <div>
+          <h3>Linux</h3>
+          <ol>
+            <li>Make the file executable: <code>chmod +x Folio-*.AppImage</code></li>
+            <li>Run it by double-clicking or from a terminal.</li>
+            <li>On Ubuntu 22.04 and later, install FUSE first if it doesn't start: <code>sudo apt install libfuse2</code></li>
+          </ol>
+          <p class="req">Requires a 64-bit x86 system.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="more" aria-labelledby="more-title">
+      <h2 id="more-title">Updates and older versions</h2>
+      <p>
+        Folio checks for new versions on its own and downloads them in the
+        background. Restart when it asks, or the update installs the next time
+        you quit. To check right away, choose Check for Updates from the Folio
+        menu on a Mac, or the Help menu on Windows and Linux.
+      </p>
+      <p>
+        Release notes and every earlier version are on the
+        <a href="https://github.com/crazzybot/markdown-viewer/releases">GitHub releases page</a>.
+        To run Folio in a browser on your own server instead, follow the
+        <a href="https://github.com/crazzybot/markdown-viewer#readme">setup guide in the README</a>.
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>Folio is free and open source under the MIT license.</p>
+      <p><a href="https://github.com/crazzybot/markdown-viewer">GitHub</a>&emsp;<a href="./">Home</a></p>
+    </div>
+  </footer>
+</body>
+</html>
