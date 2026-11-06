@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { searchDocuments } from "../api";
+import { buildDocumentTree, foldersContaining } from "../documentTree";
+import type { TreeNode } from "../documentTree";
 import { slugify } from "../slug";
 import type { DocumentMeta, Heading, SearchMatch, SearchResult } from "../types";
 import MarkdownIcon from "./MarkdownIcon";
@@ -12,6 +14,10 @@ const CONTENT_SEARCH_DELAY_MS = 200;
 const MAX_HEADING_ROWS = 3;
 
 const FULL_TEXT_KEY = "folio.searchDocumentText";
+const GROUPED_KEY = "folio.groupByFolder";
+const EXPANDED_KEY = "folio.expandedFolders";
+// Remembered expanded folders, most recent last; old workspaces' folders age out
+const MAX_REMEMBERED_FOLDERS = 500;
 const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 const FULL_TEXT_SHORTCUT = IS_MAC ? "⇧⌘F" : "Ctrl+Shift+F";
 
@@ -22,6 +28,50 @@ function loadFullText(): boolean {
     return false;
   }
 }
+
+function loadGrouped(): boolean {
+  try {
+    return localStorage.getItem(GROUPED_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+function loadExpanded(): Set<string> {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(EXPANDED_KEY) ?? "[]");
+    return new Set(Array.isArray(saved) ? saved.filter((key): key is string => typeof key === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveExpanded(keys: ReadonlySet<string>): void {
+  try {
+    localStorage.setItem(EXPANDED_KEY, JSON.stringify([...keys].slice(-MAX_REMEMBERED_FOLDERS)));
+  } catch {
+    // Not remembered, but still applied
+  }
+}
+
+/** The folder part of a location, shown dimmed beside a document's title. */
+function folderOf(location: string): string | null {
+  return location.includes("/") ? location.slice(0, location.lastIndexOf("/")) : null;
+}
+
+/**
+ * One row of the sidebar list. All three views (folder tree, flat list,
+ * search results) are a list of rows, so keyboard navigation is shared:
+ * ↑ ↓ Home End move, → ← expand / collapse folders or go to the parent,
+ * Enter / Space open. `parent` is the key of the row → ← return to.
+ */
+type Row = { key: string; level: number; parent: string | null } & (
+  | { kind: "folder"; folderKey: string; label: string; expanded: boolean }
+  | { kind: "document"; doc: DocumentMeta; hint: string | null; matchCount: number | null; onOpen: () => void }
+  | { kind: "heading"; heading: Heading; onOpen: () => void }
+  | { kind: "match"; match: SearchMatch; onOpen: () => void }
+  | { kind: "more"; text: string }
+);
 
 /**
  * One document in the results. Title / filename and heading matches are
@@ -157,11 +207,204 @@ export default function DocumentList({
     ? [...contentResults.values()].reduce((sum, r) => sum + r.matchCount, 0)
     : 0;
 
+  // ── Group by folder (shown while not searching) ────────────────────────────
+  const [grouped, setGrouped] = useState(loadGrouped);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(loadExpanded);
+  const tree = useMemo(() => buildDocumentTree(documents), [documents]);
+  const showTree = grouped && trimmed === "";
+
+  const chooseGrouped = (on: boolean) => {
+    setGrouped(on);
+    try {
+      localStorage.setItem(GROUPED_KEY, String(on));
+    } catch {
+      // Not remembered, but still applied
+    }
+  };
+
+  const setFolderExpanded = useCallback((keys: readonly string[], open: boolean) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      for (const key of keys) {
+        // Re-adding moves it to the end: the most recently used survive the cap
+        next.delete(key);
+        if (open) next.add(key);
+      }
+      saveExpanded(next);
+      return next;
+    });
+  }, []);
+
+  // The open document's folders expand, so it's visible in the tree. Only when
+  // the document changes: collapsing its folder afterwards must stick.
+  const selectedLocation = documents.find((doc) => doc.id === selectedId)?.location ?? null;
+  useEffect(() => {
+    if (!showTree || selectedLocation === null) return;
+    const keys = foldersContaining(tree, selectedLocation);
+    if (keys.some((key) => !expanded.has(key))) setFolderExpanded(keys, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showTree, selectedLocation, tree, setFolderExpanded]);
+
+  // ── Rows ───────────────────────────────────────────────────────────────────
+  const rows: Row[] = [];
+  const documentRow = (
+    doc: DocumentMeta,
+    level: number,
+    parent: string | null,
+    hint: string | null,
+    matchCount: number | null,
+    onOpen: () => void,
+  ): Row => ({ kind: "document", key: `d:${doc.id}`, level, parent, doc, hint, matchCount, onOpen });
+
+  if (showTree) {
+    const addNodes = (nodes: readonly TreeNode[], level: number, parent: string | null) => {
+      for (const node of nodes) {
+        if (node.kind === "document") {
+          rows.push(documentRow(node.doc, level, parent, node.hint, null, () => onSelect(node.doc.id)));
+          continue;
+        }
+        const key = `f:${node.key}`;
+        const open = expanded.has(node.key);
+        rows.push({ kind: "folder", key, level, parent, folderKey: node.key, label: node.label, expanded: open });
+        if (open) addNodes(node.children, level + 1, key);
+      }
+    };
+    addNodes(tree, 0, null);
+  } else {
+    for (const entry of results) {
+      const { doc, content } = entry;
+      const key = `d:${doc.id}`;
+      rows.push(documentRow(doc, 0, null, folderOf(doc.location), content?.matchCount ?? null, () => openEntry(entry)));
+      // Text matches already include heading lines, so they replace the heading rows
+      const headings = content === undefined ? entry.headings : [];
+      headings.slice(0, MAX_HEADING_ROWS).forEach((heading, i) => {
+        rows.push({
+          kind: "heading",
+          key: `h:${doc.id}:${i}`,
+          level: 1,
+          parent: key,
+          heading,
+          onOpen: () => onOpenSection(doc.id, slugify(heading.text)),
+        });
+      });
+      if (headings.length > MAX_HEADING_ROWS) {
+        rows.push({ kind: "more", key: `mh:${doc.id}`, level: 1, parent: key, text: `${headings.length - MAX_HEADING_ROWS} more headings` });
+      }
+      content?.matches.forEach((match) => {
+        rows.push({
+          kind: "match",
+          key: `m:${doc.id}:${match.occurrence}`,
+          level: 1,
+          parent: key,
+          match,
+          onOpen: () => onSelect(doc.id, match.occurrence),
+        });
+      });
+      if (content !== undefined && content.matchCount > content.matches.length) {
+        rows.push({
+          kind: "more",
+          key: `mm:${doc.id}`,
+          level: 1,
+          parent: key,
+          text: `${content.matchCount - content.matches.length} more in this document`,
+        });
+      }
+    }
+  }
+
+  // ── Keyboard navigation (one tab stop, arrow keys inside) ──────────────────
+  const listRef = useRef<HTMLUListElement>(null);
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const rowsByKey = new Map(rows.map((row) => [row.key, row]));
+  const focusable = rows.filter((row) => row.kind !== "more");
+  const tabStop =
+    (focusKey !== null && rowsByKey.has(focusKey) ? focusKey : undefined) ??
+    focusable.find((row) => row.kind === "document" && row.doc.id === selectedId)?.key ??
+    focusable[0]?.key;
+
+  const rowElements = () => [...(listRef.current?.querySelectorAll<HTMLElement>("[data-row]") ?? [])];
+  const focusRow = (key: string | undefined) => {
+    const el = rowElements().find((e) => e.dataset["row"] === key);
+    el?.focus();
+    el?.scrollIntoView({ block: "nearest" });
+  };
+
+  const activate = (row: Row) => {
+    if (row.kind === "folder") setFolderExpanded([row.folderKey], !row.expanded);
+    else if (row.kind !== "more") row.onOpen();
+  };
+
+  function onListKeyDown(e: React.KeyboardEvent) {
+    const elements = rowElements();
+    const index = elements.indexOf(document.activeElement as HTMLElement);
+    const row = rowsByKey.get(elements[index]?.dataset["row"] ?? "");
+    if (index < 0 || row === undefined) return;
+    const at = (i: number) => elements[Math.max(0, Math.min(elements.length - 1, i))]?.dataset["row"];
+    switch (e.key) {
+      case "ArrowDown":
+        focusRow(at(index + 1));
+        break;
+      case "ArrowUp":
+        // From the first row, back to the search box
+        if (index === 0) inputRef.current?.focus();
+        else focusRow(at(index - 1));
+        break;
+      case "Home":
+        focusRow(at(0));
+        break;
+      case "End":
+        focusRow(at(elements.length - 1));
+        break;
+      case "ArrowRight":
+        if (row.kind !== "folder") return;
+        if (row.expanded) focusRow(at(index + 1));
+        else setFolderExpanded([row.folderKey], true);
+        break;
+      case "ArrowLeft":
+        if (row.kind === "folder" && row.expanded) setFolderExpanded([row.folderKey], false);
+        else if (row.parent !== null) focusRow(row.parent);
+        else return;
+        break;
+      case "Enter":
+      case " ":
+        activate(row);
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+  }
+
+  // Keep the open document in view in the list
+  useEffect(() => {
+    if (selectedId === null) return;
+    listRef.current
+      ?.querySelector(`[data-row="d:${CSS.escape(selectedId)}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [selectedId, showTree]);
+
+  const groupLabel = grouped ? "Show as a flat list" : "Group by folder";
+
   return (
     <div className={styles.container}>
       {/* ── Header ── */}
       <header className={styles.header}>
         <h1 className={styles.heading}>Documents</h1>
+        <button
+          type="button"
+          className={`${styles.headerBtn} ${grouped ? styles.headerBtnOn : ""}`}
+          onClick={() => chooseGrouped(!grouped)}
+          aria-pressed={grouped}
+          aria-label="Group by folder"
+          title={groupLabel}
+        >
+          {/* A folder tree */}
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+            <path d="M1.5 3.5h4l1 1h4v3h-9z" />
+            <path d="M4 7.5v5h3M4 10h3" strokeLinecap="round" />
+            <path d="M7.5 9h7v2.5h-7zM7.5 11.5h7V14h-7z" />
+          </svg>
+        </button>
       </header>
 
       {/* ── Search ── */}
@@ -190,11 +433,14 @@ export default function DocumentList({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
-              // Enter opens the first result
+              // Enter opens the first result; ↓ moves into the list
               const first = results[0];
-              if (e.key === "Enter" && first !== undefined) {
+              if (e.key === "Enter" && trimmed !== "" && first !== undefined) {
                 e.preventDefault();
                 openEntry(first);
+              } else if (e.key === "ArrowDown" && tabStop !== undefined) {
+                e.preventDefault();
+                focusRow(tabStop);
               }
             }}
             aria-label={fullText ? "Search document titles, headings and text" : "Search document titles and headings"}
@@ -255,7 +501,7 @@ export default function DocumentList({
           </div>
         )}
 
-        {!loading && error === null && results.length === 0 && !(fullText && contentSearch.status === "searching") && (
+        {!loading && error === null && rows.length === 0 && !(fullText && contentSearch.status === "searching") && (
           <div className={styles.emptyArea}>
             {!query ? (
               <p>No documents found.</p>
@@ -272,48 +518,26 @@ export default function DocumentList({
           </div>
         )}
 
-        {!loading && error === null && results.length > 0 && (
-          <ul className={styles.list} role="listbox" aria-label="Document list">
-            {results.map((entry) => {
-              const { doc, content } = entry;
-              // Text matches already include heading lines, so they replace the heading rows
-              const headings = content === undefined ? entry.headings : [];
-              return (
-                <React.Fragment key={doc.id}>
-                  <DocumentEntry
-                    doc={doc}
-                    isSelected={doc.id === selectedId}
-                    matchCount={content?.matchCount ?? null}
-                    onOpen={() => openEntry(entry)}
-                  />
-                  {headings.slice(0, MAX_HEADING_ROWS).map((heading, i) => (
-                    <HeadingEntry
-                      key={i}
-                      heading={heading}
-                      query={trimmed}
-                      onOpen={() => onOpenSection(doc.id, slugify(heading.text))}
-                    />
-                  ))}
-                  {headings.length > MAX_HEADING_ROWS && (
-                    <li className={styles.moreMatches} aria-hidden="true">
-                      {headings.length - MAX_HEADING_ROWS} more headings
-                    </li>
-                  )}
-                  {content?.matches.map((match) => (
-                    <MatchEntry
-                      key={match.occurrence}
-                      match={match}
-                      onOpen={() => onSelect(doc.id, match.occurrence)}
-                    />
-                  ))}
-                  {content !== undefined && content.matchCount > content.matches.length && (
-                    <li className={styles.moreMatches} aria-hidden="true">
-                      {content.matchCount - content.matches.length} more in this document
-                    </li>
-                  )}
-                </React.Fragment>
-              );
-            })}
+        {!loading && error === null && rows.length > 0 && (
+          <ul
+            ref={listRef}
+            className={styles.list}
+            role={showTree ? "tree" : "listbox"}
+            aria-label="Documents"
+            onKeyDown={onListKeyDown}
+          >
+            {rows.map((row) => (
+              <RowItem
+                key={row.key}
+                row={row}
+                tree={showTree}
+                query={trimmed}
+                selected={row.kind === "document" && row.doc.id === selectedId}
+                tabStop={row.key === tabStop}
+                onFocus={() => setFocusKey(row.key)}
+                onActivate={() => activate(row)}
+              />
+            ))}
           </ul>
         )}
       </div>
@@ -321,114 +545,121 @@ export default function DocumentList({
   );
 }
 
-// ─── Entry sub-components ────────────────────────────────────────────────────
+// ─── Rows ────────────────────────────────────────────────────────────────────
 
-/** Enter / Space activate a list row, like a click. */
-function activateOnKey(onOpen: () => void) {
-  return (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onOpen();
-    }
-  };
-}
+// Tree indentation: per level, plus the chevron's width before documents
+const INDENT = 12;
+const CHEVRON = 16;
+const TREE_PADDING = 8;
 
-interface DocumentEntryProps {
-  doc: DocumentMeta;
-  isSelected: boolean;
-  /** Text matches in this document, or null when not searching its text. */
-  matchCount: number | null;
-  onOpen: () => void;
-}
-
-function DocumentEntry({ doc, isSelected, matchCount, onOpen }: DocumentEntryProps): React.ReactElement {
-  // Like VS Code's quick-open description: the containing folder, dimmed
-  const folder = doc.location.includes("/")
-    ? doc.location.slice(0, doc.location.lastIndexOf("/"))
-    : "";
-  const matches = matchCount === null ? "" : ` — ${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
-  return (
-    <li
-      className={`${styles.entry} ${isSelected ? styles.entrySelected : ""}`}
-      role="option"
-      aria-selected={isSelected}
-      onClick={onOpen}
-      onKeyDown={activateOnKey(onOpen)}
-      tabIndex={0}
-      aria-label={`${doc.title} — ${doc.location}${matches}`}
-      title={doc.location}
-    >
-      <MarkdownIcon className={styles.entryIcon} />
-      <span className={styles.entryTitle}>{doc.title}</span>
-      {folder && <span className={styles.entryFolder}>{folder}</span>}
-      {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}
-    </li>
-  );
-}
-
-interface MatchEntryProps {
-  match: SearchMatch;
-  onOpen: () => void;
-}
-
-interface HeadingEntryProps {
-  heading: Heading;
+interface RowItemProps {
+  row: Row;
+  /** Rendered in the folder tree (indented treeitems) rather than a listbox. */
+  tree: boolean;
   query: string;
-  onOpen: () => void;
+  selected: boolean;
+  tabStop: boolean;
+  onFocus: () => void;
+  onActivate: () => void;
 }
 
-/** A matching heading under its document; opens the document at that section. */
-function HeadingEntry({ heading, query, onOpen }: HeadingEntryProps): React.ReactElement {
-  const at = heading.text.toLowerCase().indexOf(query.toLowerCase());
-  return (
-    <li
-      className={styles.matchEntry}
-      role="option"
-      aria-selected={false}
-      onClick={onOpen}
-      onKeyDown={activateOnKey(onOpen)}
-      tabIndex={0}
-      aria-label={`Heading: ${heading.text}`}
-      title={heading.text}
-    >
-      <span className={styles.headingMarker} aria-hidden="true">
-        {"#".repeat(heading.level)}
-      </span>
-      {at < 0 ? (
-        heading.text
-      ) : (
-        <>
-          {heading.text.slice(0, at)}
-          <mark className={styles.matchText}>{heading.text.slice(at, at + query.length)}</mark>
-          {heading.text.slice(at + query.length)}
-        </>
-      )}
-    </li>
-  );
-}
+function RowItem({ row, tree, query, selected, tabStop, onFocus, onActivate }: RowItemProps): React.ReactElement {
+  if (row.kind === "more") {
+    return (
+      <li className={styles.moreMatches} role="presentation" aria-hidden="true">
+        {row.text}
+      </li>
+    );
+  }
 
-// The sidebar is narrow: keep only a little text before the match so the
-// match itself isn't cut off at the row's end
-const LEAD_CHARS = 12;
+  const common = {
+    "data-row": row.key,
+    tabIndex: tabStop ? 0 : -1,
+    onFocus,
+    onClick: onActivate,
+    role: tree ? "treeitem" : "option",
+    ...(tree ? { "aria-level": row.level + 1 } : {}),
+  };
 
-/** One matching line under its document, the match emphasised. */
-function MatchEntry({ match, onOpen }: MatchEntryProps): React.ReactElement {
+  if (row.kind === "folder") {
+    return (
+      <li
+        {...common}
+        className={`${styles.entry} ${styles.folderEntry}`}
+        style={{ paddingLeft: TREE_PADDING + row.level * INDENT }}
+        aria-expanded={row.expanded}
+        aria-selected={false}
+        title={row.folderKey}
+      >
+        <svg
+          className={`${styles.chevron} ${row.expanded ? styles.chevronOpen : ""}`}
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M6 4l4 4-4 4" strokeWidth="1.2" />
+        </svg>
+        <span className={styles.entryTitle}>{row.label}</span>
+      </li>
+    );
+  }
+
+  if (row.kind === "document") {
+    const { doc, hint, matchCount } = row;
+    const matches = matchCount === null ? "" : ` — ${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
+    return (
+      <li
+        {...common}
+        className={`${styles.entry} ${selected ? styles.entrySelected : ""}`}
+        style={tree ? { paddingLeft: TREE_PADDING + row.level * INDENT + CHEVRON } : undefined}
+        aria-selected={selected}
+        aria-label={`${doc.title} — ${doc.location}${matches}`}
+        title={doc.location}
+      >
+        <MarkdownIcon className={styles.entryIcon} />
+        <span className={styles.entryTitle}>{doc.title}</span>
+        {hint && <span className={styles.entryFolder}>{hint}</span>}
+        {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}
+      </li>
+    );
+  }
+
+  if (row.kind === "heading") {
+    const { heading } = row;
+    const at = heading.text.toLowerCase().indexOf(query.toLowerCase());
+    return (
+      <li {...common} className={styles.matchEntry} aria-selected={false} aria-label={`Heading: ${heading.text}`} title={heading.text}>
+        <span className={styles.headingMarker} aria-hidden="true">
+          {"#".repeat(heading.level)}
+        </span>
+        {at < 0 ? (
+          heading.text
+        ) : (
+          <>
+            {heading.text.slice(0, at)}
+            <mark className={styles.matchText}>{heading.text.slice(at, at + query.length)}</mark>
+            {heading.text.slice(at + query.length)}
+          </>
+        )}
+      </li>
+    );
+  }
+
+  // The sidebar is narrow: keep only a little text before the match so the
+  // match itself isn't cut off at the row's end
+  const { match } = row;
   const lead =
     match.start > LEAD_CHARS + 1 ? "…" + match.text.slice(match.start - LEAD_CHARS, match.start) : match.text.slice(0, match.start);
   return (
-    <li
-      className={styles.matchEntry}
-      role="option"
-      aria-selected={false}
-      onClick={onOpen}
-      onKeyDown={activateOnKey(onOpen)}
-      tabIndex={0}
-      aria-label={`Line ${match.line}: ${match.text}`}
-      title={`Line ${match.line}`}
-    >
+    <li {...common} className={styles.matchEntry} aria-selected={false} aria-label={`Line ${match.line}: ${match.text}`} title={`Line ${match.line}`}>
       {lead}
       <mark className={styles.matchText}>{match.text.slice(match.start, match.end)}</mark>
       {match.text.slice(match.end)}
     </li>
   );
 }
+
+const LEAD_CHARS = 12;

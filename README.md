@@ -15,6 +15,7 @@ highlighting — all without leaving your browser.
 **Key features**
 
 - Recursive workspace scan — supports sub-folders
+- Documents grouped by folder (toggle in the sidebar header, remembered): only folders that hold documents, folder-only chains merged ("api / v2"), single-document folders replaced by their document; the open document's folders expand. Full keyboard navigation: ↑ ↓ Home End, → ← to expand / collapse, Enter to open, ↓ from the search box into the list
 - Instant search across titles, filenames and headings — a matching heading opens the document at that section
 - Outline of the open document's headings beside it (header toggle, remembered): the section being read is highlighted as you scroll, and clicking a heading jumps there (Back returns). Hidden in narrow windows
 - Find in the open document (`⌘F` / `Ctrl+F`): matches highlighted with a "3 of 12" count; Enter / Shift+Enter, `⌘G` / `⇧⌘G` or F3 / Shift+F3 step through them, Escape closes
