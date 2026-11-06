@@ -75,6 +75,14 @@ contextBridge.exposeInMainWorld("markdownApi", {
       };
     },
   },
+  /** Subscribe to Edit menu commands for the find bar and search; returns an unsubscribe function. */
+  onFindCommand: (callback: (command: string) => void) => {
+    const listener = (_event: IpcRendererEvent, command: string) => callback(command);
+    ipcRenderer.on("find:command", listener);
+    return () => {
+      ipcRenderer.removeListener("find:command", listener);
+    };
+  },
   /** The user's custom.css, or null. */
   getCustomCss: () => ipcRenderer.invoke("custom-css:get"),
   /** Subscribe to custom.css changes; returns an unsubscribe function. */

@@ -23,7 +23,7 @@
  *     arbitrary page.
  */
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, protocol, session, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, protocol, session, shell, systemPreferences } from "electron";
 import type { IpcMainInvokeEvent, MenuItemConstructorOptions, WebContents } from "electron";
 import { existsSync, promises as fs, statSync } from "node:fs";
 import os from "node:os";
@@ -808,7 +808,40 @@ function buildMenu(): Menu {
         isMac ? { role: "close" } : { role: "quit" },
       ],
     },
-    { role: "editMenu" },
+    {
+      label: "Edit",
+      submenu: [
+        // A viewer has nothing to undo, cut or paste in the document, but the
+        // search box, find bar and settings fields do: on macOS text fields
+        // only get ⌘Z / ⌘X / ⌘V through the Edit menu, so these stay as
+        // hidden items whose shortcuts still work
+        { role: "undo", visible: false },
+        { role: "redo", visible: false },
+        { role: "cut", visible: false },
+        { role: "paste", visible: false },
+        { role: "delete", visible: false },
+        { role: "copy" },
+        { role: "selectAll" },
+        { type: "separator" },
+        // The page handles these keys itself (find bar, sidebar search); the
+        // menu shows them and works by click, without taking the keys
+        ...(
+          [
+            ["Find…", "CmdOrCtrl+F", "open"],
+            ["Find Next", isMac ? "Cmd+G" : "F3", "next"],
+            ["Find Previous", isMac ? "Shift+Cmd+G" : "Shift+F3", "previous"],
+            ["Search Document Text…", "Shift+CmdOrCtrl+F", "search-text"],
+          ] as const
+        ).map(
+          ([label, accelerator, command]): MenuItemConstructorOptions => ({
+            label,
+            accelerator,
+            registerAccelerator: false,
+            click: withWindow((win) => win.webContents.send("find:command", command)),
+          }),
+        ),
+      ],
+    },
     {
       label: "View",
       submenu: [
@@ -941,6 +974,13 @@ function createWindow(): BrowserWindow {
 // ---------------------------------------------------------------------------
 
 app.setName(APP_NAME);
+
+// macOS adds Start Dictation… and Emoji & Symbols to any menu titled "Edit";
+// a document viewer has no use for them
+if (process.platform === "darwin") {
+  systemPreferences.setUserDefault("NSDisabledDictationMenuItem", "boolean", true);
+  systemPreferences.setUserDefault("NSDisabledCharacterPaletteMenuItem", "boolean", true);
+}
 
 // One app instance: launching it again (e.g. `Folio.exe notes.md`) hands
 // the paths to the running one instead of opening a second window

@@ -111,18 +111,28 @@ export default function DocumentList({
 
   const chooseFullText = onFullTextChange;
 
-  // ⇧⌘F / Ctrl+Shift+F: search document text, as in VS Code
+  // ⇧⌘F / Ctrl+Shift+F: search document text, as in VS Code (also the
+  // desktop Edit menu's Search Document Text…)
   useEffect(() => {
+    const searchText = () => {
+      chooseFullText(true);
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    };
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "f") {
         e.preventDefault();
-        chooseFullText(true);
-        inputRef.current?.focus();
-        inputRef.current?.select();
+        searchText();
       }
     }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    const unsubscribe = window.markdownApi?.onFindCommand((command) => {
+      if (command === "search-text") searchText();
+    });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      unsubscribe?.();
+    };
   }, [chooseFullText]);
 
   // Search document text once typing pauses. Also re-runs when the document
