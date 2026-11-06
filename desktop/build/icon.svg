@@ -1,7 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- Folio app icon: icon-source/folio-dark.png (generated artwork) placed on
-       Apple's macOS icon grid — its tile (~1000 px in the source) scaled to
-       ~824 px and centred, leaving the standard transparent margin.
+  <!-- Folio app icon: icon-source/folio-dark.png (generated artwork) clipped
+       to the exact macOS icon shape — an 824 px rounded square, 100 px margin,
+       corner radius ~185. macOS 26 only shows an icon edge to edge when it
+       fills that shape; anything else is shrunk onto a grey tile. The
+       artwork's own tile and glass rim (~1000 px) are scaled up past the clip
+       so only its interior shows.
        Rebuild: rsvg-convert -w 1024 icon.svg -o icon.png, plus the .icns set. -->
-  <image x="100" y="100" width="824" height="824" preserveAspectRatio="xMidYMid meet" xlink:href="icon-source/folio-dark.png"/>
+  <defs>
+    <clipPath id="tile">
+      <rect x="100" y="100" width="824" height="824" rx="185"/>
+    </clipPath>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".22"/>
+      <stop offset=".5" stop-color="#ffffff" stop-opacity=".06"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity=".12"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#tile)">
+    <!-- The artwork's background colour, behind any transparent pixels near the clip -->
+    <rect x="100" y="100" width="824" height="824" fill="#161b24"/>
+    <!-- Source pixels 48–976 (inside its rim) map onto the 100–924 tile -->
+    <image x="46" y="46" width="909" height="909" preserveAspectRatio="xMidYMid meet" xlink:href="icon-source/folio-dark.png"/>
+  </g>
+  <rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="url(#edge)" stroke-width="3"/>
 </svg>
