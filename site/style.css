@@ -511,6 +511,14 @@ code {
   background: var(--ribbon);
   color: #fff;
 }
+.build-get[aria-disabled="true"],
+.build.is-yours .build-get[aria-disabled="true"] {
+  border-color: var(--rule);
+  background: none;
+  color: var(--slate);
+  font-weight: 500;
+  cursor: default;
+}
 
 /* The build that matches this computer gets the bookmark */
 .build.is-yours {
