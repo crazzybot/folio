@@ -11,7 +11,9 @@ MARKDOWN_SKIP_DIRS
     Comma-separated list of folder **names** that the scanner will skip
     entirely (the folder and all its descendants are ignored).
     Example: ``MARKDOWN_SKIP_DIRS=.git,node_modules,.venv,__pycache__``
-    Defaults to ``.git,node_modules,.venv,__pycache__,.cache``.
+    Defaults to version control, dependency, virtualenv, cache and tool-data
+    folders (``.git``, ``node_modules``, ``.venv``, ``venv``, ``.local``,
+    ``.tox``, ``.next``, ``Pods``… — see ``_DEFAULT_SKIP_DIRS``).
 
 MARKDOWN_MAX_DEPTH
     Maximum number of folder levels below the workspace to scan
@@ -51,7 +53,14 @@ from app.search import search_workspace
 # Configuration
 # ---------------------------------------------------------------------------
 
-_DEFAULT_SKIP_DIRS = ".git,node_modules,.venv,__pycache__,.cache"
+# Folders never worth scanning: version control, dependencies, virtualenvs,
+# caches and tool data. Same list as the desktop app's default skipDirs. Not
+# dist / build / vendor / target: some projects keep real documentation there.
+_DEFAULT_SKIP_DIRS = (
+    ".git,node_modules,.venv,venv,__pycache__,.cache,.local,.tox,.nox,.mypy_cache,"
+    ".pytest_cache,.ruff_cache,.next,.nuxt,.svelte-kit,.yarn,bower_components,"
+    ".terraform,Pods,.gradle"
+)
 _DEFAULT_CORS_ORIGINS = (
     "http://localhost:3000,http://127.0.0.1:3000,"
     "http://localhost:5173,http://127.0.0.1:5173"

@@ -139,14 +139,21 @@ soon as you save it:
 ```json
 {
   "workspace": "/Users/me/notes",
-  "skipDirs": [".git", "node_modules", ".venv", "__pycache__", ".cache"],
+  "skipDirs": [".git", "node_modules", ".venv", "venv", "__pycache__", ".cache", ".local", "…"],
   "maxDepth": null,
   "theme": "system",
   "editor": null
 }
 ```
 
-`skipDirs` are folder names skipped wherever they appear; `maxDepth` caps how
+`skipDirs` are folder names skipped wherever they appear. The default covers
+version control, dependencies, virtual environments, caches and tool data:
+`.git`, `node_modules`, `.venv`, `venv`, `__pycache__`, `.cache`, `.local`,
+`.tox`, `.nox`, `.mypy_cache`, `.pytest_cache`, `.ruff_cache`, `.next`,
+`.nuxt`, `.svelte-kit`, `.yarn`, `bower_components`, `.terraform`, `Pods`,
+`.gradle` (not `dist`, `build`, `vendor` or `target`, which some projects use
+for real documentation — add them if yours don't). A list left at an earlier
+default is upgraded to this one; a customised list is kept as it is. `maxDepth` caps how
 many folder levels below the workspace are scanned (`docs/guide.md` is depth
 1, `null` = unlimited) — the same as `MARKDOWN_SKIP_DIRS` / `MARKDOWN_MAX_DEPTH`
 for the backend. `theme` is `"system"`, `"light"` or `"dark"`. `editor` chooses
@@ -174,7 +181,7 @@ and font size are too.
 | Variable | Where it is read | Default | Description |
 |---|---|---|---|
 | `MARKDOWN_WORKSPACE` | Backend (runtime) | `./workspace` | Absolute or relative path to the folder the server scans for Markdown files. Relative paths are resolved from the backend's working directory. |
-| `MARKDOWN_SKIP_DIRS` | Backend (runtime) | `.git,node_modules,.venv,__pycache__,.cache` | Comma-separated folder **names** skipped wherever they appear. Skipping caches and build output is the most effective way to speed up scanning a large workspace. |
+| `MARKDOWN_SKIP_DIRS` | Backend (runtime) | the desktop app's default list (see Settings above) | Comma-separated folder **names** skipped wherever they appear. Skipping caches and build output is the most effective way to speed up scanning a large workspace. |
 | `MARKDOWN_MAX_DEPTH` | Backend (runtime) | unlimited | Folder levels below the workspace to scan (`docs/guide.md` is depth 1). A safety cap — documents deeper than this are not listed or served. |
 | `MARKDOWN_CORS_ORIGINS` | Backend (runtime) | local dev servers (`http://localhost:3000`, `:5173`, and their `127.0.0.1` forms) | Comma-separated browser origins allowed to call the API cross-origin (GET only). Set it empty to disable CORS when the frontend is served from the same origin. |
 | `MARKDOWN_ALLOWED_HOSTS` | Backend (runtime) | `localhost,127.0.0.1` | Comma-separated `Host` header values the API answers to; anything else gets `400`, which blocks DNS rebinding. Add your domain when deploying. |
