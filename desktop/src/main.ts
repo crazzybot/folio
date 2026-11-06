@@ -44,7 +44,16 @@ import { findDocument, scanAttachments, scanWorkspace, stableId } from "./scanne
 import { searchWorkspace } from "./search";
 import type { SearchResult } from "./search";
 import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
-import { DEFAULT_SETTINGS, isTheme, loadSettings, saveSettings, settingsPath, watchSettings } from "./settings";
+import {
+  DEFAULT_SETTINGS,
+  DEFAULT_SKIP_DIRS,
+  isTheme,
+  loadSettings,
+  normalizeSettings,
+  saveSettings,
+  settingsPath,
+  watchSettings,
+} from "./settings";
 import type { Settings, Theme } from "./settings";
 import { hasPendingViewState, loadViewState, saveViewState, setViewState, viewStateSnapshot } from "./viewState";
 import { watchWorkspace } from "./watcher";
@@ -222,6 +231,27 @@ function registerIpcHandlers(): void {
     return searchWorkspace(settings.workspace, query, scanOptions());
   });
 
+  // The settings panel: read, change, and the actions it offers
+  ipcMain.handle("settings:get", (event): SettingsView => {
+    assertTrustedSender(event);
+    return settingsView();
+  });
+  ipcMain.handle("settings:set", (event, patch: unknown): SettingsView => {
+    assertTrustedSender(event);
+    return updateSettings(patch);
+  });
+  for (const [channel, action] of [
+    ["settings:choose-workspace", chooseWorkspace],
+    ["settings:open-file", openSettingsFile],
+    ["settings:edit-custom-css", editCustomCss],
+  ] as const) {
+    ipcMain.handle(channel, async (event): Promise<void> => {
+      assertTrustedSender(event);
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (win !== null) await action(win);
+    });
+  }
+
   // The user's custom.css: asked for at page load, then pushed on each save
   ipcMain.handle("custom-css:get", (event): string | null => {
     assertTrustedSender(event);
@@ -390,6 +420,7 @@ async function openWorkspace(win: BrowserWindow, folder: string, docId?: string)
   settings = { ...settings, workspace: folder };
   saveSettings(settings);
   restartWatcher();
+  broadcastSettings();
   rememberWorkspace(folder);
   updateWindowTitle(win);
   await loadWorkspaceRoot(win, docId);
@@ -526,36 +557,77 @@ async function openSettingsFile(win: BrowserWindow): Promise<void> {
   }
 }
 
-/** Apply settings.json edits made while the app is running. */
+/** What the settings panel shows and edits (theme has its own calls; see applyTheme). */
+interface SettingsView {
+  workspace: string | null;
+  skipDirs: string[];
+  maxDepth: number | null;
+  editor: string | null;
+  defaultSkipDirs: readonly string[];
+  /** The editor used when `editor` is null, if one is installed (macOS). */
+  detectedEditor: string | null;
+}
+
+function settingsView(): SettingsView {
+  return {
+    workspace: settings.workspace,
+    skipDirs: settings.skipDirs,
+    maxDepth: settings.maxDepth,
+    editor: settings.editor,
+    defaultSkipDirs: DEFAULT_SKIP_DIRS,
+    detectedEditor: editorName(null),
+  };
+}
+
+/** Tell open settings panels what the settings are now. */
+function broadcastSettings(): void {
+  for (const win of BrowserWindow.getAllWindows()) win.webContents.send("settings:changed", settingsView());
+}
+
+/**
+ * Apply new settings — edits to settings.json made while the app runs, and
+ * changes from the settings panel. Our own saves come back here unchanged.
+ */
 function applySettings(next: Settings): void {
   const workspaceChanged = next.workspace !== settings.workspace;
   const scanChanged =
     next.maxDepth !== settings.maxDepth || next.skipDirs.join("\0") !== settings.skipDirs.join("\0");
-  if (next.theme !== settings.theme) {
-    settings = { ...settings, theme: next.theme };
-    applyTheme();
-    Menu.setApplicationMenu(buildMenu());
-  }
-  if (next.editor !== settings.editor) {
-    settings = { ...settings, editor: next.editor };
-    Menu.setApplicationMenu(buildMenu());
+  const themeChanged = next.theme !== settings.theme;
+  const editorChanged = next.editor !== settings.editor;
+  if (!workspaceChanged && !scanChanged && !themeChanged && !editorChanged) return;
+
+  settings = next;
+  if (themeChanged) applyTheme();
+  if (themeChanged || editorChanged) Menu.setApplicationMenu(buildMenu());
+  if (editorChanged) {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send("editor:changed", editorName(settings.editor));
     }
   }
-  // Our own saves (Open Folder, Settings…) come back here unchanged
-  if (!workspaceChanged && !scanChanged) return;
-
-  settings = next;
-  restartWatcher();
-  if (workspaceChanged && next.workspace !== null) rememberWorkspace(next.workspace);
-  for (const win of BrowserWindow.getAllWindows()) {
-    updateWindowTitle(win);
-    // A new workspace starts at its first document; otherwise reload the
-    // current route so the document list reflects the new scan options
-    if (workspaceChanged) void loadWorkspaceRoot(win);
-    else win.webContents.reload();
+  if (workspaceChanged || scanChanged) {
+    restartWatcher();
+    if (workspaceChanged && next.workspace !== null) rememberWorkspace(next.workspace);
+    for (const win of BrowserWindow.getAllWindows()) {
+      updateWindowTitle(win);
+      // A new workspace starts at its first document
+      if (workspaceChanged) void loadWorkspaceRoot(win);
+    }
+    // New scan options: the open page refreshes its list, like after a file
+    // change (no reload, so an open settings panel stays open)
+    if (!workspaceChanged) notifyWorkspaceChanged();
   }
+  broadcastSettings();
+}
+
+/** A change from the settings panel: only the fields it edits, validated like settings.json. */
+function updateSettings(patch: unknown): SettingsView {
+  if (patch === null || typeof patch !== "object") return settingsView();
+  const changes = patch as Record<string, unknown>;
+  const editable = ["skipDirs", "maxDepth", "editor"].filter((key) => key in changes);
+  const next = normalizeSettings({ ...settings, ...Object.fromEntries(editable.map((key) => [key, changes[key]])) });
+  saveSettings(next);
+  applySettings(next);
+  return settingsView();
 }
 
 // ---------------------------------------------------------------------------
@@ -682,7 +754,8 @@ function buildMenu(): Menu {
   const settingsItem: MenuItemConstructorOptions = {
     label: "Settings…",
     accelerator: "CmdOrCtrl+,",
-    click: withWindow(openSettingsFile),
+    // The page shows its settings panel (which links to settings.json)
+    click: withWindow((win) => win.webContents.send("settings:show")),
   };
   const template: MenuItemConstructorOptions[] = [
     // macOS keeps Settings… in the app menu; elsewhere it goes under File

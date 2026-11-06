@@ -1,5 +1,16 @@
 import type { DocumentContent, DocumentMeta, NavigationState, SearchResult } from "./types";
 
+/** The desktop settings the in-app panel shows (desktop/src/main.ts settingsView). */
+export interface DesktopSettings {
+  workspace: string | null;
+  skipDirs: string[];
+  maxDepth: number | null;
+  editor: string | null;
+  defaultSkipDirs: string[];
+  /** The editor used when `editor` is null, if one is installed (macOS). */
+  detectedEditor: string | null;
+}
+
 /** Document API exposed by the Electron preload script (desktop/src/preload.ts). */
 interface MarkdownDesktopApi {
   /** Node's process.platform of the host, e.g. "darwin". */
@@ -24,6 +35,16 @@ interface MarkdownDesktopApi {
   setTheme(theme: string): Promise<void>;
   /** Subscribe to theme setting changes (menu, settings.json); returns an unsubscribe function. */
   onThemeChange(callback: (theme: string) => void): () => void;
+  /** Settings for the in-app panel; changes are validated like settings.json. */
+  settings: {
+    get(): Promise<DesktopSettings>;
+    set(patch: Partial<Pick<DesktopSettings, "skipDirs" | "maxDepth" | "editor">>): Promise<DesktopSettings>;
+    chooseWorkspace(): Promise<void>;
+    openFile(): Promise<void>;
+    editCustomCss(): Promise<void>;
+    onChange(callback: (settings: DesktopSettings) => void): () => void;
+    onShow(callback: () => void): () => void;
+  };
   /** The user's custom.css (View → Edit Custom CSS…), or null. */
   getCustomCss(): Promise<string | null>;
   /** Subscribe to custom.css changes; returns an unsubscribe function. */

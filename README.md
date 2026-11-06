@@ -23,6 +23,7 @@ highlighting — all without leaving your browser.
 - Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)
 - VS Code-style light and dark themes with breadcrumb header and status bar
 - Display options menu in the header (◐): appearance (System, Light, Dark), document style (Default; Book — serif, airy; Compact — dense), reading width (Narrow, Medium, Wide, Full) and font size (Small, Medium, Large, Extra large). Styles apply to print and PDF too
+- Settings panel (`⌘,` / `Ctrl+,`, or the gear in the status bar) for everything above; in the desktop app also the workspace folder, skipped folders, scan depth and editor, kept in sync with `settings.json`
 - Custom CSS (desktop): **View → Edit Custom CSS…** opens `custom.css` (created from a commented template), applied on top of the chosen style and reloaded as you save; target the document with `.folio-document`
 - GFM support: tables, task lists, strikethrough
 - Obsidian vaults: `[[Note]]`, `[[Note|alias]]`, `[[Note#Heading]]`, `[[#Heading]]` links (resolved by file name anywhere in the workspace, nearest first) and `![[image.png|300]]` image embeds; YAML front matter is hidden, and its `title:` names the document
@@ -119,7 +120,7 @@ workspace. Any of these work:
 |---|---|---|
 | Open Folder… | `⌘O` | Pick the workspace folder |
 | Open Recent | | The last 10 workspace folders (missing ones are dropped); **Clear Recently Opened** forgets all but the current one |
-| Settings… | `⌘,` | Open `settings.json` in your default editor (app menu on macOS, File elsewhere) |
+| Settings… | `⌘,` | Open the settings panel (also the gear at the start of the status bar): appearance, document style, width, font size, sidebar and outline, and in the desktop app the workspace folder, skipped folders, scan depth, editor and custom CSS. **Open settings.json** at its foot opens the file itself |
 | Open in Editor | `⌘E` | Open the shown document in your editor (also the pencil button in the header); the menu names the editor |
 | Reveal in Finder / Show in Folder | `⌥⌘R` / `Shift+Alt+R` | Show the document's file in Finder / Explorer / the file manager |
 | Print… | `⌘P` | System print dialog (print layout, no sidebar) |
