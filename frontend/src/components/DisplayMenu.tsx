@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
-import { FONT_SIZES, READING_WIDTHS } from "../readerPrefs";
-import type { FontSize, ReadingWidth } from "../readerPrefs";
+import { DOC_STYLES, FONT_SIZES, READING_WIDTHS } from "../readerPrefs";
+import type { DocStyle, FontSize, ReadingWidth } from "../readerPrefs";
 import { THEME_OPTIONS } from "../theme";
 import type { ThemePreference } from "../theme";
 import styles from "./DisplayMenu.module.css";
@@ -12,13 +12,15 @@ interface DisplayMenuProps {
   onReadingWidthChange: (id: ReadingWidth["id"]) => void;
   fontSize: FontSize["id"];
   onFontSizeChange: (id: FontSize["id"]) => void;
+  docStyle: DocStyle["id"];
+  onDocStyleChange: (id: DocStyle["id"]) => void;
   /** Class for the trigger button, so it matches the header's other icon buttons. */
   buttonClassName?: string | undefined;
 }
 
 /**
  * Header dropdown for display preferences: appearance (System / Light /
- * Dark), reading width and font size. Follows the WAI-ARIA menu button pattern: arrow
+ * Dark), document style, reading width and font size. Follows the WAI-ARIA menu button pattern: arrow
  * keys move between options, Enter/Space picks one, Escape closes.
  */
 export default function DisplayMenu({
@@ -28,6 +30,8 @@ export default function DisplayMenu({
   onReadingWidthChange,
   fontSize,
   onFontSizeChange,
+  docStyle,
+  onDocStyleChange,
   buttonClassName,
 }: DisplayMenuProps): React.ReactElement {
   const [open, setOpen] = useState(false);
@@ -151,6 +155,13 @@ export default function DisplayMenu({
               Appearance
             </div>
             {THEME_OPTIONS.map((o) => option(o.id, o.label, o.id === theme, onThemeChange))}
+          </div>
+          <div role="separator" className={styles.separator} />
+          <div role="group" aria-labelledby={`${menuId}-style`}>
+            <div id={`${menuId}-style`} className={styles.heading}>
+              Style
+            </div>
+            {DOC_STYLES.map((d) => option(d.id, d.label, d.id === docStyle, onDocStyleChange))}
           </div>
           <div role="separator" className={styles.separator} />
           <div role="group" aria-labelledby={`${menuId}-width`}>

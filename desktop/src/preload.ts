@@ -51,6 +51,16 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.removeListener("theme:changed", listener);
     };
   },
+  /** The user's custom.css, or null. */
+  getCustomCss: () => ipcRenderer.invoke("custom-css:get"),
+  /** Subscribe to custom.css changes; returns an unsubscribe function. */
+  onCustomCssChange: (callback: (css: string | null) => void) => {
+    const listener = (_event: IpcRendererEvent, css: string | null) => callback(css);
+    ipcRenderer.on("custom-css:changed", listener);
+    return () => {
+      ipcRenderer.removeListener("custom-css:changed", listener);
+    };
+  },
   /** The editor File → Open in Editor uses, by name; null for the default app. */
   getEditorName: () => ipcRenderer.invoke("editor:name"),
   /** Open the shown document in that editor. */

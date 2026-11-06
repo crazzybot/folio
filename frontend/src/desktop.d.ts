@@ -24,6 +24,10 @@ interface MarkdownDesktopApi {
   setTheme(theme: string): Promise<void>;
   /** Subscribe to theme setting changes (menu, settings.json); returns an unsubscribe function. */
   onThemeChange(callback: (theme: string) => void): () => void;
+  /** The user's custom.css (View → Edit Custom CSS…), or null. */
+  getCustomCss(): Promise<string | null>;
+  /** Subscribe to custom.css changes; returns an unsubscribe function. */
+  onCustomCssChange(callback: (css: string | null) => void): () => void;
   /** The editor File → Open in Editor uses, by name; null for the default app. */
   getEditorName(): Promise<string | null>;
   /** Open the shown document in that editor. */

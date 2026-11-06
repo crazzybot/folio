@@ -22,7 +22,8 @@ highlighting — all without leaving your browser.
 - Full-text search on demand (the page icon in the search box, `⇧⌘F` / `Ctrl+Shift+F`, remembered): matching lines appear under each document, and opening one highlights every match in the viewer and scrolls to it
 - Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)
 - VS Code-style light and dark themes with breadcrumb header and status bar
-- Display options menu in the header (◐): appearance (System, Light, Dark), reading width (Narrow, Medium, Wide, Full) and font size (Small, Medium, Large, Extra large)
+- Display options menu in the header (◐): appearance (System, Light, Dark), document style (Default; Book — serif, airy; Compact — dense), reading width (Narrow, Medium, Wide, Full) and font size (Small, Medium, Large, Extra large). Styles apply to print and PDF too
+- Custom CSS (desktop): **View → Edit Custom CSS…** opens `custom.css` (created from a commented template), applied on top of the chosen style and reloaded as you save; target the document with `.folio-document`
 - GFM support: tables, task lists, strikethrough
 - Obsidian vaults: `[[Note]]`, `[[Note|alias]]`, `[[Note#Heading]]`, `[[#Heading]]` links (resolved by file name anywhere in the workspace, nearest first) and `![[image.png|300]]` image embeds; YAML front matter is hidden, and its `title:` names the document
 - Math with KaTeX: `$E=mc^2$` inline (GitHub's rules, so prices like "$5 and $10" stay text), `$$…$$` and ```` ```math ```` blocks
@@ -123,6 +124,7 @@ workspace. Any of these work:
 | Reveal in Finder / Show in Folder | `⌥⌘R` / `Shift+Alt+R` | Show the document's file in Finder / Explorer / the file manager |
 | Print… | `⌘P` | System print dialog (print layout, no sidebar) |
 | Export as PDF… | `⇧⌘E` | Save the current document as a PDF |
+| View → Edit Custom CSS… | | Open `custom.css` in the app's data folder in your editor, creating it from a template; saved changes apply immediately |
 | View → Appearance | | System (follow the OS), Light or Dark; saved as `theme` in `settings.json`. The header's display options menu (◐) sets the same value |
 | Go → Back / Forward | `⌘[` / `⌘]` (`Alt+←` / `Alt+→` on Windows and Linux) | Step through visited documents and headings; also the header's arrow buttons and the mouse's back/forward buttons. History starts afresh when you switch workspace |
 
