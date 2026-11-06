@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { authoredTheme } from "../mermaidTheme";
 import { useAppliedTheme } from "../theme";
 import styles from "./MermaidDiagram.module.css";
 
@@ -7,6 +8,10 @@ import styles from "./MermaidDiagram.module.css";
  * loaded on first use only. It renders with securityLevel "strict" (labels
  * sanitized, no click handlers or scripts); the app's Content-Security-Policy
  * blocks inline script on top of that.
+ *
+ * Diagrams follow the app's light / dark theme, except those that set their
+ * own colours or theme: they're drawn in the theme they were written for, on
+ * a card of that theme's background, so their text stays readable.
  */
 
 type MermaidApi = typeof import("mermaid").default;
@@ -27,11 +32,21 @@ function renderDiagram(code: string, theme: "light" | "dark"): Promise<string> {
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict",
+      // Errors are shown by this component; Mermaid would otherwise append
+      // its own error graphic to <body>
+      suppressErrorRendering: true,
       theme: theme === "dark" ? "dark" : "default",
       fontFamily: getComputedStyle(document.body).fontFamily,
     });
-    const { svg } = await mermaid.render(`folio-mermaid-${nextId++}`, code);
-    return svg;
+    const id = `folio-mermaid-${nextId++}`;
+    try {
+      const { svg } = await mermaid.render(id, code);
+      return svg;
+    } finally {
+      // Mermaid renders in a temporary element on <body>; make sure none is left
+      document.getElementById(id)?.remove();
+      document.getElementById(`d${id}`)?.remove();
+    }
   };
   const result = renderQueue.then(run, run);
   renderQueue = result.catch(() => undefined);
@@ -41,7 +56,11 @@ function renderDiagram(code: string, theme: "light" | "dark"): Promise<string> {
 type State = { status: "rendering" } | { status: "done"; svg: string } | { status: "error"; message: string };
 
 export default function MermaidDiagram({ code }: { code: string }): React.ReactElement {
-  const theme = useAppliedTheme();
+  const appTheme = useAppliedTheme();
+  const authored = useMemo(() => authoredTheme(code), [code]);
+  const theme = authored ?? appTheme;
+  // Drawn for the other background: show it on a card of its own
+  const card = theme !== appTheme ? (theme === "dark" ? styles.darkCard : styles.lightCard) : "";
   const [state, setState] = useState<State>({ status: "rendering" });
 
   useEffect(() => {
@@ -78,7 +97,7 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
   }
   return (
     <div
-      className={styles.diagram}
+      className={`${styles.diagram} ${card}`}
       role="img"
       aria-label="Mermaid diagram"
       // Mermaid's output, sanitized by Mermaid in strict mode

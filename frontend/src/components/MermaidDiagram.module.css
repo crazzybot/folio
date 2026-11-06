@@ -12,6 +12,24 @@
   height: auto;
 }
 
+/* A diagram written for the other theme's background (its own colours or
+   theme), on a card of that background. Fixed colours, as the card must not
+   follow the app's theme. */
+.darkCard,
+.lightCard {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+.darkCard {
+  background: #1f1f1f;
+}
+
+.lightCard {
+  background: #ffffff;
+}
+
 .placeholder {
   margin: 0 0 1em;
   padding: var(--space-6);

@@ -24,7 +24,7 @@ highlighting — all without leaving your browser.
 - Display options menu in the header (◐): appearance (System, Light, Dark), reading width (Narrow, Medium, Wide, Full) and font size (Small, Medium, Large, Extra large)
 - GFM support: tables, task lists, strikethrough
 - Math with KaTeX: `$E=mc^2$` inline (GitHub's rules, so prices like "$5 and $10" stay text), `$$…$$` and ```` ```math ```` blocks
-- Mermaid diagrams from ```` ```mermaid ```` blocks, drawn in the current light / dark theme (Mermaid loads only when a document has one)
+- Mermaid diagrams from ```` ```mermaid ```` blocks, drawn in the current light / dark theme (Mermaid loads only when a document has one). A diagram that sets its own colours (`rect rgb(…)`, `fill:`) or theme (`%%{init: {"theme": …}}%%`) is drawn for the background it was written for, on a card of that background, so its text stays readable in either theme
 - Images from the workspace (`![](img/diagram.png)`, relative to the document) and the web
 - Syntax-highlighted fenced code blocks (Python, JS/TS, JSON, Bash, CSS, HTML, YAML, Markdown)
 

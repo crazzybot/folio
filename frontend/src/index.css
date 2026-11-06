@@ -101,7 +101,10 @@ body,
 #root {
   height: 100%;
   width: 100%;
-  overflow: hidden;
+  /* clip, not hidden: hidden boxes can still be scrolled by script (e.g.
+     scrollIntoView), which would push the header out of the window if
+     anything ever overflowed the page */
+  overflow: clip;
 }
 
 body {
