@@ -44,7 +44,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-from app.scanner import IMAGE_TYPES, DocumentMeta, find_document, find_image, scan_workspace
+from app.scanner import IMAGE_TYPES, DocumentMeta, find_document, find_image, scan_attachments, scan_workspace
 from app.search import search_workspace
 
 # ---------------------------------------------------------------------------
@@ -208,6 +208,20 @@ def get_document_content(doc_id: str) -> DocumentContent:
         )
     doc, content = result
     return DocumentContent(id=doc.id, content=content)
+
+
+@app.get(
+    "/api/attachments",
+    response_model=list[str],
+    summary="List the image files in the workspace",
+)
+def list_attachments() -> list[str]:
+    """
+    Return the workspace-relative paths of every image file, sorted, so
+    Obsidian-style embeds (``![[diagram.png]]``) can be resolved by name.
+    Skips the same folders as the document list.
+    """
+    return scan_attachments(_workspace(), skip_dirs=_skip_dirs(), max_depth=_max_depth())
 
 
 @app.get(

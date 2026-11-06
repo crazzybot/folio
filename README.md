@@ -23,6 +23,7 @@ highlighting — all without leaving your browser.
 - VS Code-style light and dark themes with breadcrumb header and status bar
 - Display options menu in the header (◐): appearance (System, Light, Dark), reading width (Narrow, Medium, Wide, Full) and font size (Small, Medium, Large, Extra large)
 - GFM support: tables, task lists, strikethrough
+- Obsidian vaults: `[[Note]]`, `[[Note|alias]]`, `[[Note#Heading]]`, `[[#Heading]]` links (resolved by file name anywhere in the workspace, nearest first) and `![[image.png|300]]` image embeds; YAML front matter is hidden, and its `title:` names the document
 - Math with KaTeX: `$E=mc^2$` inline (GitHub's rules, so prices like "$5 and $10" stay text), `$$…$$` and ```` ```math ```` blocks
 - Mermaid diagrams from ```` ```mermaid ```` blocks, drawn in the current light / dark theme (Mermaid loads only when a document has one). A diagram that sets its own colours (`rect rgb(…)`, `fill:`) or theme (`%%{init: {"theme": …}}%%`) is drawn for the background it was written for, on a card of that background, so its text stays readable in either theme. Hover a diagram and click its expand button (or double-click it) to open it in the whole window, under a title bar with its caption (the diagram's `title`, or the nearest heading) that still drags the window: zoom with the toolbar, ⌘ / Ctrl + scroll, a trackpad pinch or `+` / `-`; pan by dragging, scrolling or with the arrow keys; `0` fits and recentres, `1` shows actual size, Escape closes
 - Images from the workspace (`![](img/diagram.png)`, relative to the document) and the web
@@ -212,7 +213,7 @@ Returns a sorted list of every Markdown file found in the workspace.
 | `id` | string | SHA-1 of the POSIX-relative path. Stable across server restarts. |
 | `filename` | string | Bare filename (e.g. `welcome.md`). |
 | `location` | string | Relative POSIX path from workspace root. |
-| `title` | string | First ATX heading, first non-empty line, or filename stem — in that order. |
+| `title` | string | Front matter `title:`, first ATX heading (as it reads, without Markdown syntax), first non-empty line, or filename stem — in that order. |
 | `created` | string | File creation time as UTC ISO-8601. |
 | `headings` | array | ATX headings (`#` … `######`) outside fenced code blocks, as rendered text (links, emphasis and code markers removed), from the first 256 KB of the file. Used for instant heading search. |
 
@@ -235,6 +236,16 @@ Returns the raw Markdown source for a single document.
 
 ```json
 { "detail": "Document a3f1c2d4 not found" }
+```
+
+### `GET /api/attachments`
+
+Returns the workspace-relative paths of every image file, sorted, so
+Obsidian-style embeds (`![[diagram.png]]`, which give only a file name) can
+be resolved. Skips the same folders as the document list.
+
+```json
+["attachments/diagram.png", "docs/img/flow.svg"]
 ```
 
 ### `GET /api/search?q={query}`

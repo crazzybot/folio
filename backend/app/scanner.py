@@ -67,9 +67,40 @@ def _read_head(path: Path) -> str | None:
         return None
 
 
+# YAML front matter at the very start of a file (as Obsidian, Jekyll, Hugo… write it)
+_FRONT_MATTER = re.compile(r"^\ufeff?---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)?(?:---|\.\.\.)[ \t]*(?:\r?\n|$)")
+_FRONT_MATTER_TITLE = re.compile(r"^title[ \t]*:[ \t]*(.+?)[ \t]*$", re.MULTILINE)
+_WIKI_LINK = re.compile(r"!?\[\[([^\]]*)\]\]")
+_MAX_ATTACHMENTS = 10000
+
+
+def split_front_matter(text: str) -> tuple[str, str | None]:
+    """The text after any front matter, and the front matter's ``title:``, if set."""
+    match = _FRONT_MATTER.match(text)
+    if not match:
+        return text, None
+    raw = _FRONT_MATTER_TITLE.search(match.group(1) or "")
+    title = re.sub(r"^([\"'])(.*)\1$", r"\2", raw.group(1)).strip() if raw else ""
+    return text[match.end():], title or None
+
+
+def wiki_link_text(inner: str) -> str:
+    """
+    How a [[wiki link]] reads: its alias, else "Note > Heading", "Note" or
+    "Heading" (block references, #^id, are left out). Matches the viewer.
+    """
+    if "|" in inner:
+        return inner.split("|", 1)[1].strip()
+    name, _, heading = inner.partition("#")
+    name = name.strip()
+    heading = "" if heading.startswith("^") else heading.strip()
+    return f"{name} > {heading}" if name and heading else name or heading
+
+
 def _plain_heading(raw: str) -> str:
     """Heading text as rendered: link text instead of links, no emphasis or code markers."""
-    text = _LINK.sub(r"\1", raw)
+    text = _WIKI_LINK.sub(lambda m: wiki_link_text(m.group(1)), raw)
+    text = _LINK.sub(r"\1", text)
     text = re.sub(r"[*`~]", "", text)
     return re.sub(r"\s+", " ", text).strip()
 
@@ -78,7 +109,7 @@ def extract_headings(text: str) -> tuple[Heading, ...]:
     """ATX headings (# … ######) outside fenced code blocks, in document order."""
     headings: list[Heading] = []
     fence: str | None = None
-    for line in re.split(r"\r\n|\r|\n", text):
+    for line in re.split(r"\r\n|\r|\n", split_front_matter(text)[0]):
         fence_match = _FENCE.match(line)
         if fence_match:
             marker = fence_match.group(1)
@@ -105,25 +136,29 @@ def extract_headings(text: str) -> tuple[Heading, ...]:
 def _extract_title(text: str | None, path: Path) -> str:
     """
     Return a human-readable title for the file using this priority:
-      1. First ATX heading  (# Title)
-      2. First non-empty line
-      3. Filename without extension
+      1. Front matter ``title:``
+      2. First ATX heading  (# Title)
+      3. First non-empty line
+      4. Filename without extension
     """
     if text is None:
         return path.stem
+    text, title = split_front_matter(text)
+    if title is not None:
+        return title
 
-    # 1. ATX heading
+    # 2. ATX heading, as it reads: "About [[Note|the note]]" is "About the note"
     match = _ATX_HEADING.search(text)
     if match:
-        return match.group(1).strip()
+        return _plain_heading(match.group(1)) or match.group(1).strip()
 
-    # 2. First non-empty line
+    # 3. First non-empty line
     for line in text.splitlines():
         stripped = line.strip()
         if stripped:
             return stripped
 
-    # 3. Fallback: filename without extension
+    # 4. Fallback: filename without extension
     return path.stem
 
 
@@ -342,3 +377,34 @@ def find_image(
     except OSError:
         return None
     return file_path
+
+
+# ---------------------------------------------------------------------------
+# Attachments — images in the workspace, for ![[image.png]] embeds, which
+# name a file without its folder. Same pruning as the document scan.
+# ---------------------------------------------------------------------------
+
+def scan_attachments(
+    workspace: Path,
+    skip_dirs: frozenset[str] = frozenset(),
+    max_depth: int | None = None,
+) -> list[str]:
+    """Workspace-relative locations of the image files in *workspace*, sorted."""
+    if not workspace.exists():
+        return []
+    found: list[str] = []
+    for root, dirs, files in os.walk(workspace):
+        root_path = Path(root)
+        depth = len(root_path.relative_to(workspace).parts)
+        if max_depth is not None and depth >= max_depth:
+            dirs[:] = []
+        else:
+            dirs[:] = [d for d in dirs if d not in skip_dirs]
+        for filename in files:
+            file_path = root_path / filename
+            if file_path.suffix.lower() not in IMAGE_TYPES or not _is_inside(file_path, workspace):
+                continue
+            found.append(file_path.relative_to(workspace).as_posix())
+            if len(found) >= _MAX_ATTACHMENTS:
+                return sorted(found)
+    return sorted(found)

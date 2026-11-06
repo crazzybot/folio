@@ -38,7 +38,7 @@ import { serveImage } from "./images";
 import { canInstallCommand, installCommand } from "./cli";
 import { editorName, openInEditor } from "./editor";
 import { classifyPath, locationInWorkspace, pathsFromArgv } from "./openPaths";
-import { findDocument, scanWorkspace, stableId } from "./scanner";
+import { findDocument, scanAttachments, scanWorkspace, stableId } from "./scanner";
 import { searchWorkspace } from "./search";
 import type { SearchResult } from "./search";
 import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
@@ -203,6 +203,12 @@ function registerIpcHandlers(): void {
       settings.workspace === null ? null : await findDocument(settings.workspace, docId, scanOptions());
     if (result === null) throw new Error(`Document '${docId}' not found in workspace`);
     return { id: result.meta.id, content: result.content };
+  });
+
+  ipcMain.handle("attachments:list", async (event): Promise<string[]> => {
+    assertTrustedSender(event);
+    if (settings.workspace === null) return [];
+    return scanAttachments(settings.workspace, scanOptions());
   });
 
   ipcMain.handle("documents:search", async (event, query: unknown): Promise<SearchResult[]> => {

@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld("markdownApi", {
   listDocuments: () => ipcRenderer.invoke("documents:list"),
   getDocumentContent: (id: string) => ipcRenderer.invoke("documents:content", id),
   searchDocuments: (query: string) => ipcRenderer.invoke("documents:search", query),
+  listAttachments: () => ipcRenderer.invoke("attachments:list"),
   getNavigationState: () => ipcRenderer.invoke("navigation:state"),
   /** Subscribe to back/forward availability; returns an unsubscribe function. */
   onNavigationStateChange: (callback: (state: NavigationState) => void) => {
