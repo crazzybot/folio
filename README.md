@@ -23,6 +23,7 @@ highlighting — all without leaving your browser.
 - Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)
 - VS Code-style light and dark themes with breadcrumb header and status bar
 - Display options menu in the header (◐): appearance (System, Light, Dark), document style (Default; Book — serif, airy; Compact — dense), reading width (Narrow, Medium, Wide, Full) and font size (Small, Medium, Large, Extra large). Styles apply to print and PDF too
+- Settings panel (`⌘,` / `Ctrl+,`, or the gear in the status bar) for everything above; in the desktop app also the workspace folder, skipped folders, scan depth and editor, kept in sync with `settings.json`
 - Custom CSS (desktop): **View → Edit Custom CSS…** opens `custom.css` (created from a commented template), applied on top of the chosen style and reloaded as you save; target the document with `.folio-document`
 - GFM support: tables, task lists, strikethrough
 - Obsidian vaults: `[[Note]]`, `[[Note|alias]]`, `[[Note#Heading]]`, `[[#Heading]]` links (resolved by file name anywhere in the workspace, nearest first) and `![[image.png|300]]` image embeds; YAML front matter is hidden, and its `title:` names the document
@@ -119,7 +120,10 @@ workspace. Any of these work:
 |---|---|---|
 | Open Folder… | `⌘O` | Pick the workspace folder |
 | Open Recent | | The last 10 workspace folders (missing ones are dropped); **Clear Recently Opened** forgets all but the current one |
-| Settings… | `⌘,` | Open `settings.json` in your default editor (app menu on macOS, File elsewhere) |
+| Settings… | `⌘,` | Open the settings panel (also the gear at the start of the status bar): appearance, document style, width, font size, sidebar and outline, and in the desktop app the workspace folder, skipped folders, scan depth, editor and custom CSS. **Open settings.json** at its foot opens the file itself |
+| Edit → Copy, Select All | `⌘C`, `⌘A` | The usual; Undo / Cut / Paste aren't shown (there's nothing to edit) but still work in text fields |
+| Edit → Find…, Find Next, Find Previous | `⌘F`, `⌘G`, `⇧⌘G` (`Ctrl+F`, `F3`, `Shift+F3`) | Find in the open document |
+| Edit → Search Document Text… | `⇧⌘F` | Search all documents' text from the sidebar |
 | Open in Editor | `⌘E` | Open the shown document in your editor (also the pencil button in the header); the menu names the editor |
 | Reveal in Finder / Show in Folder | `⌥⌘R` / `Shift+Alt+R` | Show the document's file in Finder / Explorer / the file manager |
 | Print… | `⌘P` | System print dialog (print layout, no sidebar) |
@@ -177,6 +181,36 @@ and font size are too.
 > **Note:** builds are unsigned unless a valid "Developer ID Application"
 > certificate is in the keychain. If you launch Electron from a process that
 > sets `ELECTRON_RUN_AS_NODE=1` (some editor extensions do), unset it first.
+
+---
+
+## Releasing the desktop app
+
+Releases are built by GitHub Actions (`.github/workflows/release.yml`) and
+published as GitHub Releases, where installed copies of Folio look for
+updates (**Folio → Check for Updates…**, also checked quietly at launch).
+
+1. Bump `"version"` in `desktop/package.json` (e.g. `0.2.0`) and merge it to `main`.
+2. Tag that commit and push the tag:
+   ```bash
+   git tag v0.2.0 && git push origin v0.2.0
+   ```
+3. The workflow checks the tag matches the version, creates a **draft**
+   release with generated notes, and uploads:
+   - macOS: `Folio-0.2.0-universal.dmg` and `…-universal-mac.zip` (Intel and
+     Apple Silicon), signed with the Developer ID certificate and notarized
+   - Windows: `Folio Setup 0.2.0.exe` (unsigned for now — SmartScreen warns)
+   - Linux: an AppImage
+   - `latest*.yml` files the updater reads
+4. Review the draft on GitHub (edit the notes), then **Publish** it. Installed
+   apps see the update from then on.
+
+Signing and notarization use secrets in the repository's `release`
+environment (tags `v*` only): `CSC_LINK` (the Developer ID `.p12`,
+base64-encoded), `CSC_KEY_PASSWORD`, `APPLE_API_KEY_P8` (the App Store
+Connect API key's `.p8` text), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`.
+`.github/workflows/ci.yml` lints, type-checks and tests every push to `main`
+and every pull request.
 
 ---
 

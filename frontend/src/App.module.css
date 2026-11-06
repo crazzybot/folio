@@ -133,6 +133,38 @@
   text-overflow: ellipsis;
 }
 
+/* The path takes the space between the settings gear and the count */
+.statusItem:first-of-type {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Settings gear, at the start of the status bar (as in VS Code) */
+.statusBtn {
+  flex-shrink: 0;
+  width: 20px;
+  height: 18px;
+  margin-left: -4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.statusBtn:hover {
+  color: var(--color-text);
+  background: var(--color-hover-bg);
+}
+
+.statusBtn:focus-visible {
+  outline: 1px solid var(--color-accent);
+}
+
 /* The document count always stays whole; the path gives way */
 .statusItem:last-child {
   flex-shrink: 0;

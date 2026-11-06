@@ -14,21 +14,12 @@ const CONTENT_SEARCH_DELAY_MS = 200;
 // Matching headings listed under a document before "N more"
 const MAX_HEADING_ROWS = 3;
 
-const FULL_TEXT_KEY = "folio.searchDocumentText";
-const GROUPED_KEY = "folio.groupByFolder";
 const EXPANDED_KEY = "folio.expandedFolders";
 // Remembered expanded folders, most recent last; old workspaces' folders age out
 const MAX_REMEMBERED_FOLDERS = 500;
 const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 const FULL_TEXT_SHORTCUT = IS_MAC ? "⇧⌘F" : "Ctrl+Shift+F";
 
-function loadFullText(): boolean {
-  return getItem(FULL_TEXT_KEY) === "true";
-}
-
-function loadGrouped(): boolean {
-  return getItem(GROUPED_KEY) !== "false";
-}
 
 function loadExpanded(): Set<string> {
   try {
@@ -85,6 +76,12 @@ interface DocumentListProps {
   onOpenSection: (id: string, anchor: string) => void;
   /** The query whose matches the viewer highlights ("" when none). */
   onSearchQueryChange?: (query: string) => void;
+  /** Group the list by folder (sidebar header toggle; also in Settings). */
+  grouped: boolean;
+  onGroupedChange: (grouped: boolean) => void;
+  /** Search document text too (search box toggle, ⇧⌘F; also in Settings). */
+  fullText: boolean;
+  onFullTextChange: (on: boolean) => void;
 }
 
 type ContentSearch =
@@ -101,31 +98,41 @@ export default function DocumentList({
   onSelect,
   onOpenSection,
   onSearchQueryChange,
+  grouped,
+  onGroupedChange,
+  fullText,
+  onFullTextChange,
 }: DocumentListProps): React.ReactElement {
   const [query, setQuery] = useState("");
-  const [fullText, setFullText] = useState(loadFullText);
   const [contentSearch, setContentSearch] = useState<ContentSearch>({ status: "idle" });
   const searchId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const trimmed = query.trim();
 
-  const chooseFullText = useCallback((on: boolean) => {
-    setFullText(on);
-    setItem(FULL_TEXT_KEY, String(on));
-  }, []);
+  const chooseFullText = onFullTextChange;
 
-  // ⇧⌘F / Ctrl+Shift+F: search document text, as in VS Code
+  // ⇧⌘F / Ctrl+Shift+F: search document text, as in VS Code (also the
+  // desktop Edit menu's Search Document Text…)
   useEffect(() => {
+    const searchText = () => {
+      chooseFullText(true);
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    };
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "f") {
         e.preventDefault();
-        chooseFullText(true);
-        inputRef.current?.focus();
-        inputRef.current?.select();
+        searchText();
       }
     }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    const unsubscribe = window.markdownApi?.onFindCommand((command) => {
+      if (command === "search-text") searchText();
+    });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      unsubscribe?.();
+    };
   }, [chooseFullText]);
 
   // Search document text once typing pauses. Also re-runs when the document
@@ -193,15 +200,11 @@ export default function DocumentList({
     : 0;
 
   // ── Group by folder (shown while not searching) ────────────────────────────
-  const [grouped, setGrouped] = useState(loadGrouped);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(loadExpanded);
   const tree = useMemo(() => buildDocumentTree(documents), [documents]);
   const showTree = grouped && trimmed === "";
 
-  const chooseGrouped = (on: boolean) => {
-    setGrouped(on);
-    setItem(GROUPED_KEY, String(on));
-  };
+  const chooseGrouped = onGroupedChange;
 
   const setFolderExpanded = useCallback((keys: readonly string[], open: boolean) => {
     setExpanded((prev) => {
