@@ -121,6 +121,9 @@ workspace. Any of these work:
 | Open Folder… | `⌘O` | Pick the workspace folder |
 | Open Recent | | The last 10 workspace folders (missing ones are dropped); **Clear Recently Opened** forgets all but the current one |
 | Settings… | `⌘,` | Open the settings panel (also the gear at the start of the status bar): appearance, document style, width, font size, sidebar and outline, and in the desktop app the workspace folder, skipped folders, scan depth, editor and custom CSS. **Open settings.json** at its foot opens the file itself |
+| Edit → Copy, Select All | `⌘C`, `⌘A` | The usual; Undo / Cut / Paste aren't shown (there's nothing to edit) but still work in text fields |
+| Edit → Find…, Find Next, Find Previous | `⌘F`, `⌘G`, `⇧⌘G` (`Ctrl+F`, `F3`, `Shift+F3`) | Find in the open document |
+| Edit → Search Document Text… | `⇧⌘F` | Search all documents' text from the sidebar |
 | Open in Editor | `⌘E` | Open the shown document in your editor (also the pencil button in the header); the menu names the editor |
 | Reveal in Finder / Show in Folder | `⌥⌘R` / `Shift+Alt+R` | Show the document's file in Finder / Explorer / the file manager |
 | Print… | `⌘P` | System print dialog (print layout, no sidebar) |

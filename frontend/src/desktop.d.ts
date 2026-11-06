@@ -45,6 +45,8 @@ interface MarkdownDesktopApi {
     onChange(callback: (settings: DesktopSettings) => void): () => void;
     onShow(callback: () => void): () => void;
   };
+  /** Subscribe to Edit menu commands ("open", "next", "previous", "search-text"); returns an unsubscribe function. */
+  onFindCommand(callback: (command: string) => void): () => void;
   /** The user's custom.css (View → Edit Custom CSS…), or null. */
   getCustomCss(): Promise<string | null>;
   /** Subscribe to custom.css changes; returns an unsubscribe function. */

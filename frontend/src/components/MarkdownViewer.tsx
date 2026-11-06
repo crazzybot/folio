@@ -766,16 +766,20 @@ export default function MarkdownViewer({
   }, []);
 
   // ⌘F / Ctrl+F opens the find bar (or re-selects its text); ⌘G / F3 step
-  // through matches, with Shift going back
+  // through matches, with Shift going back. The desktop Edit menu shows
+  // these and sends the same commands when its items are clicked.
   useEffect(() => {
+    const openFind = () => {
+      setFindOpen(true);
+      findInputRef.current?.focus();
+      findInputRef.current?.select();
+    };
     function onKeyDown(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey;
       const key = e.key.toLowerCase();
       if (mod && !e.shiftKey && !e.altKey && key === "f") {
         e.preventDefault();
-        setFindOpen(true);
-        findInputRef.current?.focus();
-        findInputRef.current?.select();
+        openFind();
       } else if (findOpen && ((mod && !e.altKey && key === "g") || e.key === "F3")) {
         e.preventDefault();
         if (e.shiftKey) findPrevious();
@@ -783,7 +787,19 @@ export default function MarkdownViewer({
       }
     }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    const unsubscribe = desktopApi?.onFindCommand((command) => {
+      if (command === "open") openFind();
+      // Next / Previous with no find bar open start a search, as in browsers
+      else if (command === "next" || command === "previous") {
+        if (!findOpen) openFind();
+        else if (command === "next") findNext();
+        else findPrevious();
+      }
+    });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      unsubscribe?.();
+    };
   }, [findOpen, findNext, findPrevious]);
 
   // Focus the input when the bar appears
