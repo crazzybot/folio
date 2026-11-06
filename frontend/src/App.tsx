@@ -13,9 +13,32 @@ import useTheme from "./theme";
 import DisplayMenu from "./components/DisplayMenu";
 import styles from "./App.module.css";
 import type { DocumentMeta } from "./types";
+import { getItem, setItem } from "./storage";
 
 const PANEL_MIN_WIDTH = 160;
 const PANEL_DEFAULT_WIDTH = 260;
+const PANEL_MAX_WIDTH = 600;
+// Sidebar width and whether it's hidden, remembered per browser / install (storage.ts)
+const SIDEBAR_KEY = "folio.sidebar";
+
+function loadSidebar(): { width: number; collapsed: boolean } {
+  try {
+    const saved: unknown = JSON.parse(getItem(SIDEBAR_KEY) ?? "null");
+    if (saved !== null && typeof saved === "object") {
+      const { width, collapsed } = saved as Record<string, unknown>;
+      return {
+        width:
+          typeof width === "number" && Number.isFinite(width)
+            ? Math.min(PANEL_MAX_WIDTH, Math.max(PANEL_MIN_WIDTH, width))
+            : PANEL_DEFAULT_WIDTH,
+        collapsed: collapsed === true,
+      };
+    }
+  } catch {
+    // Storage unavailable or unreadable: defaults
+  }
+  return { width: PANEL_DEFAULT_WIDTH, collapsed: false };
+}
 
 // The macOS desktop app hides the title bar and insets the window buttons
 // into the app's own header rows.
@@ -122,8 +145,14 @@ function AppInner(): React.ReactElement {
   const [showOutline, setShowOutline] = useOutlineVisible();
 
   // ── Panel / divider state ──────────────────────────────────────────────────
-  const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
-  const [collapsed, setCollapsed] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(() => loadSidebar().width);
+  const [collapsed, setCollapsed] = useState(() => loadSidebar().collapsed);
+
+  // Remember the sidebar once a drag or resize settles
+  useEffect(() => {
+    const timer = setTimeout(() => setItem(SIDEBAR_KEY, JSON.stringify({ width: panelWidth, collapsed })), 300);
+    return () => clearTimeout(timer);
+  }, [panelWidth, collapsed]);
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartWidth = useRef(0);
@@ -316,7 +345,7 @@ function AppInner(): React.ReactElement {
       // Don't exceed 40% of container width
       const maxWidth = containerRef.current
         ? containerRef.current.offsetWidth * 0.4
-        : 600;
+        : PANEL_MAX_WIDTH;
       setPanelWidth(Math.min(next, maxWidth));
       // If dragged wide while collapsed, expand
       if (delta > 20) setCollapsed(false);
@@ -409,7 +438,7 @@ function AppInner(): React.ReactElement {
           aria-label="Resize panels"
           aria-valuenow={effectivePanelWidth}
           aria-valuemin={PANEL_MIN_WIDTH}
-          aria-valuemax={600}
+          aria-valuemax={PANEL_MAX_WIDTH}
           tabIndex={0}
           onKeyDown={(e) => {
             if (e.key === "ArrowLeft") {
@@ -418,7 +447,7 @@ function AppInner(): React.ReactElement {
               setCollapsed(false);
             } else if (e.key === "ArrowRight") {
               e.preventDefault();
-              setPanelWidth((w) => Math.min(w + 20, 600));
+              setPanelWidth((w) => Math.min(w + 20, PANEL_MAX_WIDTH));
               setCollapsed(false);
             }
           }}

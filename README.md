@@ -124,6 +124,14 @@ workspace. Any of these work:
 | View → Appearance | | System (follow the OS), Light or Dark; saved as `theme` in `settings.json`. The header's display options menu (◐) sets the same value |
 | Go → Back / Forward | `⌘[` / `⌘]` (`Alt+←` / `Alt+→` on Windows and Linux) | Step through visited documents and headings; also the header's arrow buttons and the mouse's back/forward buttons. History starts afresh when you switch workspace |
 
+**Remembered between launches** — the window's size, position and maximized
+state (`window-state.json`; an off-screen position falls back to the
+default), and view preferences: sidebar width, folder tree and expanded
+folders, outline, reading width, font size, text-search toggle
+(`view-state.json`). Both live in the app's data folder next to
+`settings.json` and aren't meant for hand-editing. In the browser, view
+preferences are kept in `localStorage`.
+
 **Settings** — `settings.json` (in the app's data folder, e.g.
 `~/Library/Application Support/Folio/` on macOS) is applied as
 soon as you save it:

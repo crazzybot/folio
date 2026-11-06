@@ -6,6 +6,7 @@ import { slugify } from "../slug";
 import type { DocumentMeta, Heading, SearchMatch, SearchResult } from "../types";
 import MarkdownIcon from "./MarkdownIcon";
 import styles from "./DocumentList.module.css";
+import { getItem, setItem } from "../storage";
 
 // Searching document text starts at this many characters, after a pause in typing
 const MIN_CONTENT_QUERY = 2;
@@ -22,24 +23,16 @@ const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 const FULL_TEXT_SHORTCUT = IS_MAC ? "⇧⌘F" : "Ctrl+Shift+F";
 
 function loadFullText(): boolean {
-  try {
-    return localStorage.getItem(FULL_TEXT_KEY) === "true";
-  } catch {
-    return false;
-  }
+  return getItem(FULL_TEXT_KEY) === "true";
 }
 
 function loadGrouped(): boolean {
-  try {
-    return localStorage.getItem(GROUPED_KEY) !== "false";
-  } catch {
-    return true;
-  }
+  return getItem(GROUPED_KEY) !== "false";
 }
 
 function loadExpanded(): Set<string> {
   try {
-    const saved: unknown = JSON.parse(localStorage.getItem(EXPANDED_KEY) ?? "[]");
+    const saved: unknown = JSON.parse(getItem(EXPANDED_KEY) ?? "[]");
     return new Set(Array.isArray(saved) ? saved.filter((key): key is string => typeof key === "string") : []);
   } catch {
     return new Set();
@@ -47,11 +40,7 @@ function loadExpanded(): Set<string> {
 }
 
 function saveExpanded(keys: ReadonlySet<string>): void {
-  try {
-    localStorage.setItem(EXPANDED_KEY, JSON.stringify([...keys].slice(-MAX_REMEMBERED_FOLDERS)));
-  } catch {
-    // Not remembered, but still applied
-  }
+  setItem(EXPANDED_KEY, JSON.stringify([...keys].slice(-MAX_REMEMBERED_FOLDERS)));
 }
 
 /** The folder part of a location, shown dimmed beside a document's title. */
@@ -122,11 +111,7 @@ export default function DocumentList({
 
   const chooseFullText = useCallback((on: boolean) => {
     setFullText(on);
-    try {
-      localStorage.setItem(FULL_TEXT_KEY, String(on));
-    } catch {
-      // Not remembered, but still applied
-    }
+    setItem(FULL_TEXT_KEY, String(on));
   }, []);
 
   // ⇧⌘F / Ctrl+Shift+F: search document text, as in VS Code
@@ -215,11 +200,7 @@ export default function DocumentList({
 
   const chooseGrouped = (on: boolean) => {
     setGrouped(on);
-    try {
-      localStorage.setItem(GROUPED_KEY, String(on));
-    } catch {
-      // Not remembered, but still applied
-    }
+    setItem(GROUPED_KEY, String(on));
   };
 
   const setFolderExpanded = useCallback((keys: readonly string[], open: boolean) => {

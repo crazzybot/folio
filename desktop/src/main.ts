@@ -44,7 +44,9 @@ import type { SearchResult } from "./search";
 import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
 import { DEFAULT_SETTINGS, isTheme, loadSettings, saveSettings, settingsPath, watchSettings } from "./settings";
 import type { Settings, Theme } from "./settings";
+import { hasPendingViewState, loadViewState, saveViewState, setViewState, viewStateSnapshot } from "./viewState";
 import { watchWorkspace } from "./watcher";
+import { DEFAULT_SIZE, loadWindowState, trackWindowState } from "./windowState";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -216,6 +218,15 @@ function registerIpcHandlers(): void {
     if (typeof query !== "string") throw new Error("Search query must be a string");
     if (settings.workspace === null) return [];
     return searchWorkspace(settings.workspace, query, scanOptions());
+  });
+
+  // View preferences: all of them once at page load (synchronously, so the
+  // first render uses them), then each change
+  ipcMain.on("view-state:load", (event) => {
+    event.returnValue = isRendererUrl(event.senderFrame?.url ?? "") ? viewStateSnapshot() : {};
+  });
+  ipcMain.on("view-state:set", (event, key: unknown, value: unknown) => {
+    if (isRendererUrl(event.senderFrame?.url ?? "")) setViewState(key, value);
   });
 
   // A file or folder dropped on the window (the renderer resolves its path)
@@ -739,9 +750,10 @@ function buildMenu(): Menu {
 }
 
 function createWindow(): BrowserWindow {
+  // Where the window was last time, if that's still on a display
+  const saved = loadWindowState();
   const win = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    ...(saved === null ? DEFAULT_SIZE : saved.bounds),
     minWidth: 640,
     minHeight: 400,
     title: APP_NAME,
@@ -762,7 +774,11 @@ function createWindow(): BrowserWindow {
 
   // Keep the workspace name in the title instead of index.html's <title>
   win.on("page-title-updated", (event) => event.preventDefault());
-  win.once("ready-to-show", () => win.show());
+  win.once("ready-to-show", () => {
+    if (saved?.maximized) win.maximize();
+    win.show();
+  });
+  trackWindowState(win);
 
   // Links in documents open in the browser, never inside the app window
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -833,6 +849,7 @@ void app.whenReady().then(() => {
   if (!isPrimaryInstance) return;
   pendingPaths.push(...pathsFromArgv(process.argv, process.cwd(), app.isPackaged));
   settings = loadSettings();
+  loadViewState();
   applyTheme();
   // The OS switching light/dark (or our own setting) repaints the windows' background
   nativeTheme.on("updated", () => {
@@ -857,6 +874,17 @@ void app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) mainWindow = createWindow();
   });
 });
+
+// View preferences are saved with a short delay: write what's pending
+app.on("before-quit", () => {
+  if (hasPendingViewState()) saveViewState();
+});
+
+// A termination signal (logout, a process manager) quits like ⌘Q, so the
+// save above runs too
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.on(signal, () => app.quit());
+}
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();

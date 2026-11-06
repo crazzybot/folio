@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { getItem, setItem } from "./storage";
 
 /**
  * Light / dark appearance. The chosen palette is applied as
@@ -8,7 +9,7 @@ import { useCallback, useEffect, useState } from "react";
  * In the desktop app the preference lives in settings.json, shared with
  * View → Appearance, and Electron's nativeTheme makes prefers-color-scheme
  * report it, so the page always resolves through the media query there. In
- * the browser it is remembered in localStorage.
+ * the browser it is remembered in localStorage (storage.ts).
  */
 export type ThemePreference = "system" | "light" | "dark";
 
@@ -27,13 +28,8 @@ function isPreference(value: unknown): value is ThemePreference {
 }
 
 function loadBrowserPreference(): ThemePreference {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (isPreference(saved)) return saved;
-  } catch {
-    // Storage unavailable: follow the system
-  }
-  return "system";
+  const saved = getItem(STORAGE_KEY);
+  return isPreference(saved) ? saved : "system";
 }
 
 function apply(preference: ThemePreference): void {
@@ -80,11 +76,7 @@ export default function useTheme(): [ThemePreference, (preference: ThemePreferen
       void desktopApi.setTheme(next);
       return;
     }
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Not remembered, but still applied
-    }
+    setItem(STORAGE_KEY, next);
   }, []);
 
   return [preference, choose];
