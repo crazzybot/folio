@@ -51,6 +51,38 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.removeListener("theme:changed", listener);
     };
   },
+  /** Settings the in-app panel shows and edits (see SettingsView in main.ts). */
+  settings: {
+    get: () => ipcRenderer.invoke("settings:get"),
+    set: (patch: Record<string, unknown>) => ipcRenderer.invoke("settings:set", patch),
+    chooseWorkspace: () => ipcRenderer.invoke("settings:choose-workspace"),
+    openFile: () => ipcRenderer.invoke("settings:open-file"),
+    editCustomCss: () => ipcRenderer.invoke("settings:edit-custom-css"),
+    /** Subscribe to settings changes from any source; returns an unsubscribe function. */
+    onChange: (callback: (settings: unknown) => void) => {
+      const listener = (_event: IpcRendererEvent, settings: unknown) => callback(settings);
+      ipcRenderer.on("settings:changed", listener);
+      return () => {
+        ipcRenderer.removeListener("settings:changed", listener);
+      };
+    },
+    /** Subscribe to the Settings… menu item; returns an unsubscribe function. */
+    onShow: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on("settings:show", listener);
+      return () => {
+        ipcRenderer.removeListener("settings:show", listener);
+      };
+    },
+  },
+  /** Subscribe to Edit menu commands for the find bar and search; returns an unsubscribe function. */
+  onFindCommand: (callback: (command: string) => void) => {
+    const listener = (_event: IpcRendererEvent, command: string) => callback(command);
+    ipcRenderer.on("find:command", listener);
+    return () => {
+      ipcRenderer.removeListener("find:command", listener);
+    };
+  },
   /** The user's custom.css, or null. */
   getCustomCss: () => ipcRenderer.invoke("custom-css:get"),
   /** Subscribe to custom.css changes; returns an unsubscribe function. */

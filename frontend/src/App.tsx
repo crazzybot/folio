@@ -9,9 +9,17 @@ import Breadcrumb from "./components/Breadcrumb";
 import useDesktopHistory from "./useDesktopHistory";
 import useFileDrop from "./useFileDrop";
 import useCustomCss from "./customCss";
-import { useDocStyle, useFontSize, useOutlineVisible, useReadingWidth } from "./readerPrefs";
+import {
+  useDocStyle,
+  useFontSize,
+  useGroupByFolder,
+  useOutlineVisible,
+  useReadingWidth,
+  useSearchDocumentText,
+} from "./readerPrefs";
 import useTheme from "./theme";
 import DisplayMenu from "./components/DisplayMenu";
+import SettingsPanel from "./components/SettingsPanel";
 import styles from "./App.module.css";
 import type { DocumentMeta } from "./types";
 import { getItem, setItem } from "./storage";
@@ -146,6 +154,26 @@ function AppInner(): React.ReactElement {
   const [docStyle, setDocStyle] = useDocStyle();
   useCustomCss();
   const [showOutline, setShowOutline] = useOutlineVisible();
+  const [groupByFolder, setGroupByFolder] = useGroupByFolder();
+  const [searchDocumentText, setSearchDocumentText] = useSearchDocumentText();
+
+  // ── Settings panel: ⌘, (the Settings… menu item in the desktop app) or the
+  // status bar's gear ─────────────────────────────────────────────────────────
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    const api = window.markdownApi;
+    if (api) return api.settings.onShow(() => setSettingsOpen(true));
+    // Browser: no menu, so the shortcut is handled here
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key === ",") {
+        e.preventDefault();
+        setSettingsOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // ── Panel / divider state ──────────────────────────────────────────────────
   const [panelWidth, setPanelWidth] = useState(() => loadSidebar().width);
@@ -427,6 +455,10 @@ function AppInner(): React.ReactElement {
             onSelect={handleSelect}
             onOpenSection={handleOpenDocument}
             onSearchQueryChange={setSearchQuery}
+            grouped={groupByFolder}
+            onGroupedChange={setGroupByFolder}
+            fullText={searchDocumentText}
+            onFullTextChange={setSearchDocumentText}
             loading={listLoading}
             error={listError}
           />
@@ -603,7 +635,40 @@ function AppInner(): React.ReactElement {
       )}
 
       {/* ── Status bar ── */}
+      {settingsOpen && (
+        <SettingsPanel
+          onClose={() => setSettingsOpen(false)}
+          theme={theme}
+          onThemeChange={setTheme}
+          docStyle={docStyle.id}
+          onDocStyleChange={setDocStyle}
+          readingWidth={readingWidth.id}
+          onReadingWidthChange={setReadingWidth}
+          fontSize={fontSize.id}
+          onFontSizeChange={setFontSize}
+          groupByFolder={groupByFolder}
+          onGroupByFolderChange={setGroupByFolder}
+          showOutline={showOutline}
+          onShowOutlineChange={setShowOutline}
+          searchDocumentText={searchDocumentText}
+          onSearchDocumentTextChange={setSearchDocumentText}
+        />
+      )}
+
       <footer className={styles.statusBar}>
+        <button
+          type="button"
+          className={styles.statusBtn}
+          onClick={() => setSettingsOpen(true)}
+          aria-label={`Settings (${IS_MAC_DESKTOP || navigator.platform.toUpperCase().includes("MAC") ? "⌘," : "Ctrl+,"})`}
+          title="Settings"
+        >
+          {/* A gear */}
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
+            <circle cx="8" cy="8" r="2.2" />
+            <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4M12.6 12.6l-1.4-1.4M4.8 4.8L3.4 3.4" strokeLinecap="round" />
+          </svg>
+        </button>
         <span className={styles.statusItem} title={selectedDoc?.location}>
           {selectedDoc ? selectedDoc.location : ""}
         </span>

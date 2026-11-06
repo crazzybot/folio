@@ -61,16 +61,35 @@ function useStoredOption<T extends Option>(
   return [current, choose];
 }
 
-const OUTLINE_KEY = "folio.outline";
+/** An on / off preference remembered under `storageKey`. */
+function useStoredFlag(storageKey: string, fallback: boolean): [boolean, (on: boolean) => void] {
+  const [on, setOn] = useState(() => {
+    const saved = getItem(storageKey);
+    return saved === null ? fallback : saved === "true";
+  });
+  const choose = useCallback(
+    (next: boolean) => {
+      setOn(next);
+      setItem(storageKey, String(next));
+    },
+    [storageKey],
+  );
+  return [on, choose];
+}
 
 /** Whether the outline of headings is shown beside the document (header toggle). */
 export function useOutlineVisible(): [boolean, (visible: boolean) => void] {
-  const [visible, setVisible] = useState(() => getItem(OUTLINE_KEY) !== "false");
-  const choose = useCallback((next: boolean) => {
-    setVisible(next);
-    setItem(OUTLINE_KEY, String(next));
-  }, []);
-  return [visible, choose];
+  return useStoredFlag("folio.outline", true);
+}
+
+/** Whether the sidebar groups documents by folder (sidebar header toggle). */
+export function useGroupByFolder(): [boolean, (grouped: boolean) => void] {
+  return useStoredFlag("folio.groupByFolder", true);
+}
+
+/** Whether the sidebar search also searches document text (search box toggle, ⇧⌘F). */
+export function useSearchDocumentText(): [boolean, (on: boolean) => void] {
+  return useStoredFlag("folio.searchDocumentText", false);
 }
 
 export function useReadingWidth(): [ReadingWidth, (id: ReadingWidth["id"]) => void] {

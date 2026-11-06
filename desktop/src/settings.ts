@@ -82,7 +82,7 @@ export function settingsPath(): string {
 }
 
 /** Validate each field, falling back to its default when missing or malformed. */
-function normalize(raw: Partial<Record<keyof Settings, unknown>>): Settings {
+export function normalizeSettings(raw: Partial<Record<keyof Settings, unknown>>): Settings {
   const workspace = typeof raw.workspace === "string" ? raw.workspace : null;
   const savedSkipDirs =
     Array.isArray(raw.skipDirs) && raw.skipDirs.every((name) => typeof name === "string")
@@ -111,7 +111,7 @@ function readSettingsFile(): Settings | null {
   try {
     const raw: unknown = JSON.parse(fs.readFileSync(settingsPath(), "utf8"));
     if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return null;
-    return normalize(raw as Partial<Record<keyof Settings, unknown>>);
+    return normalizeSettings(raw as Partial<Record<keyof Settings, unknown>>);
   } catch {
     return null;
   }
