@@ -1,0 +1,90 @@
+{
+  "documents": [
+    {
+      "id": "8ec9a00bfd09b3190ac6b22251dbb1aa95a0579d",
+      "filename": "README.md",
+      "location": "README.md",
+      "title": "Project Readme",
+      "headings": [
+        {
+          "level": 1,
+          "text": "Project Readme"
+        },
+        {
+          "level": 2,
+          "text": "Install cli with care"
+        },
+        {
+          "level": 3,
+          "text": "See the setup"
+        }
+      ]
+    },
+    {
+      "id": "1aa2a39beb36119fdb73963b633a705559adeb60",
+      "filename": "blank.md",
+      "location": "docs/blank.md",
+      "title": "blank",
+      "headings": []
+    },
+    {
+      "id": "0fc5901c25916c8657a97b49a2c89eae63c12bbc",
+      "filename": "front-matter-untitled.md",
+      "location": "docs/front-matter-untitled.md",
+      "title": "About the note",
+      "headings": [
+        {
+          "level": 2,
+          "text": "About the note"
+        }
+      ]
+    },
+    {
+      "id": "d108626bc15770c878ca7208722ff25f29759d17",
+      "filename": "front-matter.md",
+      "location": "docs/front-matter.md",
+      "title": "Front Matter Title",
+      "headings": [
+        {
+          "level": 1,
+          "text": "Heading Ignored For Title"
+        },
+        {
+          "level": 2,
+          "text": "Section"
+        }
+      ]
+    },
+    {
+      "id": "a07a0e6e2d218bc340c24eba27aa5e40d6f8f46d",
+      "filename": "setup.markdown",
+      "location": "docs/guides/setup.markdown",
+      "title": "Setup",
+      "headings": [
+        {
+          "level": 1,
+          "text": "Setup"
+        },
+        {
+          "level": 2,
+          "text": "Step 1: install"
+        },
+        {
+          "level": 2,
+          "text": "Step 2: configure"
+        }
+      ]
+    },
+    {
+      "id": "cb68b15b73deb375d4ac5c921744688825597d56",
+      "filename": "plain.md",
+      "location": "docs/plain.md",
+      "title": "No headings here.",
+      "headings": []
+    }
+  ],
+  "attachments": [
+    "attachments/pixel.png",
+    "docs/diagram.svg"
+  ]
+}

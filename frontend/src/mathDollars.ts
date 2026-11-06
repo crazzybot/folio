@@ -12,7 +12,7 @@ interface MdNode {
   type: string;
   value?: string;
   children?: MdNode[];
-  position?: { start: { offset?: number }; end: { offset?: number } };
+  position?: { start: { offset?: number | undefined }; end: { offset?: number | undefined } } | undefined;
 }
 
 function isPrice(node: MdNode, source: string): boolean {

@@ -352,7 +352,7 @@ markdown-previewer/
 cd markdown-previewer/backend
 MARKDOWN_WORKSPACE=../workspace uv run uvicorn app.main:app --reload --port 8000
 
-# Run tests (if added)
+# Run the tests
 uv run pytest
 ```
 
@@ -364,7 +364,26 @@ cd markdown-previewer/frontend
 npm run dev          # Vite dev server at http://localhost:3000
 npm run build        # type-check + production bundle → dist/
 npm run preview      # serve the production build locally
+npm run lint         # ESLint (TypeScript + React hooks rules), no warnings allowed
+npm test             # Vitest: links, wiki links, math dollars, diagram themes
 ```
+
+### Desktop
+
+```bash
+cd markdown-previewer/desktop
+
+npm test             # Vitest: scanner, search, images, paths, file watcher
+```
+
+### Tests
+
+`tests/fixtures/workspace/` is a small workspace shared by the backend and
+desktop tests, and `tests/fixtures/expected-scan.json` is what scanning it
+must produce (document IDs, titles, headings, images). Both scanners are
+tested against that one file, so they can't drift apart: change the expected
+output deliberately when the scanning rules change, and both implementations
+must follow.
 
 ---
 
