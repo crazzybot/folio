@@ -1,0 +1,14 @@
+# Local environment (copy .env.example to .env)
+.env
+.env.local
+.env.*.local
+
+# Python / Node tooling at the repo root
+.venv/
+node_modules/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

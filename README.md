@@ -1,18 +1,43 @@
-# Folio
+<p align="center">
+  <img src="desktop/build/icon.png" width="96" height="96" alt="">
+</p>
 
-A lightweight, two-pane Markdown browser. Drop `.md` files into a local workspace
-folder, and the app lets you navigate, search, and read them with full syntax
-highlighting — all without leaving your browser.
+<h1 align="center">Folio</h1>
 
-```
-┌──────────────────┬──────────────────────────────────────────────┐
-│  Document list   │  Rendered Markdown (GFM + syntax highlight)  │
-│  (searchable)    │                                               │
-│  ◀ drag ▶        │                                               │
-└──────────────────┴──────────────────────────────────────────────┘
-```
+<p align="center">
+  A fast, read-only browser for folders of Markdown — notes, docs and Obsidian vaults.<br>
+  For macOS, Windows and Linux, or self-hosted in the browser.
+</p>
 
-**Key features**
+<p align="center">
+  <a href="https://github.com/crazzybot/markdown-viewer/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/crazzybot/markdown-viewer"></a>
+  <a href="https://github.com/crazzybot/markdown-viewer/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/crazzybot/markdown-viewer/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/crazzybot/markdown-viewer"></a>
+</p>
+
+<p align="center">
+  <img src="site/img/app-light.webp" alt="Folio showing a document list beside a rendered Markdown document">
+</p>
+
+Open a folder and Folio lists every Markdown file in it, lets you search titles,
+headings and full text, and renders documents with syntax highlighting, math,
+Mermaid diagrams and Obsidian-style links. It never edits your files.
+
+## Download
+
+Get the latest version from the [download page](https://crazzybot.github.io/markdown-viewer/download.html)
+or from [GitHub Releases](https://github.com/crazzybot/markdown-viewer/releases/latest):
+
+| Platform | File |
+|---|---|
+| macOS (Apple Silicon) | `Folio-<version>-arm64.dmg` — signed and notarized |
+| macOS (Intel) | `Folio-<version>.dmg` — signed and notarized |
+| Windows | `Folio.Setup.<version>.exe` — not code-signed yet, so SmartScreen shows a warning: choose **More info → Run anyway** |
+| Linux | `Folio-<version>.AppImage` — `chmod +x` it, then run it |
+
+The app checks for updates at launch (**Folio → Check for Updates…**).
+
+## Features
 
 - Recursive workspace scan — supports sub-folders
 - Documents grouped by folder (toggle in the sidebar header, remembered): only folders that hold documents, folder-only chains merged ("api / v2"), single-document folders replaced by their document; the open document's folders expand. Full keyboard navigation: ↑ ↓ Home End, → ← to expand / collapse, Enter to open, ↓ from the search box into the list
@@ -36,38 +61,41 @@ highlighting — all without leaving your browser.
 
 ---
 
-## Prerequisites
+## Building from source
+
+You only need this to work on Folio or to run the browser version; to just use
+the app, [download it](#download). Contributions are welcome: see
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+### Prerequisites
 
 | Tool | Minimum version |
 |------|----------------|
-| Python | 3.11 |
-| [uv](https://docs.astral.sh/uv/) | latest |
-| Node.js | 18 |
-| npm | 9 |
+| Node.js | 20.19 (CI uses 24) |
+| npm | 10 |
+| Python (browser version only) | 3.13 |
+| [uv](https://docs.astral.sh/uv/) (browser version only) | latest |
 
----
-
-## Quick start
+### Quick start (browser version)
 
 ```bash
-# 1 — clone / enter the project
-cd markdown-previewer
-
-# 2 — copy the example env file (edit as needed)
-cp .env.example .env
+git clone https://github.com/crazzybot/markdown-viewer.git
+cd markdown-viewer
+cp .env.example .env   # edit as needed
 ```
 
 **Terminal 1 — Backend**
 
 ```bash
-cd markdown-previewer/backend
+cd backend
 MARKDOWN_WORKSPACE=../workspace uv run uvicorn app.main:app --reload --port 8000
 ```
 
 **Terminal 2 — Frontend dev server**
 
 ```bash
-cd markdown-previewer/frontend
+cd frontend
+npm install
 npm run dev
 ```
 
@@ -75,6 +103,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 > **Tip:** The `workspace/` folder already contains two sample documents
 > (`welcome.md` and `samples/code-demo.md`) so the app is usable immediately.
+
+**Or with Docker** — `docker compose up --build` serves the app at
+[http://127.0.0.1:3000](http://127.0.0.1:3000), browsing `./workspace`
+read-only (set `WORKSPACE_DIR` in `.env` to browse another folder).
 
 ---
 
@@ -86,7 +118,7 @@ FastAPI backend isn't needed there: the workspace scanner is ported to Node
 reached from the UI over IPC.
 
 ```bash
-cd markdown-previewer/desktop
+cd desktop
 npm install
 
 npm start            # build frontend + main process, launch the app
@@ -197,9 +229,10 @@ updates (**Folio → Check for Updates…**, also checked quietly at launch).
    ```
 3. The workflow checks the tag matches the version, creates a **draft**
    release with generated notes, and uploads:
-   - macOS: `Folio-0.2.0-universal.dmg` and `…-universal-mac.zip` (Intel and
-     Apple Silicon), signed with the Developer ID certificate and notarized
-   - Windows: `Folio Setup 0.2.0.exe` (unsigned for now — SmartScreen warns)
+   - macOS: `Folio-0.2.0-arm64.dmg` (Apple Silicon) and `Folio-0.2.0.dmg`
+     (Intel), plus a `.zip` of each for the updater, signed with the
+     Developer ID certificate and notarized
+   - Windows: `Folio.Setup.0.2.0.exe` (unsigned for now — SmartScreen warns)
    - Linux: an AppImage
    - `latest*.yml` files the updater reads
 4. Review the draft on GitHub (edit the notes), then **Publish** it. Installed
@@ -347,7 +380,7 @@ an SVG opened directly can't run scripts.
 ## Project structure
 
 ```
-markdown-previewer/
+markdown-viewer/
 ├── .env.example                  # template — copy to .env and edit
 ├── README.md
 ├── workspace/                    # Markdown files served by the backend
@@ -406,7 +439,7 @@ markdown-previewer/
 
 ```bash
 # Install deps and start with hot-reload
-cd markdown-previewer/backend
+cd backend
 MARKDOWN_WORKSPACE=../workspace uv run uvicorn app.main:app --reload --port 8000
 
 # Run the tests
@@ -416,7 +449,7 @@ uv run pytest
 ### Frontend
 
 ```bash
-cd markdown-previewer/frontend
+cd frontend
 
 npm run dev          # Vite dev server at http://localhost:3000
 npm run build        # type-check + production bundle → dist/
@@ -428,7 +461,7 @@ npm test             # Vitest: links, wiki links, math dollars, diagram themes
 ### Desktop
 
 ```bash
-cd markdown-previewer/desktop
+cd desktop
 
 npm test             # Vitest: scanner, search, images, paths, file watcher
 ```
@@ -480,6 +513,19 @@ repositories or vendored packages.
   page, external links opened only for `http(s)`/`mailto`, all permission
   requests denied, and Electron fuses (no `ELECTRON_RUN_AS_NODE`,
   `NODE_OPTIONS` or `--inspect`; ASAR integrity checks) in packaged builds.
+
+---
+
+Found a vulnerability? Please report it privately, as described in
+[SECURITY.md](SECURITY.md).
+
+---
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome — see
+[CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks and conventions. This
+project follows a [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
