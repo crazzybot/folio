@@ -5,7 +5,7 @@
 <h1 align="center">Folio</h1>
 
 <p align="center">
-  A fast, read-only browser for folders of Markdown — notes, docs and Obsidian vaults.<br>
+  Read, search and review folders of Markdown — specs, ADRs, notes and Obsidian vaults.<br>
   For macOS, Windows and Linux, or self-hosted in the browser.
 </p>
 
@@ -21,7 +21,14 @@
 
 Open a folder and Folio lists every Markdown file in it, lets you search titles,
 headings and full text, and renders documents with syntax highlighting, math,
-Mermaid diagrams and Obsidian-style links. It never edits your files.
+Mermaid diagrams and Obsidian-style links. Highlight passages, write notes on
+them and bookmark sections as you read, then find every mark again in one list.
+It never edits your files: marks are kept in Folio's own folder.
+
+Folio is made for the documents you have to read closely, such as the specs,
+architecture decision records and design proposals that pile up in every
+project, more and more of them written by coding agents. Open a project's docs
+folder, focus on the part you're reviewing, and mark what needs another pass.
 
 ## Download
 
