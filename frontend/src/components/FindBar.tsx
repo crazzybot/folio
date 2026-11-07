@@ -14,7 +14,7 @@ interface FindBarProps {
   onNext: () => void;
   onPrevious: () => void;
   onClose: () => void;
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 /**
