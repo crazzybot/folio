@@ -46,7 +46,6 @@ export interface DocumentContent {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const ATX_HEADING = /^#{1,6}\s+(.+)/m;
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
 // Titles and headings come from the top of the file; don't read huge files whole
 const HEAD_SCAN_BYTES = 256 * 1024;
@@ -54,6 +53,9 @@ const MAX_HEADINGS = 200;
 
 // One heading line: "## Text", optional closing #s; up to 3 spaces of indent
 const HEADING_LINE = /^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/;
+// An HTML heading on one line, as READMEs centre their title: <h1 align="center">Name</h1>
+const HTML_HEADING_LINE = /^ {0,3}<h([1-6])(?:\s[^>]*)?>(.*?)<\/h\1\s*>/i;
+const HTML_TAG = /<[^>]*>/g;
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /** SHA-1 of the normalised relative path string; full 40-char hex. */
@@ -114,7 +116,7 @@ function plainHeading(raw: string): string {
     .trim();
 }
 
-/** ATX headings (# … ######) outside fenced code blocks, in document order. */
+/** ATX (# … ######) and one-line HTML headings outside fenced code blocks, in document order. */
 export function extractHeadings(text: string): Heading[] {
   const headings: Heading[] = [];
   let fence: string | null = null;
@@ -128,11 +130,21 @@ export function extractHeadings(text: string): Heading[] {
       continue;
     }
     if (fence !== null) continue;
+    let level: number;
+    let raw: string;
     const match = HEADING_LINE.exec(line);
-    if (match?.[1] === undefined || match[2] === undefined) continue;
-    const headingText = plainHeading(match[2]);
+    if (match?.[1] !== undefined && match[2] !== undefined) {
+      level = match[1].length;
+      raw = match[2];
+    } else {
+      const htmlMatch = HTML_HEADING_LINE.exec(line);
+      if (htmlMatch?.[1] === undefined || htmlMatch[2] === undefined) continue;
+      level = Number(htmlMatch[1]);
+      raw = htmlMatch[2].replace(HTML_TAG, "");
+    }
+    const headingText = plainHeading(raw);
     if (headingText === "") continue;
-    headings.push({ level: match[1].length, text: headingText });
+    headings.push({ level, text: headingText });
     if (headings.length >= MAX_HEADINGS) break;
   }
   return headings;
@@ -141,7 +153,7 @@ export function extractHeadings(text: string): Heading[] {
 /**
  * Return a human-readable title for the file using this priority:
  *   1. Front matter `title:`
- *   2. First ATX heading  (# Title)
+ *   2. First heading  (# Title or <h1>Title</h1>, not in a code block)
  *   3. First non-empty line
  *   4. Filename without extension
  */
@@ -151,8 +163,8 @@ function extractTitle(text: string | null, stem: string): string {
   if (title !== null) return title;
 
   // As the heading reads: "About [[Note|the note]]" is "About the note"
-  const match = ATX_HEADING.exec(body);
-  if (match?.[1] !== undefined) return plainHeading(match[1]) || match[1].trim();
+  const first = extractHeadings(text)[0];
+  if (first !== undefined) return first.text;
 
   for (const line of body.split(/\r\n|\r|\n/)) {
     const stripped = line.trim();

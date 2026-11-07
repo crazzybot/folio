@@ -89,3 +89,8 @@ def test_wiki_link_text(inner, text):
 def test_extract_headings_skips_code_and_front_matter():
     text = "---\n# not: a heading\n---\n# A *b* `c`\n```\n# no\n```\n## [Link](x) and [[N|alias]] ##\n####### seven\n#\n"
     assert [(h.level, h.text) for h in extract_headings(text)] == [(1, "A b c"), (2, "Link and alias")]
+
+
+def test_extract_headings_reads_one_line_html_headings():
+    text = '<h1 align="center">A <em>b</em></h1>\n<H3>c</H3>\n<h2>unclosed\n<h7>no</h7>\n'
+    assert [(h.level, h.text) for h in extract_headings(text)] == [(1, "A b"), (3, "c")]

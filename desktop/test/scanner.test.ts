@@ -86,4 +86,12 @@ describe("extractHeadings", () => {
       { level: 2, text: "Link and alias" },
     ]);
   });
+
+  it("reads one-line HTML headings", () => {
+    const text = '<h1 align="center">A <em>b</em></h1>\n<H3>c</H3>\n<h2>unclosed\n<h7>no</h7>\n';
+    expect(extractHeadings(text)).toEqual([
+      { level: 1, text: "A b" },
+      { level: 3, text: "c" },
+    ]);
+  });
 });

@@ -76,6 +76,22 @@
       ]
     },
     {
+      "id": "272c8b45a52d0c27702634194f54230d9437dfda",
+      "filename": "html-title.md",
+      "location": "docs/html-title.md",
+      "title": "HTML Title",
+      "headings": [
+        {
+          "level": 1,
+          "text": "HTML Title"
+        },
+        {
+          "level": 2,
+          "text": "Download"
+        }
+      ]
+    },
+    {
       "id": "cb68b15b73deb375d4ac5c921744688825597d56",
       "filename": "plain.md",
       "location": "docs/plain.md",
