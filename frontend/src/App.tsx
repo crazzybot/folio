@@ -62,6 +62,12 @@ type LoadState =
   | { status: "success"; id: string; content: string }
   | { status: "error"; message: string };
 
+/** The latest fetch result for a document. */
+type LoadedContent = { id: string } & (
+  | { status: "success"; content: string }
+  | { status: "error"; message: string }
+);
+
 // ─── Routing shell ────────────────────────────────────────────────────────────
 // AppRoutes is the default export consumed by main.tsx.
 // It declares both the parameterised route and a catch-all so that the same
@@ -104,7 +110,15 @@ function AppInner(): React.ReactElement {
   const [listLoading, setListLoading] = useState(true);
 
   // ── Content state ──────────────────────────────────────────────────────────
-  const [contentState, setContentState] = useState<LoadState>({ status: "idle" });
+  // Only the latest result is stored; whether it's the shown document's (else
+  // that one is still loading) is worked out here, during render.
+  const [loaded, setLoaded] = useState<LoadedContent | null>(null);
+  const contentState: LoadState =
+    selectedId === null
+      ? { status: "idle" }
+      : loaded === null || loaded.id !== selectedId
+        ? { status: "loading" }
+        : loaded;
 
   // ── Search (sidebar) → highlights and scrolling in the viewer ─────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -217,7 +231,6 @@ function AppInner(): React.ReactElement {
   // first document using replace:true so the browser back-button stays clean.
   useEffect(() => {
     let cancelled = false;
-    setListLoading(true);
     fetchDocuments()
       .then((docs) => {
         if (cancelled) return;
@@ -246,21 +259,18 @@ function AppInner(): React.ReactElement {
 
   // ── Fetch content when selectedId (derived from URL) changes ──────────────
   useEffect(() => {
-    if (selectedId === null) {
-      setContentState({ status: "idle" });
-      return;
-    }
+    if (selectedId === null) return;
     let cancelled = false;
-    setContentState({ status: "loading" });
     fetchDocumentContent(selectedId)
       .then((doc) => {
         if (cancelled) return;
-        setContentState({ status: "success", id: selectedId, content: doc.content });
+        setLoaded({ status: "success", id: selectedId, content: doc.content });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setContentState({
+        setLoaded({
           status: "error",
+          id: selectedId,
           message: err instanceof Error ? err.message : "Failed to load content",
         });
       });
@@ -273,7 +283,9 @@ function AppInner(): React.ReactElement {
   // When markdown files in the workspace change, refresh the list and the
   // open document in place: no loading state, so the scroll position stays.
   const selectedIdRef = useRef(selectedId);
-  selectedIdRef.current = selectedId;
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   useEffect(() => {
     const api = window.markdownApi;
@@ -303,15 +315,15 @@ function AppInner(): React.ReactElement {
       fetchDocumentContent(id)
         .then((doc) => {
           if (current !== generation || selectedIdRef.current !== id) return;
-          setContentState((prev) =>
-            prev.status === "success" && prev.id === id && prev.content === doc.content
+          setLoaded((prev) =>
+            prev !== null && prev.status === "success" && prev.id === id && prev.content === doc.content
               ? prev
               : { status: "success", id, content: doc.content },
           );
         })
         .catch(() => {
           if (current !== generation || selectedIdRef.current !== id) return;
-          setContentState({ status: "error", message: "This document was moved or deleted." });
+          setLoaded({ status: "error", id, message: "This document was moved or deleted." });
         });
     });
     return () => {

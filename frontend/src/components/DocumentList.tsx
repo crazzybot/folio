@@ -87,6 +87,10 @@ interface DocumentListProps {
 type ContentSearch =
   | { status: "idle" }
   | { status: "searching"; query: string }
+  | ContentSearchResult;
+
+/** What the last text search returned. */
+type ContentSearchResult =
   | { status: "done"; query: string; results: ReadonlyMap<string, SearchResult> }
   | { status: "error"; query: string };
 
@@ -104,7 +108,7 @@ export default function DocumentList({
   onFullTextChange,
 }: DocumentListProps): React.ReactElement {
   const [query, setQuery] = useState("");
-  const [contentSearch, setContentSearch] = useState<ContentSearch>({ status: "idle" });
+  const [lastContentSearch, setLastContentSearch] = useState<ContentSearchResult | null>(null);
   const searchId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const trimmed = query.trim();
@@ -137,32 +141,36 @@ export default function DocumentList({
 
   // Search document text once typing pauses. Also re-runs when the document
   // list changes (live reload), so results follow edits.
+  // Until results for this query arrive it's "searching"; a re-run for the
+  // same query (live reload) keeps showing the previous results meanwhile.
+  const searchingText = fullText && trimmed.length >= MIN_CONTENT_QUERY;
+  const contentSearch: ContentSearch = !searchingText
+    ? { status: "idle" }
+    : lastContentSearch !== null && lastContentSearch.query === trimmed
+      ? lastContentSearch
+      : { status: "searching", query: trimmed };
   useEffect(() => {
-    if (!fullText || trimmed.length < MIN_CONTENT_QUERY) {
-      setContentSearch({ status: "idle" });
+    if (!searchingText) {
       onSearchQueryChange?.("");
       return;
     }
     let cancelled = false;
-    setContentSearch((prev) =>
-      prev.status === "done" && prev.query === trimmed ? prev : { status: "searching", query: trimmed },
-    );
     const timer = setTimeout(() => {
       searchDocuments(trimmed)
         .then((results) => {
           if (cancelled) return;
-          setContentSearch({ status: "done", query: trimmed, results: new Map(results.map((r) => [r.id, r])) });
+          setLastContentSearch({ status: "done", query: trimmed, results: new Map(results.map((r) => [r.id, r])) });
           onSearchQueryChange?.(trimmed);
         })
         .catch(() => {
-          if (!cancelled) setContentSearch({ status: "error", query: trimmed });
+          if (!cancelled) setLastContentSearch({ status: "error", query: trimmed });
         });
     }, CONTENT_SEARCH_DELAY_MS);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [fullText, trimmed, documents, onSearchQueryChange]);
+  }, [searchingText, trimmed, documents, onSearchQueryChange]);
 
   const contentResults = fullText && contentSearch.status === "done" ? contentSearch.results : null;
 
@@ -220,14 +228,24 @@ export default function DocumentList({
   }, []);
 
   // The open document's folders expand, so it's visible in the tree. Only when
-  // the document changes: collapsing its folder afterwards must stick.
+  // the document (or the tree) changes: collapsing its folder afterwards must
+  // stick. Done while rendering, when those change, rather than in an effect.
   const selectedLocation = documents.find((doc) => doc.id === selectedId)?.location ?? null;
-  useEffect(() => {
-    if (!showTree || selectedLocation === null) return;
-    const keys = foldersContaining(tree, selectedLocation);
-    if (keys.some((key) => !expanded.has(key))) setFolderExpanded(keys, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showTree, selectedLocation, tree, setFolderExpanded]);
+  const [revealedFor, setRevealedFor] = useState<{ showTree: boolean; location: string | null; tree: typeof tree } | null>(
+    null,
+  );
+  if (
+    revealedFor === null ||
+    revealedFor.showTree !== showTree ||
+    revealedFor.location !== selectedLocation ||
+    revealedFor.tree !== tree
+  ) {
+    setRevealedFor({ showTree, location: selectedLocation, tree });
+    if (showTree && selectedLocation !== null) {
+      const keys = foldersContaining(tree, selectedLocation);
+      if (keys.some((key) => !expanded.has(key))) setFolderExpanded(keys, true);
+    }
+  }
 
   // ── Rows ───────────────────────────────────────────────────────────────────
   const rows: Row[] = [];
