@@ -3,7 +3,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkFrontmatter from "remark-frontmatter";
-import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
@@ -33,8 +32,9 @@ import langCpp from "highlight.js/lib/languages/cpp";
 import langXml from "highlight.js/lib/languages/xml"; // covers html
 
 import "../syntax.css";
-import "katex/dist/katex.min.css";
 import remarkMathDollars from "../mathDollars";
+import { loadRehypeKatex, loadedRehypeKatex, mayContainMath } from "../katexLoader";
+import type { RehypeKatex } from "../katexLoader";
 import remarkObsidian from "../obsidian";
 import MermaidDiagram from "./MermaidDiagram";
 import styles from "./MarkdownViewer.module.css";
@@ -433,16 +433,23 @@ const rehypeHighlightOptions: RehypeHighlightOptions = {
 // for the prefixed id too. KaTeX and highlighting run after sanitizing so
 // their generated markup (KaTeX's inline styles, hljs-* class names)
 // survives; both only produce markup from the math / code text itself.
+// KaTeX is loaded on demand (katexLoader.ts), so it's left out until then.
 // ---------------------------------------------------------------------------
 
 const CLOBBER_PREFIX = defaultSchema.clobberPrefix ?? "user-content-";
 
-const rehypePlugins = [
-  rehypeRaw,
-  [rehypeSanitize, defaultSchema] as [typeof rehypeSanitize, typeof defaultSchema],
-  rehypeKatex,
-  [rehypeHighlight, rehypeHighlightOptions] as [typeof rehypeHighlight, RehypeHighlightOptions],
-];
+type RehypePluginList = NonNullable<MarkdownOptions["rehypePlugins"]>;
+
+function buildRehypePlugins(katex: RehypeKatex | null): RehypePluginList {
+  return [
+    rehypeRaw,
+    [rehypeSanitize, defaultSchema],
+    ...(katex === null ? [] : [katex]),
+    [rehypeHighlight, rehypeHighlightOptions],
+  ];
+}
+
+const rehypePluginsWithoutKatex = buildRehypePlugins(null);
 
 // $…$ / $$…$$ / ```math math (KaTeX), with GitHub's rules for single dollars
 // (Plus Obsidian's [[wiki links]], added per document; see remarkPlugins below.)
@@ -478,7 +485,7 @@ function findAnchorTarget(anchorId: string): HTMLElement | null {
 export default function MarkdownViewer({
   content,
   contentId = null,
-  loading,
+  loading: documentLoading,
   error,
   selectedId,
   anchor,
@@ -495,6 +502,37 @@ export default function MarkdownViewer({
 }: MarkdownViewerProps): React.ReactElement {
   const scrollRef = useRef<HTMLDivElement>(null);
   const articleRef = useRef<HTMLElement>(null);
+
+  // -------------------------------------------------------------------------
+  // KaTeX, loaded the first time a document may contain math
+  // -------------------------------------------------------------------------
+  // Until it arrives the document counts as still loading, so scrolling to
+  // anchors, restoring scroll and find all run on the finished layout.
+  // If it can't load, the document is shown with its math as plain text.
+  const [katex, setKatex] = useState<RehypeKatex | "failed" | null>(loadedRehypeKatex);
+  const needsKatex = content !== null && katex === null && mayContainMath(content);
+  useEffect(() => {
+    if (!needsKatex) return;
+    let cancelled = false;
+    loadRehypeKatex().then(
+      // A function passed to a state setter is called as an updater: wrap it
+      (plugin) => {
+        if (!cancelled) setKatex(() => plugin);
+      },
+      (loadError: unknown) => {
+        console.error("Couldn't load KaTeX", loadError);
+        if (!cancelled) setKatex("failed");
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [needsKatex]);
+  const loading = documentLoading || needsKatex;
+  const rehypePlugins = useMemo(
+    () => (katex === null || katex === "failed" ? rehypePluginsWithoutKatex : buildRehypePlugins(katex)),
+    [katex],
+  );
 
   // -------------------------------------------------------------------------
   // Scroll restoration (Back/Forward)
