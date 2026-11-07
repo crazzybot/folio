@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "path": "{WORKSPACE}/docs/guides/setup.markdown",
+  "fingerprint": {
+    "sha1": "0000000000000000000000000000000000000000",
+    "size": 1,
+    "filename": "setup.markdown"
+  },
+  "bookmarks": [
+    {
+      "id": "c0c1c2c3c4c5c6c7",
+      "heading": {
+        "text": "Step 2: configure",
+        "level": 2,
+        "occurrence": 0
+      },
+      "created": "2026-11-07T11:00:00Z"
+    }
+  ],
+  "highlights": []
+}

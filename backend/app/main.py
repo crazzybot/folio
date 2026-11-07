@@ -306,9 +306,22 @@ class HighlightItem(TypedDict):
     updated: str
 
 
+class BookmarkHeading(TypedDict):
+    text: str
+    level: int
+    occurrence: int
+
+
+class BookmarkItem(TypedDict):
+    id: str
+    heading: BookmarkHeading | None
+    created: str
+
+
 class DocumentMarksItem(TypedDict):
     docId: str
     location: str
+    bookmarks: list[BookmarkItem]
     highlights: list[HighlightItem]
 
 
@@ -351,7 +364,7 @@ def _store_call(action):
 @app.get(
     "/api/marks",
     response_model=MarksListing,
-    summary="List the highlights of every document in the workspace",
+    summary="List the bookmarks and highlights of every document in the workspace",
 )
 def list_marks() -> MarksListing:
     """
@@ -367,8 +380,15 @@ def list_marks() -> MarksListing:
     listed = []
     for doc in docs:
         record = records.get(location_key(doc.location))
-        if record is not None and record["highlights"]:
-            listed.append(DocumentMarksItem(docId=doc.id, location=doc.location, highlights=record["highlights"]))
+        if record is not None and (record["highlights"] or record["bookmarks"]):
+            listed.append(
+                DocumentMarksItem(
+                    docId=doc.id,
+                    location=doc.location,
+                    bookmarks=record["bookmarks"],
+                    highlights=record["highlights"],
+                )
+            )
     return MarksListing(documents=listed)
 
 
@@ -394,6 +414,7 @@ def add_highlight(doc_id: str, body: Any = Depends(_json_body)) -> HighlightItem
     summary="Change a highlight's colour or note",
 )
 def update_highlight(doc_id: str, highlight_id: str, body: Any = Depends(_json_body)) -> HighlightItem:
+    """Body: ``{"color"?, "note"?}``; an empty or blank note removes it."""
     path, content = _document(doc_id)
     return _store_call(lambda: _marks().update_highlight(path, content, highlight_id, body))
 
@@ -406,6 +427,33 @@ def update_highlight(doc_id: str, highlight_id: str, body: Any = Depends(_json_b
 def delete_highlight(doc_id: str, highlight_id: str) -> Response:
     path, content = _document(doc_id)
     _store_call(lambda: _marks().delete_highlight(path, content, highlight_id))
+    return Response(status_code=204)
+
+
+@app.post(
+    "/api/documents/{doc_id}/bookmarks",
+    response_model=BookmarkItem,
+    summary="Bookmark a document or one of its headings",
+)
+def add_bookmark(doc_id: str, body: Any = Depends(_json_body)) -> BookmarkItem:
+    """
+    Body: ``{"heading": null}`` for the document, or ``{"heading": {"text",
+    "level", "occurrence"}}`` for a heading (``occurrence`` counts earlier
+    headings with the same text and level). Returns the bookmark — the
+    existing one if it's already bookmarked.
+    """
+    path, content = _document(doc_id)
+    return _store_call(lambda: _marks().add_bookmark(path, content, body))
+
+
+@app.delete(
+    "/api/documents/{doc_id}/bookmarks/{bookmark_id}",
+    status_code=204,
+    summary="Remove a bookmark",
+)
+def delete_bookmark(doc_id: str, bookmark_id: str) -> Response:
+    path, content = _document(doc_id)
+    _store_call(lambda: _marks().delete_bookmark(path, content, bookmark_id))
     return Response(status_code=204)
 
 

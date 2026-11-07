@@ -106,6 +106,12 @@
   outline-offset: -1px;
 }
 
+/* A header toggle that's on (the shown document is bookmarked) */
+.iconBtnOn,
+.iconBtnOn:hover {
+  color: var(--color-accent);
+}
+
 .iconBtn:disabled {
   opacity: 0.4;
   cursor: default;
@@ -218,4 +224,13 @@
 .statusError {
   flex-shrink: 0;
   color: var(--color-error);
+}
+
+/* The sidebar's two views (Documents | Marks); the hidden one stays mounted */
+.sidebarView {
+  height: 100%;
+}
+
+.sidebarView[hidden] {
+  display: none;
 }

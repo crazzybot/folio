@@ -42,7 +42,10 @@ The app checks for updates at launch (**Folio → Check for Updates…**).
 - Recursive workspace scan — supports sub-folders
 - Documents grouped by folder (toggle in the sidebar header, remembered): only folders that hold documents, folder-only chains merged ("api / v2"), single-document folders replaced by their document; the open document's folders expand. Full keyboard navigation: ↑ ↓ Home End, → ← to expand / collapse, Enter to open, ↓ from the search box into the list
 - Focus on a folder: the focus button on a folder row (it appears on hover), a folder in the breadcrumb, or right-click a folder in the desktop app. The list, search and document count narrow to that folder; links and images still resolve across the whole workspace. Clear it with ✕ on the folder bar or Escape in the list; it's remembered per workspace. The desktop app's folder menu also has **Open Folder as Workspace**
-- Highlights: select text and pick one of four colours from the toolbar above it (or `⇧⌘H` / `Ctrl+Shift+H` for the last colour). Click a highlight to change its colour or remove it. Documents with highlights show a count in the list. Highlights are kept in `~/.folio` (`%USERPROFILE%\.folio` on Windows), never in your files, and follow the text when the document is edited. The same file has the same highlights whichever folder you open
+- Highlights and notes: select text and pick one of four colours from the toolbar above it (or `⇧⌘H` / `Ctrl+Shift+H` for the last colour), or **Add note** to highlight it and write a note. Click a highlight to change its colour, write or edit its note, or remove it; highlights with a note show an icon in the margin. Documents with highlights show a count in the list, and the outline shows how many each section has
+- Bookmarks: bookmark the document with the header's bookmark button (`⌘D` / `Ctrl+D`), or a section with the button that appears beside a heading on hover
+- Marks view (the sidebar's **Marks** tab): the marks of every document in the workspace (or the focused folder), grouped by document — its bookmarked sections by heading, then its highlights and notes — with a filter and a **Notes only** switch. A ★ on a document's row means the document itself is bookmarked. Click one to go to it; Back returns. Highlights whose text was since deleted from the document are shown as not found, and can be removed there. The open document's bookmarked sections show a bookmark icon in its outline
+- Marks are kept in `~/.folio` (`%USERPROFILE%\.folio` on Windows), never in your files, and follow the text when the document is edited. The same file has the same marks whichever folder you open
 - Instant search across titles, filenames and headings — a matching heading opens the document at that section
 - Outline of the open document's headings beside it (header toggle, remembered): the section being read is highlighted as you scroll, and clicking a heading jumps there (Back returns). Hidden in narrow windows
 - Find in the open document (`⌘F` / `Ctrl+F`): matches highlighted with a "3 of 12" count; Enter / Shift+Enter, `⌘G` / `⇧⌘G` or F3 / Shift+F3 step through them, Escape closes
@@ -363,9 +366,9 @@ skipped.
 
 ### `GET /api/marks`
 
-Returns the highlights of every listed document that has any, in
-document-list order. Highlights are stored by the file's real path (in
-`MARKDOWN_DATA_DIR/marks`), so the same file has the same highlights from any
+Returns the bookmarks and highlights of every listed document that has any,
+in document-list order. Marks are stored by the file's real path (in
+`MARKDOWN_DATA_DIR/marks`), so the same file has the same marks from any
 workspace that contains it.
 
 ```json
@@ -374,6 +377,10 @@ workspace that contains it.
     {
       "docId": "a3f1c2d4...",
       "location": "docs/setup.md",
+      "bookmarks": [
+        { "id": "5b7e0c9a12f4d683", "heading": null, "created": "2026-11-07T10:00:00Z" },
+        { "id": "c02f9e4b7a1d3856", "heading": { "text": "Install", "level": 2, "occurrence": 0 }, "created": "2026-11-07T10:05:00Z" }
+      ],
       "highlights": [
         {
           "id": "9f2c41d07ab3e815",
@@ -391,7 +398,9 @@ workspace that contains it.
 ```
 
 `quote` and `position` refer to the document's rendered text; the viewer uses
-them to find the passage again after the document is edited.
+them to find the passage again after the document is edited. A bookmark's
+`heading` is `null` for the document itself; `occurrence` counts earlier
+headings with the same text and level, since such headings share an anchor.
 
 ### `POST /api/documents/{id}/highlights`
 
@@ -404,9 +413,16 @@ when the document's marks file was written by a newer Folio or is damaged
 
 ### `PATCH /api/documents/{id}/highlights/{highlightId}` · `DELETE …`
 
-`PATCH` changes `color` (JSON body) and returns the highlight; `DELETE`
-removes it (`204`). A document with no highlights left has its marks file
+`PATCH` changes `color` and / or `note` (JSON body; an empty or blank note
+removes it) and returns the highlight; `DELETE` removes it (`204`). `POST`
+also accepts a `note`. A document with no marks left has its marks file
 removed.
+
+### `POST /api/documents/{id}/bookmarks` · `DELETE …/bookmarks/{bookmarkId}`
+
+`POST` bookmarks the document (`{"heading": null}`) or one of its headings
+(`{"heading": {"text", "level", "occurrence"}}`) and returns the bookmark —
+the existing one if it was already bookmarked. `DELETE` removes it (`204`).
 
 ### `GET /api/files/{location}`
 

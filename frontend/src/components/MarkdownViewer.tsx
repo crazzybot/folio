@@ -17,7 +17,9 @@ import { saveScrollPosition } from "../scrollHistory";
 import { slugify } from "../slug";
 import { clearMatches, findMatches, showMatches } from "../searchHighlight";
 import MarksLayer from "./MarksLayer";
-import type { Highlight, HighlightColor, TextAnchor } from "../types";
+import { findBookmark, headingIdentities } from "../bookmarks";
+import type { MarkFocus } from "./MarksLayer";
+import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, TextAnchor } from "../types";
 import FindBar from "./FindBar";
 import Outline from "./Outline";
 import type { OutlineHeading } from "./Outline";
@@ -72,12 +74,23 @@ interface MarkdownViewerProps {
   searchFocus?: SearchFocus | null;
   /** Show the outline of headings beside the document. */
   showOutline?: boolean;
-  /** The shown document's highlights. */
+  /** The shown document's highlights and bookmarks. */
   highlights?: readonly Highlight[];
-  /** Highlight a passage of the shown document; without it, text can't be highlighted. */
-  onAddHighlight?: (anchor: TextAnchor, color: HighlightColor) => void;
-  onRecolorHighlight?: (id: string, color: HighlightColor) => void;
-  onRemoveHighlight?: (id: string) => void;
+  bookmarks?: readonly Bookmark[];
+  /** A mark to scroll to once its document is shown (Marks view). */
+  markFocus?: (MarkFocus & { docId: string }) | null;
+  /** Changes to the shown document's marks; without them, nothing can be highlighted or bookmarked. */
+  markHandlers?: MarkHandlers;
+  /** The ids of the shown document's highlights found in its text (the rest can't be placed). */
+  onLocatedChange?: (docId: string, ids: ReadonlySet<string>) => void;
+}
+
+export interface MarkHandlers {
+  add: (anchor: TextAnchor, color: HighlightColor) => Promise<Highlight | null>;
+  recolor: (id: string, color: HighlightColor) => void;
+  setNote: (id: string, note: string | null) => void;
+  remove: (id: string) => void;
+  toggleHeadingBookmark: (heading: BookmarkHeading) => void;
 }
 
 /** "Scroll to the `occurrence`-th match in `docId`"; a new `nonce` asks again. */
@@ -467,6 +480,7 @@ const baseRemarkPlugins: PluginList = [remarkGfm, [remarkFrontmatter, ["yaml", "
 
 const NO_ATTACHMENTS: string[] = [];
 const NO_HIGHLIGHTS: readonly Highlight[] = [];
+const NO_BOOKMARKS: readonly Bookmark[] = [];
 
 const remarkRehypeOptions = {
   // Footnote ids are prefixed by the sanitizer instead, so they aren't doubled
@@ -509,9 +523,10 @@ export default function MarkdownViewer({
   searchFocus = null,
   showOutline = false,
   highlights = NO_HIGHLIGHTS,
-  onAddHighlight,
-  onRecolorHighlight,
-  onRemoveHighlight,
+  bookmarks = NO_BOOKMARKS,
+  markFocus = null,
+  markHandlers,
+  onLocatedChange,
 }: MarkdownViewerProps): React.ReactElement {
   const scrollRef = useRef<HTMLDivElement>(null);
   const articleRef = useRef<HTMLElement>(null);
@@ -985,6 +1000,42 @@ export default function MarkdownViewer({
     [currentLocation, idsByLocation, saveScroll, scrollToAnchor, onAnchorClick, onOpenDocument],
   );
 
+  // ── Highlights found in the text (MarksLayer), for the outline and the
+  // Marks view ───────────────────────────────────────────────────────────────
+  const ready = !loading && error === null && content !== null;
+  // Which outline entries are bookmarked (identified as MarksLayer does)
+  const outlineBookmarked = useMemo(
+    () =>
+      headingIdentities(outlineHeadings.map((h) => ({ level: h.level, text: h.text.replace(/\s+/g, " ") }))).map(
+        (heading) => findBookmark(bookmarks, heading) !== undefined,
+      ),
+    [outlineHeadings, bookmarks],
+  );
+
+  // Highlights per outline entry (those after its heading and before the
+  // next), counted from the document as just painted
+  const [outlineCounts, setOutlineCounts] = useState<number[]>([]);
+  const handlePainted = useCallback(
+    (located: ReadonlyMap<string, Range>) => {
+      const article = articleRef.current;
+      // The same headings as the outline lists
+      const elements = article === null ? [] : [...article.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")].filter((el) => el.id !== "");
+      const counts = elements.map(() => 0);
+      for (const range of located.values()) {
+        let section = -1;
+        elements.forEach((el, i) => {
+          if (el.contains(range.startContainer) || el.compareDocumentPosition(range.startContainer) & Node.DOCUMENT_POSITION_FOLLOWING) {
+            section = i;
+          }
+        });
+        if (section >= 0) counts[section] = (counts[section] ?? 0) + 1;
+      }
+      setOutlineCounts(counts);
+      if (ready && contentId !== null) onLocatedChange?.(contentId, new Set(located.keys()));
+    },
+    [ready, contentId, onLocatedChange],
+  );
+
   return (
     <div className={styles.viewerFrame}>
       <div className={styles.documentColumn}>
@@ -1065,22 +1116,33 @@ export default function MarkdownViewer({
               </LinkContext.Provider>
             </article>
           )}
-          {onAddHighlight !== undefined && onRecolorHighlight !== undefined && onRemoveHighlight !== undefined && (
+          {markHandlers !== undefined && (
             <MarksLayer
               articleRef={articleRef}
               containerRef={scrollRef}
-              ready={!loading && error === null && content !== null}
+              ready={ready}
               renderKey={content}
               highlights={highlights}
-              onAdd={onAddHighlight}
-              onRecolor={onRecolorHighlight}
-              onRemove={onRemoveHighlight}
+              bookmarks={bookmarks}
+              focus={markFocus !== null && markFocus.docId === contentId ? markFocus : null}
+              onAdd={markHandlers.add}
+              onRecolor={markHandlers.recolor}
+              onSetNote={markHandlers.setNote}
+              onRemove={markHandlers.remove}
+              onToggleBookmark={markHandlers.toggleHeadingBookmark}
+              onPainted={handlePainted}
             />
           )}
         </div>
       </div>
       {showOutline && !loading && error === null && content !== null && (
-        <Outline headings={outlineHeadings} activeId={activeHeadingId} onSelect={linkHandlers.onAnchor} />
+        <Outline
+          headings={outlineHeadings}
+          activeId={activeHeadingId}
+          onSelect={linkHandlers.onAnchor}
+          highlightCounts={outlineCounts}
+          bookmarked={outlineBookmarked}
+        />
       )}
     </div>
   );

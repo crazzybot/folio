@@ -18,9 +18,10 @@
   -webkit-app-region: drag;
 }
 
-/* Clear the macOS window buttons inset into this row */
+/* Clear the macOS window buttons inset into this row, with a little room
+   before the Documents | Marks tabs */
 :global([data-titlebar="inset"]) .header {
-  padding-left: var(--traffic-lights-width);
+  padding-left: calc(var(--traffic-lights-width) + 8px);
 }
 
 .heading {
@@ -518,4 +519,15 @@
   flex-shrink: 0;
   margin-left: 6px;
   opacity: 0.6;
+}
+
+/* A document bookmarked as a whole: before the highlight count, at the row's end */
+.bookmarked {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--color-accent);
+}
+
+.bookmarked + .marksCount {
+  margin-left: 6px;
 }

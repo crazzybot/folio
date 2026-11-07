@@ -1,0 +1,246 @@
+/* The Marks view reuses the document list's container, header and search box
+   (DocumentList.module.css); these are its own parts. */
+
+.hint {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+}
+
+/* ─── List ────────────────────────────────────────────────────────────────── */
+.list {
+  list-style: none;
+  padding: 0 0 var(--space-3);
+  margin: 0;
+  outline: none;
+}
+
+/* A document: opens it; its chevron folds its marks */
+.docRow {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+
+.chevronBtn {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+}
+
+.chevronSpace {
+  flex-shrink: 0;
+  width: 16px;
+}
+
+/* The document's own bookmark; click to remove it */
+.docBookmark {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.docBookmark:hover {
+  background: var(--color-hover-bg);
+}
+
+.docBookmark + .count {
+  margin-left: 0;
+}
+
+.docBookmark svg {
+  width: 12px;
+  height: 12px;
+}
+
+.docTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.count {
+  margin-left: auto;
+  padding-left: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+/* A heading bookmark or highlight, under its document */
+.markRow {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px var(--space-3) 4px calc(var(--space-2) + 18px);
+  cursor: pointer;
+}
+
+.docRow:hover,
+.markRow:hover {
+  background: var(--color-surface-hover);
+}
+
+.docRow:focus-visible,
+.markRow:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
+/* The open document and its marks */
+.current {
+  background: color-mix(in srgb, var(--color-selected-bg) 55%, transparent);
+}
+
+.bookmarkRow {
+  align-items: center;
+  min-height: 22px;
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.bookmarkIcon {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--color-accent);
+}
+
+.bookmarkText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+
+.colorBar {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 3px;
+  border-radius: 2px;
+}
+
+.yellow { background: var(--mark-yellow-swatch); }
+.green { background: var(--mark-green-swatch); }
+.blue { background: var(--mark-blue-swatch); }
+.pink { background: var(--mark-pink-swatch); }
+
+.highlightBody {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* The highlighted text: two lines at most */
+.quote {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  color: var(--color-text);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  display: flex;
+  gap: 5px;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.noteText {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A mark that can't be placed: its heading or text is gone */
+.missing {
+  color: var(--color-text-subtle);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, currentColor 50%, transparent);
+}
+
+.notFound {
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+/* Remove: at the row's end, shown on hover */
+.remove {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+}
+
+.markRow:hover .remove,
+.markRow:focus-visible .remove {
+  visibility: visible;
+}
+
+.remove:hover {
+  color: var(--color-text);
+  background: var(--color-hover-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

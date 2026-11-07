@@ -1,0 +1,113 @@
+import { describe, expect, it } from "vitest";
+import { buildMarkRows } from "./marksView";
+import type { MarkRowsInput } from "./marksView";
+import type { Bookmark, DocumentMeta, Highlight } from "./types";
+
+const doc = (location: string, headings: { level: number; text: string }[] = []): DocumentMeta => ({
+  id: location,
+  filename: location.split("/").pop() ?? location,
+  location,
+  title: location.replace(/\.md$/, ""),
+  created: "",
+  headings,
+});
+
+const highlight = (id: string, exact: string, start: number, note: string | null = null): Highlight => ({
+  id,
+  color: "yellow",
+  note,
+  quote: { exact, prefix: "", suffix: "" },
+  position: { start, end: start + exact.length },
+  created: "",
+  updated: "",
+});
+
+const bookmark = (id: string, heading: Bookmark["heading"]): Bookmark => ({ id, heading, created: "" });
+
+const guide = doc("guide.md", [
+  { level: 1, text: "Guide" },
+  { level: 2, text: "Install" },
+  { level: 2, text: "Usage" },
+]);
+const notes = doc("notes.md");
+
+const byDoc = new Map([
+  [
+    "guide.md",
+    {
+      bookmarks: [
+        bookmark("b-usage", { text: "Usage", level: 2, occurrence: 0 }),
+        bookmark("b-gone", { text: "Removed", level: 2, occurrence: 0 }),
+        bookmark("b-doc", null),
+      ],
+      highlights: [highlight("h2", "second passage", 50, "Check this"), highlight("h1", "first passage", 10)],
+    },
+  ],
+  ["notes.md", { bookmarks: [], highlights: [highlight("h3", "an idea", 5)] }],
+]);
+
+const base: MarkRowsInput = {
+  documents: [guide, notes],
+  byDoc,
+  query: "",
+  notesOnly: false,
+  collapsed: new Set(),
+  located: null,
+};
+
+const keys = (input: Partial<MarkRowsInput>) => buildMarkRows({ ...base, ...input }).map((r) => r.key);
+
+describe("buildMarkRows", () => {
+  it("groups marks by document: heading bookmarks in document order, then highlights in text order", () => {
+    expect(keys({})).toEqual([
+      "d:guide.md",
+      "b:guide.md:b-usage",
+      "b:guide.md:b-gone",
+      "h:guide.md:h1",
+      "h:guide.md:h2",
+      "d:notes.md",
+      "h:notes.md:h3",
+    ]);
+  });
+
+  it("shows the document's own bookmark on its row, and counts the rest", () => {
+    const [row] = buildMarkRows(base);
+    expect(row?.kind === "document" && [row.bookmark?.id, row.count]).toEqual(["b-doc", 4]);
+  });
+
+  it("lists a document whose only mark is its bookmark, with nothing to unfold", () => {
+    const only = new Map([["notes.md", { bookmarks: [bookmark("n", null)], highlights: [] }]]);
+    const rows = buildMarkRows({ ...base, byDoc: only });
+    expect(rows.map((r) => r.kind === "document" && [r.key, r.count, r.expanded])).toEqual([["d:notes.md", 0, false]]);
+  });
+
+  it("marks a heading bookmark whose heading is gone", () => {
+    const rows = buildMarkRows(base).filter((r) => r.kind === "bookmark");
+    expect(rows.map((r) => r.kind === "bookmark" && r.missing)).toEqual([false, true]);
+  });
+
+  it("folds a collapsed document, unless filtering", () => {
+    expect(keys({ collapsed: new Set(["guide.md"]) })).toEqual(["d:guide.md", "d:notes.md", "h:notes.md:h3"]);
+    expect(keys({ collapsed: new Set(["guide.md"]), query: "passage" })).toContain("h:guide.md:h1");
+  });
+
+  it("filters by highlighted text, note, heading and document title", () => {
+    expect(keys({ query: "check" })).toEqual(["d:guide.md", "h:guide.md:h2"]);
+    expect(keys({ query: "usage" })).toEqual(["d:guide.md", "b:guide.md:b-usage"]);
+    expect(keys({ query: "notes" })).toEqual(["d:notes.md", "h:notes.md:h3"]);
+  });
+
+  it("shows only highlights with a note in Notes only", () => {
+    expect(keys({ notesOnly: true })).toEqual(["d:guide.md", "h:guide.md:h2"]);
+  });
+
+  it("marks the open document's highlights that aren't in its text", () => {
+    const rows = buildMarkRows({ ...base, located: { docId: "guide.md", ids: new Set(["h1"]) } });
+    const unplaced = rows.flatMap((r) => (r.kind === "highlight" && r.unplaced ? [r.highlight.id] : []));
+    expect(unplaced).toEqual(["h2"]);
+  });
+
+  it("leaves out documents outside the list (a focused folder)", () => {
+    expect(keys({ documents: [notes] })).toEqual(["d:notes.md", "h:notes.md:h3"]);
+  });
+});

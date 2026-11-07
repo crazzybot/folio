@@ -4,7 +4,13 @@ import { fetchAttachments, fetchDocumentContent, fetchDocuments } from "./api";
 import { savedScrollPosition } from "./scrollHistory";
 import DocumentList from "./components/DocumentList";
 import MarkdownViewer from "./components/MarkdownViewer";
-import type { SearchFocus } from "./components/MarkdownViewer";
+import type { MarkHandlers, SearchFocus } from "./components/MarkdownViewer";
+import type { MarkFocus } from "./components/MarksLayer";
+import MarksPanel from "./components/MarksPanel";
+import type { MarkTarget } from "./components/MarksPanel";
+import SidebarTabs from "./components/SidebarTabs";
+import type { SidebarView } from "./components/SidebarTabs";
+import { findBookmark } from "./bookmarks";
 import Breadcrumb from "./components/Breadcrumb";
 import useDesktopHistory from "./useDesktopHistory";
 import useFileDrop from "./useFileDrop";
@@ -24,7 +30,7 @@ import useMarks from "./useMarks";
 import DisplayMenu from "./components/DisplayMenu";
 import SettingsPanel from "./components/SettingsPanel";
 import styles from "./App.module.css";
-import type { DocumentMeta, Highlight, HighlightColor, TextAnchor } from "./types";
+import type { DocumentMeta, HighlightColor, TextAnchor } from "./types";
 import { getItem, setItem } from "./storage";
 
 const PANEL_MIN_WIDTH = 160;
@@ -52,12 +58,13 @@ function loadSidebar(): { width: number; collapsed: boolean } {
   return { width: PANEL_DEFAULT_WIDTH, collapsed: false };
 }
 
-// The shown document's highlights when it has none
-const NO_HIGHLIGHTS: readonly Highlight[] = [];
+// The sidebar's view (Documents | Marks), remembered (storage.ts)
+const SIDEBAR_VIEW_KEY = "folio.sidebarView";
 
 // The macOS desktop app hides the title bar and insets the window buttons
 // into the app's own header rows.
 const IS_MAC_DESKTOP = window.markdownApi?.platform === "darwin";
+const BOOKMARK_SHORTCUT = IS_MAC_DESKTOP || navigator.platform.toUpperCase().includes("MAC") ? "⌘D" : "Ctrl+D";
 const BACK_SHORTCUT = IS_MAC_DESKTOP ? "⌘[" : "Alt+←";
 const EDITOR_SHORTCUT = IS_MAC_DESKTOP ? "⌘E" : "Ctrl+E";
 const FORWARD_SHORTCUT = IS_MAC_DESKTOP ? "⌘]" : "Alt+→";
@@ -134,12 +141,31 @@ function AppInner(): React.ReactElement {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocus, setSearchFocus] = useState<SearchFocus | null>(null);
 
-  // ── Highlights (kept outside the workspace; see useMarks.ts) ──────────────
+  // ── Bookmarks and highlights (kept outside the workspace; see useMarks.ts) ─
   const marks = useMarks();
   const highlightCounts = useMemo(
-    () => new Map([...marks.highlights].map(([id, list]) => [id, list.length])),
-    [marks.highlights],
+    () =>
+      new Map(
+        [...marks.byDoc].flatMap(([id, m]) => (m.highlights.length > 0 ? [[id, m.highlights.length] as const] : [])),
+      ),
+    [marks.byDoc],
   );
+  const bookmarkedIds = useMemo(
+    () => new Set([...marks.byDoc].flatMap(([id, m]) => (findBookmark(m.bookmarks, null) ? [id] : []))),
+    [marks.byDoc],
+  );
+  const [sidebarView, setSidebarView] = useState<SidebarView>(() =>
+    getItem(SIDEBAR_VIEW_KEY) === "marks" ? "marks" : "documents",
+  );
+  const chooseSidebarView = useCallback((view: SidebarView) => {
+    setSidebarView(view);
+    setItem(SIDEBAR_VIEW_KEY, view);
+  }, []);
+  // A mark to scroll to once its document is shown (opened from the Marks view)
+  const [markFocus, setMarkFocus] = useState<(MarkFocus & { docId: string }) | null>(null);
+  // The open document's highlights found in its text (the viewer reports them)
+  const [located, setLocated] = useState<{ docId: string; ids: ReadonlySet<string> } | null>(null);
+  const handleLocatedChange = useCallback((docId: string, ids: ReadonlySet<string>) => setLocated({ docId, ids }), []);
 
   // ── Back / forward (desktop app only; null in the browser) ─────────────────
   const history = useDesktopHistory();
@@ -464,30 +490,56 @@ function AppInner(): React.ReactElement {
   const contentValue =
     contentState.status === "success" ? contentState.content : null;
   const contentId = contentState.status === "success" ? contentState.id : null;
-  const { add: addMark, recolor: recolorMark, remove: removeMark } = marks;
-  const handleAddHighlight = useCallback(
-    (anchor: TextAnchor, color: HighlightColor) => {
-      if (contentId !== null) void addMark(contentId, anchor, color);
+  const { add: addMark, recolor, setNote, remove: removeMark, toggleBookmark, removeBookmark } = marks;
+  // Changes to the shown document's marks, from the viewer
+  const markHandlers = useMemo((): MarkHandlers | undefined => {
+    if (contentId === null) return undefined;
+    return {
+      add: (anchor: TextAnchor, color: HighlightColor) => addMark(contentId, anchor, color),
+      recolor: (id: string, color: HighlightColor) => void recolor(contentId, id, color),
+      setNote: (id: string, note: string | null) => void setNote(contentId, id, note),
+      remove: (id: string) => void removeMark(contentId, id),
+      toggleHeadingBookmark: (heading) => void toggleBookmark(contentId, heading),
+    };
+  }, [contentId, addMark, recolor, setNote, removeMark, toggleBookmark]);
+  const shownMarks = contentId === null ? undefined : marks.byDoc.get(contentId);
+  const documentBookmarked = shownMarks !== undefined && findBookmark(shownMarks.bookmarks, null) !== undefined;
+
+  // Open a mark from the Marks view: its document (a history entry, so Back
+  // returns), scrolled to the highlight or heading
+  const openMark = useCallback(
+    (docId: string, target: MarkTarget) => {
+      if (target !== null) setMarkFocus({ docId, target, nonce: Date.now() });
+      if (docId !== selectedId) navigate("/doc/" + encodeURIComponent(docId));
     },
-    [contentId, addMark],
-  );
-  const handleRecolorHighlight = useCallback(
-    (id: string, color: HighlightColor) => {
-      if (contentId !== null) void recolorMark(contentId, id, color);
-    },
-    [contentId, recolorMark],
-  );
-  const handleRemoveHighlight = useCallback(
-    (id: string) => {
-      if (contentId !== null) void removeMark(contentId, id);
-    },
-    [contentId, removeMark],
+    [navigate, selectedId],
   );
   const contentLoading = contentState.status === "loading";
   const contentError =
     contentState.status === "error" ? contentState.message : null;
 
   const selectedDoc = documents.find((doc) => doc.id === selectedId) ?? null;
+
+  // ⌘D / Ctrl+D (or Edit → Bookmark Document): bookmark the shown document, or remove its bookmark
+  useEffect(() => {
+    const toggle = () => {
+      if (contentId !== null) void toggleBookmark(contentId, null);
+    };
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        toggle();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    const unsubscribe = window.markdownApi?.onFindCommand((command) => {
+      if (command === "bookmark") toggle();
+    });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      unsubscribe?.();
+    };
+  }, [contentId, toggleBookmark]);
   const toggleLabel = collapsed ? "Show document list (⌘B)" : "Hide document list (⌘B)";
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -507,7 +559,23 @@ function AppInner(): React.ReactElement {
           aria-label="Document list"
           aria-hidden={collapsed}
         >
+          <div className={styles.sidebarView} hidden={sidebarView !== "marks"}>
+            <MarksPanel
+              tabs={<SidebarTabs view={sidebarView} onChange={chooseSidebarView} />}
+              documents={listedDocuments}
+              current={selectedDoc}
+              byDoc={marks.byDoc}
+              located={located}
+              onOpen={openMark}
+              onRemoveHighlight={(docId, id) => void removeMark(docId, id)}
+              onRemoveBookmark={(docId, id) => void removeBookmark(docId, id)}
+            />
+          </div>
+          {/* Kept mounted while hidden, so its search and folders stay as they were */}
+          <div className={styles.sidebarView} hidden={sidebarView !== "documents"}>
           <DocumentList
+            tabs={<SidebarTabs view={sidebarView} onChange={chooseSidebarView} />}
+            bookmarkedIds={bookmarkedIds}
             documents={listedDocuments}
             selectedId={selectedId}
             onSelect={handleSelect}
@@ -523,6 +591,7 @@ function AppInner(): React.ReactElement {
             loading={listLoading}
             error={listError}
           />
+          </div>
         </aside>
 
         {/* ── Divider ── */}
@@ -600,6 +669,22 @@ function AppInner(): React.ReactElement {
             )}
 
             <Breadcrumb location={selectedDoc?.location ?? null} onFolderClick={focusFolder} />
+
+            <button
+              className={`${styles.iconBtn} ${documentBookmarked ? styles.iconBtnOn : ""}`}
+              onClick={() => {
+                if (contentId !== null) void toggleBookmark(contentId, null);
+              }}
+              disabled={contentId === null}
+              aria-pressed={documentBookmarked}
+              aria-label={`${documentBookmarked ? "Remove bookmark" : "Bookmark document"} (${BOOKMARK_SHORTCUT})`}
+              title={`${documentBookmarked ? "Remove bookmark" : "Bookmark document"} (${BOOKMARK_SHORTCUT})`}
+              type="button"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 2h8v12l-4-3-4 3z" fill={documentBookmarked ? "currentColor" : "none"} />
+              </svg>
+            </button>
 
             {editorName !== undefined && (
               <button
@@ -685,10 +770,10 @@ function AppInner(): React.ReactElement {
             searchQuery={searchQuery}
             searchFocus={searchFocus}
             showOutline={showOutline}
-            highlights={(contentId === null ? undefined : marks.highlights.get(contentId)) ?? NO_HIGHLIGHTS}
-            onAddHighlight={handleAddHighlight}
-            onRecolorHighlight={handleRecolorHighlight}
-            onRemoveHighlight={handleRemoveHighlight}
+            {...(shownMarks === undefined ? {} : { highlights: shownMarks.highlights, bookmarks: shownMarks.bookmarks })}
+            {...(markHandlers === undefined ? {} : { markHandlers })}
+            markFocus={markFocus}
+            onLocatedChange={handleLocatedChange}
           />
         </main>
       </div>

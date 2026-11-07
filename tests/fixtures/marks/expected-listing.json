@@ -1,15 +1,45 @@
 {
   "documents": [
     {
+      "docId": "{ID docs/guides/setup.markdown}",
+      "location": "docs/guides/setup.markdown",
+      "bookmarks": [
+        {
+          "id": "c0c1c2c3c4c5c6c7",
+          "heading": {
+            "text": "Step 2: configure",
+            "level": 2,
+            "occurrence": 0
+          },
+          "created": "2026-11-07T11:00:00Z"
+        }
+      ],
+      "highlights": []
+    },
+    {
       "docId": "{ID docs/plain.md}",
       "location": "docs/plain.md",
+      "bookmarks": [
+        {
+          "id": "b0b1b2b3b4b5b6b7",
+          "heading": null,
+          "created": "2026-11-07T10:00:00Z"
+        }
+      ],
       "highlights": [
         {
           "id": "a1b2c3d4e5f60718",
           "color": "green",
           "note": null,
-          "quote": { "exact": "Second line", "prefix": "No headings here.\n", "suffix": "." },
-          "position": { "start": 18, "end": 29 },
+          "quote": {
+            "exact": "Second line",
+            "prefix": "No headings here.\n",
+            "suffix": "."
+          },
+          "position": {
+            "start": 18,
+            "end": 29
+          },
           "created": "2026-11-07T10:00:00Z",
           "updated": "2026-11-07T10:00:00Z"
         }

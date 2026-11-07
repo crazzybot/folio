@@ -1,15 +1,32 @@
 {
   "version": 1,
   "path": "{WORKSPACE}/docs/plain.md",
-  "fingerprint": { "sha1": "0000000000000000000000000000000000000000", "size": 31, "filename": "plain.md" },
-  "bookmarks": [],
+  "fingerprint": {
+    "sha1": "0000000000000000000000000000000000000000",
+    "size": 31,
+    "filename": "plain.md"
+  },
+  "bookmarks": [
+    {
+      "id": "b0b1b2b3b4b5b6b7",
+      "heading": null,
+      "created": "2026-11-07T10:00:00Z"
+    }
+  ],
   "highlights": [
     {
       "id": "a1b2c3d4e5f60718",
       "color": "green",
       "note": null,
-      "quote": { "exact": "Second line", "prefix": "No headings here.\n", "suffix": "." },
-      "position": { "start": 18, "end": 29 },
+      "quote": {
+        "exact": "Second line",
+        "prefix": "No headings here.\n",
+        "suffix": "."
+      },
+      "position": {
+        "start": 18,
+        "end": 29
+      },
       "created": "2026-11-07T10:00:00Z",
       "updated": "2026-11-07T10:00:00Z"
     }

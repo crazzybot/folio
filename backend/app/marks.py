@@ -1,5 +1,5 @@
 """
-marks.py — Highlights (and, later, bookmarks) kept outside the workspace.
+marks.py — Highlights, notes and bookmarks, kept outside the workspace.
 
 Folio never writes to documents. Marks live in ``<data dir>/marks/``, one JSON
 record per document, named by the SHA-1 of the document's normalised real
@@ -30,6 +30,8 @@ MAX_EXACT = 20_000  # characters of highlighted text
 MAX_CONTEXT = 64  # characters of prefix / suffix
 MAX_NOTE = 10_000
 MAX_HIGHLIGHTS = 1_000  # per document
+MAX_BOOKMARKS = 1_000  # per document
+MAX_HEADING_TEXT = 1_000
 
 # Paths differ only by case on these platforms' default file systems
 _CASE_INSENSITIVE = sys.platform in ("darwin", "win32")
@@ -125,6 +127,22 @@ def _new_highlight(body: Any) -> dict[str, Any]:
     }
 
 
+def _heading(value: Any) -> dict[str, Any] | None:
+    """A bookmarked heading — its text, level and which of the same-text, same-level headings — or None for the document."""
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise MarkError(400, "heading must be an object or null")
+    level = value.get("level")
+    if isinstance(level, bool) or not isinstance(level, int) or not 1 <= level <= 6:
+        raise MarkError(400, "heading.level must be an integer from 1 to 6")
+    return {
+        "text": _string(value.get("text"), "heading.text", MAX_HEADING_TEXT, min_length=1),
+        "level": level,
+        "occurrence": _offset(value.get("occurrence", 0), "heading.occurrence"),
+    }
+
+
 def _now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -156,8 +174,13 @@ class MarksStore:
             record = json.loads(raw)
         except ValueError:
             record = None
-        if not isinstance(record, dict) or not isinstance(record.get("highlights"), list):
+        if (
+            not isinstance(record, dict)
+            or not isinstance(record.get("highlights"), list)
+            or not isinstance(record.get("bookmarks", []), list)
+        ):
             raise MarkError(409, "This document's marks file is damaged; it was left as it is")
+        record.setdefault("bookmarks", [])
         return record
 
     def _writable(self, rid: str) -> dict[str, Any] | None:
@@ -185,7 +208,14 @@ class MarksStore:
                 record = json.loads(file.read_text(encoding="utf-8"))
             except (OSError, ValueError):
                 continue
-            if isinstance(record, dict) and record.get("version") == VERSION and isinstance(record.get("path"), str):
+            if (
+                isinstance(record, dict)
+                and record.get("version") == VERSION
+                and isinstance(record.get("path"), str)
+                and isinstance(record.get("highlights"), list)
+                and isinstance(record.get("bookmarks", []), list)
+            ):
+                record.setdefault("bookmarks", [])
                 found.append(record)
         return found
 
@@ -237,12 +267,40 @@ class MarksStore:
             record["highlights"].remove(_find(record, highlight_id))
             self._write(rid, _refreshed(record, path, content))
 
+    # ── Bookmarks ────────────────────────────────────────────────────────────
 
-def _find(record: dict[str, Any] | None, highlight_id: str) -> dict[str, Any]:
-    for highlight in [] if record is None else record["highlights"]:
-        if highlight.get("id") == highlight_id:
-            return highlight
-    raise MarkError(404, f"Highlight '{highlight_id}' not found")
+    def add_bookmark(self, path: Path, content: str, body: Any) -> dict[str, Any]:
+        """Bookmark the document (``{"heading": null}``) or a heading; an existing bookmark is returned as it is."""
+        if not isinstance(body, dict):
+            raise MarkError(400, "Expected a JSON object")
+        heading = _heading(body.get("heading"))
+        rid = record_id(path)
+        with _lock:
+            record = self._writable(rid) or {"version": VERSION, "bookmarks": [], "highlights": []}
+            for bookmark in record["bookmarks"]:
+                if bookmark.get("heading") == heading:
+                    return bookmark
+            if len(record["bookmarks"]) >= MAX_BOOKMARKS:
+                raise MarkError(409, f"A document can have at most {MAX_BOOKMARKS} bookmarks")
+            bookmark = {"id": secrets.token_hex(8), "heading": heading, "created": _now()}
+            record["bookmarks"].append(bookmark)
+            self._write(rid, _refreshed(record, path, content))
+        return bookmark
+
+    def delete_bookmark(self, path: Path, content: str, bookmark_id: str) -> None:
+        rid = record_id(path)
+        with _lock:
+            record = self._writable(rid)
+            record["bookmarks"].remove(_find(record, bookmark_id, "bookmarks"))
+            self._write(rid, _refreshed(record, path, content))
+
+
+def _find(record: dict[str, Any] | None, mark_id: str, kind: str = "highlights") -> dict[str, Any]:
+    """The highlight (or bookmark, with kind="bookmarks") with *mark_id*; 404 if there's none."""
+    for mark in [] if record is None else record[kind]:
+        if mark.get("id") == mark_id:
+            return mark
+    raise MarkError(404, f"{kind[:-1].capitalize()} '{mark_id}' not found")
 
 
 def _refreshed(record: dict[str, Any], path: Path, content: str) -> dict[str, Any]:

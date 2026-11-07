@@ -1,0 +1,37 @@
+/* In the sidebar header, where its title was: the same small capitals */
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* Clickable inside the header's window drag area */
+  -webkit-app-region: no-drag;
+}
+
+.tab {
+  padding: 2px 0;
+  border: none;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: var(--color-text-subtle);
+  font: inherit;
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--color-text);
+}
+
+.tabOn,
+.tabOn:hover {
+  color: var(--color-text-strong);
+  border-bottom-color: var(--color-accent);
+}
+
+.tab:focus-visible {
+  outline: 1px solid var(--color-accent);
+  outline-offset: 2px;
+}
