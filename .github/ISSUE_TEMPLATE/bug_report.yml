@@ -1,0 +1,47 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If a particular document triggers it, paste a minimal Markdown sample.
+      placeholder: |
+        1. Open a folder containing …
+        2. Click …
+    validations:
+      required: true
+  - type: dropdown
+    id: variant
+    attributes:
+      label: Which version of Folio?
+      options:
+        - Desktop app
+        - Browser (backend + frontend)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Folio version
+      description: Folio → About Folio (desktop), or the commit you built from.
+      placeholder: "0.1.0"
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 26.1 (Apple Silicon), Windows 11, Ubuntu 24.04…"
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or logs

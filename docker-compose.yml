@@ -3,14 +3,14 @@ services:
     build: ./backend
     environment:
       MARKDOWN_WORKSPACE: /workspace
-      # The mounted workspace holds other projects; skip their caches and
-      # build output (most of its ~4,700 folders), then cap depth as a safety net
-      MARKDOWN_SKIP_DIRS: ".git,node_modules,.venv,__pycache__,.cache,.npm,.local,Library,release,chrome-profile"
+      # Cap depth as a safety net for large workspaces; skipped folders use
+      # the default list (set MARKDOWN_SKIP_DIRS here to change it)
       MARKDOWN_MAX_DEPTH: "8"
       # Same-origin through nginx, so no cross-origin access at all
       MARKDOWN_CORS_ORIGINS: ""
     volumes:
-      - ../../workspace:/workspace:ro
+      # The folder to browse: set WORKSPACE_DIR in .env or the shell
+      - ${WORKSPACE_DIR:-./workspace}:/workspace:ro
     # Not published: only nginx (frontend) reaches it, as backend:8000
     expose:
       - "8000"

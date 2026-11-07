@@ -1,5 +1,5 @@
 # Release: push a tag matching desktop/package.json's version (e.g. v0.1.0).
-# Builds the desktop app for macOS (universal; signed and notarized),
+# Builds the desktop app for macOS (x64 and arm64; signed and notarized),
 # Windows and Linux into one draft GitHub Release, which you then review
 # and publish. Installed apps find new versions there (electron-updater).
 name: Release
