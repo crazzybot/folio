@@ -46,6 +46,7 @@ The app checks for updates at launch (**Folio → Check for Updates…**).
 - Bookmarks: bookmark the document with the header's bookmark button (`⌘D` / `Ctrl+D`), or a section with the button that appears beside a heading on hover
 - Marks view (the sidebar's **Marks** tab): the marks of every document in the workspace (or the focused folder), grouped by document — its bookmarked sections by heading, then its highlights and notes — with a filter and a **Notes only** switch. A ★ on a document's row means the document itself is bookmarked. Click one to go to it; Back returns. Highlights whose text was since deleted from the document are shown as not found, and can be removed there. The open document's bookmarked sections show a bookmark icon in its outline
 - Marks are kept in `~/.folio` (`%USERPROFILE%\.folio` on Windows), never in your files, and follow the text when the document is edited. The same file has the same marks whichever folder you open
+- Moved and deleted documents: marks follow a file moved or renamed without edits by themselves. Otherwise its marks are listed under **Missing documents** in the Marks view, with a suggested document when one with the same name holds most of them, **Move to…** any document, or **Delete** (after asking). Nothing is deleted on its own
 - Instant search across titles, filenames and headings — a matching heading opens the document at that section
 - Outline of the open document's headings beside it (header toggle, remembered): the section being read is highlighted as you scroll, and clicking a heading jumps there (Back returns). Hidden in narrow windows
 - Find in the open document (`⌘F` / `Ctrl+F`): matches highlighted with a "3 of 12" count; Enter / Shift+Enter, `⌘G` / `⇧⌘G` or F3 / Shift+F3 step through them, Escape closes
@@ -423,6 +424,34 @@ removed.
 `POST` bookmarks the document (`{"heading": null}`) or one of its headings
 (`{"heading": {"text", "level", "occurrence"}}`) and returns the bookmark —
 the existing one if it was already bookmarked. `DELETE` removes it (`204`).
+
+### Missing documents: `POST /api/marks/{recordId}/relink` · `DELETE /api/marks/{recordId}`
+
+`GET /api/marks` also returns `missing`: the marks of files in the workspace
+that no longer exist, by where they were.
+
+```json
+"missing": [
+  {
+    "recordId": "3f9a…c1",
+    "location": "docs/old/setup.md",
+    "bookmarks": [],
+    "highlights": [ … ],
+    "suggestion": { "docId": "a3f1c2d4...", "location": "docs/setup.md" }
+  }
+]
+```
+
+Before listing, a missing file's marks move by themselves to the one
+unmarked document with the same content (its bytes' SHA-1, kept in the marks
+file), so a file moved or renamed without edits keeps its marks. Otherwise
+`suggestion` is the one unmarked document with the same file name, when at
+least half of the marks (highlighted passages, bookmarked headings) are found
+in it; else `null`.
+
+`POST …/relink` with `{"docId"}` moves them to that document (merged with any
+marks it has); `DELETE` deletes them. Both answer `204`, and `404` for
+anything but a missing file's marks in this workspace.
 
 ### `GET /api/files/{location}`
 

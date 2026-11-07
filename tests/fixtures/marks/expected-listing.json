@@ -17,6 +17,39 @@
       "highlights": []
     },
     {
+      "docId": "{ID docs/html-title.md}",
+      "location": "docs/html-title.md",
+      "bookmarks": [
+        {
+          "id": "d0d1d2d3d4d5d6d7",
+          "heading": {
+            "text": "Download",
+            "level": 2,
+            "occurrence": 0
+          },
+          "created": "2026-11-07T12:00:00Z"
+        }
+      ],
+      "highlights": [
+        {
+          "id": "e0e1e2e3e4e5e6e7",
+          "color": "blue",
+          "note": null,
+          "quote": {
+            "exact": "Download",
+            "prefix": "",
+            "suffix": ""
+          },
+          "position": {
+            "start": 0,
+            "end": 8
+          },
+          "created": "2026-11-07T12:00:00Z",
+          "updated": "2026-11-07T12:00:00Z"
+        }
+      ]
+    },
+    {
       "docId": "{ID docs/plain.md}",
       "location": "docs/plain.md",
       "bookmarks": [
@@ -44,6 +77,59 @@
           "updated": "2026-11-07T10:00:00Z"
         }
       ]
+    }
+  ],
+  "missing": [
+    {
+      "recordId": "{RECORD docs/gone.md}",
+      "location": "docs/gone.md",
+      "bookmarks": [],
+      "highlights": [
+        {
+          "id": "a0a1a2a3a4a5a6a7",
+          "color": "yellow",
+          "note": null,
+          "quote": {
+            "exact": "Nothing like this anywhere",
+            "prefix": "",
+            "suffix": ""
+          },
+          "position": {
+            "start": 0,
+            "end": 26
+          },
+          "created": "2026-11-07T12:00:00Z",
+          "updated": "2026-11-07T12:00:00Z"
+        }
+      ],
+      "suggestion": null
+    },
+    {
+      "recordId": "{RECORD docs/old/front-matter-untitled.md}",
+      "location": "docs/old/front-matter-untitled.md",
+      "bookmarks": [],
+      "highlights": [
+        {
+          "id": "f0f1f2f3f4f5f6f7",
+          "color": "pink",
+          "note": null,
+          "quote": {
+            "exact": "First line after front matter",
+            "prefix": "",
+            "suffix": ""
+          },
+          "position": {
+            "start": 0,
+            "end": 29
+          },
+          "created": "2026-11-07T12:00:00Z",
+          "updated": "2026-11-07T12:00:00Z"
+        }
+      ],
+      "suggestion": {
+        "docId": "{ID docs/front-matter-untitled.md}",
+        "location": "docs/front-matter-untitled.md"
+      }
     }
   ]
 }

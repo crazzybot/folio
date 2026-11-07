@@ -111,3 +111,17 @@ export async function deleteBookmark(docId: string, bookmarkId: string): Promise
   const res = await fetch(marksUrl(docId, "bookmarks", bookmarkId), { method: "DELETE" });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 }
+
+/** Move a missing document's marks to `docId` (merged with any it has). */
+export async function relinkMarks(recordId: string, docId: string): Promise<void> {
+  if (desktopApi) return desktopApi.marks.relink(recordId, docId);
+  const res = await fetch(`${apiBase}/api/marks/${encodeURIComponent(recordId)}/relink`, sendJson("POST", { docId }));
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+}
+
+/** Delete a missing document's marks. */
+export async function forgetMarks(recordId: string): Promise<void> {
+  if (desktopApi) return desktopApi.marks.forget(recordId);
+  const res = await fetch(`${apiBase}/api/marks/${encodeURIComponent(recordId)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+}

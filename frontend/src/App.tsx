@@ -569,6 +569,10 @@ function AppInner(): React.ReactElement {
               onOpen={openMark}
               onRemoveHighlight={(docId, id) => void removeMark(docId, id)}
               onRemoveBookmark={(docId, id) => void removeBookmark(docId, id)}
+              missing={marks.missing}
+              allDocuments={documents}
+              onRelink={(recordId, docId) => void marks.relink(recordId, docId)}
+              onForget={(recordId) => void marks.forget(recordId)}
             />
           </div>
           {/* Kept mounted while hidden, so its search and folders stay as they were */}

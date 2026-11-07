@@ -78,6 +78,8 @@ interface MarkdownDesktopApi {
     deleteHighlight(docId: string, highlightId: string): Promise<void>;
     addBookmark(docId: string, body: unknown): Promise<Bookmark>;
     deleteBookmark(docId: string, bookmarkId: string): Promise<void>;
+    relink(recordId: string, docId: string): Promise<void>;
+    forget(recordId: string): Promise<void>;
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */
     onChange(callback: () => void): () => void;
   };

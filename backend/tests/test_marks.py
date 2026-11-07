@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import re
@@ -7,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.marks import real_path, record_id
+from app.marks import MarksStore, fingerprint, real_path, record_id
 from app.scanner import _stable_id
 from tests.conftest import FIXTURES, WORKSPACE
 
@@ -23,6 +24,15 @@ def _fixture_path(path: str) -> str:
     return real_path(Path(WORKSPACE, *path.removeprefix("{WORKSPACE}/").split("/")))
 
 
+def _fingerprint_value(value):
+    """A fixture fingerprint field with {SHA1 …} / {SIZE …} replaced by that document's."""
+    match = re.fullmatch(r"\{(SHA1|SIZE) ([^}]+)\}", value) if isinstance(value, str) else None
+    if match is None:
+        return value
+    data = (WORKSPACE / match[2]).read_bytes()
+    return hashlib.sha1(data).hexdigest() if match[1] == "SHA1" else len(data)
+
+
 @pytest.fixture
 def data_dir(tmp_path) -> Path:
     """A data folder holding the fixture records, each under its real record id."""
@@ -31,6 +41,8 @@ def data_dir(tmp_path) -> Path:
     for file in sorted((MARKS / "records").glob("*.json")):
         record = json.loads(file.read_text(encoding="utf-8"))
         record["path"] = _fixture_path(record["path"])
+        if "fingerprint" in record:
+            record["fingerprint"] = {k: _fingerprint_value(v) for k, v in record["fingerprint"].items()}
         name = record_id(Path(record["path"])) if record["path"].startswith(real_path(WORKSPACE)) else file.stem
         (folder / f"{name}.json").write_text(json.dumps(record), encoding="utf-8")
     return tmp_path
@@ -59,18 +71,25 @@ def _highlight(**changes):
 
 
 def test_lists_the_workspace_marks_like_the_shared_fixture(client):
+    assert client.get("/api/marks").json() == _expected_listing()
+
+
+def _expected_listing() -> dict:
     raw = (MARKS / "expected-listing.json").read_text(encoding="utf-8")
-    expected = json.loads(re.sub(r"\{ID ([^}]+)\}", lambda m: _stable_id(m[1]), raw))
-    assert client.get("/api/marks").json() == expected
+    raw = re.sub(r"\{ID ([^}]+)\}", lambda m: _stable_id(m[1]), raw)
+    raw = re.sub(r"\{RECORD ([^}]+)\}", lambda m: record_id(WORKSPACE / m[1]), raw)
+    return json.loads(raw)
 
 
 def test_finds_the_same_marks_from_a_subfolder_workspace(client, monkeypatch):
     monkeypatch.setenv("MARKDOWN_WORKSPACE", str(WORKSPACE / "docs"))
-    docs = client.get("/api/marks").json()["documents"]
-    assert [(d["location"], d["docId"]) for d in docs] == [
+    listing = client.get("/api/marks").json()
+    assert [(d["location"], d["docId"]) for d in listing["documents"]] == [
         ("guides/setup.markdown", _stable_id("guides/setup.markdown")),
+        ("html-title.md", _stable_id("html-title.md")),
         ("plain.md", _stable_id("plain.md")),
     ]
+    assert [m["location"] for m in listing["missing"]] == ["gone.md", "old/front-matter-untitled.md"]
 
 
 def test_adds_updates_and_deletes_a_highlight(client, data_dir):
@@ -95,7 +114,7 @@ def test_adds_updates_and_deletes_a_highlight(client, data_dir):
     assert client.delete(f"/api/documents/{PLAIN}/bookmarks/b0b1b2b3b4b5b6b7").status_code == 204
     # No marks left: the record is removed
     assert _record(data_dir, "docs/plain.md") is None
-    assert [d["location"] for d in client.get("/api/marks").json()["documents"]] == ["docs/guides/setup.markdown"]
+    assert "docs/plain.md" not in [d["location"] for d in client.get("/api/marks").json()["documents"]]
 
 
 def test_adds_and_deletes_bookmarks(client, data_dir):
@@ -114,9 +133,9 @@ def test_adds_and_deletes_bookmarks(client, data_dir):
 
 
 def test_bookmarking_a_document_without_marks_creates_its_record(client, data_dir):
-    index = _stable_id("docs/html-title.md")
+    index = _stable_id("docs/blank.md")
     assert client.post(f"/api/documents/{index}/bookmarks", json={"heading": None}).status_code == 200
-    assert _record(data_dir, "docs/html-title.md")["highlights"] == []
+    assert _record(data_dir, "docs/blank.md")["highlights"] == []
 
 
 @pytest.mark.parametrize(
@@ -184,3 +203,67 @@ def test_record_ids_ignore_case_only_where_the_file_system_does(tmp_path):
     file.write_text("x")
     same = record_id(tmp_path / "note.md") == record_id(file)
     assert same == (os.name == "nt" or os.uname().sysname == "Darwin")
+
+
+# ── Moved and deleted documents ──────────────────────────────────────────────
+
+
+def test_moves_an_unedited_files_marks_by_itself(client, data_dir):
+    client.get("/api/marks")
+    record = _record(data_dir, "docs/html-title.md")
+    assert record["path"] == real_path(WORKSPACE / "docs/html-title.md")
+    assert [h["id"] for h in record["highlights"]] == ["e0e1e2e3e4e5e6e7"]
+    # The old record is gone
+    assert not (data_dir / "marks" / f"{record_id(WORKSPACE / 'docs/archive/html-title.md')}.json").exists()
+
+
+def test_moves_marks_to_a_chosen_document(client, data_dir):
+    renamed = record_id(WORKSPACE / "docs/old/front-matter-untitled.md")
+    target = _stable_id("docs/front-matter-untitled.md")
+    res = client.post(f"/api/marks/{renamed}/relink", json={"docId": target})
+    assert res.status_code == 204
+    listing = client.get("/api/marks").json()
+    assert [m["location"] for m in listing["missing"]] == ["docs/gone.md"]
+    moved = next(d for d in listing["documents"] if d["docId"] == target)
+    assert [h["id"] for h in moved["highlights"]] == ["f0f1f2f3f4f5f6f7"]
+
+
+def test_merges_moved_marks_with_the_documents_own(client, data_dir):
+    gone = record_id(WORKSPACE / "docs/gone.md")
+    assert client.post(f"/api/marks/{gone}/relink", json={"docId": PLAIN}).status_code == 204
+    record = _record(data_dir, "docs/plain.md")
+    assert [h["id"] for h in record["highlights"]] == ["a1b2c3d4e5f60718", "a0a1a2a3a4a5a6a7"]
+    assert [b["id"] for b in record["bookmarks"]] == ["b0b1b2b3b4b5b6b7"]
+
+
+def test_deletes_a_missing_documents_marks(client, data_dir):
+    gone = record_id(WORKSPACE / "docs/gone.md")
+    assert client.delete(f"/api/marks/{gone}").status_code == 204
+    assert [m["location"] for m in client.get("/api/marks").json()["missing"]] == ["docs/old/front-matter-untitled.md"]
+
+
+@pytest.mark.parametrize(
+    "rid",
+    [
+        record_id(WORKSPACE / "docs/plain.md"),  # its document exists
+        "0" * 40,  # no such record
+        "..%2Fsecret",
+    ],
+)
+def test_moves_and_deletes_only_missing_documents_marks(client, rid):
+    assert client.delete(f"/api/marks/{rid}").status_code == 404
+    assert client.post(f"/api/marks/{rid}/relink", json={"docId": PLAIN}).status_code == 404
+
+
+def test_refuses_a_move_to_an_unknown_document(client):
+    gone = record_id(WORKSPACE / "docs/gone.md")
+    assert client.post(f"/api/marks/{gone}/relink", json={"docId": "nope"}).status_code == 404
+    assert client.post(f"/api/marks/{gone}/relink", json={"docId": 5}).status_code == 400
+
+
+def test_fingerprints_the_files_bytes(tmp_path):
+    # Windows line endings must count as stored, as the desktop app reads them
+    file = tmp_path / "crlf.md"
+    file.write_bytes(b"one\r\ntwo\r\n")
+    assert fingerprint(file) == {"sha1": hashlib.sha1(b"one\r\ntwo\r\n").hexdigest(), "size": 10, "filename": "crlf.md"}
+    MarksStore(tmp_path / "data").add_bookmark(file, {"heading": None})

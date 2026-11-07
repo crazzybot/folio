@@ -1,6 +1,6 @@
 # Marks: highlights, notes and bookmarks — and folder focus
 
-Status: design agreed. Phases 1–3 implemented (folder focus; store + highlights; notes, bookmarks, Marks view); phase 4 not started.
+Status: implemented — phases 1–4 (folder focus; store + highlights; notes, bookmarks, Marks view; moved and deleted documents).
 
 Folio stays read-only: marks never touch workspace files. They live in a
 separate data folder in the user's home, keyed so that the same file keeps its
@@ -119,17 +119,33 @@ document, marked as such in the Marks view.
 
 ### Re-linking moved or renamed documents
 
-A record whose `path` no longer exists isn't deleted. When the workspace is
-listed, missing records are matched against its documents:
+A record whose `path` no longer exists isn't deleted. When the workspace's
+marks are listed, records of missing files under the workspace are matched
+against its documents that have no marks yet ("unmarked"):
 
-1. Same content SHA-1 → re-linked automatically (moved, not edited).
-2. Exactly one document with the same file name, and most of the record's
-   quotes found in its text → offered to the user ("Move 4 marks to
-   guides/setup.md?").
-3. Otherwise listed under **Missing documents** with **Locate…** (desktop file
-   dialog) and **Delete**.
+1. Exactly one unmarked document with the same content (SHA-1 of its bytes;
+   only documents of a size some missing file had are hashed) → re-linked
+   automatically, whatever its name (moved or renamed, not edited). Two
+   missing files with the same content are left to the user.
+2. Exactly one unmarked document with the same file name (case-insensitive),
+   and at least half of the record's highlighted passages (looked for in the
+   source with Markdown punctuation and whitespace collapsed) and bookmarked
+   headings found in it → offered as **Move to <location>**. A record with
+   only a document bookmark has nothing to check, so the name decides.
+3. Every missing record is listed under **Missing documents** with **Move
+   to…** (a document picker: any document of the workspace) and **Delete**,
+   which asks first. Not a file dialog, as first planned: it works in the
+   browser too, and can't pick a file outside the workspace, where the marks
+   wouldn't show.
 
-Marks are never deleted without the user asking.
+Moving merges with the target's own marks (highlights by id, bookmarks by
+heading). Records of files outside the workspace aren't listed, and a file
+that exists but isn't listed (a skipped folder, beyond the depth limit) isn't
+missing. Marks are never deleted without the user asking.
+
+Fingerprints are taken from the file's bytes, not its decoded text: Python
+reads text with Windows line endings converted, Node doesn't, so both stores
+would otherwise disagree about a CRLF file.
 
 ## 3. API
 
@@ -144,13 +160,14 @@ Only records under the current workspace are visible.
 | Delete a highlight | `DELETE /api/documents/{id}/highlights/{hid}` | `marks:highlight-delete` |
 | Add a bookmark | `POST /api/documents/{id}/bookmarks` | `marks:bookmark-add` |
 | Remove a bookmark | `DELETE /api/documents/{id}/bookmarks/{bid}` | `marks:bookmark-delete` |
-| Re-link a missing record | `POST /api/marks/{recordId}/relink` | `marks:relink` |
-| Delete a missing record | `DELETE /api/marks/{recordId}` | `marks:delete` |
+| Move a missing file's marks (`{docId}`) | `POST /api/marks/{recordId}/relink` | `marks:relink` |
+| Delete a missing file's marks | `DELETE /api/marks/{recordId}` | `marks:forget` |
 
 `GET /api/marks` returns `{ documents: [{ docId, location, highlights }] }`
 with `bookmarks` (phase 3) beside `highlights`; documents with either are
-listed. Phase 4 adds a `missing` list (`[{ recordId, path, filename,
-bookmarks, highlights }]`). The frontend
+listed. Phase 4 adds `missing`: `[{ recordId, location, bookmarks,
+highlights, suggestion: { docId, location } | null }]`; relink and delete
+answer 404 for anything else than a missing file's record in the workspace. The frontend
 loads all of it once, so there's no per-document endpoint.
 A bookmark is added with `{"heading": null}` (the document) or `{"heading":
 {text, level, occurrence}}` in the body — not as a key in the URL, since
@@ -226,7 +243,8 @@ crowded to read.
 ▸ Release process                   5
   Changelog                      ★
 MISSING DOCUMENTS (1)
-  ▸ old-notes.md — Locate… · Delete
+▸ setup.md  docs/old                3
+    [Move to docs/guides/setup.md] [Move to…] [Delete]
 ```
 
 - **Grouped by document**, each listed once: its row shows the title, a ★

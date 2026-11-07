@@ -41,7 +41,7 @@ import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
 import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } from "./openPaths";
 import { defaultDataDir, listMarks, MarksStore } from "./marks";
-import type { Bookmark, DocumentMarks, Highlight } from "./marks";
+import type { Bookmark, DocumentMarks, Highlight, MissingMarks } from "./marks";
 import { findDocument, scanAttachments, scanWorkspace, stableId } from "./scanner";
 import { searchWorkspace } from "./search";
 import type { SearchResult } from "./search";
@@ -208,12 +208,20 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
 // Highlights, kept in ~/.folio/marks (never in the workspace); see marks.ts
 const marks = new MarksStore(defaultDataDir());
 
-/** The path and content of a workspace document, for changing its marks. */
-async function markedDocument(docId: unknown): Promise<{ file: string; content: string }> {
+/** The path of a workspace document, for changing its marks. */
+async function markedDocument(docId: unknown): Promise<string> {
   if (typeof docId !== "string") throw new Error("Document id must be a string");
   const result = settings.workspace === null ? null : await findDocument(settings.workspace, docId, scanOptions());
   if (result === null || settings.workspace === null) throw new Error(`Document '${docId}' not found in workspace`);
-  return { file: path.join(settings.workspace, ...result.meta.location.split("/")), content: result.content };
+  return path.join(settings.workspace, ...result.meta.location.split("/"));
+}
+
+/** Throws unless `recordId` is the marks of a file in the workspace that no longer exists. */
+async function assertMissingRecord(recordId: unknown): Promise<void> {
+  const records = settings.workspace === null ? [] : [...(await marks.inWorkspace(settings.workspace)).values()];
+  if (!records.some((entry) => entry.id === recordId && !existsSync(entry.record.path))) {
+    throw new Error(`No missing document's marks '${String(recordId)}'`);
+  }
 }
 
 /** Tell every window that marks changed, so lists and documents repaint. */
@@ -252,16 +260,16 @@ function registerIpcHandlers(): void {
     return searchWorkspace(settings.workspace, query, scanOptions());
   });
 
-  // Marks — mirrors GET /api/marks, /api/documents/{id}/highlights[/{hid}] and /bookmarks[/{bid}]
-  ipcMain.handle("marks:list", async (event): Promise<{ documents: DocumentMarks[] }> => {
+  // Marks — mirrors GET /api/marks, /api/documents/{id}/highlights[/{hid}],
+  // /bookmarks[/{bid}] and /api/marks/{recordId}[/relink]
+  ipcMain.handle("marks:list", async (event): Promise<{ documents: DocumentMarks[]; missing: MissingMarks[] }> => {
     assertTrustedSender(event);
-    if (settings.workspace === null) return { documents: [] };
+    if (settings.workspace === null) return { documents: [], missing: [] };
     return listMarks(marks, settings.workspace, await scanWorkspace(settings.workspace, scanOptions()));
   });
   ipcMain.handle("marks:highlight-add", async (event, docId: unknown, body: unknown): Promise<Highlight> => {
     assertTrustedSender(event);
-    const { file, content } = await markedDocument(docId);
-    const highlight = await marks.addHighlight(file, content, body);
+    const highlight = await marks.addHighlight(await markedDocument(docId), body);
     notifyMarksChanged();
     return highlight;
   });
@@ -270,8 +278,7 @@ function registerIpcHandlers(): void {
     async (event, docId: unknown, highlightId: unknown, body: unknown): Promise<Highlight> => {
       assertTrustedSender(event);
       if (typeof highlightId !== "string") throw new Error("Highlight id must be a string");
-      const { file, content } = await markedDocument(docId);
-      const highlight = await marks.updateHighlight(file, content, highlightId, body);
+      const highlight = await marks.updateHighlight(await markedDocument(docId), highlightId, body);
       notifyMarksChanged();
       return highlight;
     },
@@ -279,22 +286,32 @@ function registerIpcHandlers(): void {
   ipcMain.handle("marks:highlight-delete", async (event, docId: unknown, highlightId: unknown): Promise<void> => {
     assertTrustedSender(event);
     if (typeof highlightId !== "string") throw new Error("Highlight id must be a string");
-    const { file, content } = await markedDocument(docId);
-    await marks.deleteHighlight(file, content, highlightId);
+    await marks.deleteHighlight(await markedDocument(docId), highlightId);
     notifyMarksChanged();
   });
   ipcMain.handle("marks:bookmark-add", async (event, docId: unknown, body: unknown): Promise<Bookmark> => {
     assertTrustedSender(event);
-    const { file, content } = await markedDocument(docId);
-    const bookmark = await marks.addBookmark(file, content, body);
+    const bookmark = await marks.addBookmark(await markedDocument(docId), body);
     notifyMarksChanged();
     return bookmark;
   });
   ipcMain.handle("marks:bookmark-delete", async (event, docId: unknown, bookmarkId: unknown): Promise<void> => {
     assertTrustedSender(event);
     if (typeof bookmarkId !== "string") throw new Error("Bookmark id must be a string");
-    const { file, content } = await markedDocument(docId);
-    await marks.deleteBookmark(file, content, bookmarkId);
+    await marks.deleteBookmark(await markedDocument(docId), bookmarkId);
+    notifyMarksChanged();
+  });
+  // A missing document's marks: moved to a document, or deleted
+  ipcMain.handle("marks:relink", async (event, recordId: unknown, docId: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    await assertMissingRecord(recordId);
+    await marks.relink(recordId as string, await markedDocument(docId));
+    notifyMarksChanged();
+  });
+  ipcMain.handle("marks:forget", async (event, recordId: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    await assertMissingRecord(recordId);
+    await marks.forget(recordId as string);
     notifyMarksChanged();
   });
 

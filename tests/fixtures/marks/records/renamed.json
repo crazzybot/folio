@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "path": "{WORKSPACE}/docs/old/front-matter-untitled.md",
+  "fingerprint": {
+    "sha1": "0000000000000000000000000000000000000000",
+    "size": 1,
+    "filename": "front-matter-untitled.md"
+  },
+  "bookmarks": [],
+  "highlights": [
+    {
+      "id": "f0f1f2f3f4f5f6f7",
+      "color": "pink",
+      "note": null,
+      "quote": {
+        "exact": "First line after front matter",
+        "prefix": "",
+        "suffix": ""
+      },
+      "position": {
+        "start": 0,
+        "end": 29
+      },
+      "created": "2026-11-07T12:00:00Z",
+      "updated": "2026-11-07T12:00:00Z"
+    }
+  ]
+}

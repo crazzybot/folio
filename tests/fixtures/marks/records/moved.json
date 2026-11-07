@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "path": "{WORKSPACE}/docs/archive/html-title.md",
+  "fingerprint": {
+    "sha1": "{SHA1 docs/html-title.md}",
+    "size": "{SIZE docs/html-title.md}",
+    "filename": "html-title.md"
+  },
+  "bookmarks": [
+    {
+      "id": "d0d1d2d3d4d5d6d7",
+      "heading": {
+        "text": "Download",
+        "level": 2,
+        "occurrence": 0
+      },
+      "created": "2026-11-07T12:00:00Z"
+    }
+  ],
+  "highlights": [
+    {
+      "id": "e0e1e2e3e4e5e6e7",
+      "color": "blue",
+      "note": null,
+      "quote": {
+        "exact": "Download",
+        "prefix": "",
+        "suffix": ""
+      },
+      "position": {
+        "start": 0,
+        "end": 8
+      },
+      "created": "2026-11-07T12:00:00Z",
+      "updated": "2026-11-07T12:00:00Z"
+    }
+  ]
+}

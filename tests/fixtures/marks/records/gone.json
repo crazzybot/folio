@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "path": "{WORKSPACE}/docs/gone.md",
+  "fingerprint": {
+    "sha1": "0000000000000000000000000000000000000000",
+    "size": 1,
+    "filename": "gone.md"
+  },
+  "bookmarks": [],
+  "highlights": [
+    {
+      "id": "a0a1a2a3a4a5a6a7",
+      "color": "yellow",
+      "note": null,
+      "quote": {
+        "exact": "Nothing like this anywhere",
+        "prefix": "",
+        "suffix": ""
+      },
+      "position": {
+        "start": 0,
+        "end": 26
+      },
+      "created": "2026-11-07T12:00:00Z",
+      "updated": "2026-11-07T12:00:00Z"
+    }
+  ]
+}
