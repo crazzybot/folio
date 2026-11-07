@@ -8,9 +8,41 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read # paths-filter lists a PR's files through the API
 
 jobs:
+  # Decides which jobs below run. Skipped jobs count as passing, so they can
+  # stay required checks; a workflow-level `paths:` filter would leave them
+  # pending instead. Editing this workflow runs everything.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      desktop: ${{ steps.filter.outputs.desktop }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            ci: &ci
+              - .github/workflows/ci.yml
+            frontend:
+              - *ci
+              - frontend/**
+            desktop:
+              - *ci
+              - desktop/**
+              - tests/fixtures/**
+            backend:
+              - *ci
+              - backend/**
+              - tests/fixtures/**
+
   frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -28,6 +60,8 @@ jobs:
       - run: npm test
 
   desktop:
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
     # macOS, like most users: the tests cover file watching and symlinks
     runs-on: macos-latest
     defaults:
@@ -45,6 +79,8 @@ jobs:
       - run: npm test
 
   backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
