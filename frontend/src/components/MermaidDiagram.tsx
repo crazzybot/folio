@@ -84,8 +84,12 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
   // Drawn for the other background: show it on a card of its own
   const card = theme !== appTheme ? (theme === "dark" ? styles.darkCard : styles.lightCard) : "";
   const [state, setState] = useState<State>({ status: "rendering" });
-  const [fullWindow, setFullWindow] = useState(false);
+  // The full-window view's caption while it's open, else null. Read from the
+  // page when it opens: refs can't be read while rendering
+  const [fullWindowCaption, setFullWindowCaption] = useState<string | null>(null);
   const figureRef = useRef<HTMLDivElement>(null);
+  const openFullWindow = () =>
+    setFullWindowCaption(figureRef.current === null ? "Diagram" : diagramCaption(figureRef.current, code));
 
   useEffect(() => {
     let cancelled = false;
@@ -125,14 +129,14 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
         className={`${styles.diagram} ${card}`}
         role="img"
         aria-label="Mermaid diagram"
-        onDoubleClick={() => setFullWindow(true)}
+        onDoubleClick={openFullWindow}
         // Mermaid's output, sanitized by Mermaid in strict mode
         dangerouslySetInnerHTML={{ __html: state.svg }}
       />
       <button
         type="button"
         className={styles.expandBtn}
-        onClick={() => setFullWindow(true)}
+        onClick={openFullWindow}
         aria-label="Open diagram in full window"
         title="Open in full window (or double-click the diagram)"
       >
@@ -141,13 +145,13 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
           <path d="M9.5 2.5h4v4M13.5 2.5L9 7M6.5 13.5h-4v-4M2.5 13.5L7 9" />
         </svg>
       </button>
-      {fullWindow && (
+      {fullWindowCaption !== null && (
         <DiagramViewer
           svg={state.svg}
-          caption={figureRef.current === null ? "Diagram" : diagramCaption(figureRef.current, code)}
+          caption={fullWindowCaption}
           // The card's colour for a diagram drawn for the other theme
           background={card === "" ? "var(--color-bg)" : theme === "dark" ? "#1f1f1f" : "#ffffff"}
-          onClose={() => setFullWindow(false)}
+          onClose={() => setFullWindowCaption(null)}
         />
       )}
     </div>

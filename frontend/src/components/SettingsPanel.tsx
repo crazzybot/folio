@@ -281,7 +281,12 @@ interface TextSettingProps {
 function TextSetting({ label, hint, placeholder, value, onCommit }: TextSettingProps): React.ReactElement {
   const id = useId();
   const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
+  // A new value from outside (e.g. settings.json edited) replaces the draft
+  const [shownValue, setShownValue] = useState(value);
+  if (value !== shownValue) {
+    setShownValue(value);
+    setDraft(value);
+  }
   const commit = () => {
     if (draft !== value) onCommit(draft);
   };
@@ -383,7 +388,12 @@ function SkipDirs({ value, defaults, onChange }: SkipDirsProps): React.ReactElem
 function ScanDepth({ value, onChange }: { value: number | null; onChange: (depth: number | null) => void }): React.ReactElement {
   const id = useId();
   const [draft, setDraft] = useState(value === null ? "" : String(value));
-  useEffect(() => setDraft(value === null ? "" : String(value)), [value]);
+  // A new value from outside (e.g. settings.json edited) replaces the draft
+  const [shownValue, setShownValue] = useState(value);
+  if (value !== shownValue) {
+    setShownValue(value);
+    setDraft(value === null ? "" : String(value));
+  }
   const commit = () => {
     const depth = draft.trim() === "" ? null : Math.floor(Number(draft));
     const next = depth !== null && Number.isFinite(depth) && depth > 0 ? depth : null;
