@@ -29,9 +29,11 @@ updates:
     directories: [/backend, /frontend]
     schedule: { interval: weekly }
     ignore:
-      # Odd-numbered Node releases never become LTS; stay on even ones
+      # Node majors are chosen by hand: only even (LTS) releases, and CI's
+      # node-version in ci.yml / release.yml must move with them.
+      # Minor and patch updates of the chosen major still come through.
       - dependency-name: node
-        versions: ["25.x", "27.x", "29.x", "31.x"]
+        update-types: ["version-update:semver-major"]
     groups:
       docker: { patterns: ["*"] }
 
