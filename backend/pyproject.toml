@@ -1,6 +1,6 @@
 [project]
 name = "backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "Folio backend: serves a folder of Markdown files over a small REST API"
 requires-python = ">=3.13"
 license = "MIT"
