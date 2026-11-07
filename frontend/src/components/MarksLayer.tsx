@@ -15,8 +15,8 @@ const SAVE_SHORTCUT = IS_MAC ? "⌘↩" : "Ctrl+Enter";
 const supported = typeof CSS !== "undefined" && "highlights" in CSS;
 // Room above a selection for the toolbar; with less, it goes below
 const TOOLBAR_ROOM = 44;
-// Half the toolbar's width, to keep it inside the viewer
-const TOOLBAR_HALF_WIDTH = 100;
+// Space kept between the toolbar or popover and the viewer's edges
+const EDGE_GAP = 8;
 // Heading bookmark icons sit this far left of the heading; note icons this
 // far right of the text column
 const HEADING_ICON_OFFSET = 26;
@@ -61,7 +61,8 @@ function placeBy(container: HTMLElement, rect: DOMRect, preferBelow: boolean): P
   const center = rect.left + rect.width / 2 - box.left;
   return {
     top: (below ? rect.bottom : rect.top) - box.top + container.scrollTop,
-    left: Math.max(TOOLBAR_HALF_WIDTH, Math.min(center, container.clientWidth - TOOLBAR_HALF_WIDTH)),
+    // Kept inside the viewer once its width is known (see the layout effect)
+    left: center,
     below,
   };
 }
@@ -142,6 +143,7 @@ export default function MarksLayer({
   const [hoveredHeading, setHoveredHeading] = useState<number | null>(null);
   const [layoutVersion, setLayoutVersion] = useState(0);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   const handledFocus = useRef<number | null>(null);
 
   // ── Paint ──────────────────────────────────────────────────────────────────
@@ -440,6 +442,22 @@ export default function MarksLayer({
     popoverRef.current?.querySelector<HTMLButtonElement>("button[aria-pressed=true]")?.focus();
   }, [popover?.id, draft]);
 
+  // Keep the toolbar and popover inside the viewer by their actual width
+  // (the note editor widens the popover), centred on the text when there's room
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (container === null) return;
+    const bubbles = [
+      [toolbarRef.current, toolbar?.left],
+      [popoverRef.current, popover?.left],
+    ] as const;
+    for (const [el, center] of bubbles) {
+      if (el === null || center === undefined) continue;
+      const half = el.offsetWidth / 2 + EDGE_GAP;
+      el.style.left = `${Math.max(half, Math.min(center, container.clientWidth - half))}px`;
+    }
+  });
+
   if (!ready) return null;
 
   const hovered = hoveredHeading === null ? undefined : headingSpots[hoveredHeading];
@@ -491,6 +509,7 @@ export default function MarksLayer({
       {toolbar !== null && (
         <div
           className={`${styles.bubble} ${toolbar.below ? styles.below : styles.above}`}
+          ref={toolbarRef}
           style={{ top: toolbar.top, left: toolbar.left }}
           role="toolbar"
           aria-label="Highlight the selection"
