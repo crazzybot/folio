@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { classifyPath, locationInWorkspace, pathsFromArgv } from "../src/openPaths";
+import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } from "../src/openPaths";
 import { WORKSPACE } from "./fixtures";
 
 describe("pathsFromArgv", () => {
@@ -29,5 +29,23 @@ describe("locationInWorkspace", () => {
     expect(await locationInWorkspace(path.join(WORKSPACE, "docs/plain.md"), WORKSPACE)).toBe("docs/plain.md");
     expect(await locationInWorkspace(path.join(WORKSPACE, "docs/outside-link.md"), WORKSPACE)).toBeNull();
     expect(await locationInWorkspace("/etc/hosts", WORKSPACE)).toBeNull();
+  });
+});
+
+describe("folderInWorkspace", () => {
+  it("gives the folder's path inside the workspace", async () => {
+    expect(await folderInWorkspace(WORKSPACE, "docs")).toBe(path.join(WORKSPACE, "docs"));
+    expect(await folderInWorkspace(WORKSPACE, "docs/guides")).toBe(path.join(WORKSPACE, "docs", "guides"));
+  });
+
+  it.each([
+    ["a file", "docs/plain.md"],
+    ["a missing folder", "nope"],
+    ["the workspace itself", ""],
+    ["a parent folder", ".."],
+    ["a way out through ..", "docs/../../fixtures"],
+    ["a symlink out", "docs/outside-link.md"],
+  ])("is null for %s", async (_name, location) => {
+    expect(await folderInWorkspace(WORKSPACE, location)).toBeNull();
   });
 });

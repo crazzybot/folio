@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route, useNavigate, useNavigationType, useParams, useLocation } from "react-router-dom";
 import { fetchAttachments, fetchDocumentContent, fetchDocuments } from "./api";
 import { savedScrollPosition } from "./scrollHistory";
@@ -18,6 +18,8 @@ import {
   useSearchDocumentText,
 } from "./readerPrefs";
 import useTheme from "./theme";
+import { documentsInFolder } from "./documentTree";
+import { useFolderFocus } from "./folderFocus";
 import DisplayMenu from "./components/DisplayMenu";
 import SettingsPanel from "./components/SettingsPanel";
 import styles from "./App.module.css";
@@ -108,6 +110,10 @@ function AppInner(): React.ReactElement {
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [listLoading, setListLoading] = useState(true);
+
+  // ── Focus on Folder: the list, search and count narrow to one folder ───────
+  const [focus, setFocus] = useFolderFocus();
+  const listedDocuments = useMemo(() => documentsInFolder(documents, focus), [documents, focus]);
 
   // ── Content state ──────────────────────────────────────────────────────────
   // Only the latest result is stored; whether it's the shown document's (else
@@ -236,8 +242,9 @@ function AppInner(): React.ReactElement {
         if (cancelled) return;
         setDocuments(docs);
         setListError(null);
-        // Auto-select first document only when no URL param is present
-        const first = docs[0];
+        // Auto-select first document only when no URL param is present: the
+        // focused folder's first, if it has any
+        const first = documentsInFolder(docs, focus)[0] ?? docs[0];
         if (first !== undefined && docId === undefined) {
           navigate("/doc/" + encodeURIComponent(first.id), { replace: true });
         }
@@ -413,6 +420,15 @@ function AppInner(): React.ReactElement {
     setCollapsed((c) => !c);
   }, []);
 
+  // A breadcrumb folder: focus the list on it, showing the list if hidden
+  const focusFolder = useCallback(
+    (folder: string) => {
+      setFocus(folder);
+      setCollapsed(false);
+    },
+    [setFocus],
+  );
+
   // ⌘B / Ctrl+B toggles the sidebar, as in VS Code
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -462,7 +478,7 @@ function AppInner(): React.ReactElement {
           aria-hidden={collapsed}
         >
           <DocumentList
-            documents={documents}
+            documents={listedDocuments}
             selectedId={selectedId}
             onSelect={handleSelect}
             onOpenSection={handleOpenDocument}
@@ -471,6 +487,8 @@ function AppInner(): React.ReactElement {
             onGroupedChange={setGroupByFolder}
             fullText={searchDocumentText}
             onFullTextChange={setSearchDocumentText}
+            focus={focus}
+            onFocusChange={setFocus}
             loading={listLoading}
             error={listError}
           />
@@ -550,7 +568,7 @@ function AppInner(): React.ReactElement {
               </>
             )}
 
-            <Breadcrumb location={selectedDoc?.location ?? null} />
+            <Breadcrumb location={selectedDoc?.location ?? null} onFolderClick={focusFolder} />
 
             {editorName !== undefined && (
               <button
@@ -687,7 +705,9 @@ function AppInner(): React.ReactElement {
         <span className={styles.statusItem} aria-live="polite">
           {listLoading
             ? "Loading…"
-            : `${documents.length} document${documents.length !== 1 ? "s" : ""}`}
+            : focus !== null
+              ? `${listedDocuments.length} of ${documents.length} documents`
+              : `${documents.length} document${documents.length !== 1 ? "s" : ""}`}
         </span>
       </footer>
     </div>

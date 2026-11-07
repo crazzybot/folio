@@ -82,6 +82,9 @@ interface DocumentListProps {
   /** Search document text too (search box toggle, ⇧⌘F; also in Settings). */
   fullText: boolean;
   onFullTextChange: (on: boolean) => void;
+  /** The folder the list is focused on ("docs/api"; `documents` are already narrowed to it), or null. */
+  focus: string | null;
+  onFocusChange: (folder: string | null) => void;
 }
 
 type ContentSearch =
@@ -106,6 +109,8 @@ export default function DocumentList({
   onGroupedChange,
   fullText,
   onFullTextChange,
+  focus,
+  onFocusChange,
 }: DocumentListProps): React.ReactElement {
   const [query, setQuery] = useState("");
   const [lastContentSearch, setLastContentSearch] = useState<ContentSearchResult | null>(null);
@@ -203,9 +208,9 @@ export default function DocumentList({
     else onSelect(entry.doc.id);
   };
 
-  const totalMatches = contentResults
-    ? [...contentResults.values()].reduce((sum, r) => sum + r.matchCount, 0)
-    : 0;
+  // Text search covers the whole workspace: count only the documents listed
+  const listedContent = results.flatMap((entry) => (entry.content === undefined ? [] : [entry.content]));
+  const totalMatches = listedContent.reduce((sum, r) => sum + r.matchCount, 0);
 
   // ── Group by folder (shown while not searching) ────────────────────────────
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(loadExpanded);
@@ -371,6 +376,10 @@ export default function DocumentList({
       case " ":
         activate(row);
         break;
+      case "Escape":
+        if (focus === null) return;
+        onFocusChange(null);
+        break;
       default:
         return;
     }
@@ -408,6 +417,30 @@ export default function DocumentList({
           </svg>
         </button>
       </header>
+
+      {/* ── Focused folder ── */}
+      {focus !== null && (
+        <div className={styles.focusBar}>
+          <svg className={styles.focusIcon} width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+            <path d="M1.5 3.5h4.5l1.5 1.5h7v8.5h-13z" />
+          </svg>
+          <span className={styles.focusLabel} title={`Showing only documents in ${focus}`}>
+            {focus.split("/").join(" / ")}
+          </span>
+          <button
+            type="button"
+            className={styles.focusClear}
+            onClick={() => onFocusChange(null)}
+            aria-label="Show all documents"
+            title="Show all documents"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+              <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* ── Search ── */}
       <div className={styles.searchWrapper}>
@@ -482,8 +515,8 @@ export default function DocumentList({
           {contentResults !== null &&
             (totalMatches === 0
               ? "No matches in document text"
-              : `${totalMatches} ${totalMatches === 1 ? "match" : "matches"} in ${contentResults?.size} ${
-                  contentResults?.size === 1 ? "document" : "documents"
+              : `${totalMatches} ${totalMatches === 1 ? "match" : "matches"} in ${listedContent.length} ${
+                  listedContent.length === 1 ? "document" : "documents"
                 }`)}
         </p>
       </div>
@@ -505,7 +538,14 @@ export default function DocumentList({
 
         {!loading && error === null && rows.length === 0 && !(fullText && contentSearch.status === "searching") && (
           <div className={styles.emptyArea}>
-            {!query ? (
+            {!query && focus !== null ? (
+              <>
+                <p>No documents in {focus}.</p>
+                <button type="button" className={styles.linkBtn} onClick={() => onFocusChange(null)}>
+                  Show all documents
+                </button>
+              </>
+            ) : !query ? (
               <p>No documents found.</p>
             ) : fullText ? (
               <p>No documents match "<strong>{query}</strong>".</p>
@@ -538,6 +578,7 @@ export default function DocumentList({
                 tabStop={row.key === tabStop}
                 onFocus={() => setFocusKey(row.key)}
                 onActivate={() => activate(row)}
+                onFocusFolder={onFocusChange}
               />
             ))}
           </ul>
@@ -563,9 +604,11 @@ interface RowItemProps {
   tabStop: boolean;
   onFocus: () => void;
   onActivate: () => void;
+  /** Focus on Folder, from a folder row's button or (desktop) context menu. */
+  onFocusFolder: (folder: string) => void;
 }
 
-function RowItem({ row, tree, query, selected, tabStop, onFocus, onActivate }: RowItemProps): React.ReactElement {
+function RowItem({ row, tree, query, selected, tabStop, onFocus, onActivate, onFocusFolder }: RowItemProps): React.ReactElement {
   if (row.kind === "more") {
     return (
       <li className={styles.moreMatches} role="presentation" aria-hidden="true">
@@ -592,6 +635,17 @@ function RowItem({ row, tree, query, selected, tabStop, onFocus, onActivate }: R
         aria-expanded={row.expanded}
         aria-selected={false}
         title={row.folderKey}
+        onContextMenu={(e) => {
+          // Desktop: a native menu (Focus on Folder, Open Folder as Workspace);
+          // the browser keeps its own menu
+          const api = window.markdownApi;
+          if (!api) return;
+          e.preventDefault();
+          const folder = row.folderKey;
+          void api.showFolderMenu(folder).then((choice) => {
+            if (choice === "focus") onFocusFolder(folder);
+          });
+        }}
       >
         <svg
           className={`${styles.chevron} ${row.expanded ? styles.chevronOpen : ""}`}
@@ -605,6 +659,24 @@ function RowItem({ row, tree, query, selected, tabStop, onFocus, onActivate }: R
           <path d="M6 4l4 4-4 4" strokeWidth="1.2" />
         </svg>
         <span className={styles.entryTitle}>{row.label}</span>
+        {/* Mouse shortcut; the keyboard has the breadcrumb and context menu */}
+        <button
+          type="button"
+          className={styles.rowAction}
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            onFocusFolder(row.folderKey);
+          }}
+          aria-label={`Focus on ${row.folderKey}`}
+          title="Focus on folder"
+        >
+          {/* A target */}
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+            <circle cx="8" cy="8" r="5.5" />
+            <circle cx="8" cy="8" r="2" />
+          </svg>
+        </button>
       </li>
     );
   }

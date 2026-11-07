@@ -20,6 +20,8 @@ interface MarkdownDesktopApi {
     get(key: string): string | null;
     set(key: string, value: string): void;
   };
+  /** The workspace folder's absolute path when the page loaded (a new workspace reloads it). */
+  workspacePath: string | null;
   /** Base URL that workspace images are served from; append the encoded location. */
   workspaceFileBaseUrl: string;
   listDocuments(): Promise<DocumentMeta[]>;
@@ -65,6 +67,12 @@ interface MarkdownDesktopApi {
   openPath(target: string): Promise<void>;
   /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */
   onWorkspaceChange(callback: () => void): () => void;
+  /**
+   * The context menu of a folder in the document list (workspace location).
+   * Resolves "focus" when Focus on Folder was chosen, else null; Open Folder
+   * as Workspace is handled by the main process.
+   */
+  showFolderMenu(location: string): Promise<"focus" | null>;
 }
 
 declare global {

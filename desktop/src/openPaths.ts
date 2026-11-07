@@ -35,6 +35,23 @@ export async function classifyPath(target: string): Promise<PathKind> {
 }
 
 /**
+ * The absolute path of the folder at `location` ("docs/api", "/"-separated)
+ * in `workspace`, or null when it isn't a folder inside it — including by
+ * "..", an absolute path or a symlink pointing out.
+ */
+export async function folderInWorkspace(workspace: string, location: string): Promise<string | null> {
+  const folder = path.resolve(workspace, ...location.split("/"));
+  if (!folder.startsWith(path.resolve(workspace) + path.sep)) return null;
+  try {
+    const [realFolder, realWorkspace] = await Promise.all([fs.realpath(folder), fs.realpath(workspace)]);
+    if (!realFolder.startsWith(realWorkspace + path.sep)) return null;
+    return (await fs.stat(realFolder)).isDirectory() ? folder : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The workspace-relative location ("docs/guide.md") of `file`, or null when
  * it isn't inside `workspace`. Symlinks are resolved on both sides.
  */

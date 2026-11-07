@@ -39,7 +39,7 @@ import { canInstallCommand, installCommand } from "./cli";
 import { ensureCustomCss, readCustomCss, watchCustomCss } from "./customCss";
 import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
-import { classifyPath, locationInWorkspace, pathsFromArgv } from "./openPaths";
+import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } from "./openPaths";
 import { findDocument, scanAttachments, scanWorkspace, stableId } from "./scanner";
 import { searchWorkspace } from "./search";
 import type { SearchResult } from "./search";
@@ -286,6 +286,35 @@ function registerIpcHandlers(): void {
     } as const;
     const [message, detail] = messages[result];
     await dialog.showMessageBox(win, { type: "warning", message, detail });
+  });
+
+  // The workspace folder, read once by the preload script (a new one reloads the page)
+  ipcMain.on("workspace:path", (event) => {
+    event.returnValue = isRendererUrl(event.senderFrame?.url ?? "") ? settings.workspace : null;
+  });
+
+  // A folder's context menu in the document list: Focus on Folder is the
+  // page's to apply; Open Folder as Workspace is done here
+  ipcMain.handle("folder:context-menu", async (event, location: unknown): Promise<"focus" | null> => {
+    assertTrustedSender(event);
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const folder =
+      settings.workspace === null || typeof location !== "string" ? null : await folderInWorkspace(settings.workspace, location);
+    if (win === null || folder === null) return null;
+    const choice = await new Promise<"focus" | "open" | null>((resolve) => {
+      Menu.buildFromTemplate([
+        { label: "Focus on Folder", click: () => resolve("focus") },
+        { type: "separator" },
+        { label: "Open Folder as Workspace", click: () => resolve("open") },
+      ]).popup({
+        window: win,
+        // Called when the menu closes, which can come before the item's
+        // click: give the click a moment to resolve first
+        callback: () => setTimeout(() => resolve(null), 100),
+      });
+    });
+    if (choice === "open") await openWorkspace(win, folder);
+    return choice === "focus" ? "focus" : null;
   });
 
   // A file or folder dropped on the window (the renderer resolves its path)
