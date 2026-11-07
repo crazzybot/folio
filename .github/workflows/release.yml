@@ -15,7 +15,7 @@ jobs:
   draft:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Check that the tag matches the app's version
         run: |
           version="v$(node -p 'require("./desktop/package.json").version')"
@@ -35,8 +35,8 @@ jobs:
     # Signing and notarization secrets live in this environment (tags v* only)
     environment: release
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -77,8 +77,8 @@ jobs:
             target: --linux
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
