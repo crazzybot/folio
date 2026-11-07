@@ -41,7 +41,6 @@ class DocumentMeta:
 # Helpers
 # ---------------------------------------------------------------------------
 
-_ATX_HEADING = re.compile(r"^#{1,6}\s+(.+)", re.MULTILINE)
 _MARKDOWN_EXTENSIONS = {".md", ".markdown"}
 # Titles and headings come from the top of the file; don't read huge files whole
 _HEAD_SCAN_CHARS = 256 * 1024
@@ -49,6 +48,9 @@ _MAX_HEADINGS = 200
 
 # One heading line: "## Text", optional closing #s; up to 3 spaces of indent
 _HEADING_LINE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
+# An HTML heading on one line, as READMEs centre their title: <h1 align="center">Name</h1>
+_HTML_HEADING_LINE = re.compile(r"^ {0,3}<h([1-6])(?:\s[^>]*)?>(.*?)</h\1\s*>", re.IGNORECASE)
+_HTML_TAG = re.compile(r"<[^>]*>")
 _FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 _LINK = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
 
@@ -106,7 +108,7 @@ def _plain_heading(raw: str) -> str:
 
 
 def extract_headings(text: str) -> tuple[Heading, ...]:
-    """ATX headings (# … ######) outside fenced code blocks, in document order."""
+    """ATX (# … ######) and one-line HTML headings outside fenced code blocks, in document order."""
     headings: list[Heading] = []
     fence: str | None = None
     for line in re.split(r"\r\n|\r|\n", split_front_matter(text)[0]):
@@ -122,12 +124,19 @@ def extract_headings(text: str) -> tuple[Heading, ...]:
         if fence is not None:
             continue
         match = _HEADING_LINE.match(line)
-        if not match:
-            continue
-        heading_text = _plain_heading(match.group(2))
+        if match:
+            raw = match.group(2)
+            level = len(match.group(1))
+        else:
+            match = _HTML_HEADING_LINE.match(line)
+            if not match:
+                continue
+            raw = _HTML_TAG.sub("", match.group(2))
+            level = int(match.group(1))
+        heading_text = _plain_heading(raw)
         if not heading_text:
             continue
-        headings.append(Heading(len(match.group(1)), heading_text))
+        headings.append(Heading(level, heading_text))
         if len(headings) >= _MAX_HEADINGS:
             break
     return tuple(headings)
@@ -137,23 +146,23 @@ def _extract_title(text: str | None, path: Path) -> str:
     """
     Return a human-readable title for the file using this priority:
       1. Front matter ``title:``
-      2. First ATX heading  (# Title)
+      2. First heading  (# Title or <h1>Title</h1>, not in a code block)
       3. First non-empty line
       4. Filename without extension
     """
     if text is None:
         return path.stem
-    text, title = split_front_matter(text)
+    body, title = split_front_matter(text)
     if title is not None:
         return title
 
-    # 2. ATX heading, as it reads: "About [[Note|the note]]" is "About the note"
-    match = _ATX_HEADING.search(text)
-    if match:
-        return _plain_heading(match.group(1)) or match.group(1).strip()
+    # 2. First heading, as it reads: "About [[Note|the note]]" is "About the note"
+    headings = extract_headings(text)
+    if headings:
+        return headings[0].text
 
     # 3. First non-empty line
-    for line in text.splitlines():
+    for line in body.splitlines():
         stripped = line.strip()
         if stripped:
             return stripped
