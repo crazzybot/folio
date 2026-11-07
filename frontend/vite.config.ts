@@ -13,6 +13,11 @@ export default defineConfig({
   build: {
     target: "es2022",
     sourcemap: true,
+    // The chunks above 500 kB are Mermaid's (its parser and the elk layout
+    // engine, ~1.5 MB), loaded only for documents with a diagram. The entry
+    // chunk is well under this; keep it that way by loading heavy libraries
+    // on demand (see MermaidDiagram.tsx, katexLoader.ts).
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
         // Function form: Vite 8 (Rolldown) doesn't accept the object form
