@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { BookmarkIcon } from "./MarksLayer";
 import styles from "./Outline.module.css";
 
 export interface OutlineHeading {
@@ -13,13 +14,23 @@ interface OutlineProps {
   /** The heading of the section being read, highlighted. */
   activeId: string | null;
   onSelect: (id: string) => void;
+  /** Highlights in each heading's section, by position in `headings`. */
+  highlightCounts?: readonly number[];
+  /** Whether each heading is bookmarked, by position in `headings`. */
+  bookmarked?: readonly boolean[];
 }
 
 /**
  * The open document's headings, indented by level, with the section being
  * read highlighted — like VS Code's Outline view.
  */
-export default function Outline({ headings, activeId, onSelect }: OutlineProps): React.ReactElement {
+export default function Outline({
+  headings,
+  activeId,
+  onSelect,
+  highlightCounts = [],
+  bookmarked = [],
+}: OutlineProps): React.ReactElement {
   const listRef = useRef<HTMLUListElement>(null);
   // Indent relative to the shallowest heading, so a document without an h1 isn't pushed right
   const minLevel = headings.reduce((min, h) => Math.min(min, h.level), 6);
@@ -46,21 +57,39 @@ export default function Outline({ headings, activeId, onSelect }: OutlineProps):
         <p className={styles.empty}>No headings in this document.</p>
       ) : (
         <ul className={styles.list} ref={listRef}>
-          {headings.map((h, i) => (
-            <li key={`${h.id}-${i}`}>
-              <button
-                type="button"
-                data-id={h.id}
-                className={`${styles.item} ${h.id === activeId ? styles.active : ""}`}
-                style={{ paddingLeft: `${12 + (h.level - minLevel) * 12}px` }}
-                aria-current={h.id === activeId ? "location" : undefined}
-                title={h.text}
-                onClick={() => onSelect(h.id)}
-              >
-                {h.text}
-              </button>
-            </li>
-          ))}
+          {headings.map((h, i) => {
+            const count = highlightCounts[i] ?? 0;
+            const marks = [
+              ...(bookmarked[i] === true ? ["bookmarked"] : []),
+              ...(count > 0 ? [`${count} ${count === 1 ? "highlight" : "highlights"}`] : []),
+            ];
+            return (
+              <li key={`${h.id}-${i}`}>
+                <button
+                  type="button"
+                  data-id={h.id}
+                  className={`${styles.item} ${h.id === activeId ? styles.active : ""}`}
+                  style={{ paddingLeft: `${12 + (h.level - minLevel) * 12}px` }}
+                  aria-current={h.id === activeId ? "location" : undefined}
+                  title={h.text}
+                  aria-label={marks.length > 0 ? `${h.text}, ${marks.join(", ")}` : undefined}
+                  onClick={() => onSelect(h.id)}
+                >
+                  <span className={styles.itemText}>{h.text}</span>
+                  {bookmarked[i] === true && (
+                    <span className={styles.bookmark} aria-hidden="true">
+                      <BookmarkIcon filled />
+                    </span>
+                  )}
+                  {count > 0 && (
+                    <span className={styles.marks} aria-hidden="true">
+                      {count}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </nav>

@@ -1,6 +1,6 @@
 # Marks: highlights, notes and bookmarks — and folder focus
 
-Status: design agreed. Phases 1 (folder focus) and 2 (store + highlights) implemented; 3–4 not started.
+Status: design agreed. Phases 1–3 implemented (folder focus; store + highlights; notes, bookmarks, Marks view); phase 4 not started.
 
 Folio stays read-only: marks never touch workspace files. They live in a
 separate data folder in the user's home, keyed so that the same file keeps its
@@ -142,15 +142,20 @@ Only records under the current workspace are visible.
 | Add a highlight | `POST /api/documents/{id}/highlights` | `marks:highlight-add` |
 | Change colour / note | `PATCH /api/documents/{id}/highlights/{hid}` | `marks:highlight-update` |
 | Delete a highlight | `DELETE /api/documents/{id}/highlights/{hid}` | `marks:highlight-delete` |
-| Add / remove a bookmark | `PUT` / `DELETE /api/documents/{id}/bookmarks/{key}` | `marks:bookmark-set` / `-delete` |
+| Add a bookmark | `POST /api/documents/{id}/bookmarks` | `marks:bookmark-add` |
+| Remove a bookmark | `DELETE /api/documents/{id}/bookmarks/{bid}` | `marks:bookmark-delete` |
 | Re-link a missing record | `POST /api/marks/{recordId}/relink` | `marks:relink` |
 | Delete a missing record | `DELETE /api/marks/{recordId}` | `marks:delete` |
 
 `GET /api/marks` returns `{ documents: [{ docId, location, highlights }] }`
-(phase 2); phase 3 adds `bookmarks` to each document, phase 4 a `missing`
-list (`[{ recordId, path, filename, bookmarks, highlights }]`). The frontend
+with `bookmarks` (phase 3) beside `highlights`; documents with either are
+listed. Phase 4 adds a `missing` list (`[{ recordId, path, filename,
+bookmarks, highlights }]`). The frontend
 loads all of it once, so there's no per-document endpoint.
-Bookmark `key` is `doc` or `h:<level>:<occurrence>:<text>` (URL-encoded).
+A bookmark is added with `{"heading": null}` (the document) or `{"heading":
+{text, level, occurrence}}` in the body — not as a key in the URL, since
+heading text can contain anything — and adding an existing one returns it.
+It's removed by its id.
 
 - **Item-level changes**, never whole-record replacement, so two windows don't
   overwrite each other.
@@ -171,15 +176,20 @@ Bookmark `key` is `doc` or `h:<level>:<occurrence>:<text>` (URL-encoded).
 
 - **Select text** → a small toolbar above the selection (below it at the top
   of the view): the **4 colour swatches** — one click highlights in that
-  colour — and **Copy**. Phase 3 adds **Add note**.
-- **Click a highlight** → popover: 4 colour swatches, the note (editable in
-  place), Delete.
-- Highlights with a note end in a small note icon; hovering it shows the note.
+  colour — **Add note** (highlights in the last colour and opens the note
+  editor) and **Copy**.
+- **Click a highlight** → popover: 4 colour swatches, Add / Edit note,
+  Remove, and the note below (click it to edit). The editor saves with
+  `⌘↩` / `Ctrl+Enter`, Save, or by clicking away; Escape cancels the edit.
+- Highlights with a note show a note icon in the right margin, level with
+  the highlight's last line (not after the text, which it would cover);
+  hovering shows the note, clicking opens the popover.
 - **Bookmark the document**: bookmark icon in the breadcrumb header.
   **Bookmark a heading**: icon that appears when hovering the heading.
 - Shortcuts: `⌘⇧H` / `Ctrl+Shift+H` highlights the selection in the last
   colour picked (yellow at first); `⌘D` / `Ctrl+D` toggles the document
-  bookmark (phase 3). Menu items for them come with phase 3.
+  bookmark. On desktop both are also in the Edit menu (Highlight Selection,
+  Bookmark Document), which shows the keys but leaves them to the page.
 
 Rendering: a new `annotation` layer in `searchHighlight.ts`, one
 `::highlight()` per colour, painted under the `search` and `find` layers.
@@ -198,34 +208,50 @@ a diagram finishes drawing.
 
 ### Marks view
 
-A **Documents | Marks** switch at the top of the sidebar.
+A **Documents | Marks** switch at the top of the sidebar, in place of its
+title; the Documents view stays mounted while hidden, so its search and
+folders are kept. It always lists the marks of every listed document (the
+workspace, or the focused folder); the open document's marks are in its
+outline instead of a "This document" scope, which made the header too
+crowded to read.
 
 ```
 [ Documents | Marks ]
-[ Filter marks…        ] [This document ▾]
-BOOKMARKS
-  ★ Setup guide
-  ★ Setup guide › Install
-HIGHLIGHTS & NOTES
-  ▾ Setup guide                 3
-     ▌"Run the installer as admin…"
-       ✎ Check this on Windows
-  ▸ Release process             5
+[ Filter marks…                    ✎ ]
+▾ Setup guide                    ★  3
+    ★ Install
+    ★ Troubleshooting
+    ▌"Run the installer as admin…"
+      ✎ Check this on Windows
+▸ Release process                   5
+  Changelog                      ★
 MISSING DOCUMENTS (1)
   ▸ old-notes.md — Locate… · Delete
 ```
 
-- **Scope**: This document / All documents (= the workspace, or the focused
-  folder). Remembered; "This document" follows the open document.
-- **Filter** matches quote and note text; a "Notes only" toggle is the only
-  other filter.
+- **Grouped by document**, each listed once: its row shows the title, a ★
+  when the document itself is bookmarked (click it to remove the bookmark)
+  and how many marks are under it. Under it, heading bookmarks named by
+  their heading (document order), then highlights and notes (text order).
+  Naming bookmarks by the document title, as a flat Bookmarks section did,
+  listed the same title several times without saying where each led.
+- Clicking a document row opens the document (top) and unfolds it; its
+  chevron folds or unfolds without opening. A document whose only mark is
+  its own bookmark has no chevron.
+
+- **Filter** matches quote and note text, heading text and document titles;
+  a **Notes only** toggle (✎ in the filter box) is the only other filter.
+- The open document's marks are tinted, and its highlights that can't be
+  found in the current text are shown as such.
 - Clicking an entry opens the document and scrolls to the mark; Back returns.
 - Order: document tree order, then position in the document.
 - The same keyboard navigation as the document list.
 
 ### Outline
 
-Sections containing highlights show a small count beside the heading.
+The open document's marks: bookmarked headings show a bookmark icon, and
+sections containing highlights a small count (counted from the highlights
+found in the rendered text).
 
 ### Not in the first version
 
@@ -238,9 +264,8 @@ candidate afterwards: **Export marks as Markdown** (per document or all).
 hovering a folder row, a folder segment in the breadcrumb, or (desktop) the
 folder row's context menu.
 
-- Narrows the document list, title / heading / full-text search and the Marks
-  "All documents" scope to that folder (filtered in the frontend; no API
-  change).
+- Narrows the document list, title / heading / full-text search and the
+  Marks view to that folder (filtered in the frontend; no API change).
 - The workspace doesn't change, so wiki links, images and document ids keep
   working.
 - A bar above the search box shows `notes / guides ✕`; ✕ or Escape in the

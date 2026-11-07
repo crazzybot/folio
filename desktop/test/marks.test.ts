@@ -58,8 +58,8 @@ async function refusal(promise: () => Promise<unknown>): Promise<number | null> 
 
 describe("listMarks", () => {
   it("lists the workspace marks like the shared fixture", async () => {
-    const expected = JSON.parse(readFileSync(path.join(MARKS, "expected-listing.json"), "utf8"));
-    expected.documents[0].docId = stableId("docs/plain.md");
+    const raw = readFileSync(path.join(MARKS, "expected-listing.json"), "utf8");
+    const expected = JSON.parse(raw.replace(/\{ID ([^}]+)\}/g, (_m, location: string) => stableId(location)));
     const docs = await scanWorkspace(WORKSPACE, SKIP);
     expect(await listMarks(store, WORKSPACE, docs)).toEqual(expected);
   });
@@ -67,7 +67,10 @@ describe("listMarks", () => {
   it("finds the same marks from a subfolder workspace", async () => {
     const docsFolder = path.join(WORKSPACE, "docs");
     const listing = await listMarks(store, docsFolder, await scanWorkspace(docsFolder, SKIP));
-    expect(listing.documents.map((d) => [d.location, d.docId])).toEqual([["plain.md", stableId("plain.md")]]);
+    expect(listing.documents.map((d) => [d.location, d.docId])).toEqual([
+      ["guides/setup.markdown", stableId("guides/setup.markdown")],
+      ["plain.md", stableId("plain.md")],
+    ]);
   });
 });
 
@@ -87,8 +90,38 @@ describe("MarksStore", () => {
 
     await store.deleteHighlight(PLAIN, plainContent(), added.id);
     await store.deleteHighlight(PLAIN, plainContent(), "a1b2c3d4e5f60718");
+    // The document bookmark keeps the record
+    expect(recordOf(PLAIN)).not.toBeNull();
+    await store.deleteBookmark(PLAIN, plainContent(), "b0b1b2b3b4b5b6b7");
     // No marks left: the record is removed
     expect(recordOf(PLAIN)).toBeNull();
+  });
+
+  it("adds and deletes bookmarks", async () => {
+    const heading = { text: "Second line", level: 2, occurrence: 1 };
+    const bookmark = await store.addBookmark(PLAIN, plainContent(), { heading });
+    expect([bookmark.heading, bookmark.id.length]).toEqual([heading, 16]);
+    // Bookmarking again returns the same bookmark
+    expect(await store.addBookmark(PLAIN, plainContent(), { heading })).toEqual(bookmark);
+    expect((await store.addBookmark(PLAIN, plainContent(), { heading: null })).id).toBe("b0b1b2b3b4b5b6b7");
+    const record = recordOf(PLAIN) as { bookmarks: { id: string }[] };
+    expect(record.bookmarks.map((b) => b.id)).toEqual(["b0b1b2b3b4b5b6b7", bookmark.id]);
+
+    await store.deleteBookmark(PLAIN, plainContent(), bookmark.id);
+    expect(await refusal(() => store.deleteBookmark(PLAIN, plainContent(), bookmark.id))).toBe(404);
+  });
+
+  it("creates the record of a document bookmarked without other marks", async () => {
+    const file = path.join(WORKSPACE, "docs", "html-title.md");
+    await store.addBookmark(file, readFileSync(file, "utf8"), { heading: null });
+    expect((recordOf(file) as { highlights: unknown[] }).highlights).toEqual([]);
+  });
+
+  const invalidBookmarks = JSON.parse(readFileSync(path.join(MARKS, "invalid-bookmarks.json"), "utf8")) as [string, unknown][];
+  it.each(invalidBookmarks)("refuses a bookmark with %s", async (_name, body) => {
+    const before = recordOf(PLAIN);
+    expect(await refusal(() => store.addBookmark(PLAIN, plainContent(), body))).toBe(400);
+    expect(recordOf(PLAIN)).toEqual(before);
   });
 
   const invalid = JSON.parse(readFileSync(path.join(MARKS, "invalid-highlights.json"), "utf8")) as [string, unknown][];
@@ -112,7 +145,8 @@ describe("MarksStore", () => {
   it("leaves damaged records alone", async () => {
     const file = path.join(dataDir, "marks", `${recordId(PLAIN)}.json`);
     writeFileSync(file, "{ not json");
-    expect((await listMarks(store, WORKSPACE, await scanWorkspace(WORKSPACE, SKIP))).documents).toEqual([]);
+    const listed = (await listMarks(store, WORKSPACE, await scanWorkspace(WORKSPACE, SKIP))).documents;
+    expect(listed.map((d) => d.location)).not.toContain("docs/plain.md");
     expect(await refusal(() => store.addHighlight(PLAIN, plainContent(), highlight()))).toBe(409);
     expect(readFileSync(file, "utf8")).toBe("{ not json");
   });

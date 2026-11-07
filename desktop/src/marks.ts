@@ -1,5 +1,5 @@
 /**
- * marks.ts — Highlights (and, later, bookmarks) kept outside the workspace.
+ * marks.ts — Highlights, notes and bookmarks, kept outside the workspace.
  *
  * Folio never writes to documents. Marks live in `<data dir>/marks/`
  * (~/.folio, %USERPROFILE%\.folio on Windows), one JSON record per
@@ -23,6 +23,8 @@ const MAX_EXACT = 20_000; // characters of highlighted text
 const MAX_CONTEXT = 64; // characters of prefix / suffix
 const MAX_NOTE = 10_000;
 const MAX_HIGHLIGHTS = 1_000; // per document
+const MAX_BOOKMARKS = 1_000; // per document
+const MAX_HEADING_TEXT = 1_000;
 
 // Paths differ only by case on these platforms' default file systems
 const CASE_INSENSITIVE = process.platform === "darwin" || process.platform === "win32";
@@ -39,11 +41,25 @@ export interface Highlight {
   updated: string;
 }
 
+/** A bookmarked heading: its text, level and which of the same-text, same-level headings. */
+export interface BookmarkHeading {
+  text: string;
+  level: number;
+  occurrence: number;
+}
+
+export interface Bookmark {
+  id: string;
+  /** null: the document itself. */
+  heading: BookmarkHeading | null;
+  created: string;
+}
+
 export interface MarksRecord {
   version: number;
   path: string;
   fingerprint: { sha1: string; size: number; filename: string };
-  bookmarks: unknown[];
+  bookmarks: Bookmark[];
   highlights: Highlight[];
 }
 
@@ -127,6 +143,33 @@ function note(value: unknown): string | null {
   return text.trim() === "" ? null : text;
 }
 
+function heading(value: unknown): BookmarkHeading | null {
+  if (value === null || value === undefined) return null;
+  if (!isObject(value)) throw new MarkError(400, "heading must be an object or null");
+  const level = value["level"];
+  if (typeof level !== "number" || !Number.isInteger(level) || level < 1 || level > 6) {
+    throw new MarkError(400, "heading.level must be an integer from 1 to 6");
+  }
+  return {
+    text: string(value["text"], "heading.text", MAX_HEADING_TEXT, 1),
+    level,
+    occurrence: offset(value["occurrence"] ?? 0, "heading.occurrence"),
+  };
+}
+
+function sameHeading(a: BookmarkHeading | null, b: BookmarkHeading | null): boolean {
+  return a === null || b === null ? a === b : a.text === b.text && a.level === b.level && a.occurrence === b.occurrence;
+}
+
+/** A parsed record that can be used: highlights and (if present) bookmarks are lists. */
+function isRecord(value: unknown): value is MarksRecord {
+  return (
+    isObject(value) &&
+    Array.isArray(value["highlights"]) &&
+    (value["bookmarks"] === undefined || Array.isArray(value["bookmarks"]))
+  );
+}
+
 function now(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 }
@@ -192,10 +235,8 @@ export class MarksStore {
     } catch {
       record = null;
     }
-    if (!isObject(record) || !Array.isArray(record["highlights"])) {
-      throw new MarkError(409, "This document's marks file is damaged; it was left as it is");
-    }
-    return record as unknown as MarksRecord;
+    if (!isRecord(record)) throw new MarkError(409, "This document's marks file is damaged; it was left as it is");
+    return { ...record, bookmarks: record.bookmarks ?? [] };
   }
 
   private async writable(id: string): Promise<MarksRecord | null> {
@@ -231,8 +272,8 @@ export class MarksStore {
     for (const name of names) {
       try {
         const record: unknown = JSON.parse(await fs.readFile(path.join(this.folder, name), "utf8"));
-        if (isObject(record) && record["version"] === VERSION && typeof record["path"] === "string") {
-          found.push(record as unknown as MarksRecord);
+        if (isRecord(record) && record.version === VERSION && typeof record.path === "string") {
+          found.push({ ...record, bookmarks: record.bookmarks ?? [] });
         }
       } catch {
         // Unreadable: skipped
@@ -294,6 +335,36 @@ export class MarksStore {
       await this.write(id, refreshed({ ...(record as MarksRecord), highlights: rest }, file, content));
     });
   }
+
+  /** Bookmark the document (`{heading: null}`) or a heading; an existing bookmark is returned as it is. */
+  addBookmark(file: string, content: string, body: unknown): Promise<Bookmark> {
+    if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
+    const target = heading(body["heading"]);
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = (await this.writable(id)) ?? emptyRecord();
+      const existing = record.bookmarks.find((b) => sameHeading(b.heading, target));
+      if (existing !== undefined) return existing;
+      if (record.bookmarks.length >= MAX_BOOKMARKS) {
+        throw new MarkError(409, `A document can have at most ${MAX_BOOKMARKS} bookmarks`);
+      }
+      const bookmark: Bookmark = { id: randomBytes(8).toString("hex"), heading: target, created: now() };
+      record.bookmarks.push(bookmark);
+      await this.write(id, refreshed(record, file, content));
+      return bookmark;
+    });
+  }
+
+  deleteBookmark(file: string, content: string, bookmarkId: string): Promise<void> {
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = await this.writable(id);
+      const bookmark = record?.bookmarks.find((b) => b.id === bookmarkId);
+      if (record === null || bookmark === undefined) throw new MarkError(404, `Bookmark '${bookmarkId}' not found`);
+      const rest = record.bookmarks.filter((b) => b !== bookmark);
+      await this.write(id, refreshed({ ...record, bookmarks: rest }, file, content));
+    });
+  }
 }
 
 function emptyRecord(): MarksRecord {
@@ -313,7 +384,7 @@ function refreshed(record: MarksRecord, file: string, content: string): MarksRec
     version: VERSION,
     path: realPath(file),
     fingerprint: { sha1: createHash("sha1").update(data).digest("hex"), size: data.length, filename: path.basename(file) },
-    bookmarks: record.bookmarks ?? [],
+    bookmarks: record.bookmarks,
     highlights: record.highlights,
   };
 }
@@ -321,11 +392,12 @@ function refreshed(record: MarksRecord, file: string, content: string): MarksRec
 export interface DocumentMarks {
   docId: string;
   location: string;
+  bookmarks: Bookmark[];
   highlights: Highlight[];
 }
 
 /**
- * Marks of the listed `documents` (a workspace scan) that have any, in list
+ * Bookmarks and highlights of the listed `documents` (a workspace scan) that have any, in list
  * order — what GET /api/marks returns.
  */
 export async function listMarks(
@@ -337,8 +409,8 @@ export async function listMarks(
   const listed: DocumentMarks[] = [];
   for (const doc of documents) {
     const record = records.get(locationKey(doc.location));
-    if (record !== undefined && record.highlights.length > 0) {
-      listed.push({ docId: doc.id, location: doc.location, highlights: record.highlights });
+    if (record !== undefined && (record.highlights.length > 0 || record.bookmarks.length > 0)) {
+      listed.push({ docId: doc.id, location: doc.location, bookmarks: record.bookmarks, highlights: record.highlights });
     }
   }
   return { documents: listed };

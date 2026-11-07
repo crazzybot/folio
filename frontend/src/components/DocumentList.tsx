@@ -87,6 +87,10 @@ interface DocumentListProps {
   onFocusChange: (folder: string | null) => void;
   /** Number of highlights by document id (documents without any are absent). */
   highlightCounts?: ReadonlyMap<string, number>;
+  /** Documents bookmarked as a whole. */
+  bookmarkedIds?: ReadonlySet<string>;
+  /** The sidebar's Documents | Marks switch, shown in place of the title. */
+  tabs?: React.ReactNode;
 }
 
 type ContentSearch =
@@ -114,6 +118,8 @@ export default function DocumentList({
   focus,
   onFocusChange,
   highlightCounts = NO_COUNTS,
+  bookmarkedIds = NO_IDS,
+  tabs,
 }: DocumentListProps): React.ReactElement {
   const [query, setQuery] = useState("");
   const [lastContentSearch, setLastContentSearch] = useState<ContentSearchResult | null>(null);
@@ -414,7 +420,7 @@ export default function DocumentList({
     <div className={styles.container}>
       {/* ── Header ── */}
       <header className={styles.header}>
-        <h1 className={styles.heading}>Documents</h1>
+        {tabs ?? <h1 className={styles.heading}>Documents</h1>}
         <button
           type="button"
           className={`${styles.headerBtn} ${grouped ? styles.headerBtnOn : ""}`}
@@ -593,6 +599,7 @@ export default function DocumentList({
                 onFocus={() => setFocusKey(row.key)}
                 onActivate={() => activate(row)}
                 onFocusFolder={onFocusChange}
+                bookmarked={row.kind === "document" && bookmarkedIds.has(row.doc.id)}
                 highlightCount={
                   row.kind === "document"
                     ? (highlightCounts.get(row.doc.id) ?? 0)
@@ -629,6 +636,8 @@ interface RowItemProps {
   onFocusFolder: (folder: string) => void;
   /** A document's highlights; for a folder, more than 0 when something inside has any. */
   highlightCount: number;
+  /** A document bookmarked as a whole. */
+  bookmarked: boolean;
 }
 
 function RowItem({
@@ -641,6 +650,7 @@ function RowItem({
   onActivate,
   onFocusFolder,
   highlightCount,
+  bookmarked,
 }: RowItemProps): React.ReactElement {
   if (row.kind === "more") {
     return (
@@ -727,13 +737,18 @@ function RowItem({
         className={`${styles.entry} ${selected ? styles.entrySelected : ""}`}
         style={tree ? { paddingLeft: TREE_PADDING + row.level * INDENT + CHEVRON } : undefined}
         aria-selected={selected}
-        aria-label={`${doc.title} — ${doc.location}${matches}${marked}`}
+        aria-label={`${doc.title} — ${doc.location}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
         title={doc.location}
       >
         <MarkdownIcon className={styles.entryIcon} />
         <span className={styles.entryTitle}>{doc.title}</span>
         {hint && <span className={styles.entryFolder}>{hint}</span>}
         {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}
+        {bookmarked && (
+          <svg className={styles.bookmarked} width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M4 2h8v12l-4-3-4 3z" fill="currentColor" />
+          </svg>
+        )}
         {matchCount === null && highlightCount > 0 && (
           <span className={styles.marksCount} title={marked.slice(3)} aria-hidden="true">
             <span className={styles.marksDot} />
@@ -781,3 +796,4 @@ function RowItem({
 
 const LEAD_CHARS = 12;
 const NO_COUNTS: ReadonlyMap<string, number> = new Map();
+const NO_IDS: ReadonlySet<string> = new Set();

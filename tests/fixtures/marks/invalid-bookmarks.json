@@ -1,0 +1,83 @@
+[
+ [
+  "not an object",
+  [
+   "doc"
+  ]
+ ],
+ [
+  "a heading that isn't an object",
+  {
+   "heading": "Install"
+  }
+ ],
+ [
+  "a heading without text",
+  {
+   "heading": {
+    "level": 2,
+    "occurrence": 0
+   }
+  }
+ ],
+ [
+  "an empty heading text",
+  {
+   "heading": {
+    "text": "",
+    "level": 2,
+    "occurrence": 0
+   }
+  }
+ ],
+ [
+  "a heading text over 1000 characters",
+  {
+   "heading": {
+    "text": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt",
+    "level": 2,
+    "occurrence": 0
+   }
+  }
+ ],
+ [
+  "level 0",
+  {
+   "heading": {
+    "text": "x",
+    "level": 0,
+    "occurrence": 0
+   }
+  }
+ ],
+ [
+  "level 7",
+  {
+   "heading": {
+    "text": "x",
+    "level": 7,
+    "occurrence": 0
+   }
+  }
+ ],
+ [
+  "a boolean level",
+  {
+   "heading": {
+    "text": "x",
+    "level": true,
+    "occurrence": 0
+   }
+  }
+ ],
+ [
+  "a negative occurrence",
+  {
+   "heading": {
+    "text": "x",
+    "level": 2,
+    "occurrence": -1
+   }
+  }
+ ]
+]

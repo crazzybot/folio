@@ -46,7 +46,7 @@ export interface NavigationState {
   canGoForward: boolean;
 }
 
-// ─── Marks (GET /api/marks, /api/documents/{id}/highlights) ────────────────
+// ─── Marks (GET /api/marks, /api/documents/{id}/highlights and /bookmarks) ──
 
 export const HIGHLIGHT_COLORS = ["yellow", "green", "blue", "pink"] as const;
 export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number];
@@ -65,10 +65,25 @@ export interface Highlight extends TextAnchor {
   updated: string;
 }
 
+/** A bookmarked heading: its text, level and which of the same-text, same-level headings (0 = first). */
+export interface BookmarkHeading {
+  text: string;
+  level: number;
+  occurrence: number;
+}
+
+export interface Bookmark {
+  id: string;
+  /** null: the document itself. */
+  heading: BookmarkHeading | null;
+  created: string; // ISO-8601
+}
+
 /** A document that has marks. */
 export interface DocumentMarks {
   docId: string;
   location: string;
+  bookmarks: Bookmark[];
   highlights: Highlight[];
 }
 

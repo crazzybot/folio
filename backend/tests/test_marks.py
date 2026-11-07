@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -58,15 +59,18 @@ def _highlight(**changes):
 
 
 def test_lists_the_workspace_marks_like_the_shared_fixture(client):
-    expected = json.loads((MARKS / "expected-listing.json").read_text(encoding="utf-8"))
-    expected["documents"][0]["docId"] = PLAIN
+    raw = (MARKS / "expected-listing.json").read_text(encoding="utf-8")
+    expected = json.loads(re.sub(r"\{ID ([^}]+)\}", lambda m: _stable_id(m[1]), raw))
     assert client.get("/api/marks").json() == expected
 
 
 def test_finds_the_same_marks_from_a_subfolder_workspace(client, monkeypatch):
     monkeypatch.setenv("MARKDOWN_WORKSPACE", str(WORKSPACE / "docs"))
-    [doc] = client.get("/api/marks").json()["documents"]
-    assert (doc["location"], doc["docId"]) == ("plain.md", _stable_id("plain.md"))
+    docs = client.get("/api/marks").json()["documents"]
+    assert [(d["location"], d["docId"]) for d in docs] == [
+        ("guides/setup.markdown", _stable_id("guides/setup.markdown")),
+        ("plain.md", _stable_id("plain.md")),
+    ]
 
 
 def test_adds_updates_and_deletes_a_highlight(client, data_dir):
@@ -86,9 +90,42 @@ def test_adds_updates_and_deletes_a_highlight(client, data_dir):
 
     assert client.delete(f"/api/documents/{PLAIN}/highlights/{added['id']}").status_code == 204
     assert client.delete(f"/api/documents/{PLAIN}/highlights/a1b2c3d4e5f60718").status_code == 204
+    # The document bookmark keeps it listed
+    assert [d["location"] for d in client.get("/api/marks").json()["documents"]][-1] == "docs/plain.md"
+    assert client.delete(f"/api/documents/{PLAIN}/bookmarks/b0b1b2b3b4b5b6b7").status_code == 204
     # No marks left: the record is removed
     assert _record(data_dir, "docs/plain.md") is None
-    assert client.get("/api/marks").json() == {"documents": []}
+    assert [d["location"] for d in client.get("/api/marks").json()["documents"]] == ["docs/guides/setup.markdown"]
+
+
+def test_adds_and_deletes_bookmarks(client, data_dir):
+    heading = {"text": "Second line", "level": 2, "occurrence": 1}
+    res = client.post(f"/api/documents/{PLAIN}/bookmarks", json={"heading": heading})
+    assert res.status_code == 200
+    bookmark = res.json()
+    assert bookmark["heading"] == heading and len(bookmark["id"]) == 16
+    # Bookmarking again returns the same bookmark
+    assert client.post(f"/api/documents/{PLAIN}/bookmarks", json={"heading": heading}).json() == bookmark
+    assert client.post(f"/api/documents/{PLAIN}/bookmarks", json={"heading": None}).json()["id"] == "b0b1b2b3b4b5b6b7"
+    assert [b["id"] for b in _record(data_dir, "docs/plain.md")["bookmarks"]] == ["b0b1b2b3b4b5b6b7", bookmark["id"]]
+
+    assert client.delete(f"/api/documents/{PLAIN}/bookmarks/{bookmark['id']}").status_code == 204
+    assert client.delete(f"/api/documents/{PLAIN}/bookmarks/{bookmark['id']}").status_code == 404
+
+
+def test_bookmarking_a_document_without_marks_creates_its_record(client, data_dir):
+    index = _stable_id("docs/html-title.md")
+    assert client.post(f"/api/documents/{index}/bookmarks", json={"heading": None}).status_code == 200
+    assert _record(data_dir, "docs/html-title.md")["highlights"] == []
+
+
+@pytest.mark.parametrize(
+    "case", json.loads((MARKS / "invalid-bookmarks.json").read_text(encoding="utf-8")), ids=lambda c: c[0]
+)
+def test_refuses_invalid_bookmarks(client, data_dir, case):
+    before = _record(data_dir, "docs/plain.md")
+    assert client.post(f"/api/documents/{PLAIN}/bookmarks", json=case[1]).status_code == 400
+    assert _record(data_dir, "docs/plain.md") == before
 
 
 @pytest.mark.parametrize(
@@ -125,7 +162,7 @@ def test_leaves_records_of_a_newer_version_alone(client, data_dir):
 def test_leaves_damaged_records_alone(client, data_dir):
     file = data_dir / "marks" / f"{record_id(WORKSPACE / 'docs/plain.md')}.json"
     file.write_text("{ not json", encoding="utf-8")
-    assert client.get("/api/marks").json() == {"documents": []}
+    assert "docs/plain.md" not in [d["location"] for d in client.get("/api/marks").json()["documents"]]
     assert client.post(f"/api/documents/{PLAIN}/highlights", json=_highlight()).status_code == 409
     assert file.read_text(encoding="utf-8") == "{ not json"
 

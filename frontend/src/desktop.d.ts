@@ -1,4 +1,4 @@
-import type { DocumentContent, DocumentMeta, Highlight, MarksListing, NavigationState, SearchResult } from "./types";
+import type { Bookmark, DocumentContent, DocumentMeta, Highlight, MarksListing, NavigationState, SearchResult } from "./types";
 
 /** The desktop settings the in-app panel shows (desktop/src/main.ts settingsView). */
 export interface DesktopSettings {
@@ -47,7 +47,10 @@ interface MarkdownDesktopApi {
     onChange(callback: (settings: DesktopSettings) => void): () => void;
     onShow(callback: () => void): () => void;
   };
-  /** Subscribe to Edit menu commands ("open", "next", "previous", "search-text"); returns an unsubscribe function. */
+  /**
+   * Subscribe to Edit menu commands ("open", "next", "previous", "search-text",
+   * "highlight", "bookmark"); returns an unsubscribe function.
+   */
   onFindCommand(callback: (command: string) => void): () => void;
   /** The user's custom.css (View → Edit Custom CSS…), or null. */
   getCustomCss(): Promise<string | null>;
@@ -67,12 +70,14 @@ interface MarkdownDesktopApi {
   openPath(target: string): Promise<void>;
   /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */
   onWorkspaceChange(callback: () => void): () => void;
-  /** Highlights, kept by the main process in ~/.folio/marks (desktop/src/marks.ts). */
+  /** Highlights and bookmarks, kept by the main process in ~/.folio/marks (desktop/src/marks.ts). */
   marks: {
     list(): Promise<MarksListing>;
     addHighlight(docId: string, body: unknown): Promise<Highlight>;
     updateHighlight(docId: string, highlightId: string, body: unknown): Promise<Highlight>;
     deleteHighlight(docId: string, highlightId: string): Promise<void>;
+    addBookmark(docId: string, body: unknown): Promise<Bookmark>;
+    deleteBookmark(docId: string, bookmarkId: string): Promise<void>;
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */
     onChange(callback: () => void): () => void;
   };

@@ -35,7 +35,9 @@
 }
 
 .item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   height: 22px;
   padding-right: var(--space-3);
@@ -51,6 +53,48 @@
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
+}
+
+.itemText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A bookmarked heading: at the end, before its highlight count */
+.bookmark {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: flex;
+  color: var(--color-accent);
+}
+
+.bookmark svg {
+  width: 12px;
+  height: 12px;
+}
+
+.bookmark + .marks {
+  margin-left: 0;
+}
+
+/* Highlights in the section: a dot and a count at the end */
+.marks {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+.marks::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--mark-yellow-swatch);
 }
 
 .item:hover {

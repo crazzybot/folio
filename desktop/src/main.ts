@@ -41,7 +41,7 @@ import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
 import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } from "./openPaths";
 import { defaultDataDir, listMarks, MarksStore } from "./marks";
-import type { DocumentMarks, Highlight } from "./marks";
+import type { Bookmark, DocumentMarks, Highlight } from "./marks";
 import { findDocument, scanAttachments, scanWorkspace, stableId } from "./scanner";
 import { searchWorkspace } from "./search";
 import type { SearchResult } from "./search";
@@ -252,7 +252,7 @@ function registerIpcHandlers(): void {
     return searchWorkspace(settings.workspace, query, scanOptions());
   });
 
-  // Marks — mirrors GET /api/marks and /api/documents/{id}/highlights[/{hid}]
+  // Marks — mirrors GET /api/marks, /api/documents/{id}/highlights[/{hid}] and /bookmarks[/{bid}]
   ipcMain.handle("marks:list", async (event): Promise<{ documents: DocumentMarks[] }> => {
     assertTrustedSender(event);
     if (settings.workspace === null) return { documents: [] };
@@ -281,6 +281,20 @@ function registerIpcHandlers(): void {
     if (typeof highlightId !== "string") throw new Error("Highlight id must be a string");
     const { file, content } = await markedDocument(docId);
     await marks.deleteHighlight(file, content, highlightId);
+    notifyMarksChanged();
+  });
+  ipcMain.handle("marks:bookmark-add", async (event, docId: unknown, body: unknown): Promise<Bookmark> => {
+    assertTrustedSender(event);
+    const { file, content } = await markedDocument(docId);
+    const bookmark = await marks.addBookmark(file, content, body);
+    notifyMarksChanged();
+    return bookmark;
+  });
+  ipcMain.handle("marks:bookmark-delete", async (event, docId: unknown, bookmarkId: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    if (typeof bookmarkId !== "string") throw new Error("Bookmark id must be a string");
+    const { file, content } = await markedDocument(docId);
+    await marks.deleteBookmark(file, content, bookmarkId);
     notifyMarksChanged();
   });
 
@@ -904,14 +918,17 @@ function buildMenu(): Menu {
         { role: "copy" },
         { role: "selectAll" },
         { type: "separator" },
-        // The page handles these keys itself (find bar, sidebar search); the
-        // menu shows them and works by click, without taking the keys
+        // The page handles these keys itself (find bar, sidebar search,
+        // highlights and bookmarks); the menu shows them and works by click,
+        // without taking the keys
         ...(
           [
             ["Find…", "CmdOrCtrl+F", "open"],
             ["Find Next", isMac ? "Cmd+G" : "F3", "next"],
             ["Find Previous", isMac ? "Shift+Cmd+G" : "Shift+F3", "previous"],
             ["Search Document Text…", "Shift+CmdOrCtrl+F", "search-text"],
+            ["Highlight Selection", "Shift+CmdOrCtrl+H", "highlight"],
+            ["Bookmark Document", "CmdOrCtrl+D", "bookmark"],
           ] as const
         ).map(
           ([label, accelerator, command]): MenuItemConstructorOptions => ({
