@@ -37,6 +37,29 @@
   white-space: nowrap;
 }
 
+/* A folder that focuses the document list: text-sized, so the measured
+   (plain) copy stays the same width */
+.folderBtn {
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  /* Clickable inside the header's window drag area */
+  -webkit-app-region: no-drag;
+}
+
+.folderBtn:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+.folderBtn:focus-visible {
+  outline: 1px solid var(--color-accent);
+}
+
 .separator {
   flex-shrink: 0;
   color: var(--color-text-subtle);

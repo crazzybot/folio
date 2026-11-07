@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.send("view-state:set", key, value);
     },
   },
+  // Fixed for the page's life: opening another workspace reloads the page
+  workspacePath: ipcRenderer.sendSync("workspace:path") as string | null,
   // Workspace images are served by the main process (images.ts) from the app's origin
   workspaceFileBaseUrl: "app://bundle/@workspace/",
   listDocuments: () => ipcRenderer.invoke("documents:list"),
@@ -119,4 +121,6 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.removeListener("workspace:changed", listener);
     };
   },
+  /** A folder's context menu in the document list; resolves "focus" or null. */
+  showFolderMenu: (location: string) => ipcRenderer.invoke("folder:context-menu", location),
 });

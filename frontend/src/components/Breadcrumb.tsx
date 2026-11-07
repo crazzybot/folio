@@ -5,6 +5,8 @@ import styles from "./Breadcrumb.module.css";
 interface BreadcrumbProps {
   /** Relative document path, e.g. "samples/code-demo.md", or null for none. */
   location: string | null;
+  /** Focus the document list on a folder of the path ("docs/api"); folders aren't clickable without it. */
+  onFolderClick?: (folder: string) => void;
 }
 
 /**
@@ -14,8 +16,10 @@ interface BreadcrumbProps {
  * a single "…" (its tooltip shows them) so the folders nearest the document
  * and the filename stay readable. Item widths come from an invisible copy
  * of the full path, re-measured on resize.
+ *
+ * Clicking a folder focuses the document list on it (Focus on Folder).
  */
-export default function Breadcrumb({ location }: BreadcrumbProps): React.ReactElement {
+export default function Breadcrumb({ location, onFolderClick }: BreadcrumbProps): React.ReactElement {
   const parts = location !== null ? location.split("/") : [];
   const filename = parts[parts.length - 1] ?? "";
   const folders = parts.slice(0, -1);
@@ -72,9 +76,17 @@ export default function Breadcrumb({ location }: BreadcrumbProps): React.ReactEl
           {hiddenFolders.length > 0 && (
             <FolderItem name="…" title={hiddenFolders.join("/")} />
           )}
-          {visibleFolders.map((name, i) => (
-            <FolderItem key={hiddenCount + i} name={name} />
-          ))}
+          {visibleFolders.map((name, i) => {
+            const folder = folders.slice(0, hiddenCount + i + 1).join("/");
+            return (
+              <FolderItem
+                key={hiddenCount + i}
+                name={name}
+                onClick={onFolderClick && (() => onFolderClick(folder))}
+                title={onFolderClick && `Show only documents in ${folder}`}
+              />
+            );
+          })}
           <FileItem name={filename} title={location} />
         </>
       )}
@@ -84,10 +96,22 @@ export default function Breadcrumb({ location }: BreadcrumbProps): React.ReactEl
 
 // ─── Items ────────────────────────────────────────────────────────────────────
 
-function FolderItem({ name, title }: { name: string; title?: string }): React.ReactElement {
+interface FolderItemProps {
+  name: string;
+  title?: string | undefined;
+  onClick?: (() => void) | undefined;
+}
+
+function FolderItem({ name, title, onClick }: FolderItemProps): React.ReactElement {
   return (
     <span className={styles.item} title={title}>
-      <span className={styles.folder}>{name}</span>
+      {onClick ? (
+        <button type="button" className={`${styles.folder} ${styles.folderBtn}`} onClick={onClick}>
+          {name}
+        </button>
+      ) : (
+        <span className={styles.folder}>{name}</span>
+      )}
       <svg className={styles.separator} width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
         <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.2" fill="none" />
       </svg>

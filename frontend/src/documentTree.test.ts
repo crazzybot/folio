@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDocumentTree, foldersContaining } from "./documentTree";
+import { buildDocumentTree, documentsInFolder, foldersContaining } from "./documentTree";
 import type { TreeNode } from "./documentTree";
 import type { DocumentMeta } from "./types";
 
@@ -88,5 +88,28 @@ describe("foldersContaining", () => {
     expect(foldersContaining(tree, "a/b/c/x.md")).toEqual(["a", "a/b/c"]);
     expect(foldersContaining(tree, "a/z.md")).toEqual(["a"]);
     expect(foldersContaining(tree, "top.md")).toEqual([]);
+  });
+});
+
+const focusDocs = ["README.md", "docs/index.md", "docs/api/v2.md", "docs-old/notes.md", "guides/setup.md"].map(doc);
+
+const locations = (list: DocumentMeta[]) => list.map((d) => d.location);
+
+describe("documentsInFolder", () => {
+  it("keeps every document without a focus", () => {
+    expect(documentsInFolder(focusDocs, null)).toBe(focusDocs);
+  });
+
+  it("keeps documents at any depth inside the folder", () => {
+    expect(locations(documentsInFolder(focusDocs, "docs"))).toEqual(["docs/index.md", "docs/api/v2.md"]);
+  });
+
+  it("doesn't match folders that only share a prefix", () => {
+    expect(locations(documentsInFolder(focusDocs, "docs/api"))).toEqual(["docs/api/v2.md"]);
+    expect(locations(documentsInFolder(focusDocs, "doc"))).toEqual([]);
+  });
+
+  it("is empty for a folder without documents", () => {
+    expect(documentsInFolder(focusDocs, "missing")).toEqual([]);
   });
 });

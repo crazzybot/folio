@@ -110,3 +110,10 @@ export function foldersContaining(tree: readonly TreeNode[], location: string): 
   }
   return [];
 }
+
+/** Documents inside `folder` ("docs/api"), at any depth; all of them when null (Focus on Folder). */
+export function documentsInFolder(documents: DocumentMeta[], folder: string | null): DocumentMeta[] {
+  if (folder === null) return documents;
+  const prefix = folder + "/";
+  return documents.filter((doc) => doc.location.startsWith(prefix));
+}

@@ -64,6 +64,59 @@
   outline: 1px solid var(--color-accent);
 }
 
+/* ─── Focused folder ──────────────────────────────────────────────────────── */
+/* Above the search box while the list is focused on one folder */
+.focusBar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 var(--space-3) var(--space-2);
+  padding: 0 2px 0 7px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-dim);
+  font-size: var(--text-ui);
+}
+
+.focusIcon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.focusLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+
+.focusClear {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.focusClear:hover {
+  color: var(--color-text);
+  background: var(--color-hover-bg);
+}
+
+.focusClear:focus-visible {
+  outline: 1px solid var(--color-accent);
+}
+
 /* ─── Search ──────────────────────────────────────────────────────────────── */
 .searchWrapper {
   flex-shrink: 0;
@@ -315,6 +368,33 @@
 
 .chevronOpen {
   transform: rotate(90deg);
+}
+
+/* Focus on folder: at the row's end, shown while the row is hovered */
+.rowAction {
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+}
+
+.folderEntry:hover .rowAction {
+  visibility: visible;
+}
+
+.rowAction:hover {
+  color: var(--color-text);
+  background: var(--color-hover-bg);
 }
 
 @media (prefers-reduced-motion: reduce) {
