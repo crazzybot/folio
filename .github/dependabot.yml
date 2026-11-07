@@ -28,6 +28,10 @@ updates:
   - package-ecosystem: docker
     directories: [/backend, /frontend]
     schedule: { interval: weekly }
+    ignore:
+      # Odd-numbered Node releases never become LTS; stay on even ones
+      - dependency-name: node
+        versions: ["25.x", "27.x", "29.x", "31.x"]
     groups:
       docker: { patterns: ["*"] }
 
