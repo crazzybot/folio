@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Folio: a reader for folders of Markdown</title>
-  <meta name="description" content="Folio opens a folder of Markdown notes, docs or an Obsidian vault and shows every file properly rendered, with search across all of them. Free for macOS, Windows and Linux.">
-  <meta property="og:title" content="Folio: a reader for folders of Markdown">
-  <meta property="og:description" content="Browse, search and read a folder of Markdown files, properly rendered. Free and open source.">
+  <title>Folio: read and review folders of Markdown</title>
+  <meta name="description" content="Folio opens folders of Markdown specs, ADRs, notes or an Obsidian vault, renders every file properly and lets you search, highlight and annotate them without touching a file. Free for macOS, Windows and Linux.">
+  <meta property="og:title" content="Folio: read and review folders of Markdown">
+  <meta property="og:description" content="Read, search and mark up folders of Markdown, from AI-written specs to Obsidian vaults. Free and open source.">
   <meta property="og:image" content="img/app-dark.webp">
   <meta name="theme-color" content="#0f141d">
   <link rel="icon" href="img/icon.png">
@@ -36,11 +36,13 @@
       </a>
 
       <div class="hero-text">
-        <h1>Your Markdown folder, ready to read.</h1>
+        <h1>Read and review every Markdown doc you're handed.</h1>
         <p class="hero-lede">
-          Folio opens a folder of notes, docs or an Obsidian vault and shows every
-          file properly rendered, with search across all of them. Free and open
-          source, for macOS, Windows and Linux.
+          Specs, ADRs and design proposals pile up in every project, and more
+          of them are written by AI. Folio opens the folder, renders every file
+          properly and lets you search, highlight and annotate as you read,
+          without changing a single file. Free and open source, for macOS,
+          Windows and Linux.
         </p>
         <div class="hero-links">
           <p class="alt-link" data-alt hidden>Intel Mac? <a href="download.html">Download the Intel version</a></p>
@@ -57,6 +59,34 @@
   </section>
 
   <main id="features">
+    <section class="formats">
+      <div class="wrap">
+        <h2>For the documents you have to read closely</h2>
+        <p class="formats-intro">
+          Writing Markdown got cheap: coding agents draft a spec or a proposal
+          in minutes. Reading it carefully didn't. Folio is built for that part.
+        </p>
+        <dl class="format-list">
+          <div>
+            <dt>Specs and design proposals</dt>
+            <dd>Open a project's docs folder and read the whole set with an outline, diagrams and code, then mark what needs another pass.</dd>
+          </div>
+          <div>
+            <dt>Architecture decision records</dt>
+            <dd>Find the decision you half remember with search across titles, headings and full text.</dd>
+          </div>
+          <div>
+            <dt>Research and AI-written reports</dt>
+            <dd>Highlight claims, note your doubts beside them, and find every note again in one list.</dd>
+          </div>
+          <div>
+            <dt>Notes and Obsidian vaults</dt>
+            <dd>Wiki links, embeds and front matter work as they do in Obsidian, in a calm reader.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
     <div class="wrap spreads">
 
       <section class="spread">
@@ -71,6 +101,7 @@
             <li><strong>Folders stay tidy.</strong> Single-file folders fold away and chains like api / v2 merge into one row.</li>
             <li><strong>An outline beside each page</strong> marks the section you're reading and jumps to any heading.</li>
             <li><strong>Links between notes work.</strong> Click through, and Back returns you to where you were.</li>
+            <li><strong>Focus on one folder</strong> when a repo holds more than you're reviewing: the list and search narrow to it.</li>
           </ul>
         </div>
         <div class="spread-shot">
@@ -121,6 +152,35 @@
 
     <section class="formats">
       <div class="wrap">
+        <h2>Mark it up as you read</h2>
+        <p class="formats-intro">
+          Your marks live in Folio's own folder, never in the documents, so a
+          repo stays exactly as it was. They follow the text when a document is
+          edited, and when a file is moved or renamed.
+        </p>
+        <dl class="format-list">
+          <div>
+            <dt>Highlights in four colours</dt>
+            <dd>Select text and pick a colour, or press <kbd>⇧⌘H</kbd> / <kbd>Ctrl+Shift+H</kbd> to repeat the last one.</dd>
+          </div>
+          <div>
+            <dt>Notes on a passage</dt>
+            <dd>Write a note on any highlight. Notes show in the margin, and the outline counts the marks in each section.</dd>
+          </div>
+          <div>
+            <dt>Bookmarks</dt>
+            <dd>Bookmark a document with <kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd>, or just the section you'll come back to.</dd>
+          </div>
+          <div>
+            <dt>Every mark in one place</dt>
+            <dd>The Marks view lists the bookmarks, highlights and notes of the whole workspace, with a filter and a notes-only switch.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="formats">
+      <div class="wrap">
         <h2>Renders what you actually write</h2>
         <p class="formats-intro">
           Folio reads the Markdown found in real notes and docs, not just the
@@ -164,6 +224,8 @@
             <tr><th><kbd>⌘B</kbd> / <kbd>Ctrl+B</kbd></th><td>Show or hide the sidebar</td></tr>
             <tr><th><kbd>⌘F</kbd> / <kbd>Ctrl+F</kbd></th><td>Find in the open document</td></tr>
             <tr><th><kbd>⇧⌘F</kbd> / <kbd>Ctrl+Shift+F</kbd></th><td>Search the text of every document</td></tr>
+            <tr><th><kbd>⇧⌘H</kbd> / <kbd>Ctrl+Shift+H</kbd></th><td>Highlight the selection in the last colour</td></tr>
+            <tr><th><kbd>⌘D</kbd> / <kbd>Ctrl+D</kbd></th><td>Bookmark the open document</td></tr>
             <tr><th><kbd>⌘,</kbd> / <kbd>Ctrl+,</kbd></th><td>Open settings</td></tr>
           </tbody>
         </table>
@@ -173,7 +235,7 @@
 
   <section class="closing night">
     <div class="wrap">
-      <h2>Open your notes in Folio</h2>
+      <h2>Open your docs in Folio</h2>
       <p>
         Free for macOS, Windows and Linux. Folio updates itself when a new
         version is out.
