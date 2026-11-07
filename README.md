@@ -235,7 +235,10 @@ Releases are built by GitHub Actions (`.github/workflows/release.yml`) and
 published as GitHub Releases, where installed copies of Folio look for
 updates (**Folio → Check for Updates…**, also checked quietly at launch).
 
-1. Bump `"version"` in `desktop/package.json` (e.g. `0.2.0`) and merge it to `main`.
+1. Bump the version (e.g. `0.2.0`) in `desktop/package.json`, `frontend/package.json`,
+   `backend/pyproject.toml` and `backend/app/main.py` (then `npm install` and
+   `uv lock` to update the lock files), add the release to `CHANGELOG.md`, and
+   merge it to `main`.
 2. Tag that commit and push the tag:
    ```bash
    git tag v0.2.0 && git push origin v0.2.0
@@ -248,7 +251,8 @@ updates (**Folio → Check for Updates…**, also checked quietly at launch).
    - Windows: `Folio.Setup.0.2.0.exe` (unsigned for now — SmartScreen warns)
    - Linux: an AppImage
    - `latest*.yml` files the updater reads
-4. Review the draft on GitHub (edit the notes), then **Publish** it. Installed
+4. Review the draft on GitHub (replace the generated notes with the version's
+   `CHANGELOG.md` entry), then **Publish** it. Installed
    apps see the update from then on.
 
 Signing and notarization use secrets in the repository's `release`
