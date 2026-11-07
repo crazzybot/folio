@@ -1,4 +1,4 @@
-import type { DocumentContent, DocumentMeta, SearchResult } from "./types";
+import type { DocumentContent, DocumentMeta, Highlight, HighlightColor, MarksListing, SearchResult, TextAnchor } from "./types";
 
 const apiBase: string =
   (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "";
@@ -44,4 +44,43 @@ export async function fetchDocumentContent(id: string): Promise<DocumentContent>
   if (desktopApi) return desktopApi.getDocumentContent(id);
   const res = await fetch(`${apiBase}/api/documents/${encodeURIComponent(id)}/content`);
   return handleResponse<DocumentContent>(res);
+}
+
+// ─── Marks ────────────────────────────────────────────────────────────────────
+
+/** Highlights of every document in the workspace that has any. */
+export async function fetchMarks(): Promise<MarksListing> {
+  if (desktopApi) return desktopApi.marks.list();
+  return handleResponse<MarksListing>(await fetch(`${apiBase}/api/marks`));
+}
+
+function highlightsUrl(docId: string, highlightId?: string): string {
+  const base = `${apiBase}/api/documents/${encodeURIComponent(docId)}/highlights`;
+  return highlightId === undefined ? base : `${base}/${encodeURIComponent(highlightId)}`;
+}
+
+// JSON bodies only: the backend refuses other content types (no cross-site form posts)
+function sendJson(method: string, body: unknown): RequestInit {
+  return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+}
+
+export async function addHighlight(docId: string, anchor: TextAnchor, color: HighlightColor): Promise<Highlight> {
+  const body = { ...anchor, color };
+  if (desktopApi) return desktopApi.marks.addHighlight(docId, body);
+  return handleResponse<Highlight>(await fetch(highlightsUrl(docId), sendJson("POST", body)));
+}
+
+export async function updateHighlight(
+  docId: string,
+  highlightId: string,
+  changes: { color?: HighlightColor; note?: string | null },
+): Promise<Highlight> {
+  if (desktopApi) return desktopApi.marks.updateHighlight(docId, highlightId, changes);
+  return handleResponse<Highlight>(await fetch(highlightsUrl(docId, highlightId), sendJson("PATCH", changes)));
+}
+
+export async function deleteHighlight(docId: string, highlightId: string): Promise<void> {
+  if (desktopApi) return desktopApi.marks.deleteHighlight(docId, highlightId);
+  const res = await fetch(highlightsUrl(docId, highlightId), { method: "DELETE" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 }

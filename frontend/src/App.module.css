@@ -213,3 +213,9 @@
   color: var(--color-text-strong);
   font-size: var(--text-content);
 }
+
+/* A change to marks that couldn't be saved */
+.statusError {
+  flex-shrink: 0;
+  color: var(--color-error);
+}

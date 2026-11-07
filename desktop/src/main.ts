@@ -40,6 +40,8 @@ import { ensureCustomCss, readCustomCss, watchCustomCss } from "./customCss";
 import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
 import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } from "./openPaths";
+import { defaultDataDir, listMarks, MarksStore } from "./marks";
+import type { DocumentMarks, Highlight } from "./marks";
 import { findDocument, scanAttachments, scanWorkspace, stableId } from "./scanner";
 import { searchWorkspace } from "./search";
 import type { SearchResult } from "./search";
@@ -203,6 +205,24 @@ function assertTrustedSender(event: IpcMainInvokeEvent): void {
   if (!isRendererUrl(url)) throw new Error(`Untrusted IPC sender: ${url}`);
 }
 
+// Highlights, kept in ~/.folio/marks (never in the workspace); see marks.ts
+const marks = new MarksStore(defaultDataDir());
+
+/** The path and content of a workspace document, for changing its marks. */
+async function markedDocument(docId: unknown): Promise<{ file: string; content: string }> {
+  if (typeof docId !== "string") throw new Error("Document id must be a string");
+  const result = settings.workspace === null ? null : await findDocument(settings.workspace, docId, scanOptions());
+  if (result === null || settings.workspace === null) throw new Error(`Document '${docId}' not found in workspace`);
+  return { file: path.join(settings.workspace, ...result.meta.location.split("/")), content: result.content };
+}
+
+/** Tell every window that marks changed, so lists and documents repaint. */
+function notifyMarksChanged(): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send("marks:changed");
+  }
+}
+
 function registerIpcHandlers(): void {
   ipcMain.handle("documents:list", async (event): Promise<DocumentMeta[]> => {
     assertTrustedSender(event);
@@ -230,6 +250,38 @@ function registerIpcHandlers(): void {
     if (typeof query !== "string") throw new Error("Search query must be a string");
     if (settings.workspace === null) return [];
     return searchWorkspace(settings.workspace, query, scanOptions());
+  });
+
+  // Marks — mirrors GET /api/marks and /api/documents/{id}/highlights[/{hid}]
+  ipcMain.handle("marks:list", async (event): Promise<{ documents: DocumentMarks[] }> => {
+    assertTrustedSender(event);
+    if (settings.workspace === null) return { documents: [] };
+    return listMarks(marks, settings.workspace, await scanWorkspace(settings.workspace, scanOptions()));
+  });
+  ipcMain.handle("marks:highlight-add", async (event, docId: unknown, body: unknown): Promise<Highlight> => {
+    assertTrustedSender(event);
+    const { file, content } = await markedDocument(docId);
+    const highlight = await marks.addHighlight(file, content, body);
+    notifyMarksChanged();
+    return highlight;
+  });
+  ipcMain.handle(
+    "marks:highlight-update",
+    async (event, docId: unknown, highlightId: unknown, body: unknown): Promise<Highlight> => {
+      assertTrustedSender(event);
+      if (typeof highlightId !== "string") throw new Error("Highlight id must be a string");
+      const { file, content } = await markedDocument(docId);
+      const highlight = await marks.updateHighlight(file, content, highlightId, body);
+      notifyMarksChanged();
+      return highlight;
+    },
+  );
+  ipcMain.handle("marks:highlight-delete", async (event, docId: unknown, highlightId: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    if (typeof highlightId !== "string") throw new Error("Highlight id must be a string");
+    const { file, content } = await markedDocument(docId);
+    await marks.deleteHighlight(file, content, highlightId);
+    notifyMarksChanged();
   });
 
   // The settings panel: read, change, and the actions it offers

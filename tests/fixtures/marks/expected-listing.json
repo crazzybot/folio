@@ -1,0 +1,19 @@
+{
+  "documents": [
+    {
+      "docId": "{ID docs/plain.md}",
+      "location": "docs/plain.md",
+      "highlights": [
+        {
+          "id": "a1b2c3d4e5f60718",
+          "color": "green",
+          "note": null,
+          "quote": { "exact": "Second line", "prefix": "No headings here.\n", "suffix": "." },
+          "position": { "start": 18, "end": 29 },
+          "created": "2026-11-07T10:00:00Z",
+          "updated": "2026-11-07T10:00:00Z"
+        }
+      ]
+    }
+  ]
+}

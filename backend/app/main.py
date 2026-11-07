@@ -21,6 +21,11 @@ MARKDOWN_MAX_DEPTH
     cap for very large workspaces; skipping cache folders via
     MARKDOWN_SKIP_DIRS is usually the more precise fix.
 
+MARKDOWN_DATA_DIR
+    Folder for Folio's own data — highlights are kept in its ``marks/``
+    subfolder, never in the workspace. Defaults to ``~/.folio``, the desktop
+    app's folder too, so both see the same marks.
+
 MARKDOWN_CORS_ORIGINS
     Comma-separated browser origins allowed to call the API cross-origin.
     Defaults to the local Vite dev/preview servers. Set it empty to disable
@@ -41,7 +46,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from typing import Any
+
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -55,6 +62,7 @@ from app.scanner import (
     scan_attachments,
     scan_workspace,
 )
+from app.marks import MarkError, MarksStore, location_key
 from app.search import search_workspace
 
 # ---------------------------------------------------------------------------
@@ -93,6 +101,11 @@ def _skip_dirs() -> frozenset[str]:
     return frozenset(_csv_env("MARKDOWN_SKIP_DIRS", _DEFAULT_SKIP_DIRS))
 
 
+def _marks() -> MarksStore:
+    """The marks store in MARKDOWN_DATA_DIR (default ~/.folio)."""
+    return MarksStore(Path(os.environ.get("MARKDOWN_DATA_DIR") or "~/.folio").expanduser())
+
+
 def _max_depth() -> int | None:
     """Parse MARKDOWN_MAX_DEPTH; unset, empty or invalid means unlimited."""
     raw = os.environ.get("MARKDOWN_MAX_DEPTH", "").strip()
@@ -123,7 +136,8 @@ if _cors_origins:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_cors_origins,
-        allow_methods=["GET"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
+        allow_headers=["Content-Type"],
     )
 
 
@@ -264,6 +278,135 @@ def search_documents(q: str = Query(..., max_length=500)) -> list[SearchResultIt
         )
         for r in results
     ]
+
+
+# ---------------------------------------------------------------------------
+# Marks — kept in MARKDOWN_DATA_DIR, never in the workspace (see app/marks.py)
+# ---------------------------------------------------------------------------
+
+
+class HighlightQuote(TypedDict):
+    exact: str
+    prefix: str
+    suffix: str
+
+
+class HighlightPosition(TypedDict):
+    start: int
+    end: int
+
+
+class HighlightItem(TypedDict):
+    id: str
+    color: str
+    note: str | None
+    quote: HighlightQuote
+    position: HighlightPosition
+    created: str
+    updated: str
+
+
+class DocumentMarksItem(TypedDict):
+    docId: str
+    location: str
+    highlights: list[HighlightItem]
+
+
+class MarksListing(TypedDict):
+    documents: list[DocumentMarksItem]
+
+
+async def _json_body(request: Request) -> Any:
+    """
+    The request's JSON body. Requiring the JSON content type means a page on
+    another site can't send one without a CORS preflight, which it fails —
+    a plain cross-site form post is refused here.
+    """
+    if request.headers.get("content-type", "").split(";")[0].strip().lower() != "application/json":
+        raise HTTPException(status_code=415, detail="Expected application/json")
+    try:
+        return await request.json()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid JSON") from None
+
+
+def _document(doc_id: str) -> tuple[Path, str]:
+    """The path and content of a workspace document; 404 if there's none."""
+    workspace = _workspace()
+    result = find_document(workspace, doc_id, skip_dirs=_skip_dirs(), max_depth=_max_depth())
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found.")
+    doc, content = result
+    return workspace / doc.location, content
+
+
+def _store_call(action):
+    """Run a store change, turning its refusals into HTTP errors."""
+    try:
+        return action()
+    except MarkError as err:
+        raise HTTPException(status_code=err.status, detail=str(err)) from None
+
+
+@app.get(
+    "/api/marks",
+    response_model=MarksListing,
+    summary="List the highlights of every document in the workspace",
+)
+def list_marks() -> MarksListing:
+    """
+    Every listed document that has marks, in document-list order. Marks are
+    found by the document's real path, so the same file shows the same marks
+    from any workspace that contains it.
+    """
+    workspace = _workspace()
+    records = _marks().in_workspace(workspace)
+    if not records:
+        return MarksListing(documents=[])
+    docs = scan_workspace(workspace, skip_dirs=_skip_dirs(), max_depth=_max_depth())
+    listed = []
+    for doc in docs:
+        record = records.get(location_key(doc.location))
+        if record is not None and record["highlights"]:
+            listed.append(DocumentMarksItem(docId=doc.id, location=doc.location, highlights=record["highlights"]))
+    return MarksListing(documents=listed)
+
+
+@app.post(
+    "/api/documents/{doc_id}/highlights",
+    response_model=HighlightItem,
+    status_code=201,
+    summary="Highlight a passage of a document",
+)
+def add_highlight(doc_id: str, body: Any = Depends(_json_body)) -> HighlightItem:
+    """
+    Body: ``{"color", "quote": {"exact", "prefix", "suffix"}, "position":
+    {"start", "end"}, "note"?}`` — positions and quote are in the rendered
+    text. Returns the saved highlight with its id.
+    """
+    path, content = _document(doc_id)
+    return _store_call(lambda: _marks().add_highlight(path, content, body))
+
+
+@app.patch(
+    "/api/documents/{doc_id}/highlights/{highlight_id}",
+    response_model=HighlightItem,
+    summary="Change a highlight's colour or note",
+)
+def update_highlight(doc_id: str, highlight_id: str, body: Any = Depends(_json_body)) -> HighlightItem:
+    path, content = _document(doc_id)
+    return _store_call(lambda: _marks().update_highlight(path, content, highlight_id, body))
+
+
+@app.delete(
+    "/api/documents/{doc_id}/highlights/{highlight_id}",
+    status_code=204,
+    summary="Remove a highlight",
+)
+def delete_highlight(doc_id: str, highlight_id: str) -> Response:
+    path, content = _document(doc_id)
+    _store_call(lambda: _marks().delete_highlight(path, content, highlight_id))
+    return Response(status_code=204)
 
 
 # Files are only ever displayed or downloaded, never run: an SVG or other file

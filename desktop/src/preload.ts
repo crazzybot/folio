@@ -121,6 +121,23 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.removeListener("workspace:changed", listener);
     };
   },
+  /** Highlights (see marks.ts); the same shapes as the REST API. */
+  marks: {
+    list: () => ipcRenderer.invoke("marks:list"),
+    addHighlight: (docId: string, body: unknown) => ipcRenderer.invoke("marks:highlight-add", docId, body),
+    updateHighlight: (docId: string, highlightId: string, body: unknown) =>
+      ipcRenderer.invoke("marks:highlight-update", docId, highlightId, body),
+    deleteHighlight: (docId: string, highlightId: string) =>
+      ipcRenderer.invoke("marks:highlight-delete", docId, highlightId),
+    /** Subscribe to marks changes from any window; returns an unsubscribe function. */
+    onChange: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on("marks:changed", listener);
+      return () => {
+        ipcRenderer.removeListener("marks:changed", listener);
+      };
+    },
+  },
   /** A folder's context menu in the document list; resolves "focus" or null. */
   showFolderMenu: (location: string) => ipcRenderer.invoke("folder:context-menu", location),
 });

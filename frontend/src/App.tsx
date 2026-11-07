@@ -20,10 +20,11 @@ import {
 import useTheme from "./theme";
 import { documentsInFolder } from "./documentTree";
 import { useFolderFocus } from "./folderFocus";
+import useMarks from "./useMarks";
 import DisplayMenu from "./components/DisplayMenu";
 import SettingsPanel from "./components/SettingsPanel";
 import styles from "./App.module.css";
-import type { DocumentMeta } from "./types";
+import type { DocumentMeta, Highlight, HighlightColor, TextAnchor } from "./types";
 import { getItem, setItem } from "./storage";
 
 const PANEL_MIN_WIDTH = 160;
@@ -50,6 +51,9 @@ function loadSidebar(): { width: number; collapsed: boolean } {
   }
   return { width: PANEL_DEFAULT_WIDTH, collapsed: false };
 }
+
+// The shown document's highlights when it has none
+const NO_HIGHLIGHTS: readonly Highlight[] = [];
 
 // The macOS desktop app hides the title bar and insets the window buttons
 // into the app's own header rows.
@@ -129,6 +133,13 @@ function AppInner(): React.ReactElement {
   // ── Search (sidebar) → highlights and scrolling in the viewer ─────────────
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocus, setSearchFocus] = useState<SearchFocus | null>(null);
+
+  // ── Highlights (kept outside the workspace; see useMarks.ts) ──────────────
+  const marks = useMarks();
+  const highlightCounts = useMemo(
+    () => new Map([...marks.highlights].map(([id, list]) => [id, list.length])),
+    [marks.highlights],
+  );
 
   // ── Back / forward (desktop app only; null in the browser) ─────────────────
   const history = useDesktopHistory();
@@ -453,6 +464,25 @@ function AppInner(): React.ReactElement {
   const contentValue =
     contentState.status === "success" ? contentState.content : null;
   const contentId = contentState.status === "success" ? contentState.id : null;
+  const { add: addMark, recolor: recolorMark, remove: removeMark } = marks;
+  const handleAddHighlight = useCallback(
+    (anchor: TextAnchor, color: HighlightColor) => {
+      if (contentId !== null) void addMark(contentId, anchor, color);
+    },
+    [contentId, addMark],
+  );
+  const handleRecolorHighlight = useCallback(
+    (id: string, color: HighlightColor) => {
+      if (contentId !== null) void recolorMark(contentId, id, color);
+    },
+    [contentId, recolorMark],
+  );
+  const handleRemoveHighlight = useCallback(
+    (id: string) => {
+      if (contentId !== null) void removeMark(contentId, id);
+    },
+    [contentId, removeMark],
+  );
   const contentLoading = contentState.status === "loading";
   const contentError =
     contentState.status === "error" ? contentState.message : null;
@@ -489,6 +519,7 @@ function AppInner(): React.ReactElement {
             onFullTextChange={setSearchDocumentText}
             focus={focus}
             onFocusChange={setFocus}
+            highlightCounts={highlightCounts}
             loading={listLoading}
             error={listError}
           />
@@ -654,6 +685,10 @@ function AppInner(): React.ReactElement {
             searchQuery={searchQuery}
             searchFocus={searchFocus}
             showOutline={showOutline}
+            highlights={(contentId === null ? undefined : marks.highlights.get(contentId)) ?? NO_HIGHLIGHTS}
+            onAddHighlight={handleAddHighlight}
+            onRecolorHighlight={handleRecolorHighlight}
+            onRemoveHighlight={handleRemoveHighlight}
           />
         </main>
       </div>
@@ -702,6 +737,11 @@ function AppInner(): React.ReactElement {
         <span className={styles.statusItem} title={selectedDoc?.location}>
           {selectedDoc ? selectedDoc.location : ""}
         </span>
+        {marks.error !== null && (
+          <span className={`${styles.statusItem} ${styles.statusError}`} role="alert">
+            {marks.error}
+          </span>
+        )}
         <span className={styles.statusItem} aria-live="polite">
           {listLoading
             ? "Loading…"

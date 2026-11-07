@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "path": "/somewhere/else/notes.md",
+  "fingerprint": { "sha1": "0000000000000000000000000000000000000000", "size": 1, "filename": "notes.md" },
+  "bookmarks": [],
+  "highlights": [
+    {
+      "id": "0000000000000001",
+      "color": "yellow",
+      "note": null,
+      "quote": { "exact": "x", "prefix": "", "suffix": "" },
+      "position": { "start": 0, "end": 1 },
+      "created": "2026-11-07T10:00:00Z",
+      "updated": "2026-11-07T10:00:00Z"
+    }
+  ]
+}

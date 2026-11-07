@@ -45,3 +45,33 @@ export interface NavigationState {
   canGoBack: boolean;
   canGoForward: boolean;
 }
+
+// ─── Marks (GET /api/marks, /api/documents/{id}/highlights) ────────────────
+
+export const HIGHLIGHT_COLORS = ["yellow", "green", "blue", "pink"] as const;
+export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number];
+
+/** Where a highlight is in the document's rendered text (see anchoring.ts). */
+export interface TextAnchor {
+  quote: { exact: string; prefix: string; suffix: string };
+  position: { start: number; end: number };
+}
+
+export interface Highlight extends TextAnchor {
+  id: string;
+  color: HighlightColor;
+  note: string | null;
+  created: string; // ISO-8601
+  updated: string;
+}
+
+/** A document that has marks. */
+export interface DocumentMarks {
+  docId: string;
+  location: string;
+  highlights: Highlight[];
+}
+
+export interface MarksListing {
+  documents: DocumentMarks[];
+}

@@ -492,3 +492,30 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* ─── Highlights ──────────────────────────────────────────────────────────── */
+/* A document's highlight count at the row's end: "● 3" */
+.marksCount {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+.marksDot,
+.folderMarks {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--mark-yellow-swatch);
+}
+
+/* A collapsed folder with highlights inside: one dim dot */
+.folderMarks {
+  flex-shrink: 0;
+  margin-left: 6px;
+  opacity: 0.6;
+}

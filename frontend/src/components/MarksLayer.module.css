@@ -1,0 +1,91 @@
+/* ─── Selection toolbar and highlight popover ─────────────────────────────── */
+/* Placed in the viewer's scroll container at the selection / highlight, so
+   they scroll with the document */
+.bubble {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+}
+
+.above {
+  transform: translate(-50%, calc(-100% - 6px));
+}
+
+.below {
+  transform: translate(-50%, 6px);
+}
+
+.swatch {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.swatch:hover {
+  transform: scale(1.12);
+}
+
+.swatch:focus-visible,
+.action:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* The highlight's current colour */
+.swatchOn {
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 3px var(--color-text);
+}
+
+.yellow { background: var(--mark-yellow-swatch); }
+.green { background: var(--mark-green-swatch); }
+.blue { background: var(--mark-blue-swatch); }
+.pink { background: var(--mark-pink-swatch); }
+
+.divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--color-input-border);
+}
+
+.action {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action:hover {
+  color: var(--color-text);
+  background: var(--color-hover-bg);
+}
+
+@media print {
+  .bubble {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swatch:hover {
+    transform: none;
+  }
+}

@@ -36,6 +36,16 @@
   --color-icon-markdown: #519aba;
   --color-error:         #f48771;
   --color-hover-bg:      rgba(90, 93, 94, 0.31);  /* icon buttons */
+
+  /* Highlights (::highlight(folio-mark-*)) and their colour swatches */
+  --mark-yellow:         rgba(255, 204, 0, 0.3);
+  --mark-green:          rgba(60, 200, 110, 0.28);
+  --mark-blue:           rgba(70, 150, 255, 0.32);
+  --mark-pink:           rgba(255, 90, 170, 0.3);
+  --mark-yellow-swatch:  #f2c200;
+  --mark-green-swatch:   #3cb96b;
+  --mark-blue-swatch:    #3d8bfd;
+  --mark-pink-swatch:    #ef5fa7;
   --color-row-hover-bg:  rgba(255, 255, 255, 0.03); /* table rows */
   --color-scrollbar:        rgba(121, 121, 121, 0.4);
   --color-scrollbar-hover:  rgba(100, 100, 100, 0.7);
@@ -170,6 +180,11 @@ body {
   --color-icon-markdown: #3a7cad;
   --color-error:         #c72e0f;
   --color-hover-bg:      rgba(184, 184, 184, 0.31);
+
+  --mark-yellow:         rgba(255, 214, 0, 0.42);
+  --mark-green:          rgba(40, 190, 90, 0.28);
+  --mark-blue:           rgba(60, 140, 255, 0.26);
+  --mark-pink:           rgba(255, 80, 160, 0.26);
   --color-row-hover-bg:  rgba(0, 0, 0, 0.03);
   --color-scrollbar:        rgba(100, 100, 100, 0.4);
   --color-scrollbar-hover:  rgba(100, 100, 100, 0.7);
@@ -209,6 +224,13 @@ body {
   background-color: var(--color-search-current);
   color: var(--color-text-strong);
 }
+
+/* ─── Highlights in the viewer ────────────────────────────────────────────── */
+/* The reader's own highlights (MarksLayer.tsx), painted under search matches */
+::highlight(folio-mark-yellow) { background-color: var(--mark-yellow); }
+::highlight(folio-mark-green) { background-color: var(--mark-green); }
+::highlight(folio-mark-blue) { background-color: var(--mark-blue); }
+::highlight(folio-mark-pink) { background-color: var(--mark-pink); }
 
 /* ─── Print ───────────────────────────────────────────────────────────────── */
 /* Swap to a light, ink-friendly palette and let the document flow across

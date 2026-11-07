@@ -16,6 +16,8 @@
 
 /* ─── Root scroll container ───────────────────────────────────────────────── */
 .viewerRoot {
+  /* Highlight toolbars (MarksLayer) are placed in it */
+  position: relative;
   outline: none;
   flex: 1;
   min-height: 0;
