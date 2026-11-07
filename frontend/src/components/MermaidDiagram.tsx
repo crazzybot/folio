@@ -107,7 +107,7 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
 
   if (state.status === "error") {
     return (
-      <div className={styles.error} role="note">
+      <div className={styles.error} role="note" data-marks-skip="">
         <p className={styles.errorTitle}>Couldn't draw this Mermaid diagram</p>
         <p className={styles.errorMessage}>{state.message}</p>
         <pre>
@@ -118,13 +118,13 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
   }
   if (state.status === "rendering") {
     return (
-      <div className={styles.placeholder} aria-busy="true">
+      <div className={styles.placeholder} aria-busy="true" data-marks-skip="">
         Drawing diagram…
       </div>
     );
   }
   return (
-    <div className={styles.figure} ref={figureRef}>
+    <div className={styles.figure} ref={figureRef} data-marks-skip="">
       <div
         className={`${styles.diagram} ${card}`}
         role="img"

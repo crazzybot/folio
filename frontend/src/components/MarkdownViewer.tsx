@@ -16,6 +16,8 @@ import type { ImageSource, LinkTarget } from "../links";
 import { saveScrollPosition } from "../scrollHistory";
 import { slugify } from "../slug";
 import { clearMatches, findMatches, showMatches } from "../searchHighlight";
+import MarksLayer from "./MarksLayer";
+import type { Highlight, HighlightColor, TextAnchor } from "../types";
 import FindBar from "./FindBar";
 import Outline from "./Outline";
 import type { OutlineHeading } from "./Outline";
@@ -70,6 +72,12 @@ interface MarkdownViewerProps {
   searchFocus?: SearchFocus | null;
   /** Show the outline of headings beside the document. */
   showOutline?: boolean;
+  /** The shown document's highlights. */
+  highlights?: readonly Highlight[];
+  /** Highlight a passage of the shown document; without it, text can't be highlighted. */
+  onAddHighlight?: (anchor: TextAnchor, color: HighlightColor) => void;
+  onRecolorHighlight?: (id: string, color: HighlightColor) => void;
+  onRemoveHighlight?: (id: string) => void;
 }
 
 /** "Scroll to the `occurrence`-th match in `docId`"; a new `nonce` asks again. */
@@ -458,6 +466,7 @@ type PluginList = NonNullable<MarkdownOptions["remarkPlugins"]>;
 const baseRemarkPlugins: PluginList = [remarkGfm, [remarkFrontmatter, ["yaml", "toml"]], remarkMath, remarkMathDollars];
 
 const NO_ATTACHMENTS: string[] = [];
+const NO_HIGHLIGHTS: readonly Highlight[] = [];
 
 const remarkRehypeOptions = {
   // Footnote ids are prefixed by the sanitizer instead, so they aren't doubled
@@ -499,6 +508,10 @@ export default function MarkdownViewer({
   searchQuery = "",
   searchFocus = null,
   showOutline = false,
+  highlights = NO_HIGHLIGHTS,
+  onAddHighlight,
+  onRecolorHighlight,
+  onRemoveHighlight,
 }: MarkdownViewerProps): React.ReactElement {
   const scrollRef = useRef<HTMLDivElement>(null);
   const articleRef = useRef<HTMLElement>(null);
@@ -1051,6 +1064,18 @@ export default function MarkdownViewer({
                 </ReactMarkdown>
               </LinkContext.Provider>
             </article>
+          )}
+          {onAddHighlight !== undefined && onRecolorHighlight !== undefined && onRemoveHighlight !== undefined && (
+            <MarksLayer
+              articleRef={articleRef}
+              containerRef={scrollRef}
+              ready={!loading && error === null && content !== null}
+              renderKey={content}
+              highlights={highlights}
+              onAdd={onAddHighlight}
+              onRecolor={onRecolorHighlight}
+              onRemove={onRemoveHighlight}
+            />
           )}
         </div>
       </div>

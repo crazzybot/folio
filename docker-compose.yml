@@ -8,9 +8,13 @@ services:
       MARKDOWN_MAX_DEPTH: "8"
       # Same-origin through nginx, so no cross-origin access at all
       MARKDOWN_CORS_ORIGINS: ""
+      # Highlights, shared by everyone using this server
+      MARKDOWN_DATA_DIR: /data
     volumes:
       # The folder to browse: set WORKSPACE_DIR in .env or the shell
       - ${WORKSPACE_DIR:-./workspace}:/workspace:ro
+      # Folio's own data (highlights); the workspace itself stays read-only
+      - folio-data:/data
     # Not published: only nginx (frontend) reaches it, as backend:8000
     expose:
       - "8000"
@@ -22,3 +26,6 @@ services:
       - "127.0.0.1:3000:3000"
     depends_on:
       - backend
+
+volumes:
+  folio-data:

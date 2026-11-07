@@ -14,8 +14,10 @@ RUN uv sync --frozen --no-dev
 
 COPY app/ ./app/
 
-# Don't run as root; the workspace mount is read-only anyway
-RUN useradd --system --no-create-home --uid 10001 app
+# Don't run as root; the workspace mount is read-only anyway. /data holds
+# highlights (MARKDOWN_DATA_DIR): a named volume there starts out owned by app
+RUN useradd --system --no-create-home --uid 10001 app \
+    && mkdir /data && chown app:app /data
 USER app
 
 EXPOSE 8000

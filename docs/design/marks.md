@@ -1,6 +1,6 @@
 # Marks: highlights, notes and bookmarks — and folder focus
 
-Status: design agreed. Phase 1 (folder focus) implemented; phases 2–4 not started.
+Status: design agreed. Phases 1 (folder focus) and 2 (store + highlights) implemented; 3–4 not started.
 
 Folio stays read-only: marks never touch workspace files. They live in a
 separate data folder in the user's home, keyed so that the same file keeps its
@@ -34,7 +34,8 @@ Books, so there is no third kind.
 ```
 ~/.folio/                     %USERPROFILE%\.folio on Windows
   marks/
-    <record-id>.json          one file per document that has marks
+    <record-id>.json          one file per document that has marks;
+                              record id = SHA-1 of the normalised real path
 ```
 
 - Desktop: `path.join(os.homedir(), ".folio")`. Not Electron's `userData`
@@ -73,14 +74,20 @@ Books, so there is no third kind.
   on macOS and Windows paths are compared case-insensitively. So opening
   `~/notes`, `~/notes/guides` or `~` all reach the same record. Document ids
   stay workspace-relative and are only used for routing.
-- **One file per document**, with a random record id as its name: small
-  writes, a damaged file only loses one document's marks, and a rename only
-  rewrites `path`.
-- **No index file.** The store reads `marks/` at startup and keeps a
-  path → record map in memory, so nothing can drift out of sync.
-- **Atomic writes**: write `<id>.json.tmp`, then rename over the record. Each
-  change re-reads the record first (read–modify–write), so the desktop app and
-  a local backend sharing `~/.folio` rarely lose an edit.
+- **One file per document**, named by the SHA-1 of its normalised real path:
+  small writes, a damaged file only loses one document's marks, and finding a
+  document's record is one file read. Two processes sharing the folder can't
+  create two records for the same file. (Re-linking a moved file, phase 4,
+  writes the record under its new name.)
+- **No index file.** Listing reads `marks/`; records are matched to scanned
+  documents by location compared case- and NFC-insensitively, so names stored
+  NFD on macOS still match.
+- **Atomic writes**: write `<id>.<random>.tmp`, then rename over the record.
+  Each change re-reads the record first (read–modify–write, serialised within
+  a process), so the desktop app and a local backend sharing `~/.folio` rarely
+  lose an edit.
+- A damaged record is left untouched: changes to it are refused (409) and
+  listing skips it.
 - A record with no bookmarks and no highlights left is deleted.
 - `fingerprint` is refreshed on every write and used only for re-linking.
 - Unknown `version` → the record is left alone (read-only) rather than rewritten.
@@ -132,7 +139,6 @@ Only records under the current workspace are visible.
 | Purpose | REST | IPC |
 |---|---|---|
 | All marks in the workspace (badges, Marks view, missing records) | `GET /api/marks` | `marks:list` |
-| One document's marks | `GET /api/documents/{id}/marks` | `marks:get` |
 | Add a highlight | `POST /api/documents/{id}/highlights` | `marks:highlight-add` |
 | Change colour / note | `PATCH /api/documents/{id}/highlights/{hid}` | `marks:highlight-update` |
 | Delete a highlight | `DELETE /api/documents/{id}/highlights/{hid}` | `marks:highlight-delete` |
@@ -140,13 +146,20 @@ Only records under the current workspace are visible.
 | Re-link a missing record | `POST /api/marks/{recordId}/relink` | `marks:relink` |
 | Delete a missing record | `DELETE /api/marks/{recordId}` | `marks:delete` |
 
-`GET /api/marks` returns `{ documents: [{ docId, location, bookmarks, highlights }], missing: [{ recordId, path, filename, bookmarks, highlights }] }`.
+`GET /api/marks` returns `{ documents: [{ docId, location, highlights }] }`
+(phase 2); phase 3 adds `bookmarks` to each document, phase 4 a `missing`
+list (`[{ recordId, path, filename, bookmarks, highlights }]`). The frontend
+loads all of it once, so there's no per-document endpoint.
 Bookmark `key` is `doc` or `h:<level>:<occurrence>:<text>` (URL-encoded).
 
 - **Item-level changes**, never whole-record replacement, so two windows don't
   overwrite each other.
 - **Validation** on the server: colour from the fixed set, note ≤ 10 000
-  characters, quote parts bounded, ids generated server-side.
+  characters, `exact` 1–20 000 and prefix / suffix ≤ 64 characters, integer
+  offsets with end > start, at most 1 000 highlights per document, ids
+  (16 hex characters) generated server-side.
+- **JSON only**: write endpoints refuse other content types (415), so a page
+  on another site can't post without a CORS preflight.
 - **Live updates**: desktop broadcasts `marks:changed` to every window (like
   `workspace:changed`); the browser refetches on window focus.
 - **Parity**: a Python and a TypeScript store module, tested against shared
@@ -156,23 +169,26 @@ Bookmark `key` is `doc` or `h:<level>:<occurrence>:<text>` (URL-encoded).
 
 ### Creating and editing
 
-- **Select text** → a small toolbar above the selection: **Highlight · Add
-  note · Copy**. Highlight uses the last colour picked; Add note highlights and
-  opens the note editor.
+- **Select text** → a small toolbar above the selection (below it at the top
+  of the view): the **4 colour swatches** — one click highlights in that
+  colour — and **Copy**. Phase 3 adds **Add note**.
 - **Click a highlight** → popover: 4 colour swatches, the note (editable in
   place), Delete.
 - Highlights with a note end in a small note icon; hovering it shows the note.
 - **Bookmark the document**: bookmark icon in the breadcrumb header.
   **Bookmark a heading**: icon that appears when hovering the heading.
-- Shortcuts (Edit menu on desktop): `⌘⇧H` / `Ctrl+Shift+H` highlight
-  selection, `⌘D` / `Ctrl+D` toggle document bookmark.
+- Shortcuts: `⌘⇧H` / `Ctrl+Shift+H` highlights the selection in the last
+  colour picked (yellow at first); `⌘D` / `Ctrl+D` toggles the document
+  bookmark (phase 3). Menu items for them come with phase 3.
 
 Rendering: a new `annotation` layer in `searchHighlight.ts`, one
 `::highlight()` per colour, painted under the `search` and `find` layers.
-The Custom Highlight API creates no elements, so clicks are hit-tested with
-`caretPositionFromPoint`, and note icons sit in an overlay positioned from
-`range.getBoundingClientRect()`. Selections inside Mermaid diagrams and KaTeX
-output are ignored.
+The Custom Highlight API creates no elements, so clicks are hit-tested
+against the painted ranges' client rects, and note icons (phase 3) sit in an
+overlay positioned from `range.getBoundingClientRect()`. The rendered text
+that anchors refer to (`textModel.ts`) leaves out buttons, Mermaid diagrams,
+KaTeX markup and anything marked `data-marks-skip`, so it doesn't change when
+a diagram finishes drawing.
 
 ### In the document list
 

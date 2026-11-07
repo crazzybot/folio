@@ -42,6 +42,7 @@ The app checks for updates at launch (**Folio → Check for Updates…**).
 - Recursive workspace scan — supports sub-folders
 - Documents grouped by folder (toggle in the sidebar header, remembered): only folders that hold documents, folder-only chains merged ("api / v2"), single-document folders replaced by their document; the open document's folders expand. Full keyboard navigation: ↑ ↓ Home End, → ← to expand / collapse, Enter to open, ↓ from the search box into the list
 - Focus on a folder: the focus button on a folder row (it appears on hover), a folder in the breadcrumb, or right-click a folder in the desktop app. The list, search and document count narrow to that folder; links and images still resolve across the whole workspace. Clear it with ✕ on the folder bar or Escape in the list; it's remembered per workspace. The desktop app's folder menu also has **Open Folder as Workspace**
+- Highlights: select text and pick one of four colours from the toolbar above it (or `⇧⌘H` / `Ctrl+Shift+H` for the last colour). Click a highlight to change its colour or remove it. Documents with highlights show a count in the list. Highlights are kept in `~/.folio` (`%USERPROFILE%\.folio` on Windows), never in your files, and follow the text when the document is edited. The same file has the same highlights whichever folder you open
 - Instant search across titles, filenames and headings — a matching heading opens the document at that section
 - Outline of the open document's headings beside it (header toggle, remembered): the section being read is highlighted as you scroll, and clicking a heading jumps there (Back returns). Hidden in narrow windows
 - Find in the open document (`⌘F` / `Ctrl+F`): matches highlighted with a "3 of 12" count; Enter / Shift+Enter, `⌘G` / `⇧⌘G` or F3 / Shift+F3 step through them, Escape closes
@@ -255,7 +256,8 @@ and every pull request.
 | `MARKDOWN_WORKSPACE` | Backend (runtime) | `./workspace` | Absolute or relative path to the folder the server scans for Markdown files. Relative paths are resolved from the backend's working directory. |
 | `MARKDOWN_SKIP_DIRS` | Backend (runtime) | the desktop app's default list (see Settings above) | Comma-separated folder **names** skipped wherever they appear. Skipping caches and build output is the most effective way to speed up scanning a large workspace. |
 | `MARKDOWN_MAX_DEPTH` | Backend (runtime) | unlimited | Folder levels below the workspace to scan (`docs/guide.md` is depth 1). A safety cap — documents deeper than this are not listed or served. |
-| `MARKDOWN_CORS_ORIGINS` | Backend (runtime) | local dev servers (`http://localhost:3000`, `:5173`, and their `127.0.0.1` forms) | Comma-separated browser origins allowed to call the API cross-origin (GET only). Set it empty to disable CORS when the frontend is served from the same origin. |
+| `MARKDOWN_DATA_DIR` | Backend (runtime) | `~/.folio` | Folder for Folio's own data: highlights, in its `marks/` subfolder. Never inside the workspace; the desktop app uses `~/.folio` too, so both see the same highlights. |
+| `MARKDOWN_CORS_ORIGINS` | Backend (runtime) | local dev servers (`http://localhost:3000`, `:5173`, and their `127.0.0.1` forms) | Comma-separated browser origins allowed to call the API cross-origin. Set it empty to disable CORS when the frontend is served from the same origin. |
 | `MARKDOWN_ALLOWED_HOSTS` | Backend (runtime) | `localhost,127.0.0.1` | Comma-separated `Host` header values the API answers to; anything else gets `400`, which blocks DNS rebinding. Add your domain when deploying. |
 | `VITE_API_BASE_URL` | Frontend (build time) | `http://localhost:8000` | Base URL the browser uses to call the backend API. Must be set before running `npm run build` for production deployments. |
 
@@ -358,6 +360,53 @@ skipped.
   }
 ]
 ```
+
+### `GET /api/marks`
+
+Returns the highlights of every listed document that has any, in
+document-list order. Highlights are stored by the file's real path (in
+`MARKDOWN_DATA_DIR/marks`), so the same file has the same highlights from any
+workspace that contains it.
+
+```json
+{
+  "documents": [
+    {
+      "docId": "a3f1c2d4...",
+      "location": "docs/setup.md",
+      "highlights": [
+        {
+          "id": "9f2c41d07ab3e815",
+          "color": "yellow",
+          "note": null,
+          "quote": { "exact": "Run the installer", "prefix": "…32 characters before", "suffix": "…32 after" },
+          "position": { "start": 120, "end": 137 },
+          "created": "2026-11-07T10:00:00Z",
+          "updated": "2026-11-07T10:00:00Z"
+        }
+      ]
+    }
+  ]
+}
+```
+
+`quote` and `position` refer to the document's rendered text; the viewer uses
+them to find the passage again after the document is edited.
+
+### `POST /api/documents/{id}/highlights`
+
+Adds a highlight. Body (`Content-Type: application/json` required):
+`{"color", "quote": {"exact", "prefix", "suffix"}, "position": {"start", "end"}}`,
+`color` one of `yellow`, `green`, `blue`, `pink`. Returns `201` with the saved
+highlight. `400` for an invalid body, `415` for another content type, `409`
+when the document's marks file was written by a newer Folio or is damaged
+(it's left as it is).
+
+### `PATCH /api/documents/{id}/highlights/{highlightId}` · `DELETE …`
+
+`PATCH` changes `color` (JSON body) and returns the highlight; `DELETE`
+removes it (`204`). A document with no highlights left has its marks file
+removed.
 
 ### `GET /api/files/{location}`
 
@@ -481,7 +530,8 @@ must follow.
 ## Deployment notes
 
 1. **Backend** — any ASGI host (Railway, Fly.io, Render) running `uvicorn app.main:app`.
-   Set `MARKDOWN_WORKSPACE` to a persistent volume path.
+   Set `MARKDOWN_WORKSPACE` to a persistent volume path, and
+   `MARKDOWN_DATA_DIR` to a writable persistent one for highlights.
 2. **Frontend** — run `VITE_API_BASE_URL=https://your-backend.example.com npm run build`,
    then serve the `dist/` folder from any static host (Netlify, Vercel, GitHub Pages, nginx).
 3. **CORS / hosts** — set `MARKDOWN_CORS_ORIGINS` to your frontend's origin and
@@ -507,9 +557,16 @@ repositories or vendored packages.
   workspace and outside skipped folders, with a sandboxing CSP so nothing
   served can run scripts. The desktop app opens linked files in their default
   app under the same allowlist, checked again after resolving symlinks.
+- **Highlights** — kept in `MARKDOWN_DATA_DIR` (the desktop app: `~/.folio`),
+  never in the workspace, which Folio still never writes to. The endpoints
+  that change them accept only `application/json` bodies, so a page on another
+  site can't send one without a CORS preflight, which it fails; the `Host`
+  check above blocks DNS rebinding. A damaged marks file, or one written by a
+  newer Folio, is left untouched.
 - **Network (Docker)** — only nginx is published, on `127.0.0.1:3000`; the
   backend is reachable solely through it. Both containers run as non-root
-  users and the workspace is mounted read-only.
+  users and the workspace is mounted read-only; highlights go to a separate
+  named volume, shared by everyone using the server.
 - **Desktop** — context isolation and sandboxing, IPC limited to the app's own
   page, external links opened only for `http(s)`/`mailto`, all permission
   requests denied, and Electron fuses (no `ELECTRON_RUN_AS_NODE`,

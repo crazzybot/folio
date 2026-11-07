@@ -85,6 +85,8 @@ interface DocumentListProps {
   /** The folder the list is focused on ("docs/api"; `documents` are already narrowed to it), or null. */
   focus: string | null;
   onFocusChange: (folder: string | null) => void;
+  /** Number of highlights by document id (documents without any are absent). */
+  highlightCounts?: ReadonlyMap<string, number>;
 }
 
 type ContentSearch =
@@ -111,6 +113,7 @@ export default function DocumentList({
   onFullTextChange,
   focus,
   onFocusChange,
+  highlightCounts = NO_COUNTS,
 }: DocumentListProps): React.ReactElement {
   const [query, setQuery] = useState("");
   const [lastContentSearch, setLastContentSearch] = useState<ContentSearchResult | null>(null);
@@ -251,6 +254,17 @@ export default function DocumentList({
       if (keys.some((key) => !expanded.has(key))) setFolderExpanded(keys, true);
     }
   }
+
+  // Folders holding a document with highlights, marked while collapsed
+  const markedFolders = useMemo(() => {
+    const folders = new Set<string>();
+    for (const doc of documents) {
+      if (!highlightCounts.has(doc.id)) continue;
+      const parts = doc.location.split("/");
+      for (let i = 1; i < parts.length; i++) folders.add(parts.slice(0, i).join("/"));
+    }
+    return folders;
+  }, [documents, highlightCounts]);
 
   // ── Rows ───────────────────────────────────────────────────────────────────
   const rows: Row[] = [];
@@ -579,6 +593,13 @@ export default function DocumentList({
                 onFocus={() => setFocusKey(row.key)}
                 onActivate={() => activate(row)}
                 onFocusFolder={onFocusChange}
+                highlightCount={
+                  row.kind === "document"
+                    ? (highlightCounts.get(row.doc.id) ?? 0)
+                    : row.kind === "folder" && markedFolders.has(row.folderKey)
+                      ? 1
+                      : 0
+                }
               />
             ))}
           </ul>
@@ -606,9 +627,21 @@ interface RowItemProps {
   onActivate: () => void;
   /** Focus on Folder, from a folder row's button or (desktop) context menu. */
   onFocusFolder: (folder: string) => void;
+  /** A document's highlights; for a folder, more than 0 when something inside has any. */
+  highlightCount: number;
 }
 
-function RowItem({ row, tree, query, selected, tabStop, onFocus, onActivate, onFocusFolder }: RowItemProps): React.ReactElement {
+function RowItem({
+  row,
+  tree,
+  query,
+  selected,
+  tabStop,
+  onFocus,
+  onActivate,
+  onFocusFolder,
+  highlightCount,
+}: RowItemProps): React.ReactElement {
   if (row.kind === "more") {
     return (
       <li className={styles.moreMatches} role="presentation" aria-hidden="true">
@@ -659,6 +692,9 @@ function RowItem({ row, tree, query, selected, tabStop, onFocus, onActivate, onF
           <path d="M6 4l4 4-4 4" strokeWidth="1.2" />
         </svg>
         <span className={styles.entryTitle}>{row.label}</span>
+        {!row.expanded && highlightCount > 0 && (
+          <span className={styles.folderMarks} title="Has highlights" aria-label="Has highlights" />
+        )}
         {/* Mouse shortcut; the keyboard has the breadcrumb and context menu */}
         <button
           type="button"
@@ -684,19 +720,26 @@ function RowItem({ row, tree, query, selected, tabStop, onFocus, onActivate, onF
   if (row.kind === "document") {
     const { doc, hint, matchCount } = row;
     const matches = matchCount === null ? "" : ` — ${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
+    const marked = highlightCount === 0 ? "" : ` — ${highlightCount} ${highlightCount === 1 ? "highlight" : "highlights"}`;
     return (
       <li
         {...common}
         className={`${styles.entry} ${selected ? styles.entrySelected : ""}`}
         style={tree ? { paddingLeft: TREE_PADDING + row.level * INDENT + CHEVRON } : undefined}
         aria-selected={selected}
-        aria-label={`${doc.title} — ${doc.location}${matches}`}
+        aria-label={`${doc.title} — ${doc.location}${matches}${marked}`}
         title={doc.location}
       >
         <MarkdownIcon className={styles.entryIcon} />
         <span className={styles.entryTitle}>{doc.title}</span>
         {hint && <span className={styles.entryFolder}>{hint}</span>}
         {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}
+        {matchCount === null && highlightCount > 0 && (
+          <span className={styles.marksCount} title={marked.slice(3)} aria-hidden="true">
+            <span className={styles.marksDot} />
+            {highlightCount}
+          </span>
+        )}
       </li>
     );
   }
@@ -737,3 +780,4 @@ function RowItem({ row, tree, query, selected, tabStop, onFocus, onActivate, onF
 }
 
 const LEAD_CHARS = 12;
+const NO_COUNTS: ReadonlyMap<string, number> = new Map();

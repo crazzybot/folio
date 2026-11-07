@@ -1,4 +1,4 @@
-import type { DocumentContent, DocumentMeta, NavigationState, SearchResult } from "./types";
+import type { DocumentContent, DocumentMeta, Highlight, MarksListing, NavigationState, SearchResult } from "./types";
 
 /** The desktop settings the in-app panel shows (desktop/src/main.ts settingsView). */
 export interface DesktopSettings {
@@ -67,6 +67,15 @@ interface MarkdownDesktopApi {
   openPath(target: string): Promise<void>;
   /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */
   onWorkspaceChange(callback: () => void): () => void;
+  /** Highlights, kept by the main process in ~/.folio/marks (desktop/src/marks.ts). */
+  marks: {
+    list(): Promise<MarksListing>;
+    addHighlight(docId: string, body: unknown): Promise<Highlight>;
+    updateHighlight(docId: string, highlightId: string, body: unknown): Promise<Highlight>;
+    deleteHighlight(docId: string, highlightId: string): Promise<void>;
+    /** Subscribe to marks changes from any window; returns an unsubscribe function. */
+    onChange(callback: () => void): () => void;
+  };
   /**
    * The context menu of a folder in the document list (workspace location).
    * Resolves "focus" when Focus on Folder was chosen, else null; Open Folder
