@@ -1,5 +1,7 @@
-# Weekly dependency update PRs; minor and patch updates are grouped per
-# package so they arrive as one PR each.
+# Dependency update PRs, grouped so each run opens at most two PRs per
+# package (minor + patch together, majors together) and one each for
+# Docker images and GitHub Actions. A major update that breaks something
+# can be split out with "@dependabot ignore this major version".
 version: 2
 updates:
   - package-ecosystem: npm
@@ -7,23 +9,34 @@ updates:
     schedule: { interval: weekly }
     groups:
       minor-and-patch: { update-types: [minor, patch] }
+      major: { update-types: [major] }
 
   - package-ecosystem: npm
     directory: /desktop
     schedule: { interval: weekly }
     groups:
       minor-and-patch: { update-types: [minor, patch] }
+      major: { update-types: [major] }
 
   - package-ecosystem: uv
     directory: /backend
     schedule: { interval: weekly }
     groups:
       minor-and-patch: { update-types: [minor, patch] }
+      major: { update-types: [major] }
 
   - package-ecosystem: docker
     directories: [/backend, /frontend]
     schedule: { interval: weekly }
+    ignore:
+      # Odd-numbered Node releases never become LTS; stay on even ones
+      - dependency-name: node
+        versions: ["25.x", "27.x", "29.x", "31.x"]
+    groups:
+      docker: { patterns: ["*"] }
 
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    groups:
+      actions: { patterns: ["*"] }
