@@ -87,6 +87,19 @@ export interface DocumentMarks {
   highlights: Highlight[];
 }
 
+/** The marks of a file in the workspace that no longer exists. */
+export interface MissingMarks {
+  /** Identifies the marks, to move or delete them. */
+  recordId: string;
+  /** Where the file was (workspace-relative). */
+  location: string;
+  bookmarks: Bookmark[];
+  highlights: Highlight[];
+  /** The document they probably belong to now: same name, and most marks found in it. */
+  suggestion: { docId: string; location: string } | null;
+}
+
 export interface MarksListing {
   documents: DocumentMarks[];
+  missing: MissingMarks[];
 }

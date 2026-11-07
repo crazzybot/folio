@@ -7,10 +7,19 @@
  * desktop app or another tab may have changed them).
  */
 
-import { useCallback, useEffect, useState } from "react";
-import { addBookmark, addHighlight, deleteBookmark, deleteHighlight, fetchMarks, updateHighlight } from "./api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  addBookmark,
+  addHighlight,
+  deleteBookmark,
+  deleteHighlight,
+  fetchMarks,
+  forgetMarks,
+  relinkMarks,
+  updateHighlight,
+} from "./api";
 import { findBookmark } from "./bookmarks";
-import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, TextAnchor } from "./types";
+import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, MissingMarks, TextAnchor } from "./types";
 
 // How long a failed change is reported in the status bar
 const ERROR_SHOWN_MS = 6000;
@@ -34,6 +43,12 @@ export interface Marks {
   toggleBookmark(docId: string, heading: BookmarkHeading | null): Promise<void>;
   /** Remove a bookmark by id (e.g. one whose heading is gone). */
   removeBookmark(docId: string, bookmarkId: string): Promise<void>;
+  /** Marks of files in the workspace that no longer exist. */
+  missing: readonly MissingMarks[];
+  /** Move a missing document's marks to `docId`. */
+  relink(recordId: string, docId: string): Promise<void>;
+  /** Delete a missing document's marks. */
+  forget(recordId: string): Promise<void>;
   /** The last change that failed, briefly; null otherwise. */
   error: string | null;
 }
@@ -42,23 +57,26 @@ const NO_MARKS: DocMarks = { bookmarks: [], highlights: [] };
 
 export default function useMarks(): Marks {
   const [byDoc, setByDoc] = useState<ReadonlyMap<string, DocMarks>>(new Map());
+  const [missing, setMissing] = useState<readonly MissingMarks[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Only the latest load may update state; an older one can finish late
+  const generation = useRef(0);
+  const reload = useCallback(() => {
+    const current = ++generation.current;
+    return fetchMarks()
+      .then((listing) => {
+        if (current !== generation.current) return;
+        setByDoc(new Map(listing.documents.map((doc) => [doc.docId, { bookmarks: doc.bookmarks, highlights: doc.highlights }])));
+        setMissing(listing.missing);
+      })
+      .catch(() => {
+        // Keep what's shown; the next change or focus retries
+      });
+  }, []);
+
   useEffect(() => {
-    let cancelled = false;
-    // Only the latest load may update state; an older one can finish late
-    let generation = 0;
-    const load = () => {
-      const current = ++generation;
-      fetchMarks()
-        .then((listing) => {
-          if (cancelled || current !== generation) return;
-          setByDoc(new Map(listing.documents.map((doc) => [doc.docId, { bookmarks: doc.bookmarks, highlights: doc.highlights }])));
-        })
-        .catch(() => {
-          // Keep what's shown; the next change or focus retries
-        });
-    };
+    const load = () => void reload();
     load();
     const api = window.markdownApi;
     let unsubscribe: () => void;
@@ -73,11 +91,8 @@ export default function useMarks(): Marks {
       window.addEventListener("focus", load);
       unsubscribe = () => window.removeEventListener("focus", load);
     }
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
+    return unsubscribe;
+  }, [reload]);
 
   useEffect(() => {
     if (error === null) return;
@@ -166,5 +181,15 @@ export default function useMarks(): Marks {
     [byDoc, update, removeBookmark, failed],
   );
 
-  return { byDoc, add, recolor, setNote, remove, toggleBookmark, removeBookmark, error };
+  // Moving or deleting a missing document's marks changes the whole listing: reload it
+  const relink = useCallback(
+    (recordId: string, docId: string) => relinkMarks(recordId, docId).then(reload, failed("move the marks")),
+    [reload, failed],
+  );
+  const forget = useCallback(
+    (recordId: string) => forgetMarks(recordId).then(reload, failed("delete the marks")),
+    [reload, failed],
+  );
+
+  return { byDoc, add, recolor, setNote, remove, toggleBookmark, removeBookmark, missing, relink, forget, error };
 }

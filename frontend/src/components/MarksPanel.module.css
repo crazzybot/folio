@@ -244,3 +244,157 @@
     transition: none;
   }
 }
+
+/* ─── Missing documents ───────────────────────────────────────────────────── */
+.missingSection {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}
+
+.missingHeading {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.missingHint {
+  padding: 0 var(--space-3) var(--space-2);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--color-text-subtle);
+}
+
+.missingItem {
+  padding-bottom: var(--space-2);
+}
+
+.missingRow {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 var(--space-3) 0 var(--space-2);
+  white-space: nowrap;
+}
+
+.missingLabel {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow: hidden;
+}
+
+/* The file that's gone: struck through, its folder beside it as it was */
+.missingName {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, currentColor 50%, transparent);
+}
+
+.missingFolder {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+}
+
+.missingMarks {
+  list-style: none;
+  padding: 2px 0;
+  margin: 0;
+}
+
+.missingMark {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px var(--space-3) 3px calc(var(--space-2) + 18px);
+  color: var(--color-text-muted);
+}
+
+.missingActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px var(--space-3) 0 calc(var(--space-2) + 18px);
+}
+
+.primaryAction,
+.dangerAction,
+.textAction {
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primaryAction {
+  border: none;
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.primaryAction:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.dangerAction {
+  border: none;
+  background: var(--color-error);
+  color: #fff;
+}
+
+.textAction {
+  border: 1px solid var(--color-input-border);
+  background: none;
+  color: var(--color-text);
+}
+
+.textAction:hover {
+  background: var(--color-hover-bg);
+}
+
+.primaryAction:focus-visible,
+.dangerAction:focus-visible,
+.textAction:focus-visible,
+.chevronBtn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.confirmText {
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.picker {
+  flex: 1;
+  min-width: 120px;
+  height: 22px;
+  padding: 0 6px;
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.picker:focus {
+  border-color: var(--color-accent);
+}

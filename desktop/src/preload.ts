@@ -131,6 +131,8 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.invoke("marks:highlight-delete", docId, highlightId),
     addBookmark: (docId: string, body: unknown) => ipcRenderer.invoke("marks:bookmark-add", docId, body),
     deleteBookmark: (docId: string, bookmarkId: string) => ipcRenderer.invoke("marks:bookmark-delete", docId, bookmarkId),
+    relink: (recordId: string, docId: string) => ipcRenderer.invoke("marks:relink", recordId, docId),
+    forget: (recordId: string) => ipcRenderer.invoke("marks:forget", recordId),
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */
     onChange: (callback: () => void) => {
       const listener = () => callback();

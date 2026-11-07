@@ -62,7 +62,7 @@ from app.scanner import (
     scan_attachments,
     scan_workspace,
 )
-from app.marks import MarkError, MarksStore, location_key
+from app.marks import MarkError, MarksStore, list_marks as list_workspace_marks
 from app.search import search_workspace
 
 # ---------------------------------------------------------------------------
@@ -325,8 +325,23 @@ class DocumentMarksItem(TypedDict):
     highlights: list[HighlightItem]
 
 
+class SuggestionItem(TypedDict):
+    docId: str
+    location: str
+
+
+class MissingMarksItem(TypedDict):
+    recordId: str
+    location: str
+    bookmarks: list[BookmarkItem]
+    highlights: list[HighlightItem]
+    suggestion: SuggestionItem | None
+
+
 class MarksListing(TypedDict):
     documents: list[DocumentMarksItem]
+    missing: list[MissingMarksItem]
+
 
 
 async def _json_body(request: Request) -> Any:
@@ -343,14 +358,14 @@ async def _json_body(request: Request) -> Any:
         raise HTTPException(status_code=400, detail="Invalid JSON") from None
 
 
-def _document(doc_id: str) -> tuple[Path, str]:
-    """The path and content of a workspace document; 404 if there's none."""
+def _document(doc_id: str) -> Path:
+    """The path of a workspace document; 404 if there's none."""
     workspace = _workspace()
     result = find_document(workspace, doc_id, skip_dirs=_skip_dirs(), max_depth=_max_depth())
     if result is None:
         raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found.")
-    doc, content = result
-    return workspace / doc.location, content
+    doc, _content = result
+    return workspace / doc.location
 
 
 def _store_call(action):
@@ -368,28 +383,54 @@ def _store_call(action):
 )
 def list_marks() -> MarksListing:
     """
-    Every listed document that has marks, in document-list order. Marks are
-    found by the document's real path, so the same file shows the same marks
-    from any workspace that contains it.
+    Every listed document that has marks, in document-list order, and the
+    marks of files in the workspace that no longer exist (``missing``, by
+    location). Marks are found by the document's real path, so the same file
+    shows the same marks from any workspace that contains it.
+
+    A missing file's marks move by themselves to the one unmarked document
+    with the same content (moved or renamed, not edited); otherwise the one
+    unmarked document with its name is ``suggestion`` when most of its marks
+    are found in it.
     """
     workspace = _workspace()
-    records = _marks().in_workspace(workspace)
-    if not records:
-        return MarksListing(documents=[])
     docs = scan_workspace(workspace, skip_dirs=_skip_dirs(), max_depth=_max_depth())
-    listed = []
-    for doc in docs:
-        record = records.get(location_key(doc.location))
-        if record is not None and (record["highlights"] or record["bookmarks"]):
-            listed.append(
-                DocumentMarksItem(
-                    docId=doc.id,
-                    location=doc.location,
-                    bookmarks=record["bookmarks"],
-                    highlights=record["highlights"],
-                )
-            )
-    return MarksListing(documents=listed)
+    return list_workspace_marks(_marks(), workspace, docs, lambda doc: {h.text for h in doc.headings})
+
+
+def _missing_record(record_id: str) -> None:
+    """404 unless *record_id* is the marks of a file in the workspace that no longer exists."""
+    for rid, _location, record in _marks().in_workspace(_workspace()).values():
+        if rid == record_id and not os.path.exists(record["path"]):
+            return
+    raise HTTPException(status_code=404, detail=f"No missing document's marks '{record_id}'.")
+
+
+@app.post(
+    "/api/marks/{record_id}/relink",
+    status_code=204,
+    summary="Move a missing document's marks to a document",
+)
+def relink_marks(record_id: str, body: Any = Depends(_json_body)) -> Response:
+    """Body: ``{"docId"}``. Marks the document already has are kept, and the moved ones added."""
+    _missing_record(record_id)
+    doc_id = body.get("docId") if isinstance(body, dict) else None
+    if not isinstance(doc_id, str):
+        raise HTTPException(status_code=400, detail="docId must be a string")
+    path = _document(doc_id)
+    _store_call(lambda: _marks().relink(record_id, path))
+    return Response(status_code=204)
+
+
+@app.delete(
+    "/api/marks/{record_id}",
+    status_code=204,
+    summary="Delete a missing document's marks",
+)
+def forget_marks(record_id: str) -> Response:
+    _missing_record(record_id)
+    _store_call(lambda: _marks().forget(record_id))
+    return Response(status_code=204)
 
 
 @app.post(
@@ -404,8 +445,8 @@ def add_highlight(doc_id: str, body: Any = Depends(_json_body)) -> HighlightItem
     {"start", "end"}, "note"?}`` — positions and quote are in the rendered
     text. Returns the saved highlight with its id.
     """
-    path, content = _document(doc_id)
-    return _store_call(lambda: _marks().add_highlight(path, content, body))
+    path = _document(doc_id)
+    return _store_call(lambda: _marks().add_highlight(path, body))
 
 
 @app.patch(
@@ -415,8 +456,8 @@ def add_highlight(doc_id: str, body: Any = Depends(_json_body)) -> HighlightItem
 )
 def update_highlight(doc_id: str, highlight_id: str, body: Any = Depends(_json_body)) -> HighlightItem:
     """Body: ``{"color"?, "note"?}``; an empty or blank note removes it."""
-    path, content = _document(doc_id)
-    return _store_call(lambda: _marks().update_highlight(path, content, highlight_id, body))
+    path = _document(doc_id)
+    return _store_call(lambda: _marks().update_highlight(path, highlight_id, body))
 
 
 @app.delete(
@@ -425,8 +466,8 @@ def update_highlight(doc_id: str, highlight_id: str, body: Any = Depends(_json_b
     summary="Remove a highlight",
 )
 def delete_highlight(doc_id: str, highlight_id: str) -> Response:
-    path, content = _document(doc_id)
-    _store_call(lambda: _marks().delete_highlight(path, content, highlight_id))
+    path = _document(doc_id)
+    _store_call(lambda: _marks().delete_highlight(path, highlight_id))
     return Response(status_code=204)
 
 
@@ -442,8 +483,8 @@ def add_bookmark(doc_id: str, body: Any = Depends(_json_body)) -> BookmarkItem:
     headings with the same text and level). Returns the bookmark — the
     existing one if it's already bookmarked.
     """
-    path, content = _document(doc_id)
-    return _store_call(lambda: _marks().add_bookmark(path, content, body))
+    path = _document(doc_id)
+    return _store_call(lambda: _marks().add_bookmark(path, body))
 
 
 @app.delete(
@@ -452,8 +493,8 @@ def add_bookmark(doc_id: str, body: Any = Depends(_json_body)) -> BookmarkItem:
     summary="Remove a bookmark",
 )
 def delete_bookmark(doc_id: str, bookmark_id: str) -> Response:
-    path, content = _document(doc_id)
-    _store_call(lambda: _marks().delete_bookmark(path, content, bookmark_id))
+    path = _document(doc_id)
+    _store_call(lambda: _marks().delete_bookmark(path, bookmark_id))
     return Response(status_code=204)
 
 

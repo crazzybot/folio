@@ -1,7 +1,7 @@
 import React, { useCallback, useId, useMemo, useRef, useState } from "react";
 import { buildMarkRows } from "../marksView";
 import type { MarkRow } from "../marksView";
-import type { BookmarkHeading, DocumentMeta } from "../types";
+import type { BookmarkHeading, DocumentMeta, MissingMarks } from "../types";
 import type { DocMarks } from "../useMarks";
 import { BookmarkIcon } from "./MarksLayer";
 import listStyles from "./DocumentList.module.css";
@@ -25,6 +25,12 @@ interface MarksPanelProps {
   onOpen: (docId: string, target: MarkTarget) => void;
   onRemoveHighlight: (docId: string, highlightId: string) => void;
   onRemoveBookmark: (docId: string, bookmarkId: string) => void;
+  /** Marks of files in the workspace that no longer exist. */
+  missing: readonly MissingMarks[];
+  /** Every document in the workspace, to move a missing document's marks to. */
+  allDocuments: readonly DocumentMeta[];
+  onRelink: (recordId: string, docId: string) => void;
+  onForget: (recordId: string) => void;
 }
 
 /**
@@ -41,6 +47,10 @@ export default function MarksPanel({
   onOpen,
   onRemoveHighlight,
   onRemoveBookmark,
+  missing,
+  allDocuments,
+  onRelink,
+  onForget,
 }: MarksPanelProps): React.ReactElement {
   const [query, setQuery] = useState("");
   const [notesOnly, setNotesOnly] = useState(false);
@@ -130,7 +140,17 @@ export default function MarksPanel({
     e.preventDefault();
   }
 
-  const hasAny = documents.some((doc) => byDoc.has(doc.id));
+  const hasAny = documents.some((doc) => byDoc.has(doc.id)) || missing.length > 0;
+  // Missing documents' marks, narrowed by the filter like the rest
+  const q = query.trim().toLowerCase();
+  const shownMissing = missing.filter(
+    (m) =>
+      (!notesOnly || m.highlights.some((h) => h.note !== null)) &&
+      (q === "" ||
+        m.location.toLowerCase().includes(q) ||
+        m.highlights.some((h) => `${h.quote.exact}\n${h.note ?? ""}`.toLowerCase().includes(q)) ||
+        m.bookmarks.some((b) => b.heading?.text.toLowerCase().includes(q))),
+  );
 
   return (
     <div className={listStyles.container}>
@@ -184,7 +204,7 @@ export default function MarksPanel({
 
       {/* ── Marks ── */}
       <div className={listStyles.listBody} role="region" aria-label="Marks">
-        {rows.length === 0 ? (
+        {rows.length === 0 && shownMissing.length === 0 ? (
           <div className={listStyles.emptyArea}>
             {!hasAny ? (
               <>
@@ -215,6 +235,9 @@ export default function MarksPanel({
               />
             ))}
           </ul>
+        )}
+        {shownMissing.length > 0 && (
+          <MissingSection missing={shownMissing} documents={allDocuments} onRelink={onRelink} onForget={onForget} />
         )}
       </div>
     </div>
@@ -372,5 +395,180 @@ function NoteIcon(): React.ReactElement {
     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
       <path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" />
     </svg>
+  );
+}
+
+// ─── Missing documents ───────────────────────────────────────────────────────
+
+interface MissingSectionProps {
+  missing: readonly MissingMarks[];
+  documents: readonly DocumentMeta[];
+  onRelink: (recordId: string, docId: string) => void;
+  onForget: (recordId: string) => void;
+}
+
+/**
+ * Marks of files that no longer exist (deleted, or moved and edited): moved
+ * to the suggested document or one picked, or deleted. Nothing is deleted
+ * without asking.
+ */
+function MissingSection({ missing, documents, onRelink, onForget }: MissingSectionProps): React.ReactElement {
+  return (
+    <section className={styles.missingSection} aria-labelledby="folio-missing-heading">
+      <h2 id="folio-missing-heading" className={styles.missingHeading}>
+        Missing documents ({missing.length})
+      </h2>
+      <p className={styles.missingHint}>Their files were moved or deleted. Move the marks to a document, or delete them.</p>
+      <ul className={styles.list}>
+        {missing.map((m) => (
+          <MissingItem key={m.recordId} marks={m} documents={documents} onRelink={onRelink} onForget={onForget} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+interface MissingItemProps {
+  marks: MissingMarks;
+  documents: readonly DocumentMeta[];
+  onRelink: (recordId: string, docId: string) => void;
+  onForget: (recordId: string) => void;
+}
+
+function MissingItem({ marks, documents, onRelink, onForget }: MissingItemProps): React.ReactElement {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"idle" | "pick" | "delete">("idle");
+  const [choice, setChoice] = useState("");
+  const pickerId = useId();
+  const slash = marks.location.lastIndexOf("/");
+  const filename = marks.location.slice(slash + 1);
+  const folder = slash === -1 ? null : marks.location.slice(0, slash);
+  const count = marks.bookmarks.length + marks.highlights.length;
+  const label = `${count} ${count === 1 ? "mark" : "marks"}`;
+  const chosen = documents.find((doc) => doc.location === choice.trim());
+
+  return (
+    <li className={styles.missingItem}>
+      <div className={styles.missingRow}>
+        <button
+          type="button"
+          className={styles.chevronBtn}
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-label={`${open ? "Hide" : "Show"} the marks of ${marks.location}`}
+        >
+          <svg
+            className={`${styles.chevron} ${open ? styles.chevronOpen : ""}`}
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M6 4l4 4-4 4" strokeWidth="1.2" />
+          </svg>
+        </button>
+        <span className={styles.missingLabel} title={marks.location}>
+          <span className={styles.missingName}>{filename}</span>
+          {folder !== null && <span className={styles.missingFolder}>{folder}</span>}
+        </span>
+        <span className={styles.count}>{count}</span>
+      </div>
+
+      {open && (
+        <ul className={styles.missingMarks} aria-label={`Marks of ${marks.location}`}>
+          {marks.bookmarks.map((b) => (
+            <li key={b.id} className={styles.missingMark}>
+              <span className={styles.bookmarkIcon}>
+                <BookmarkIcon filled />
+              </span>
+              {b.heading?.text ?? "The document"}
+            </li>
+          ))}
+          {marks.highlights.map((h) => (
+            <li key={h.id} className={styles.missingMark}>
+              <span className={`${styles.colorBar} ${styles[h.color]}`} aria-hidden="true" />
+              <span className={styles.highlightBody}>
+                <span className={styles.quote}>{h.quote.exact}</span>
+                {h.note !== null && <span className={styles.noteText}>{h.note}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {mode === "idle" && (
+        <div className={styles.missingActions}>
+          {marks.suggestion !== null && (
+            <button
+              type="button"
+              className={styles.primaryAction}
+              onClick={() => marks.suggestion && onRelink(marks.recordId, marks.suggestion.docId)}
+              title={`Move the ${label} to ${marks.suggestion.location}`}
+            >
+              Move to {marks.suggestion.location}
+            </button>
+          )}
+          <button type="button" className={styles.textAction} onClick={() => setMode("pick")}>
+            Move to…
+          </button>
+          <button type="button" className={styles.textAction} onClick={() => setMode("delete")}>
+            Delete
+          </button>
+        </div>
+      )}
+
+      {mode === "pick" && (
+        <form
+          className={styles.missingActions}
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (chosen !== undefined) onRelink(marks.recordId, chosen.id);
+          }}
+        >
+          <label htmlFor={pickerId} className={listStyles.srOnly}>
+            Document to move the marks to
+          </label>
+          <input
+            id={pickerId}
+            className={styles.picker}
+            list={`${pickerId}-documents`}
+            value={choice}
+            onChange={(e) => setChoice(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setMode("idle");
+            }}
+            placeholder="Document…"
+            autoFocus
+          />
+          <datalist id={`${pickerId}-documents`}>
+            {documents.map((doc) => (
+              <option key={doc.id} value={doc.location}>
+                {doc.title}
+              </option>
+            ))}
+          </datalist>
+          <button type="submit" className={styles.primaryAction} disabled={chosen === undefined}>
+            Move
+          </button>
+          <button type="button" className={styles.textAction} onClick={() => setMode("idle")}>
+            Cancel
+          </button>
+        </form>
+      )}
+
+      {mode === "delete" && (
+        <div className={styles.missingActions} role="group" aria-label="Confirm delete">
+          <span className={styles.confirmText}>Delete {label}?</span>
+          <button type="button" className={styles.dangerAction} onClick={() => onForget(marks.recordId)} autoFocus>
+            Delete
+          </button>
+          <button type="button" className={styles.textAction} onClick={() => setMode("idle")}>
+            Cancel
+          </button>
+        </div>
+      )}
+    </li>
   );
 }

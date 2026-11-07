@@ -16,13 +16,15 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import secrets
 import sys
 import threading
 import unicodedata
 from datetime import UTC, datetime
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 VERSION = 1
 COLORS = ("yellow", "green", "blue", "pink")
@@ -200,8 +202,8 @@ class MarksStore:
         tmp.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         os.replace(tmp, path)
 
-    def records(self) -> list[dict[str, Any]]:
-        """Every readable record of this version (others are left alone)."""
+    def records(self) -> list[tuple[str, dict[str, Any]]]:
+        """Every readable record of this version, with its id (others are left alone)."""
         found = []
         for file in sorted(self.folder.glob("*.json")):
             try:
@@ -216,23 +218,56 @@ class MarksStore:
                 and isinstance(record.get("bookmarks", []), list)
             ):
                 record.setdefault("bookmarks", [])
-                found.append(record)
+                found.append((file.stem, record))
         return found
 
-    def in_workspace(self, workspace: Path) -> dict[str, dict[str, Any]]:
-        """Records of documents inside *workspace*, by location key (see location_key)."""
+    def in_workspace(self, workspace: Path) -> dict[str, tuple[str, str, dict[str, Any]]]:
+        """
+        Records of files inside *workspace* (whether or not they still exist),
+        by location key (see location_key): record id, location, record.
+        """
         root = real_path(workspace)
         prefix = _normalise(root) + os.sep
         found = {}
-        for record in self.records():
+        for rid, record in self.records():
             if _normalise(record["path"]).startswith(prefix):
                 location = record["path"][len(root) + 1 :].replace(os.sep, "/")
-                found[location_key(location)] = record
+                found[location_key(location)] = (rid, location, record)
         return found
+
+    # ── Moved and deleted documents ──────────────────────────────────────────
+
+    def relink(self, rid: str, path: Path) -> None:
+        """Move record *rid*'s marks to the document at *path*, merged with any it has."""
+        _check_record_id(rid)
+        target = record_id(path)
+        with _lock:
+            source = self._writable(rid)
+            if source is None:
+                raise MarkError(404, f"Marks '{rid}' not found")
+            if target == rid:
+                return
+            dest = self._writable(target) or {"version": VERSION, "bookmarks": [], "highlights": []}
+            ids = {h.get("id") for h in dest["highlights"]}
+            headings = [b.get("heading") for b in dest["bookmarks"]]
+            merged = {
+                "bookmarks": dest["bookmarks"] + [b for b in source["bookmarks"] if b.get("heading") not in headings],
+                "highlights": dest["highlights"] + [h for h in source["highlights"] if h.get("id") not in ids],
+            }
+            self._write(target, _refreshed(merged, path))
+            self._file(rid).unlink(missing_ok=True)
+
+    def forget(self, rid: str) -> None:
+        """Delete record *rid* and all its marks."""
+        _check_record_id(rid)
+        with _lock:
+            if self._read(rid) is None:
+                raise MarkError(404, f"Marks '{rid}' not found")
+            self._file(rid).unlink(missing_ok=True)
 
     # ── Highlights ───────────────────────────────────────────────────────────
 
-    def add_highlight(self, path: Path, content: str, body: Any) -> dict[str, Any]:
+    def add_highlight(self, path: Path, body: Any) -> dict[str, Any]:
         highlight = _new_highlight(body)
         rid = record_id(path)
         with _lock:
@@ -240,10 +275,10 @@ class MarksStore:
             if len(record["highlights"]) >= MAX_HIGHLIGHTS:
                 raise MarkError(409, f"A document can have at most {MAX_HIGHLIGHTS} highlights")
             record["highlights"].append(highlight)
-            self._write(rid, _refreshed(record, path, content))
+            self._write(rid, _refreshed(record, path))
         return highlight
 
-    def update_highlight(self, path: Path, content: str, highlight_id: str, body: Any) -> dict[str, Any]:
+    def update_highlight(self, path: Path, highlight_id: str, body: Any) -> dict[str, Any]:
         if not isinstance(body, dict):
             raise MarkError(400, "Expected a JSON object")
         # Validate before changing anything
@@ -257,19 +292,19 @@ class MarksStore:
             record = self._writable(rid)
             highlight = _find(record, highlight_id)
             highlight.update(changes, updated=_now())
-            self._write(rid, _refreshed(record, path, content))
+            self._write(rid, _refreshed(record, path))
         return highlight
 
-    def delete_highlight(self, path: Path, content: str, highlight_id: str) -> None:
+    def delete_highlight(self, path: Path, highlight_id: str) -> None:
         rid = record_id(path)
         with _lock:
             record = self._writable(rid)
             record["highlights"].remove(_find(record, highlight_id))
-            self._write(rid, _refreshed(record, path, content))
+            self._write(rid, _refreshed(record, path))
 
     # ── Bookmarks ────────────────────────────────────────────────────────────
 
-    def add_bookmark(self, path: Path, content: str, body: Any) -> dict[str, Any]:
+    def add_bookmark(self, path: Path, body: Any) -> dict[str, Any]:
         """Bookmark the document (``{"heading": null}``) or a heading; an existing bookmark is returned as it is."""
         if not isinstance(body, dict):
             raise MarkError(400, "Expected a JSON object")
@@ -284,15 +319,21 @@ class MarksStore:
                 raise MarkError(409, f"A document can have at most {MAX_BOOKMARKS} bookmarks")
             bookmark = {"id": secrets.token_hex(8), "heading": heading, "created": _now()}
             record["bookmarks"].append(bookmark)
-            self._write(rid, _refreshed(record, path, content))
+            self._write(rid, _refreshed(record, path))
         return bookmark
 
-    def delete_bookmark(self, path: Path, content: str, bookmark_id: str) -> None:
+    def delete_bookmark(self, path: Path, bookmark_id: str) -> None:
         rid = record_id(path)
         with _lock:
             record = self._writable(rid)
             record["bookmarks"].remove(_find(record, bookmark_id, "bookmarks"))
-            self._write(rid, _refreshed(record, path, content))
+            self._write(rid, _refreshed(record, path))
+
+
+def _check_record_id(rid: str) -> None:
+    # Record ids name files: only what record_id makes
+    if not re.fullmatch(r"[0-9a-f]{40}", rid):
+        raise MarkError(404, f"Marks '{rid}' not found")
 
 
 def _find(record: dict[str, Any] | None, mark_id: str, kind: str = "highlights") -> dict[str, Any]:
@@ -303,13 +344,139 @@ def _find(record: dict[str, Any] | None, mark_id: str, kind: str = "highlights")
     raise MarkError(404, f"{kind[:-1].capitalize()} '{mark_id}' not found")
 
 
-def _refreshed(record: dict[str, Any], path: Path, content: str) -> dict[str, Any]:
-    """The record with its path and fingerprint (used to re-link moved files) brought up to date."""
-    data = content.encode("utf-8")
+def fingerprint(path: Path) -> dict[str, Any]:
+    """What identifies the file's content, to re-link its marks if it's moved: from its bytes, as stored."""
+    data = path.read_bytes()
+    return {"sha1": hashlib.sha1(data).hexdigest(), "size": len(data), "filename": path.name}
+
+
+def _refreshed(record: dict[str, Any], path: Path) -> dict[str, Any]:
+    """The record with its path and fingerprint brought up to date."""
     return {
         "version": VERSION,
         "path": real_path(path),
-        "fingerprint": {"sha1": hashlib.sha1(data).hexdigest(), "size": len(data), "filename": path.name},
+        "fingerprint": fingerprint(path),
         "bookmarks": record.get("bookmarks", []),
         "highlights": record["highlights"],
     }
+
+
+# ---------------------------------------------------------------------------
+# Listing, with moved documents found again
+# ---------------------------------------------------------------------------
+
+# Markdown punctuation and whitespace: a highlight's rendered text is looked
+# for in a document's source with these collapsed to one space
+_MARKUP = re.compile(r"[\s*_`~#>|\[\]]+")
+
+
+def _plain(text: str) -> str:
+    return _MARKUP.sub(" ", text).strip().lower()
+
+
+class ListedDocument(Protocol):
+    id: str
+    location: str
+
+
+def _evidence(record: dict[str, Any], content: str, headings: set[str]) -> bool:
+    """Whether most of the record's highlights and bookmarked headings are in the document."""
+    plain = _plain(content)
+    checks = [_plain(h["quote"]["exact"]) in plain for h in record["highlights"]]
+    checks += [b["heading"]["text"] in headings for b in record["bookmarks"] if b.get("heading")]
+    # Only a bookmark on the document itself: the same name is all there is to go by
+    return not checks or sum(checks) * 2 >= len(checks)
+
+
+def list_marks(
+    store: MarksStore,
+    workspace: Path,
+    docs: Sequence[ListedDocument],
+    headings_of: Callable[[ListedDocument], set[str]],
+) -> dict[str, Any]:
+    """
+    The marks of the listed *docs* (a workspace scan) that have any, in list
+    order, and the records of files in *workspace* that no longer exist.
+
+    A missing file's marks move by themselves to the one unmarked document
+    with the same content (a file moved or renamed without edits). Failing
+    that, the one unmarked document with the same file name is suggested when
+    most of the marks are found in it.
+    """
+    found = store.in_workspace(workspace)
+    missing = [entry for entry in found.values() if not os.path.exists(entry[2]["path"])]
+    unmarked = [doc for doc in docs if location_key(doc.location) not in found]
+
+    if missing:
+        moved = _relink_unedited(store, workspace, missing, unmarked)
+        if moved:
+            found = store.in_workspace(workspace)
+            missing = [entry for entry in found.values() if not os.path.exists(entry[2]["path"])]
+            unmarked = [doc for doc in docs if location_key(doc.location) not in found]
+
+    documents = []
+    for doc in docs:
+        entry = found.get(location_key(doc.location))
+        if entry is not None and (entry[2]["highlights"] or entry[2]["bookmarks"]):
+            record = entry[2]
+            documents.append(
+                {"docId": doc.id, "location": doc.location, "bookmarks": record["bookmarks"], "highlights": record["highlights"]}
+            )
+
+    listed_missing = []
+    for rid, location, record in sorted(missing, key=lambda entry: entry[1]):
+        filename = location.rsplit("/", 1)[-1]
+        namesakes = [d for d in unmarked if d.location.rsplit("/", 1)[-1].lower() == filename.lower()]
+        suggestion = None
+        if len(namesakes) == 1:
+            doc = namesakes[0]
+            content = _read_text(workspace / doc.location)
+            if content is not None and _evidence(record, content, headings_of(doc)):
+                suggestion = {"docId": doc.id, "location": doc.location}
+        listed_missing.append(
+            {
+                "recordId": rid,
+                "location": location,
+                "bookmarks": record["bookmarks"],
+                "highlights": record["highlights"],
+                "suggestion": suggestion,
+            }
+        )
+    return {"documents": documents, "missing": listed_missing}
+
+
+def _relink_unedited(
+    store: MarksStore,
+    workspace: Path,
+    missing: list[tuple[str, str, dict[str, Any]]],
+    unmarked: Sequence[ListedDocument],
+) -> bool:
+    """Move each missing file's marks to the one unmarked document with its content; True if any moved."""
+    # Missing files told apart by their content; two with the same content are left to the user
+    sha1s = [entry[2].get("fingerprint", {}).get("sha1") for entry in missing]
+    wanted = {sha1: entry for sha1, entry in zip(sha1s, missing) if sha1 and sha1s.count(sha1) == 1}
+    sizes = {wanted[sha1][2]["fingerprint"].get("size") for sha1 in wanted}
+    # Hash only documents of a size some missing file had
+    by_sha1: dict[str, list[Path]] = {}
+    for doc in unmarked:
+        path = workspace / doc.location
+        try:
+            size = path.stat().st_size
+        except OSError:
+            continue
+        if size > 0 and size in sizes:
+            by_sha1.setdefault(fingerprint(path)["sha1"], []).append(path)
+    moved = False
+    for sha1, (rid, _location, _record) in wanted.items():
+        paths = by_sha1.get(sha1, [])
+        if len(paths) == 1:
+            store.relink(rid, paths[0])
+            moved = True
+    return moved
+
+
+def _read_text(path: Path) -> str | None:
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
