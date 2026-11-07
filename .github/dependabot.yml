@@ -7,6 +7,11 @@ updates:
   - package-ecosystem: npm
     directory: /frontend
     schedule: { interval: weekly }
+    ignore:
+      # typescript-eslint supports TypeScript < 6.1 only (8.72); remove this
+      # once a release accepts newer TypeScript
+      - dependency-name: typescript
+        versions: [">= 6.1.0"]
     groups:
       minor-and-patch: { update-types: [minor, patch] }
       major: { update-types: [major] }
