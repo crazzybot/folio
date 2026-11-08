@@ -28,7 +28,7 @@
     "publish": {
       "provider": "github",
       "owner": "crazzybot",
-      "repo": "markdown-viewer",
+      "repo": "folio",
       "releaseType": "draft"
     },
     "files": [

@@ -15,7 +15,7 @@
 // are marked unavailable; only when GitHub can't be reached do they fall
 // back to the releases page.
 
-const REPO = "crazzybot/markdown-viewer";
+const REPO = "crazzybot/folio";
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`;
 const CACHE_KEY = "folio.latestRelease";
 const CACHE_MS = 10 * 60 * 1000;

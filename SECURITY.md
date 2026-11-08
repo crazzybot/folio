@@ -11,7 +11,7 @@ desktop app update themselves from GitHub Releases.
 ## Reporting a vulnerability
 
 **Please do not open a public issue.** Report it privately through GitHub:
-[Report a vulnerability](https://github.com/crazzybot/markdown-viewer/security/advisories/new).
+[Report a vulnerability](https://github.com/crazzybot/folio/security/advisories/new).
 
 Include what you can of:
 

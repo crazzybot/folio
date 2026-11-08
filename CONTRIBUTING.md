@@ -19,8 +19,8 @@ You need Node.js 20.19 or later (CI uses 24), npm, Python 3.13 and
 [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone https://github.com/crazzybot/markdown-viewer.git
-cd markdown-viewer
+git clone https://github.com/crazzybot/folio.git
+cd folio
 
 # Desktop app (builds the frontend too)
 cd desktop && npm install && npm start
