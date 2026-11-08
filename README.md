@@ -240,10 +240,17 @@ Releases are built by GitHub Actions (`.github/workflows/release.yml`) and
 published as GitHub Releases, where installed copies of Folio look for
 updates (**Folio → Check for Updates…**, also checked quietly at launch).
 
-1. Bump the version (e.g. `0.2.0`) in `desktop/package.json`, `frontend/package.json`,
-   `backend/pyproject.toml` and `backend/app/main.py` (then `npm install` and
-   `uv lock` to update the lock files), add the release to `CHANGELOG.md`, and
-   merge it to `main`.
+1. With the release notes under `## [Unreleased]` in `CHANGELOG.md`, run from
+   a clean, up-to-date `main`:
+   ```bash
+   node scripts/release.mjs patch   # or minor, major, or a version: 0.4.0
+   ```
+   It sets the version in `desktop/package.json`, `frontend/package.json`
+   and `backend/pyproject.toml` (the backend reads it from there), updates
+   the lock files (`npm`, `uv`), dates the changelog section, and commits it
+   all on a `release-X.Y.Z` branch. Review it, push it and merge it to `main`.
+   CI checks that every file has the same version
+   (`node scripts/release.mjs --check`).
 2. Tag that commit and push the tag:
    ```bash
    git tag v0.2.0 && git push origin v0.2.0
