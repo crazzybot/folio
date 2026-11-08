@@ -1,4 +1,5 @@
-# Publish the product site (site/) to GitHub Pages.
+# Publish the product site (site/) to GitHub Pages, with the live demo
+# (docs/design/live-demo.md) built from main in demo/.
 # One-time setup: Settings → Pages → Source: GitHub Actions.
 # The download links read the latest release at view time, so publishing a
 # release doesn't need a site deploy.
@@ -7,7 +8,15 @@ name: Pages
 on:
   push:
     branches: [main]
-    paths: ["site/**", ".github/workflows/pages.yml"]
+    paths:
+      - site/**
+      - .github/workflows/pages.yml
+      # The demo: its content, the app, and the scanner that bundles it
+      - demo/**
+      - frontend/**
+      - desktop/src/**
+      - desktop/scripts/demo-bundle.mjs
+      - desktop/package*.json
   workflow_dispatch:
 
 permissions:
@@ -25,11 +34,34 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      # The demo bundle needs the desktop scanner, not Electron
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            desktop/package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+        working-directory: desktop
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run demo:bundle
+        working-directory: desktop
+      - run: npm run build:demo
+        working-directory: frontend
+      - name: Assemble the site and the demo
+        run: |
+          mkdir _site
+          cp -R site/. _site/
+          cp -R frontend/dist-demo _site/demo
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: site
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v5

@@ -241,6 +241,9 @@ code {
   margin-top: 28px;
   font-size: 15px;
 }
+.hero-links .demo-link {
+  font-weight: 600;
+}
 
 .shot-frame {
   border-radius: 12px 12px 0 0;
@@ -456,6 +459,10 @@ code {
 .dl-version {
   margin-top: 12px;
   font-size: 17px;
+}
+.dl-demo {
+  margin-top: 8px;
+  font-size: 15px;
 }
 .dl-status {
   margin-top: 20px;
