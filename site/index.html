@@ -52,9 +52,19 @@
       </div>
 
       <div class="shot-frame">
-        <img src="img/app-dark.webp" width="2880" height="1800"
-             alt="Folio in its dark theme: a sidebar of documents grouped by folder, an architecture note with a flowchart, a formula, code and highlighted passages, and an outline of its headings on the right with a count of marks per section.">
+        <video id="demo" src="img/demo.mp4" poster="img/demo-poster.webp" width="1280" height="800"
+               muted loop playsinline controls preload="metadata"
+               aria-label="Demo: focusing on a docs/specs folder, opening an AI-written spec, highlighting passages and writing review notes on them, then copying the notes as Markdown with file paths and line numbers for a coding agent."></video>
       </div>
+      <script>
+        // Play the demo like an animation, unless the visitor asked for less motion
+        (() => {
+          const video = document.getElementById("demo");
+          if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+          video.controls = false;
+          video.play().catch(() => { video.controls = true; });
+        })();
+      </script>
     </div>
   </section>
 
