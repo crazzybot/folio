@@ -8,6 +8,15 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Check for Updates…** tries once more when GitHub can't be reached, and
+  if it still can't, says so in plain words instead of showing only an error
+  code such as `net::ERR_TIMED_OUT`.
+- Updates download in full straight away. They used to try fetching only the
+  changed parts first, which GitHub's download server refuses, so every
+  update made a failed attempt before the full download.
+
 ## [0.3.1] — 2026-11-08
 
 ### Fixed
