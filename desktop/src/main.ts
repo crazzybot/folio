@@ -936,7 +936,7 @@ function buildMenu(): Menu {
         { role: "selectAll" },
         { type: "separator" },
         // The page handles these keys itself (find bar, sidebar search,
-        // highlights and bookmarks); the menu shows them and works by click,
+        // highlights, bookmarks and review notes); the menu shows them and works by click,
         // without taking the keys
         ...(
           [
@@ -946,6 +946,7 @@ function buildMenu(): Menu {
             ["Search Document Text…", "Shift+CmdOrCtrl+F", "search-text"],
             ["Highlight Selection", "Shift+CmdOrCtrl+H", "highlight"],
             ["Bookmark Document", "CmdOrCtrl+D", "bookmark"],
+            ["Copy Review Notes", "Shift+CmdOrCtrl+C", "copy-review-notes"],
           ] as const
         ).map(
           ([label, accelerator, command]): MenuItemConstructorOptions => ({

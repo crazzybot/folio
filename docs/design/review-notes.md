@@ -1,6 +1,6 @@
 # Copy review notes
 
-Status: proposed.
+Status: implemented (phases 1–4).
 
 Turns a document's highlights and notes into Markdown that can be pasted
 straight into a coding agent (Claude Code, Cursor, …) as review feedback.
@@ -70,8 +70,9 @@ of them so "note 5" means the same thing to the user and the agent.
   inside the list item. A highlight without a note gets
   `(no comment)`. Whatever the colour meant to the user means
   nothing to the agent, so colours are left out.
-- **Opening line**: the default above, editable under
-  **Settings → Marks → Review notes intro**. `{documents}` is replaced with
+- **Opening line**: the default above. Under **Settings → Review notes**, a
+  switch leaves it out, and **Instructions** replaces its wording (empty for
+  the default). `{documents}` is replaced with
   the file name, or "3 documents"; the full path is on every note. Leave it empty to start with the first note.
 
 ## 2. Finding the line and section
@@ -180,7 +181,9 @@ Each one opens the preview (below) with its notes:
   for when the output is trusted. This shortcut is free in the menus and
   matches `⇧⌘H` (highlight) and `⇧⌘F` (search document text). DevTools'
   element picker uses it only while DevTools has focus.
-- **Browser**: the same shortcut, handled by the page.
+- **Browser**: the same shortcut, handled by the page. Browsers whose
+  DevTools use it (Chrome, Firefox) may take it first; the header button
+  always works.
 
 ### Preview
 
@@ -238,7 +241,8 @@ self-hosted server on plain HTTP doesn't have one. There, **Copy** selects
 all the text in the preview and says "Press ⌘C to copy" (`Ctrl+C` on
 Windows and Linux), so no separate dialog is needed. With no secure
 context, the shortcut opens the preview instead of copying directly. The
-desktop app uses Electron's `clipboard`, which always works.
+desktop app uses `navigator.clipboard` too: its pages may write to the
+clipboard (as code blocks' Copy does), so it always works there.
 
 ## 6. Phases
 

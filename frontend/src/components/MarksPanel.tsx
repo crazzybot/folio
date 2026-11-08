@@ -1,9 +1,10 @@
 import React, { useCallback, useId, useMemo, useRef, useState } from "react";
 import { buildMarkRows } from "../marksView";
 import type { MarkRow } from "../marksView";
-import type { BookmarkHeading, DocumentMeta, MissingMarks } from "../types";
+import type { BookmarkHeading, DocumentMeta, Highlight, MissingMarks } from "../types";
 import type { DocMarks } from "../useMarks";
 import { BookmarkIcon } from "./MarksLayer";
+import { ReviewNotesIcon } from "./ReviewNotesPanel";
 import listStyles from "./DocumentList.module.css";
 import styles from "./MarksPanel.module.css";
 
@@ -11,6 +12,14 @@ const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 
 /** What opening a mark should scroll to: a highlight, a heading, or (null) the document's top. */
 export type MarkTarget = { highlight: string } | { heading: BookmarkHeading } | null;
+
+/** A document's highlights to copy as review notes. */
+export interface ReviewSelection {
+  doc: DocumentMeta;
+  highlights: readonly Highlight[];
+}
+
+const NOTHING_FOLDED: ReadonlySet<string> = new Set();
 
 interface MarksPanelProps {
   /** The sidebar's Documents | Marks switch, shown in the header. */
@@ -31,6 +40,8 @@ interface MarksPanelProps {
   allDocuments: readonly DocumentMeta[];
   onRelink: (recordId: string, docId: string) => void;
   onForget: (recordId: string) => void;
+  /** Copy review notes on these highlights (shows the preview). */
+  onCopyNotes: (selection: ReviewSelection[]) => void;
 }
 
 /**
@@ -51,6 +62,7 @@ export default function MarksPanel({
   allDocuments,
   onRelink,
   onForget,
+  onCopyNotes,
 }: MarksPanelProps): React.ReactElement {
   const [query, setQuery] = useState("");
   const [notesOnly, setNotesOnly] = useState(false);
@@ -64,6 +76,16 @@ export default function MarksPanel({
     () => buildMarkRows({ documents, byDoc, query, notesOnly, collapsed, located }),
     [documents, byDoc, query, notesOnly, collapsed, located],
   );
+  // What the view shows, folded documents included: the highlights Copy review notes copies, by document
+  const copyable = useMemo(() => {
+    const byDocShown = new Map<string, ReviewSelection>();
+    for (const row of buildMarkRows({ documents, byDoc, query, notesOnly, collapsed: NOTHING_FOLDED, located })) {
+      if (row.kind !== "highlight") continue;
+      const entry = byDocShown.get(row.doc.id);
+      byDocShown.set(row.doc.id, { doc: row.doc, highlights: [...(entry?.highlights ?? []), row.highlight] });
+    }
+    return byDocShown;
+  }, [documents, byDoc, query, notesOnly, located]);
   const tabStop = (rows.some((r) => r.key === focusKey) ? focusKey : undefined) ?? rows[0]?.key;
 
   const toggleCollapsed = useCallback((docId: string, open?: boolean) => {
@@ -156,8 +178,8 @@ export default function MarksPanel({
     <div className={listStyles.container}>
       <header className={listStyles.header}>{tabs}</header>
 
-      {/* ── Filter ── */}
-      <div className={listStyles.searchWrapper}>
+      {/* ── Filter, and Copy review notes on what it shows ── */}
+      <div className={`${listStyles.searchWrapper} ${styles.filterRow}`}>
         <label htmlFor={filterId} className={listStyles.srOnly}>
           Filter marks
         </label>
@@ -200,6 +222,16 @@ export default function MarksPanel({
             </button>
           )}
         </div>
+        <button
+          type="button"
+          className={styles.copyAll}
+          onClick={() => onCopyNotes([...copyable.values()])}
+          disabled={copyable.size === 0}
+          aria-label="Copy review notes on the highlights shown"
+          title="Copy review notes on the highlights shown"
+        >
+          <ReviewNotesIcon size={14} />
+        </button>
       </div>
 
       {/* ── Marks ── */}
@@ -232,6 +264,11 @@ export default function MarksPanel({
                 onActivate={() => activate(row)}
                 onToggle={() => toggleCollapsed(row.doc.id)}
                 onRemove={() => remove(row)}
+                onCopyNotes={() => {
+                  const selection = copyable.get(row.doc.id);
+                  if (selection !== undefined) onCopyNotes([selection]);
+                }}
+                copyable={row.kind === "document" && copyable.has(row.doc.id)}
               />
             ))}
           </ul>
@@ -257,9 +294,23 @@ interface MarkRowItemProps {
   onToggle: () => void;
   /** Remove the mark (a document row: its bookmark). */
   onRemove: () => void;
+  /** A document row: copy review notes on its highlights shown. */
+  onCopyNotes: () => void;
+  /** A document row with highlights shown. */
+  copyable: boolean;
 }
 
-function MarkRowItem({ row, selected, tabStop, onFocus, onActivate, onToggle, onRemove }: MarkRowItemProps): React.ReactElement {
+function MarkRowItem({
+  row,
+  selected,
+  tabStop,
+  onFocus,
+  onActivate,
+  onToggle,
+  onRemove,
+  onCopyNotes,
+  copyable,
+}: MarkRowItemProps): React.ReactElement {
   const common = {
     "data-row": row.key,
     tabIndex: tabStop ? 0 : -1,
@@ -326,6 +377,21 @@ function MarkRowItem({ row, selected, tabStop, onFocus, onActivate, onToggle, on
           <span className={styles.chevronSpace} aria-hidden="true" />
         )}
         <span className={styles.docTitle}>{row.doc.title}</span>
+        {copyable && (
+          <button
+            type="button"
+            className={styles.copyNotes}
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCopyNotes();
+            }}
+            aria-label={`Copy review notes on ${row.doc.title}`}
+            title="Copy review notes"
+          >
+            <ReviewNotesIcon size={12} />
+          </button>
+        )}
         {bookmarked && (
           <button
             type="button"
