@@ -1,0 +1,32 @@
+{
+  "$comment": "Marks a first visit to the live demo starts with (see docs/design/live-demo.md). Each quote must be on one line of its document and contain no Markdown syntax; desktop/scripts/demo-bundle.mjs fails when one isn't found.",
+  "documents": {
+    "docs/specs/rate-limits.md": {
+      "highlights": [
+        {
+          "quote": "Limits apply per endpoint, not per tenant",
+          "color": "yellow",
+          "note": "This contradicts the summary: a tenant can get around its plan by adding endpoints. Should the limit be per tenant, shared by its endpoints?"
+        }
+      ]
+    },
+    "docs/specs/signed-payloads.md": {
+      "highlights": [
+        { "quote": "Receivers should also reject signatures older than five minutes", "color": "green", "note": null }
+      ],
+      "bookmarks": [{ "heading": "Verifying a signature" }]
+    },
+    "docs/adr/0003-hmac-signatures.md": {
+      "highlights": [
+        {
+          "quote": "anyone forge deliveries to that endpoint until it's rotated",
+          "color": "pink",
+          "note": "How long does a rotation take a tenant today? Worth a number here before this is accepted."
+        }
+      ]
+    },
+    "README.md": {
+      "bookmarks": [{ "heading": null }]
+    }
+  }
+}

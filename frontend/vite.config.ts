@@ -8,8 +8,11 @@ const CHUNKS = {
   markdown: ["react-markdown", "remark-gfm", "rehype-highlight", "highlight.js"],
 };
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  // The live demo's bundle.json and workspace/ (desktop/scripts/demo-bundle.mjs),
+  // served next to the app; other builds have no public files
+  publicDir: mode === "demo" ? "../demo/build" : "public",
   build: {
     target: "es2022",
     sourcemap: true,
@@ -45,4 +48,4 @@ export default defineConfig({
   preview: {
     historyApiFallback: true,
   },
-});
+}));

@@ -12,3 +12,6 @@ node_modules/
 Thumbs.db
 .idea/
 .vscode/
+
+# Live demo data, built by `npm run demo:bundle` in desktop/
+demo/build/

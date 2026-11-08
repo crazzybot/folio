@@ -82,10 +82,13 @@ as the check.
   `notes/demo/`. Extended so each feature has something to show: a few
   longer ADRs, an image, a formula, an Obsidian-style `[[link]]`, and enough
   text that full-text search finds several documents.
-- `desktop/scripts/demo-bundle.mjs`: runs the desktop scanner
-  (`scanWorkspace`, `scanAttachments`) over `demo/relay/` and writes
-  `bundle.json`, plus the static copy of the workspace. It lives with the
-  desktop package because it uses the desktop's compiled modules.
+- `desktop/scripts/demo-bundle.mjs` (`npm run demo:bundle` in `desktop/`):
+  runs the desktop scanner (`scanWorkspace`, `scanAttachments`) over
+  `demo/relay/` and writes `bundle.json` and the static copy of the
+  workspace to `demo/build/` (not committed). It lives with the desktop
+  package because it uses the desktop's compiled modules. In demo mode Vite
+  serves `demo/build/` as its public folder, so `npm run dev:demo` in
+  `frontend/` runs the demo locally and the demo build includes the data.
 - `demo/seed-marks.json`: the first-visit marks, as quotes and headings. The
   script resolves them to `DocumentMarks` and fails the build if a quote is no
   longer in its document, so editing the demo docs can't silently drop them.

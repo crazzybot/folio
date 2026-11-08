@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:demo": "vite --mode demo",
     "build": "tsc --noEmit && vite build",
     "lint": "eslint src --max-warnings 0",
     "preview": "vite preview",
