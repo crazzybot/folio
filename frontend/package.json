@@ -8,6 +8,7 @@
     "dev": "vite",
     "dev:demo": "vite --mode demo",
     "build": "tsc --noEmit && vite build",
+    "build:demo": "tsc --noEmit && vite build --mode demo --base ./ --outDir dist-demo",
     "lint": "eslint src --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest run"

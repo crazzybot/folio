@@ -96,8 +96,12 @@ as the check.
 ## 4. Demo build
 
 - `frontend`: `npm run build:demo` → `vite build --mode demo --base ./`,
-  output into a staging folder.
-- `main.tsx`: `HashRouter` in demo mode, `BrowserRouter` otherwise.
+  output into `frontend/dist-demo/` with the bundle and workspace copy.
+  It fails when `demo/build/` is missing.
+- `main.tsx`: `HashRouter` in demo mode, `BrowserRouter` otherwise. An
+  address with no document opens the sample repository's README (its id
+  comes from the bundle at build time). Links to other documents get their
+  `href` from the router, so a new tab or a copied link uses `#/doc/…` too.
 - **Banner** above the app, demo mode only: "Demo with a sample repository.
   Your marks stay in this browser." with **Download Folio** (back to the
   site) and **Reset demo** (clears the demo's marks and view preferences,

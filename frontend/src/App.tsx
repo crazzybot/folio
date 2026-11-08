@@ -28,6 +28,7 @@ import useTheme from "./theme";
 import { documentsInFolder } from "./documentTree";
 import { useFolderFocus } from "./folderFocus";
 import useMarks from "./useMarks";
+import DemoBanner from "./components/DemoBanner";
 import DisplayMenu from "./components/DisplayMenu";
 import SettingsPanel from "./components/SettingsPanel";
 import ReviewNotesPanel, { ReviewNotesIcon, copyText } from "./components/ReviewNotesPanel";
@@ -664,6 +665,7 @@ function AppInner(): React.ReactElement {
       data-doc-style={docStyle.id}
       style={{ "--reading-width": readingWidth.value, "--reading-font-size": fontSize.value } as React.CSSProperties}
     >
+      {import.meta.env.MODE === "demo" && <DemoBanner />}
       <div className={styles.workbench}>
         {/* ── Left panel (document list) ── */}
         <aside

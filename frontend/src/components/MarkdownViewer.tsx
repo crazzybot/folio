@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useHref } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -176,6 +177,12 @@ function MarkdownLink({
 }: React.AnchorHTMLAttributes<HTMLAnchorElement> & ExtraProps): React.ReactElement {
   const handlers = useContext(LinkContext);
   const target = href !== undefined && handlers ? handlers.resolve(href) : null;
+  // A document's app URL, as the router writes it ("#/doc/…" in the live demo)
+  const documentHref = useHref(
+    target?.kind === "document"
+      ? `/doc/${encodeURIComponent(target.id)}${target.anchor ? `#${target.anchor}` : ""}`
+      : "/",
+  );
 
   if (target === null || handlers === null) {
     return <a href={href} {...rest}>{children}</a>;
@@ -215,7 +222,7 @@ function MarkdownLink({
         <a
           {...rest}
           // A real app URL, so modified clicks and "copy link" still work
-          href={`/doc/${encodeURIComponent(target.id)}${target.anchor ? `#${target.anchor}` : ""}`}
+          href={documentHref}
           onClick={(e) => {
             if (!isPlainClick(e)) return;
             e.preventDefault();
