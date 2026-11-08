@@ -7,3 +7,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** The live demo's first document (vite.config.ts); "" in other builds. */
+declare const __DEMO_START__: string;

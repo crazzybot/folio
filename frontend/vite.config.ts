@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
@@ -8,11 +9,30 @@ const CHUNKS = {
   markdown: ["react-markdown", "remark-gfm", "rehype-highlight", "highlight.js"],
 };
 
+// The live demo's data, made by `npm run demo:bundle` in desktop/
+const DEMO_DATA = "../demo/build";
+
+/**
+ * The document the demo opens on: the sample repository's README. Read from
+ * the bundle, so a demo build without one fails here rather than in the browser.
+ */
+function demoStart(): string {
+  const file = `${DEMO_DATA}/bundle.json`;
+  if (!existsSync(file)) throw new Error(`No demo data in ${DEMO_DATA}: run \`npm run demo:bundle\` in desktop/ first`);
+  const { documents } = JSON.parse(readFileSync(file, "utf8")) as { documents: { id: string; location: string }[] };
+  const start = documents.find((doc) => doc.location === "README.md") ?? documents[0];
+  if (start === undefined) throw new Error(`The demo bundle in ${DEMO_DATA} has no documents`);
+  return start.id;
+}
+
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  define: {
+    __DEMO_START__: JSON.stringify(mode === "demo" ? demoStart() : ""),
+  },
   // The live demo's bundle.json and workspace/ (desktop/scripts/demo-bundle.mjs),
   // served next to the app; other builds have no public files
-  publicDir: mode === "demo" ? "../demo/build" : "public",
+  publicDir: mode === "demo" ? DEMO_DATA : "public",
   build: {
     target: "es2022",
     sourcemap: true,

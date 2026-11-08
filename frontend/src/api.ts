@@ -90,12 +90,8 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
 // In the desktop app the documents come over IPC instead of the REST backend;
 // the live demo (`vite build --mode demo`) brings its own. Other builds
 // leave the demo out: the mode is a constant, so its branch is dropped.
-const source: DataSource =
-  import.meta.env.MODE === "demo"
-    ? createDemoSource(import.meta.env.BASE_URL)
-    : window.markdownApi
-      ? desktopSource(window.markdownApi)
-      : httpSource;
+const demo = import.meta.env.MODE === "demo" ? createDemoSource(import.meta.env.BASE_URL) : null;
+const source: DataSource = demo ?? (window.markdownApi ? desktopSource(window.markdownApi) : httpSource);
 
 // ─── Documents ────────────────────────────────────────────────────────────────
 
@@ -163,4 +159,9 @@ export async function relinkMarks(recordId: string, docId: string): Promise<void
 /** Delete a missing document's marks. */
 export async function forgetMarks(recordId: string): Promise<void> {
   return source.marks.forget(recordId);
+}
+
+/** Live demo: back to the marks a first visit starts with. Elsewhere, nothing. */
+export async function resetDemoMarks(): Promise<void> {
+  await demo?.resetMarks();
 }
