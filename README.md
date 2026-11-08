@@ -43,7 +43,7 @@ or from [GitHub Releases](https://github.com/crazzybot/folio/releases/latest):
 |---|---|
 | macOS (Apple Silicon) | `Folio-<version>-arm64.dmg` — signed and notarized |
 | macOS (Intel) | `Folio-<version>.dmg` — signed and notarized |
-| Windows | `Folio.Setup.<version>.exe` — not code-signed yet, so SmartScreen shows a warning: choose **More info → Run anyway** |
+| Windows | `Folio-Setup-<version>.exe` — not code-signed yet, so SmartScreen shows a warning: choose **More info → Run anyway** |
 | Linux | `Folio-<version>.AppImage` — `chmod +x` it, then run it |
 
 The app checks for updates at launch (**Folio → Check for Updates…**).
@@ -260,7 +260,7 @@ updates (**Folio → Check for Updates…**, also checked quietly at launch).
    - macOS: `Folio-0.2.0-arm64.dmg` (Apple Silicon) and `Folio-0.2.0.dmg`
      (Intel), plus a `.zip` of each for the updater, signed with the
      Developer ID certificate and notarized
-   - Windows: `Folio.Setup.0.2.0.exe` (unsigned for now — SmartScreen warns)
+   - Windows: `Folio-Setup-0.2.0.exe` (unsigned for now — SmartScreen warns)
    - Linux: an AppImage
    - `latest*.yml` files the updater reads
 4. Review the draft on GitHub (replace the generated notes with the version's

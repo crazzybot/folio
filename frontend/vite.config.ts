@@ -41,6 +41,36 @@ function thirdPartyNotices(): Plugin {
   };
 }
 
+/**
+ * The live demo's link preview (Open Graph), for when its URL is shared. Only
+ * the demo build: a self-hosted Folio shouldn't point at the product site.
+ */
+function demoLinkPreview(): Plugin {
+  const site = "https://crazzybot.github.io/folio/";
+  const meta = {
+    "og:type": "website",
+    "og:site_name": "Folio",
+    "og:url": `${site}demo/`,
+    "og:title": "Folio live demo",
+    "og:description": "Read, search and mark up a sample repository of specs and ADRs in your browser, with nothing to install.",
+    "og:image": `${site}img/og.png`,
+    "og:image:width": "1200",
+    "og:image:height": "630",
+    "og:image:alt": "Folio: read and review folders of Markdown, beside a screenshot of the app",
+    "twitter:card": "summary_large_image",
+  };
+  return {
+    name: "folio-demo-link-preview",
+    apply: (_config, { mode }) => mode === "demo",
+    transformIndexHtml: () =>
+      Object.entries(meta).map(([key, content]) => ({
+        tag: "meta",
+        attrs: key.startsWith("twitter:") ? { name: key, content } : { property: key, content },
+        injectTo: "head" as const,
+      })),
+  };
+}
+
 // The live demo's data, made by `npm run demo:bundle` in desktop/
 const DEMO_DATA = "../demo/build";
 
@@ -58,7 +88,7 @@ function demoStart(): string {
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), thirdPartyNotices()],
+  plugins: [react(), thirdPartyNotices(), demoLinkPreview()],
   define: {
     __DEMO_START__: JSON.stringify(mode === "demo" ? demoStart() : ""),
   },
