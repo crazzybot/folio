@@ -35,7 +35,8 @@ export default defineConfig(({ mode }) => ({
   publicDir: mode === "demo" ? DEMO_DATA : "public",
   build: {
     target: "es2022",
-    sourcemap: true,
+    // Not for the live demo: it's published to the site, maps and all
+    sourcemap: mode !== "demo",
     // The chunks above 500 kB are Mermaid's (its parser and the elk layout
     // engine, ~1.5 MB), loaded only for documents with a diagram. The entry
     // chunk is well under this; keep it that way by loading heavy libraries

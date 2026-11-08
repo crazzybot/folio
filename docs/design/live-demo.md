@@ -1,6 +1,6 @@
 # Live demo
 
-Status: planned.
+Status: implemented (phases 1–5).
 
 A version of Folio that runs entirely in the browser on a sample repository,
 published with the product site at `crazzybot.github.io/folio/demo/`. A
@@ -118,10 +118,12 @@ as the check.
 3. `npm run build:demo` in `frontend/`.
 4. Assemble the artifact: `site/` plus the demo in `site/demo/`.
 
-Add `frontend/**`, `demo/**` and `desktop/src/{scanner,search}.ts` to the
-workflow's `paths`, so app changes redeploy the demo. CI (`ci.yml`) also
-runs `npm run build:demo`, so a change that breaks the demo fails its PR
-rather than the deploy.
+Add `frontend/**`, `demo/**`, `desktop/src/**`, the bundle script and the
+desktop package files to the workflow's `paths`, so app changes redeploy
+the demo. Electron's binary isn't downloaded (`ELECTRON_SKIP_BINARY_DOWNLOAD`):
+the bundle only needs the scanner. The demo build has no source maps.
+CI (`ci.yml`) has a `demo` job that runs the bundle and `npm run build:demo`,
+so a change that breaks the demo fails its PR rather than the deploy.
 
 **Site:** a "Try it in your browser" link in the hero beside Download, and
 on the download page. README: a link under the screenshot.
