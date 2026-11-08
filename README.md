@@ -10,9 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/crazzybot/markdown-viewer/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/crazzybot/markdown-viewer"></a>
-  <a href="https://github.com/crazzybot/markdown-viewer/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/crazzybot/markdown-viewer/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/crazzybot/markdown-viewer"></a>
+  <a href="https://github.com/crazzybot/folio/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/crazzybot/folio"></a>
+  <a href="https://github.com/crazzybot/folio/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/crazzybot/folio/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/crazzybot/folio"></a>
 </p>
 
 <p align="center">
@@ -32,8 +32,8 @@ folder, focus on the part you're reviewing, and mark what needs another pass.
 
 ## Download
 
-Get the latest version from the [download page](https://crazzybot.github.io/markdown-viewer/download.html)
-or from [GitHub Releases](https://github.com/crazzybot/markdown-viewer/releases/latest):
+Get the latest version from the [download page](https://crazzybot.github.io/folio/download.html)
+or from [GitHub Releases](https://github.com/crazzybot/folio/releases/latest):
 
 | Platform | File |
 |---|---|
@@ -93,8 +93,8 @@ the app, [download it](#download). Contributions are welcome: see
 ### Quick start (browser version)
 
 ```bash
-git clone https://github.com/crazzybot/markdown-viewer.git
-cd markdown-viewer
+git clone https://github.com/crazzybot/folio.git
+cd folio
 cp .env.example .env   # edit as needed
 ```
 
@@ -487,7 +487,7 @@ an SVG opened directly can't run scripts.
 ## Project structure
 
 ```
-markdown-viewer/
+folio/
 ├── .env.example                  # template — copy to .env and edit
 ├── README.md
 ├── workspace/                    # Markdown files served by the backend

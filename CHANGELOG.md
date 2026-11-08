@@ -58,5 +58,5 @@ the `folio-data` volume.
 First release: signed and notarized macOS builds (Apple Silicon and Intel),
 Windows and Linux builds, and in-app updates.
 
-[0.2.0]: https://github.com/crazzybot/markdown-viewer/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/crazzybot/markdown-viewer/releases/tag/v0.1.0
+[0.2.0]: https://github.com/crazzybot/folio/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/crazzybot/folio/releases/tag/v0.1.0

@@ -11,7 +11,7 @@ represent the project.
 
 If someone's behavior is a problem, report it privately to the maintainer,
 [@crazzybot](https://github.com/crazzybot), through a
-[private security advisory](https://github.com/crazzybot/markdown-viewer/security/advisories/new)
+[private security advisory](https://github.com/crazzybot/folio/security/advisories/new)
 (it reaches only the maintainer) or GitHub's
 [report abuse](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam)
 form. Reports are kept confidential.
