@@ -249,8 +249,11 @@ code {
   border-bottom: 0;
   box-shadow: 0 -20px 80px rgba(31, 111, 242, 0.16);
 }
-.shot-frame img {
+.shot-frame img,
+.shot-frame video {
+  display: block;
   width: 100%;
+  height: auto;
 }
 
 /* ─── Feature spreads ───────────────────────────────────────────────────── */
