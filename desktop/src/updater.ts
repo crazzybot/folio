@@ -15,12 +15,18 @@
 import { app, BrowserWindow, dialog } from "electron";
 import { autoUpdater } from "electron-updater";
 import type { UpdateInfo } from "electron-updater";
+import { describeUpdateError, isNetworkError } from "./updateErrors";
 
 const FIRST_CHECK_DELAY_MS = 10_000;
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// A check the user asked for that can't reach GitHub is tried once more
+// after this long before the failure is shown
+const RETRY_DELAY_MS = 3_000;
 
 // Set while a check the user asked for is running, so its outcome is shown
 let manualCheck = false;
+// Whether that check has already been retried after a network error
+let retried = false;
 let downloaded: UpdateInfo | null = null;
 
 function focusedWindow(): BrowserWindow | undefined {
@@ -50,6 +56,10 @@ export function initUpdater(): void {
   if (!app.isPackaged) return;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  // Differential downloads fetch only the changed blocks, in requests for
+  // several byte ranges at once, which GitHub's release asset host refuses
+  // (501): each update would fail at that, then download in full anyway
+  autoUpdater.disableDifferentialDownload = true;
 
   autoUpdater.on("update-available", (info) => {
     if (!manualCheck) return;
@@ -72,8 +82,14 @@ export function initUpdater(): void {
   autoUpdater.on("error", (error) => {
     // Quiet checks fail quietly (offline, GitHub unreachable…)
     if (!manualCheck) return;
+    // A connection to GitHub that fails often works a moment later
+    if (isNetworkError(error) && !retried) {
+      retried = true;
+      setTimeout(() => void autoUpdater.checkForUpdates().catch(() => undefined), RETRY_DELAY_MS);
+      return;
+    }
     manualCheck = false;
-    void show({ type: "warning", message: "Couldn't check for updates", detail: error.message });
+    void show({ type: "warning", ...describeUpdateError(error) });
   });
 
   const check = () => void autoUpdater.checkForUpdates().catch(() => undefined);
@@ -92,6 +108,7 @@ export async function checkForUpdatesNow(): Promise<void> {
     return;
   }
   manualCheck = true;
+  retried = false;
   // The outcome arrives as an event above (errors included)
   await autoUpdater.checkForUpdates().catch(() => undefined);
 }
