@@ -3,6 +3,15 @@
 Notable changes to Folio. Versions follow [Semantic Versioning](https://semver.org);
 the desktop app, frontend and backend share one version number.
 
+## [0.3.1] — 2026-11-08
+
+### Fixed
+
+- The license notices of the open-source software Folio includes now ship
+  with it: **Help → Third-Party Licenses** in the desktop app, **Settings →
+  Third-party licenses** in the browser version. They were missing because
+  bundling drops the notices from the code. (#74)
+
 ## [0.3.0] — 2026-11-08
 
 ### Added
@@ -64,6 +73,7 @@ the `folio-data` volume.
 First release: signed and notarized macOS builds (Apple Silicon and Intel),
 Windows and Linux builds, and in-app updates.
 
+[0.3.1]: https://github.com/crazzybot/folio/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/crazzybot/folio/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/crazzybot/folio/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/crazzybot/folio/releases/tag/v0.1.0
