@@ -119,7 +119,7 @@ def _max_depth() -> int | None:
 app = FastAPI(
     title="Folio API",
     description="Serves markdown file metadata and raw content from a workspace folder.",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 # Answer only to expected Host headers. Without this, a web page on any

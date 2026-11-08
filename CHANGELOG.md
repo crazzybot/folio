@@ -3,7 +3,7 @@
 Notable changes to Folio. Versions follow [Semantic Versioning](https://semver.org);
 the desktop app, frontend and backend share one version number.
 
-## [Unreleased]
+## [0.3.0] — 2026-11-08
 
 ### Added
 
@@ -15,7 +15,13 @@ the desktop app, frontend and backend share one version number.
   straight away. In the Marks view, copy one document's notes or everything
   the view shows (filter and **Notes only** apply). The opening instructions
   for the agent can be changed or turned off in **Settings → Review notes**.
-  Copying changes no marks.
+  Copying changes no marks. (#62)
+
+### Changed
+
+- The project moved to [github.com/crazzybot/folio](https://github.com/crazzybot/folio).
+  Updates now come from there; earlier versions find them through GitHub's
+  redirect from the old address. (#65)
 
 ## [0.2.0] — 2026-11-07
 
@@ -58,5 +64,6 @@ the `folio-data` volume.
 First release: signed and notarized macOS builds (Apple Silicon and Intel),
 Windows and Linux builds, and in-app updates.
 
+[0.3.0]: https://github.com/crazzybot/folio/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/crazzybot/folio/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/crazzybot/folio/releases/tag/v0.1.0
