@@ -1,6 +1,6 @@
 # Copy review notes
 
-Status: proposed.
+Status: phases 1–2 implemented (formatting, preview, header button, shortcut).
 
 Turns a document's highlights and notes into Markdown that can be pasted
 straight into a coding agent (Claude Code, Cursor, …) as review feedback.
@@ -180,7 +180,9 @@ Each one opens the preview (below) with its notes:
   for when the output is trusted. This shortcut is free in the menus and
   matches `⇧⌘H` (highlight) and `⇧⌘F` (search document text). DevTools'
   element picker uses it only while DevTools has focus.
-- **Browser**: the same shortcut, handled by the page.
+- **Browser**: the same shortcut, handled by the page. Browsers whose
+  DevTools use it (Chrome, Firefox) may take it first; the header button
+  always works.
 
 ### Preview
 
@@ -238,7 +240,8 @@ self-hosted server on plain HTTP doesn't have one. There, **Copy** selects
 all the text in the preview and says "Press ⌘C to copy" (`Ctrl+C` on
 Windows and Linux), so no separate dialog is needed. With no secure
 context, the shortcut opens the preview instead of copying directly. The
-desktop app uses Electron's `clipboard`, which always works.
+desktop app uses `navigator.clipboard` too: its pages may write to the
+clipboard (as code blocks' Copy does), so it always works there.
 
 ## 6. Phases
 

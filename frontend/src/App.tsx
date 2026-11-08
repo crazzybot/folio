@@ -29,6 +29,9 @@ import { useFolderFocus } from "./folderFocus";
 import useMarks from "./useMarks";
 import DisplayMenu from "./components/DisplayMenu";
 import SettingsPanel from "./components/SettingsPanel";
+import ReviewNotesPanel, { copyText } from "./components/ReviewNotesPanel";
+import { formatReviewNotes, reviewPath } from "./reviewNotes";
+import type { ReviewNotes } from "./reviewNotes";
 import styles from "./App.module.css";
 import type { DocumentMeta, HighlightColor, TextAnchor } from "./types";
 import { getItem, setItem } from "./storage";
@@ -68,6 +71,9 @@ const BOOKMARK_SHORTCUT = IS_MAC_DESKTOP || navigator.platform.toUpperCase().inc
 const BACK_SHORTCUT = IS_MAC_DESKTOP ? "⌘[" : "Alt+←";
 const EDITOR_SHORTCUT = IS_MAC_DESKTOP ? "⌘E" : "Ctrl+E";
 const FORWARD_SHORTCUT = IS_MAC_DESKTOP ? "⌘]" : "Alt+→";
+const REVIEW_SHORTCUT = IS_MAC_DESKTOP || navigator.platform.toUpperCase().includes("MAC") ? "⇧⌘C" : "Ctrl+Shift+C";
+// How long a status-bar message (e.g. "Copied 4 notes") shows
+const STATUS_SHOWN_MS = 4000;
 
 type LoadState =
   | { status: "idle" }
@@ -520,6 +526,78 @@ function AppInner(): React.ReactElement {
 
   const selectedDoc = documents.find((doc) => doc.id === selectedId) ?? null;
 
+  // ── Copy review notes: the open document's highlights and notes as Markdown
+  // for a coding agent (docs/design/review-notes.md). Stateless: copying
+  // changes no marks ─────────────────────────────────────────────────────────
+  const [review, setReview] = useState<{ title: string; notes: ReviewNotes } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  useEffect(() => {
+    if (statusMessage === null) return;
+    const timer = setTimeout(() => setStatusMessage(null), STATUS_SHOWN_MS);
+    return () => clearTimeout(timer);
+  }, [statusMessage]);
+
+  const shownHighlights = useMemo(() => shownMarks?.highlights ?? [], [shownMarks]);
+  const openDocumentNotes = useCallback((): { title: string; notes: ReviewNotes } | null => {
+    if (contentId === null || contentValue === null || selectedDoc === null || selectedDoc.id !== contentId) return null;
+    if (shownHighlights.length === 0) return null;
+    // Highlights the viewer couldn't place in the current text are out of date
+    const unplaced =
+      located !== null && located.docId === contentId
+        ? new Set(shownHighlights.filter((h) => !located.ids.has(h.id)).map((h) => h.id))
+        : undefined;
+    const notes = formatReviewNotes([
+      {
+        docId: contentId,
+        path: reviewPath(selectedDoc.location, window.markdownApi?.workspacePath, window.markdownApi?.platform),
+        name: selectedDoc.filename,
+        source: contentValue,
+        highlights: shownHighlights,
+        ...(unplaced === undefined ? {} : { unplaced }),
+      },
+    ]);
+    return { title: selectedDoc.filename, notes };
+  }, [contentId, contentValue, selectedDoc, shownHighlights, located]);
+
+  // ⇧⌘C / Ctrl+Shift+C (or Edit → Copy Review Notes): copy straight away,
+  // without the preview; where the page has no clipboard, show the preview
+  const copyReviewNotes = useCallback(() => {
+    const review = openDocumentNotes();
+    if (review === null || review.notes.notes.length === 0) {
+      setStatusMessage("No highlights to copy");
+      return;
+    }
+    const { notes, title } = review;
+    void copyText(notes.text).then((ok) => {
+      if (!ok) {
+        setReview(review);
+        return;
+      }
+      const count = notes.notes.length;
+      setStatusMessage(
+        `Copied ${count} note${count !== 1 ? "s" : ""} on ${title}` +
+          (notes.leftOut > 0 ? ` · ${notes.leftOut} out of date, left out` : ""),
+      );
+    });
+  }, [openDocumentNotes]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        copyReviewNotes();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    const unsubscribe = window.markdownApi?.onFindCommand((command) => {
+      if (command === "copy-review-notes") copyReviewNotes();
+    });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      unsubscribe?.();
+    };
+  }, [copyReviewNotes]);
+
   // ⌘D / Ctrl+D (or Edit → Bookmark Document): bookmark the shown document, or remove its bookmark
   useEffect(() => {
     const toggle = () => {
@@ -690,6 +768,24 @@ function AppInner(): React.ReactElement {
               </svg>
             </button>
 
+            {shownHighlights.length > 0 && (
+              <button
+                className={styles.iconBtn}
+                onClick={() => setReview(openDocumentNotes())}
+                disabled={contentId === null}
+                aria-label={`Copy review notes (${REVIEW_SHORTCUT})`}
+                title={`Copy review notes (${REVIEW_SHORTCUT})`}
+                type="button"
+              >
+                {/* A clipboard with lines of notes */}
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5.5 2.5h-2v12h9v-12h-2" />
+                  <rect x="5.5" y="1.5" width="5" height="2" rx="0.5" />
+                  <path d="M5.5 7h5M5.5 9.5h5M5.5 12h3" strokeLinecap="round" />
+                </svg>
+              </button>
+            )}
+
             {editorName !== undefined && (
               <button
                 className={styles.iconBtn}
@@ -788,6 +884,23 @@ function AppInner(): React.ReactElement {
         </div>
       )}
 
+      {review !== null && (
+        <ReviewNotesPanel
+          title={review.title}
+          notes={review.notes}
+          onClose={() => setReview(null)}
+          onOpenNote={(docId, highlightId) => {
+            setReview(null);
+            openMark(docId, { highlight: highlightId });
+          }}
+          onShowLeftOut={() => {
+            setReview(null);
+            chooseSidebarView("marks");
+            setCollapsed(false);
+          }}
+        />
+      )}
+
       {/* ── Status bar ── */}
       {settingsOpen && (
         <SettingsPanel
@@ -826,6 +939,11 @@ function AppInner(): React.ReactElement {
         <span className={styles.statusItem} title={selectedDoc?.location}>
           {selectedDoc ? selectedDoc.location : ""}
         </span>
+        {statusMessage !== null && (
+          <span className={styles.statusItem} role="status">
+            {statusMessage}
+          </span>
+        )}
         {marks.error !== null && (
           <span className={`${styles.statusItem} ${styles.statusError}`} role="alert">
             {marks.error}

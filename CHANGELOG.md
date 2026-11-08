@@ -3,6 +3,17 @@
 Notable changes to Folio. Versions follow [Semantic Versioning](https://semver.org);
 the desktop app, frontend and backend share one version number.
 
+## [Unreleased]
+
+### Added
+
+- **Copy review notes**: a document's highlights and notes as Markdown to
+  paste into a coding agent such as Claude Code or Cursor. Each note has the
+  file's path and line, the section it's in, the quote and your comment (or
+  `(no comment)`). The header button shows a preview of the exact text
+  first; `⇧⌘C` / `Ctrl+Shift+C` (**Edit → Copy Review Notes**) copies
+  straight away. Copying changes no marks.
+
 ## [0.2.0] — 2026-11-07
 
 ### Added
