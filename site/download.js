@@ -21,7 +21,7 @@ const CACHE_KEY = "folio.latestRelease";
 const CACHE_MS = 10 * 60 * 1000;
 
 // File names come from electron-builder's defaults, e.g. Folio-0.1.0-arm64.dmg,
-// Folio-0.1.0.dmg (Intel), Folio.Setup.0.1.0.exe, Folio-0.1.0.AppImage.
+// Folio-0.1.0.dmg (Intel), Folio-Setup-0.1.0.exe, Folio-0.1.0.AppImage.
 const BUILDS = {
   "mac-arm": { os: "macOS", detail: "Apple Silicon", match: (n) => /arm64\.dmg$/i.test(n) },
   "mac-intel": { os: "macOS", detail: "Intel", match: (n) => /\.dmg$/i.test(n) && !/arm64/i.test(n) },
