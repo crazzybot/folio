@@ -30,6 +30,10 @@ architecture decision records and design proposals that pile up in every
 project, more and more of them written by coding agents. Open a project's docs
 folder, focus on the part you're reviewing, and mark what needs another pass.
 
+**Try it in your browser:** the [live demo](https://crazzybot.github.io/folio/demo/)
+opens a sample repository of specs and ADRs, with nothing to install. Your
+highlights and notes stay in your browser.
+
 ## Download
 
 Get the latest version from the [download page](https://crazzybot.github.io/folio/download.html)
