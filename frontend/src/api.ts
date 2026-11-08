@@ -13,8 +13,34 @@ import type {
 const apiBase: string =
   (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "";
 
-// In the desktop app the documents come over IPC instead of the REST backend.
-const desktopApi = window.markdownApi;
+/** A new highlight: where it is, its colour and an optional note. */
+type NewHighlight = TextAnchor & { color: HighlightColor; note: string | null };
+type HighlightChanges = { color?: HighlightColor; note?: string | null };
+
+/**
+ * Where documents and marks come from. Chosen once at startup: the desktop
+ * app's IPC bridge when it's there, else the REST backend.
+ */
+interface DataSource {
+  listDocuments(): Promise<DocumentMeta[]>;
+  listAttachments(): Promise<string[]>;
+  searchDocuments(query: string): Promise<SearchResult[]>;
+  /** `encoded`: the location with each segment URI-encoded. */
+  workspaceFileUrl(encoded: string): string;
+  getDocumentContent(id: string): Promise<DocumentContent>;
+  marks: {
+    list(): Promise<MarksListing>;
+    addHighlight(docId: string, body: NewHighlight): Promise<Highlight>;
+    updateHighlight(docId: string, highlightId: string, changes: HighlightChanges): Promise<Highlight>;
+    deleteHighlight(docId: string, highlightId: string): Promise<void>;
+    addBookmark(docId: string, heading: BookmarkHeading | null): Promise<Bookmark>;
+    deleteBookmark(docId: string, bookmarkId: string): Promise<void>;
+    relink(recordId: string, docId: string): Promise<void>;
+    forget(recordId: string): Promise<void>;
+  };
+}
+
+// ─── REST backend ─────────────────────────────────────────────────────────────
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -23,45 +49,8 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function fetchDocuments(): Promise<DocumentMeta[]> {
-  if (desktopApi) return desktopApi.listDocuments();
-  const res = await fetch(`${apiBase}/api/documents`);
-  return handleResponse<DocumentMeta[]>(res);
-}
-
-/** Workspace-relative paths of the image files, for ![[image.png]] embeds. */
-export async function fetchAttachments(): Promise<string[]> {
-  if (desktopApi) return desktopApi.listAttachments();
-  const res = await fetch(`${apiBase}/api/attachments`);
-  return handleResponse<string[]>(res);
-}
-
-/** Documents whose text contains `query` (case-insensitive; at least 2 characters). */
-export async function searchDocuments(query: string): Promise<SearchResult[]> {
-  if (desktopApi) return desktopApi.searchDocuments(query);
-  const res = await fetch(`${apiBase}/api/search?q=${encodeURIComponent(query)}`);
-  return handleResponse<SearchResult[]>(res);
-}
-
-/** URL of the workspace file at `location` (workspace-relative, "/"-separated). */
-export function workspaceFileUrl(location: string): string {
-  const encoded = location.split("/").map(encodeURIComponent).join("/");
-  if (desktopApi) return desktopApi.workspaceFileBaseUrl + encoded;
-  return `${apiBase}/api/files/${encoded}`;
-}
-
-export async function fetchDocumentContent(id: string): Promise<DocumentContent> {
-  if (desktopApi) return desktopApi.getDocumentContent(id);
-  const res = await fetch(`${apiBase}/api/documents/${encodeURIComponent(id)}/content`);
-  return handleResponse<DocumentContent>(res);
-}
-
-// ─── Marks ────────────────────────────────────────────────────────────────────
-
-/** Bookmarks and highlights of every document in the workspace that has any. */
-export async function fetchMarks(): Promise<MarksListing> {
-  if (desktopApi) return desktopApi.marks.list();
-  return handleResponse<MarksListing>(await fetch(`${apiBase}/api/marks`));
+async function expectOk(res: Response): Promise<void> {
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 }
 
 function marksUrl(docId: string, kind: "highlights" | "bookmarks", markId?: string): string {
@@ -74,54 +63,122 @@ function sendJson(method: string, body: unknown): RequestInit {
   return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
 }
 
+const httpSource: DataSource = {
+  listDocuments: async () => handleResponse<DocumentMeta[]>(await fetch(`${apiBase}/api/documents`)),
+  listAttachments: async () => handleResponse<string[]>(await fetch(`${apiBase}/api/attachments`)),
+  searchDocuments: async (query) =>
+    handleResponse<SearchResult[]>(await fetch(`${apiBase}/api/search?q=${encodeURIComponent(query)}`)),
+  workspaceFileUrl: (encoded) => `${apiBase}/api/files/${encoded}`,
+  getDocumentContent: async (id) =>
+    handleResponse<DocumentContent>(await fetch(`${apiBase}/api/documents/${encodeURIComponent(id)}/content`)),
+  marks: {
+    list: async () => handleResponse<MarksListing>(await fetch(`${apiBase}/api/marks`)),
+    addHighlight: async (docId, body) =>
+      handleResponse<Highlight>(await fetch(marksUrl(docId, "highlights"), sendJson("POST", body))),
+    updateHighlight: async (docId, highlightId, changes) =>
+      handleResponse<Highlight>(await fetch(marksUrl(docId, "highlights", highlightId), sendJson("PATCH", changes))),
+    deleteHighlight: async (docId, highlightId) =>
+      expectOk(await fetch(marksUrl(docId, "highlights", highlightId), { method: "DELETE" })),
+    addBookmark: async (docId, heading) =>
+      handleResponse<Bookmark>(await fetch(marksUrl(docId, "bookmarks"), sendJson("POST", { heading }))),
+    deleteBookmark: async (docId, bookmarkId) =>
+      expectOk(await fetch(marksUrl(docId, "bookmarks", bookmarkId), { method: "DELETE" })),
+    relink: async (recordId, docId) =>
+      expectOk(await fetch(`${apiBase}/api/marks/${encodeURIComponent(recordId)}/relink`, sendJson("POST", { docId }))),
+    forget: async (recordId) =>
+      expectOk(await fetch(`${apiBase}/api/marks/${encodeURIComponent(recordId)}`, { method: "DELETE" })),
+  },
+};
+
+// ─── Desktop app (IPC) ────────────────────────────────────────────────────────
+
+function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
+  return {
+    listDocuments: () => api.listDocuments(),
+    listAttachments: () => api.listAttachments(),
+    searchDocuments: (query) => api.searchDocuments(query),
+    workspaceFileUrl: (encoded) => api.workspaceFileBaseUrl + encoded,
+    getDocumentContent: (id) => api.getDocumentContent(id),
+    marks: {
+      list: () => api.marks.list(),
+      addHighlight: (docId, body) => api.marks.addHighlight(docId, body),
+      updateHighlight: (docId, highlightId, changes) => api.marks.updateHighlight(docId, highlightId, changes),
+      deleteHighlight: (docId, highlightId) => api.marks.deleteHighlight(docId, highlightId),
+      addBookmark: (docId, heading) => api.marks.addBookmark(docId, { heading }),
+      deleteBookmark: (docId, bookmarkId) => api.marks.deleteBookmark(docId, bookmarkId),
+      relink: (recordId, docId) => api.marks.relink(recordId, docId),
+      forget: (recordId) => api.marks.forget(recordId),
+    },
+  };
+}
+
+// In the desktop app the documents come over IPC instead of the REST backend.
+const source: DataSource = window.markdownApi ? desktopSource(window.markdownApi) : httpSource;
+
+// ─── Documents ────────────────────────────────────────────────────────────────
+
+export async function fetchDocuments(): Promise<DocumentMeta[]> {
+  return source.listDocuments();
+}
+
+/** Workspace-relative paths of the image files, for ![[image.png]] embeds. */
+export async function fetchAttachments(): Promise<string[]> {
+  return source.listAttachments();
+}
+
+/** Documents whose text contains `query` (case-insensitive; at least 2 characters). */
+export async function searchDocuments(query: string): Promise<SearchResult[]> {
+  return source.searchDocuments(query);
+}
+
+/** URL of the workspace file at `location` (workspace-relative, "/"-separated). */
+export function workspaceFileUrl(location: string): string {
+  return source.workspaceFileUrl(location.split("/").map(encodeURIComponent).join("/"));
+}
+
+export async function fetchDocumentContent(id: string): Promise<DocumentContent> {
+  return source.getDocumentContent(id);
+}
+
+// ─── Marks ────────────────────────────────────────────────────────────────────
+
+/** Bookmarks and highlights of every document in the workspace that has any. */
+export async function fetchMarks(): Promise<MarksListing> {
+  return source.marks.list();
+}
+
 export async function addHighlight(
   docId: string,
   anchor: TextAnchor,
   color: HighlightColor,
   note: string | null = null,
 ): Promise<Highlight> {
-  const body = { ...anchor, color, note };
-  if (desktopApi) return desktopApi.marks.addHighlight(docId, body);
-  return handleResponse<Highlight>(await fetch(marksUrl(docId, "highlights"), sendJson("POST", body)));
+  return source.marks.addHighlight(docId, { ...anchor, color, note });
 }
 
-export async function updateHighlight(
-  docId: string,
-  highlightId: string,
-  changes: { color?: HighlightColor; note?: string | null },
-): Promise<Highlight> {
-  if (desktopApi) return desktopApi.marks.updateHighlight(docId, highlightId, changes);
-  return handleResponse<Highlight>(await fetch(marksUrl(docId, "highlights", highlightId), sendJson("PATCH", changes)));
+export async function updateHighlight(docId: string, highlightId: string, changes: HighlightChanges): Promise<Highlight> {
+  return source.marks.updateHighlight(docId, highlightId, changes);
 }
 
 export async function deleteHighlight(docId: string, highlightId: string): Promise<void> {
-  if (desktopApi) return desktopApi.marks.deleteHighlight(docId, highlightId);
-  const res = await fetch(marksUrl(docId, "highlights", highlightId), { method: "DELETE" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  return source.marks.deleteHighlight(docId, highlightId);
 }
 
 /** Bookmark a document (`heading` null) or one of its headings; returns the existing bookmark if there is one. */
 export async function addBookmark(docId: string, heading: BookmarkHeading | null): Promise<Bookmark> {
-  if (desktopApi) return desktopApi.marks.addBookmark(docId, { heading });
-  return handleResponse<Bookmark>(await fetch(marksUrl(docId, "bookmarks"), sendJson("POST", { heading })));
+  return source.marks.addBookmark(docId, heading);
 }
 
 export async function deleteBookmark(docId: string, bookmarkId: string): Promise<void> {
-  if (desktopApi) return desktopApi.marks.deleteBookmark(docId, bookmarkId);
-  const res = await fetch(marksUrl(docId, "bookmarks", bookmarkId), { method: "DELETE" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  return source.marks.deleteBookmark(docId, bookmarkId);
 }
 
 /** Move a missing document's marks to `docId` (merged with any it has). */
 export async function relinkMarks(recordId: string, docId: string): Promise<void> {
-  if (desktopApi) return desktopApi.marks.relink(recordId, docId);
-  const res = await fetch(`${apiBase}/api/marks/${encodeURIComponent(recordId)}/relink`, sendJson("POST", { docId }));
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  return source.marks.relink(recordId, docId);
 }
 
 /** Delete a missing document's marks. */
 export async function forgetMarks(recordId: string): Promise<void> {
-  if (desktopApi) return desktopApi.marks.forget(recordId);
-  const res = await fetch(`${apiBase}/api/marks/${encodeURIComponent(recordId)}`, { method: "DELETE" });
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+  return source.marks.forget(recordId);
 }
