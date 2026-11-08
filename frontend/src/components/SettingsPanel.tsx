@@ -133,6 +133,19 @@ export default function SettingsPanel(props: SettingsPanelProps): React.ReactEle
           </Section>
 
           {desktop && <DesktopSettingsSections />}
+          {/* The desktop app has them under Help → Third-Party Licenses */}
+          {!desktop && (
+            <footer className={styles.footer}>
+              <a
+                className={styles.linkBtn}
+                href={`${import.meta.env.BASE_URL}third-party-licenses.txt`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Third-party licenses
+              </a>
+            </footer>
+          )}
         </div>
       </div>
     </div>

@@ -35,6 +35,8 @@ jobs:
             desktop:
               - *ci
               - desktop/**
+              # Third-party notices (copy-renderer.mjs) and the license check
+              - frontend/scripts/**
               - tests/fixtures/**
               # test/demoSearch.test.ts checks it against desktop/src/search.ts
               - frontend/src/demo/search.ts
@@ -68,6 +70,8 @@ jobs:
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm test
+      - name: Licenses of production dependencies
+        run: node scripts/check-licenses.mjs
 
   desktop:
     needs: changes
@@ -87,6 +91,8 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm test
+      - name: Licenses of production dependencies
+        run: node ../frontend/scripts/check-licenses.mjs
 
   backend:
     needs: changes

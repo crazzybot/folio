@@ -112,6 +112,7 @@ const MIME_TYPES: Record<string, string> = {
   ".ico": "image/x-icon",
   ".woff": "font/woff",
   ".woff2": "font/woff2",
+  ".txt": "text/plain; charset=utf-8",
 };
 
 let settings: Settings = { ...DEFAULT_SETTINGS };
@@ -1012,10 +1013,53 @@ function buildMenu(): Menu {
       ],
     },
     { role: "windowMenu" },
-    // macOS has Check for Updates… in the app menu
-    ...(isMac ? [] : [{ role: "help", submenu: [{ label: "Check for Updates…", click: () => void checkForUpdatesNow() }] } satisfies MenuItemConstructorOptions]),
+    {
+      role: "help",
+      submenu: [
+        // macOS has Check for Updates… in the app menu
+        ...(isMac
+          ? []
+          : [
+              { label: "Check for Updates…", click: () => void checkForUpdatesNow() },
+              { type: "separator" },
+            ] satisfies MenuItemConstructorOptions[]),
+        { label: "Third-Party Licenses", click: showThirdPartyLicenses },
+      ],
+    },
   ];
   return Menu.buildFromTemplate(template);
+}
+
+// ─── Third-party licenses ────────────────────────────────────────────────────
+
+let licensesWindow: BrowserWindow | null = null;
+
+/**
+ * The notices of the open-source software Folio includes, in a window of
+ * their own: third-party-licenses.txt, written by the frontend build and
+ * desktop/scripts/copy-renderer.mjs.
+ */
+function showThirdPartyLicenses(): void {
+  if (licensesWindow !== null) {
+    licensesWindow.focus();
+    return;
+  }
+  const win = new BrowserWindow({
+    width: 760,
+    height: 640,
+    title: "Third-Party Licenses",
+    autoHideMenuBar: true,
+    webPreferences: { sandbox: true, contextIsolation: true },
+  });
+  licensesWindow = win;
+  win.on("closed", () => {
+    licensesWindow = null;
+  });
+  win.on("page-title-updated", (event) => event.preventDefault());
+  // Plain text: nothing to open or navigate to
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  win.webContents.on("will-navigate", (event) => event.preventDefault());
+  void win.loadURL(`${APP_ORIGIN}/third-party-licenses.txt`);
 }
 
 function createWindow(): BrowserWindow {
