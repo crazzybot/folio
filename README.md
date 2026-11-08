@@ -651,3 +651,10 @@ project follows a [Code of Conduct](CODE_OF_CONDUCT.md).
 ## License
 
 [MIT](LICENSE) © 2026 Alexei Pogrebtsov
+
+Folio includes open-source software under its own licenses. Every build
+writes their notices to `third-party-licenses.txt` next to the app (desktop:
+**Help → Third-Party Licenses**; browser version and live demo: **Settings →
+Third-party licenses**), from the packages actually in the build
+(`frontend/scripts/licenses.mjs`). CI fails when a production dependency's
+license isn't on the allow-list there (`frontend/scripts/check-licenses.mjs`).

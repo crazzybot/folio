@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { formatNotices, packageDirOf, readPackage } from "./scripts/licenses.mjs";
 
 // Vendor packages split into their own long-cached chunks
 const CHUNKS = {
@@ -8,6 +9,37 @@ const CHUNKS = {
   router: ["react-router", "react-router-dom"],
   markdown: ["react-markdown", "remark-gfm", "rehype-highlight", "highlight.js"],
 };
+
+/**
+ * Writes third-party-licenses.txt next to the app: the license notices of
+ * every package whose code is in the build (scripts/licenses.mjs). The
+ * desktop app adds its own dependencies to it (desktop/scripts/copy-renderer.mjs).
+ */
+function thirdPartyNotices(): Plugin {
+  return {
+    name: "folio-third-party-notices",
+    apply: "build",
+    generateBundle(_options, bundle) {
+      const dirs = new Set<string>();
+      for (const output of Object.values(bundle)) {
+        if (output.type !== "chunk") continue;
+        for (const id of output.moduleIds) {
+          const dir = packageDirOf(id);
+          if (dir !== null) dirs.add(dir);
+        }
+      }
+      this.emitFile({
+        type: "asset",
+        fileName: "third-party-licenses.txt",
+        source: formatNotices(
+          "Folio includes the following open-source software. Their licenses ask for these\n" +
+            "notices to be kept with every copy.",
+          [...dirs].map(readPackage),
+        ),
+      });
+    },
+  };
+}
 
 // The live demo's data, made by `npm run demo:bundle` in desktop/
 const DEMO_DATA = "../demo/build";
@@ -26,7 +58,7 @@ function demoStart(): string {
 }
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [react(), thirdPartyNotices()],
   define: {
     __DEMO_START__: JSON.stringify(mode === "demo" ? demoStart() : ""),
   },
