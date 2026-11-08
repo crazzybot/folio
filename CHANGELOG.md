@@ -3,6 +3,11 @@
 Notable changes to Folio. Versions follow [Semantic Versioning](https://semver.org);
 the desktop app, frontend and backend share one version number.
 
+Changes go under **Unreleased** as they're merged; `node scripts/release.mjs`
+turns them into the next release's section.
+
+## [Unreleased]
+
 ## [0.3.1] — 2026-11-08
 
 ### Fixed

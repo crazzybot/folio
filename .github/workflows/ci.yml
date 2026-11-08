@@ -52,6 +52,14 @@ jobs:
               - desktop/scripts/demo-bundle.mjs
               - desktop/package*.json
 
+  # The desktop app, frontend and backend share one version number
+  # (scripts/release.mjs sets it); a hand edit that misses a file fails here
+  versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: node scripts/release.mjs --check
+
   frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'

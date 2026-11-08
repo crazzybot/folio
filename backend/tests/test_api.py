@@ -1,3 +1,6 @@
+import tomllib
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -11,6 +14,12 @@ def client(monkeypatch):
     monkeypatch.setenv("MARKDOWN_WORKSPACE", str(WORKSPACE))
     monkeypatch.setenv("MARKDOWN_SKIP_DIRS", ".git,node_modules")
     return TestClient(app, base_url="http://localhost")
+
+
+def test_reports_the_version_in_pyproject(client):
+    with open(Path(__file__).resolve().parents[1] / "pyproject.toml", "rb") as f:
+        expected = tomllib.load(f)["project"]["version"]
+    assert client.get("/openapi.json").json()["info"]["version"] == expected
 
 
 def test_lists_documents(client):

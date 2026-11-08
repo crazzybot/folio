@@ -44,6 +44,7 @@ Usage
 from __future__ import annotations
 
 import os
+import tomllib
 from pathlib import Path
 
 from typing import Any
@@ -116,10 +117,23 @@ def _max_depth() -> int | None:
 # FastAPI application
 # ---------------------------------------------------------------------------
 
+def _version() -> str:
+    """Folio's version, from pyproject.toml beside app/ (also in the Docker image).
+
+    One place to change it: scripts/release.mjs sets it there, with the
+    desktop app's and the frontend's.
+    """
+    try:
+        with open(Path(__file__).resolve().parent.parent / "pyproject.toml", "rb") as f:
+            return str(tomllib.load(f)["project"]["version"])
+    except (OSError, KeyError, tomllib.TOMLDecodeError):
+        return "unknown"
+
+
 app = FastAPI(
     title="Folio API",
     description="Serves markdown file metadata and raw content from a workspace folder.",
-    version="0.3.1",
+    version=_version(),
 )
 
 # Answer only to expected Host headers. Without this, a web page on any
