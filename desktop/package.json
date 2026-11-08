@@ -10,6 +10,7 @@
   "scripts": {
     "build:renderer": "npm --prefix ../frontend run build && node scripts/copy-renderer.mjs",
     "build:main": "tsc",
+    "demo:bundle": "npm run build:main && node scripts/demo-bundle.mjs",
     "build": "npm run build:renderer && npm run build:main",
     "start": "npm run build && electron .",
     "dev": "npm run build:main && VITE_DEV_SERVER_URL=http://localhost:3000 electron .",
