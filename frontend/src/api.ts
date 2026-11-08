@@ -1,3 +1,5 @@
+import type { DataSource, HighlightChanges } from "./dataSource";
+import { createDemoSource } from "./demo/source";
 import type {
   Bookmark,
   BookmarkHeading,
@@ -12,33 +14,6 @@ import type {
 
 const apiBase: string =
   (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "";
-
-/** A new highlight: where it is, its colour and an optional note. */
-type NewHighlight = TextAnchor & { color: HighlightColor; note: string | null };
-type HighlightChanges = { color?: HighlightColor; note?: string | null };
-
-/**
- * Where documents and marks come from. Chosen once at startup: the desktop
- * app's IPC bridge when it's there, else the REST backend.
- */
-interface DataSource {
-  listDocuments(): Promise<DocumentMeta[]>;
-  listAttachments(): Promise<string[]>;
-  searchDocuments(query: string): Promise<SearchResult[]>;
-  /** `encoded`: the location with each segment URI-encoded. */
-  workspaceFileUrl(encoded: string): string;
-  getDocumentContent(id: string): Promise<DocumentContent>;
-  marks: {
-    list(): Promise<MarksListing>;
-    addHighlight(docId: string, body: NewHighlight): Promise<Highlight>;
-    updateHighlight(docId: string, highlightId: string, changes: HighlightChanges): Promise<Highlight>;
-    deleteHighlight(docId: string, highlightId: string): Promise<void>;
-    addBookmark(docId: string, heading: BookmarkHeading | null): Promise<Bookmark>;
-    deleteBookmark(docId: string, bookmarkId: string): Promise<void>;
-    relink(recordId: string, docId: string): Promise<void>;
-    forget(recordId: string): Promise<void>;
-  };
-}
 
 // ─── REST backend ─────────────────────────────────────────────────────────────
 
@@ -112,8 +87,15 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
   };
 }
 
-// In the desktop app the documents come over IPC instead of the REST backend.
-const source: DataSource = window.markdownApi ? desktopSource(window.markdownApi) : httpSource;
+// In the desktop app the documents come over IPC instead of the REST backend;
+// the live demo (`vite build --mode demo`) brings its own. Other builds
+// leave the demo out: the mode is a constant, so its branch is dropped.
+const source: DataSource =
+  import.meta.env.MODE === "demo"
+    ? createDemoSource(import.meta.env.BASE_URL)
+    : window.markdownApi
+      ? desktopSource(window.markdownApi)
+      : httpSource;
 
 // ─── Documents ────────────────────────────────────────────────────────────────
 
