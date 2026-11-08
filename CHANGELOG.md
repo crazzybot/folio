@@ -12,7 +12,10 @@ the desktop app, frontend and backend share one version number.
   file's path and line, the section it's in, the quote and your comment (or
   `(no comment)`). The header button shows a preview of the exact text
   first; `⇧⌘C` / `Ctrl+Shift+C` (**Edit → Copy Review Notes**) copies
-  straight away. Copying changes no marks.
+  straight away. In the Marks view, copy one document's notes or everything
+  the view shows (filter and **Notes only** apply). The opening instructions
+  for the agent can be changed or turned off in **Settings → Review notes**.
+  Copying changes no marks.
 
 ## [0.2.0] — 2026-11-07
 

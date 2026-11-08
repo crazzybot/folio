@@ -180,6 +180,11 @@ describe("formatReviewNotes", () => {
     expect(notes.map((n) => n.docId)).toEqual(["adr", "other"]);
   });
 
+  it("uses a custom opening line, with {documents} replaced", () => {
+    const { text } = formatReviewNotes([doc([highlight("one table per aggregate")])], "Fix {documents}, please.");
+    expect(text.startsWith("Fix adr.md, please.\n\n1. docs/adr.md:")).toBe(true);
+  });
+
   it("is empty with nothing to copy", () => {
     expect(formatReviewNotes([doc([])]).notes).toEqual([]);
   });

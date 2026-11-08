@@ -7,7 +7,7 @@ import MarkdownViewer from "./components/MarkdownViewer";
 import type { MarkHandlers, SearchFocus } from "./components/MarkdownViewer";
 import type { MarkFocus } from "./components/MarksLayer";
 import MarksPanel from "./components/MarksPanel";
-import type { MarkTarget } from "./components/MarksPanel";
+import type { MarkTarget, ReviewSelection } from "./components/MarksPanel";
 import SidebarTabs from "./components/SidebarTabs";
 import type { SidebarView } from "./components/SidebarTabs";
 import { findBookmark } from "./bookmarks";
@@ -21,6 +21,7 @@ import {
   useGroupByFolder,
   useOutlineVisible,
   useReadingWidth,
+  useReviewIntro,
   useSearchDocumentText,
 } from "./readerPrefs";
 import useTheme from "./theme";
@@ -29,7 +30,7 @@ import { useFolderFocus } from "./folderFocus";
 import useMarks from "./useMarks";
 import DisplayMenu from "./components/DisplayMenu";
 import SettingsPanel from "./components/SettingsPanel";
-import ReviewNotesPanel, { copyText } from "./components/ReviewNotesPanel";
+import ReviewNotesPanel, { ReviewNotesIcon, copyText } from "./components/ReviewNotesPanel";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
 import type { ReviewNotes } from "./reviewNotes";
 import styles from "./App.module.css";
@@ -219,6 +220,9 @@ function AppInner(): React.ReactElement {
   const [showOutline, setShowOutline] = useOutlineVisible();
   const [groupByFolder, setGroupByFolder] = useGroupByFolder();
   const [searchDocumentText, setSearchDocumentText] = useSearchDocumentText();
+  const reviewIntro = useReviewIntro();
+  // The opening line of copied review notes: undefined for the default, null for none
+  const reviewIntroText = !reviewIntro.on ? null : reviewIntro.text.trim() === "" ? undefined : reviewIntro.text;
 
   // ── Settings panel: ⌘, (the Settings… menu item in the desktop app) or the
   // status bar's gear ─────────────────────────────────────────────────────────
@@ -538,26 +542,57 @@ function AppInner(): React.ReactElement {
   }, [statusMessage]);
 
   const shownHighlights = useMemo(() => shownMarks?.highlights ?? [], [shownMarks]);
+
+  /** Review notes on documents' highlights, given their sources. */
+  const buildReview = useCallback(
+    (docs: readonly ReviewSelection[], sources: readonly string[]): { title: string; notes: ReviewNotes } => {
+      const notes = formatReviewNotes(
+        docs.map(({ doc, highlights }, i) => {
+          // Highlights the viewer couldn't place in the open document's current text are out of date
+          const unplaced =
+            located !== null && located.docId === doc.id
+              ? new Set(highlights.filter((h) => !located.ids.has(h.id)).map((h) => h.id))
+              : undefined;
+          return {
+            docId: doc.id,
+            path: reviewPath(doc.location, window.markdownApi?.workspacePath, window.markdownApi?.platform),
+            name: doc.filename,
+            source: sources[i] ?? "",
+            highlights,
+            ...(unplaced === undefined ? {} : { unplaced }),
+          };
+        }),
+        reviewIntroText,
+      );
+      const title = docs.length === 1 ? (docs[0]?.doc.filename ?? "") : `${docs.length} documents`;
+      return { title, notes };
+    },
+    [located, reviewIntroText],
+  );
+
   const openDocumentNotes = useCallback((): { title: string; notes: ReviewNotes } | null => {
     if (contentId === null || contentValue === null || selectedDoc === null || selectedDoc.id !== contentId) return null;
     if (shownHighlights.length === 0) return null;
-    // Highlights the viewer couldn't place in the current text are out of date
-    const unplaced =
-      located !== null && located.docId === contentId
-        ? new Set(shownHighlights.filter((h) => !located.ids.has(h.id)).map((h) => h.id))
-        : undefined;
-    const notes = formatReviewNotes([
-      {
-        docId: contentId,
-        path: reviewPath(selectedDoc.location, window.markdownApi?.workspacePath, window.markdownApi?.platform),
-        name: selectedDoc.filename,
-        source: contentValue,
-        highlights: shownHighlights,
-        ...(unplaced === undefined ? {} : { unplaced }),
-      },
-    ]);
-    return { title: selectedDoc.filename, notes };
-  }, [contentId, contentValue, selectedDoc, shownHighlights, located]);
+    return buildReview([{ doc: selectedDoc, highlights: shownHighlights }], [contentValue]);
+  }, [contentId, contentValue, selectedDoc, shownHighlights, buildReview]);
+
+  // From the Marks view: the documents' sources (the open one is loaded already), then the preview
+  const showReviewNotes = useCallback(
+    (docs: readonly ReviewSelection[]) => {
+      if (docs.length === 0) return;
+      Promise.all(
+        docs.map(({ doc }) =>
+          doc.id === contentId && contentValue !== null
+            ? contentValue
+            : fetchDocumentContent(doc.id).then((d) => d.content),
+        ),
+      ).then(
+        (sources) => setReview(buildReview(docs, sources)),
+        () => setStatusMessage("Couldn't read the documents to copy"),
+      );
+    },
+    [contentId, contentValue, buildReview],
+  );
 
   // ⇧⌘C / Ctrl+Shift+C (or Edit → Copy Review Notes): copy straight away,
   // without the preview; where the page has no clipboard, show the preview
@@ -651,6 +686,7 @@ function AppInner(): React.ReactElement {
               allDocuments={documents}
               onRelink={(recordId, docId) => void marks.relink(recordId, docId)}
               onForget={(recordId) => void marks.forget(recordId)}
+              onCopyNotes={showReviewNotes}
             />
           </div>
           {/* Kept mounted while hidden, so its search and folders stay as they were */}
@@ -777,12 +813,7 @@ function AppInner(): React.ReactElement {
                 title={`Copy review notes (${REVIEW_SHORTCUT})`}
                 type="button"
               >
-                {/* A clipboard with lines of notes */}
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M5.5 2.5h-2v12h9v-12h-2" />
-                  <rect x="5.5" y="1.5" width="5" height="2" rx="0.5" />
-                  <path d="M5.5 7h5M5.5 9.5h5M5.5 12h3" strokeLinecap="round" />
-                </svg>
+                <ReviewNotesIcon />
               </button>
             )}
 
@@ -919,6 +950,10 @@ function AppInner(): React.ReactElement {
           onShowOutlineChange={setShowOutline}
           searchDocumentText={searchDocumentText}
           onSearchDocumentTextChange={setSearchDocumentText}
+          reviewIntroOn={reviewIntro.on}
+          onReviewIntroOnChange={reviewIntro.setOn}
+          reviewIntro={reviewIntro.text}
+          onReviewIntroChange={reviewIntro.setText}
         />
       )}
 

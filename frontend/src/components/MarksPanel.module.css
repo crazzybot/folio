@@ -74,6 +74,81 @@
   height: 12px;
 }
 
+/* Copy review notes on a document's highlights: shown on hover or focus */
+.copyNotes {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+}
+
+.docRow:hover .copyNotes,
+.docRow:focus-visible .copyNotes {
+  visibility: visible;
+}
+
+.copyNotes:hover {
+  color: var(--color-text);
+  background: var(--color-hover-bg);
+}
+
+.copyNotes ~ .docBookmark,
+.copyNotes ~ .count {
+  margin-left: 0;
+}
+
+/* The filter box with Copy review notes beside it */
+.filterRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* (the first div: the label before it is visually hidden) */
+.filterRow > div:first-of-type {
+  flex: 1;
+  min-width: 0;
+}
+
+.copyAll {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copyAll:hover:not(:disabled) {
+  color: var(--color-text);
+  background: var(--color-hover-bg);
+}
+
+.copyAll:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.copyAll:focus-visible {
+  outline: 1px solid var(--color-accent);
+}
+
 .docTitle {
   min-width: 0;
   overflow: hidden;

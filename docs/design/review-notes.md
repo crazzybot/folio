@@ -1,6 +1,6 @@
 # Copy review notes
 
-Status: phases 1–2 implemented (formatting, preview, header button, shortcut).
+Status: implemented (phases 1–4).
 
 Turns a document's highlights and notes into Markdown that can be pasted
 straight into a coding agent (Claude Code, Cursor, …) as review feedback.
@@ -70,8 +70,9 @@ of them so "note 5" means the same thing to the user and the agent.
   inside the list item. A highlight without a note gets
   `(no comment)`. Whatever the colour meant to the user means
   nothing to the agent, so colours are left out.
-- **Opening line**: the default above, editable under
-  **Settings → Marks → Review notes intro**. `{documents}` is replaced with
+- **Opening line**: the default above. Under **Settings → Review notes**, a
+  switch leaves it out, and **Instructions** replaces its wording (empty for
+  the default). `{documents}` is replaced with
   the file name, or "3 documents"; the full path is on every note. Leave it empty to start with the first note.
 
 ## 2. Finding the line and section

@@ -92,6 +92,26 @@ export function useSearchDocumentText(): [boolean, (on: boolean) => void] {
   return useStoredFlag("folio.searchDocumentText", false);
 }
 
+/**
+ * The opening line of copied review notes (Settings): whether there is one,
+ * and its wording ("" for the default; {documents} is replaced with the file
+ * name or "3 documents").
+ */
+export function useReviewIntro(): {
+  on: boolean;
+  setOn: (on: boolean) => void;
+  text: string;
+  setText: (text: string) => void;
+} {
+  const [on, setOn] = useStoredFlag("folio.reviewIntroOn", true);
+  const [text, setTextState] = useState(() => getItem("folio.reviewIntro") ?? "");
+  const setText = useCallback((next: string) => {
+    setTextState(next);
+    setItem("folio.reviewIntro", next);
+  }, []);
+  return { on, setOn, text, setText };
+}
+
 export function useReadingWidth(): [ReadingWidth, (id: ReadingWidth["id"]) => void] {
   return useStoredOption<ReadingWidth>(READING_WIDTHS, "folio.readingWidth", READING_WIDTHS[1]);
 }

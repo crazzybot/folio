@@ -18,6 +18,17 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/** A clipboard with lines of notes: the Copy review notes buttons. */
+export function ReviewNotesIcon({ size = 16 }: { size?: number }): React.ReactElement {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5.5 2.5h-2v12h9v-12h-2" />
+      <rect x="5.5" y="1.5" width="5" height="2" rx="0.5" />
+      <path d="M5.5 7h5M5.5 9.5h5M5.5 12h3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 interface ReviewNotesPanelProps {
   /** What's being copied: the file name, or "3 documents". */
   title: string;

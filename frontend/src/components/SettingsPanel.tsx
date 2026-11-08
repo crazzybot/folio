@@ -2,6 +2,7 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import type { DesktopSettings } from "../desktop";
 import { DOC_STYLES, FONT_SIZES, READING_WIDTHS } from "../readerPrefs";
 import type { DocStyle, FontSize, ReadingWidth } from "../readerPrefs";
+import { defaultIntro } from "../reviewNotes";
 import { THEME_OPTIONS } from "../theme";
 import type { ThemePreference } from "../theme";
 import styles from "./SettingsPanel.module.css";
@@ -25,6 +26,11 @@ interface SettingsPanelProps {
   onShowOutlineChange: (on: boolean) => void;
   searchDocumentText: boolean;
   onSearchDocumentTextChange: (on: boolean) => void;
+  reviewIntroOn: boolean;
+  onReviewIntroOnChange: (on: boolean) => void;
+  /** Custom wording; "" for the default. */
+  reviewIntro: string;
+  onReviewIntroChange: (text: string) => void;
 }
 
 /**
@@ -107,6 +113,23 @@ export default function SettingsPanel(props: SettingsPanelProps): React.ReactEle
               checked={props.searchDocumentText}
               onChange={props.onSearchDocumentTextChange}
             />
+          </Section>
+
+          <Section title="Review notes">
+            <Toggle
+              label="Start copied review notes with instructions for the agent"
+              checked={props.reviewIntroOn}
+              onChange={props.onReviewIntroOnChange}
+            />
+            {props.reviewIntroOn && (
+              <TextSetting
+                label="Instructions"
+                hint="Empty for the default; {documents} is the file name or “3 documents”"
+                placeholder={defaultIntro([{ name: "{documents}" }])}
+                value={props.reviewIntro}
+                onCommit={props.onReviewIntroChange}
+              />
+            )}
           </Section>
 
           {desktop && <DesktopSettingsSections />}

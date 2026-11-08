@@ -203,6 +203,11 @@ export interface ReviewNotes {
   leftOut: number;
 }
 
+/** "file.md", or "3 documents": what {documents} in the opening line stands for. */
+function documentsLabel(documents: readonly Pick<ReviewDocument, "name">[]): string {
+  return documents.length === 1 ? (documents[0]?.name ?? "the document") : `${documents.length} documents`;
+}
+
 /** The default opening line. */
 export function defaultIntro(documents: readonly Pick<ReviewDocument, "name">[]): string {
   return documents.length === 1
@@ -221,7 +226,8 @@ function shorten(quote: string): string {
  * The documents' highlights as numbered review notes, in document order and
  * numbered across documents: the location (`path:line · Section › Sub`), the
  * quote and the note, or "(no comment)". Several documents get a `## path`
- * heading each. `intro` null leaves the opening line out.
+ * heading each. `intro`: the opening line, with {documents} replaced by the
+ * file name or "3 documents"; undefined for the default, null for none.
  */
 export function formatReviewNotes(documents: readonly ReviewDocument[], intro?: string | null): ReviewNotes {
   const out: string[] = [];
@@ -230,7 +236,8 @@ export function formatReviewNotes(documents: readonly ReviewDocument[], intro?: 
   let leftOut = 0;
   let n = 0;
 
-  const opening = intro === undefined ? defaultIntro(documents) : intro;
+  const opening =
+    intro === undefined ? defaultIntro(documents) : intro?.replace(/\{documents\}/g, documentsLabel(documents)) ?? null;
   if (opening !== null && opening.trim() !== "") out.push(opening.trim(), "");
 
   for (const doc of documents) {
