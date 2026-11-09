@@ -30,6 +30,7 @@ import useTheme from "./theme";
 import { documentsInFolder } from "./documentTree";
 import { useFolderFocus } from "./folderFocus";
 import { addFilter, filterByMeta, filterOptions, hasFilters } from "./metaFilter";
+import { requestDone } from "./status";
 import { useMetaFilters } from "./useMetaFilters";
 import useMarks from "./useMarks";
 import DemoBanner from "./components/DemoBanner";
@@ -587,7 +588,18 @@ function AppInner(): React.ReactElement {
   }, [statusMessage]);
 
   const shownHighlights = useMemo(() => shownMarks?.highlights ?? [], [shownMarks]);
+  // Something to copy as review notes: a highlight, or a comment or status change still to make
+  const canCopyReview = useMemo(
+    () =>
+      contentId !== null &&
+      (shownHighlights.length > 0 ||
+        (documentNote !== undefined &&
+          (documentNote.text !== null ||
+            (documentNote.requestedStatus !== null && !requestDone(shownStatus, documentNote.requestedStatus))))),
+    [contentId, shownHighlights, documentNote, shownStatus],
+  );
 
+  const marksByDoc = marks.byDoc;
   /** Review notes on documents' highlights, given their sources. */
   const buildReview = useCallback(
     (docs: readonly ReviewSelection[], sources: readonly string[]): { title: string; notes: ReviewNotes } => {
@@ -605,6 +617,10 @@ function AppInner(): React.ReactElement {
             source: sources[i] ?? "",
             highlights,
             ...(unplaced === undefined ? {} : { unplaced }),
+            // The note on the document as a whole, and where its status is written (document-notes.md)
+            note: marksByDoc.get(doc.id)?.note,
+            status: doc.meta?.status ?? null,
+            statusLine: doc.meta?.statusLine ?? null,
           };
         }),
         reviewIntroText,
@@ -612,14 +628,14 @@ function AppInner(): React.ReactElement {
       const title = docs.length === 1 ? (docs[0]?.doc.filename ?? "") : `${docs.length} documents`;
       return { title, notes };
     },
-    [located, reviewIntroText],
+    [located, reviewIntroText, marksByDoc],
   );
 
   const openDocumentNotes = useCallback((): { title: string; notes: ReviewNotes } | null => {
     if (contentId === null || contentValue === null || selectedDoc === null || selectedDoc.id !== contentId) return null;
-    if (shownHighlights.length === 0) return null;
+    if (!canCopyReview) return null;
     return buildReview([{ doc: selectedDoc, highlights: shownHighlights }], [contentValue]);
-  }, [contentId, contentValue, selectedDoc, shownHighlights, buildReview]);
+  }, [contentId, contentValue, selectedDoc, shownHighlights, canCopyReview, buildReview]);
 
   // From the Marks view: the documents' sources (the open one is loaded already), then the preview
   const showReviewNotes = useCallback(
@@ -885,18 +901,21 @@ function AppInner(): React.ReactElement {
               />
             )}
 
-            {shownHighlights.length > 0 && (
-              <button
-                className={styles.iconBtn}
-                onClick={() => setReview(openDocumentNotes())}
-                disabled={contentId === null}
-                aria-label={`Copy review notes (${REVIEW_SHORTCUT})`}
-                title={`Copy review notes (${REVIEW_SHORTCUT})`}
-                type="button"
-              >
-                <ReviewNotesIcon />
-              </button>
-            )}
+            {/* Shown even with nothing to copy (disabled), so it's found and the toolbar keeps its place */}
+            <button
+              className={styles.iconBtn}
+              onClick={() => setReview(openDocumentNotes())}
+              disabled={!canCopyReview}
+              aria-label={`Copy review notes (${REVIEW_SHORTCUT})`}
+              title={
+                canCopyReview
+                  ? `Copy review notes (${REVIEW_SHORTCUT})`
+                  : "Copy review notes: highlight a passage, or add a note on the document, first"
+              }
+              type="button"
+            >
+              <ReviewNotesIcon />
+            </button>
 
             {editorName !== undefined && (
               <button

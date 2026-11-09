@@ -15,6 +15,8 @@ export interface Metadata {
   people: string[];
   /** Lowercased, without "#". */
   tags: string[];
+  /** The 1-based line the status is written on (front matter or a "Status:" line); null without a status. */
+  statusLine: number | null;
 }
 
 export interface DocumentMeta {

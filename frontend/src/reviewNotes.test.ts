@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { formatReviewNotes, locateInSource, reviewPath, sectionAt } from "./reviewNotes";
+import { formatReviewNotes, locateInSource, reviewPath, sectionAt, statusRequest } from "./reviewNotes";
 import type { ReviewDocument } from "./reviewNotes";
-import type { Highlight } from "./types";
+import type { DocumentNote, Highlight } from "./types";
 
 const SOURCE = `---
 title: Event store
@@ -198,5 +198,96 @@ describe("reviewPath", () => {
 
   it("is the workspace-relative location in the browser", () => {
     expect(reviewPath("docs/adr.md", null)).toBe("docs/adr.md");
+  });
+});
+
+describe("formatReviewNotes with a note on the document", () => {
+  const ADR = "# ADR 3: HMAC\n\nStatus: proposed · 2026-10-02\n\n## Context\n\nSign with HMAC.\n";
+  const note = (requestedStatus: string | null, text: string | null = null): DocumentNote => ({
+    text,
+    requestedStatus,
+    created: "2026-11-09T10:00:00Z",
+    updated: "2026-11-09T10:00:00Z",
+  });
+  const adr = (extra: Partial<ReviewDocument> = {}, highlights: Highlight[] = []): ReviewDocument =>
+    doc(highlights, { source: ADR, status: "proposed", statusLine: 3, ...extra });
+
+  it("copies the status change and the overall comment before the highlights", () => {
+    const signed = highlight("Sign with HMAC", { position: { start: 40, end: 54 } });
+    const result = formatReviewNotes([adr({ note: note("accepted", "Fine once answered.\nSecond line.") }, [signed])]);
+    expect(result.text).toBe(
+      [
+        "Review notes on adr.md. My overall comment comes first, then each quote from the document followed by my comment. Please revise the document to address them.",
+        "",
+        'Status: change it to "accepted". It is "proposed" now, on line 3: `Status: proposed · 2026-10-02`.',
+        "",
+        "Overall: Fine once answered.",
+        "Second line.",
+        "",
+        "1. docs/adr.md:7 · ADR 3: HMAC › Context",
+        "   > Sign with HMAC",
+        "",
+        "   (no comment)",
+      ].join("\n"),
+    );
+    expect([result.documentNotes, result.requestsDone, result.notes.length]).toEqual([1, 0, 1]);
+  });
+
+  it("says where to change or add the status", () => {
+    const front = "---\nstatus: proposed\n---\n# T\n";
+    expect(statusRequest({ source: front, status: "proposed", statusLine: 2, note: note("Accepted") })).toBe(
+      'Status: change it to "Accepted". It is "proposed" now, on line 2: `status: proposed`.',
+    );
+    expect(statusRequest({ source: "---\ntitle: T\n---\n# T\n", status: null, note: note("accepted") })).toBe(
+      "Status: add `status: accepted` to its front matter.",
+    );
+    expect(statusRequest({ source: "# T\n", status: null, note: note("approved") })).toBe(
+      "Status: add a `Status: approved` line under its title.",
+    );
+    expect(statusRequest({ source: "Status: `x`\n", status: "x", statusLine: 1, note: note("y") })).toBe(
+      'Status: change it to "y". It is "x" now, on line 1: `` Status: `x` ``.',
+    );
+    expect(statusRequest({ source: ADR, status: "proposed", note: note(null, "Text only") })).toBeNull();
+  });
+
+  it("leaves out a change the document already has, and counts it", () => {
+    const result = formatReviewNotes([adr({ status: "accepted", note: note("Accepted", "Good.") })]);
+    expect(result.text).toBe(
+      ["Review notes on adr.md. Please revise the document as described below.", "", "Overall: Good."].join("\n"),
+    );
+    expect([result.documentNotes, result.requestsDone]).toEqual([1, 1]);
+  });
+
+  it("copies a document with a note and no highlights", () => {
+    const result = formatReviewNotes([adr({ note: note("rejected") })]);
+    expect(result.text).toBe(
+      [
+        "Review notes on adr.md. Please revise the document as described below.",
+        "",
+        'Status: change it to "rejected". It is "proposed" now, on line 3: `Status: proposed · 2026-10-02`.',
+      ].join("\n"),
+    );
+  });
+
+  it("puts each document's note under its heading", () => {
+    const other = highlight("Snapshots are taken every 100 events", { position: { start: 300, end: 336 } });
+    const result = formatReviewNotes([
+      adr({ docId: "a", path: "docs/a.md", name: "a.md", note: note("accepted", "Ship it.") }),
+      doc([other], { docId: "b", path: "docs/b.md", name: "b.md" }),
+    ]);
+    const lines = result.text.split("\n");
+    expect(lines[0]).toBe(
+      "Review notes on 2 documents. Each document's overall comment comes first, then each quote from it followed by my comment. Please revise the documents to address them.",
+    );
+    expect(lines.slice(2, 8)).toEqual([
+      "## docs/a.md",
+      "",
+      'Status: change it to "accepted". It is "proposed" now, on line 3: `Status: proposed · 2026-10-02`.',
+      "",
+      "Overall: Ship it.",
+      "",
+    ]);
+    expect(lines[8]).toBe("## docs/b.md");
+    expect(lines[10]?.startsWith("1. docs/b.md:")).toBe(true);
   });
 });

@@ -173,6 +173,7 @@ class MetadataItem(TypedDict):
     date: str | None
     people: list[str]
     tags: list[str]
+    statusLine: int | None
 
 
 class DocumentListItem(TypedDict):
@@ -245,6 +246,7 @@ def _list_item(doc: DocumentMeta) -> DocumentListItem:
             date=doc.meta.date,
             people=list(doc.meta.people),
             tags=list(doc.meta.tags),
+            statusLine=doc.meta.status_line,
         )
     return item
 

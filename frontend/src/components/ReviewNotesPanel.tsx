@@ -145,11 +145,23 @@ export default function ReviewNotesPanel({ title, notes, onClose, onOpenNote, on
         </header>
 
         <p className={styles.summary}>
-          {count} note{count !== 1 ? "s" : ""}
+          {[
+            notes.documentNotes > 0 &&
+              `${notes.documentNotes} note${notes.documentNotes !== 1 ? "s" : ""} on the document${notes.documentNotes !== 1 ? "s" : ""}`,
+            (count > 0 || notes.documentNotes === 0) && `${count} note${count !== 1 ? "s" : ""} on passages`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
           {notes.withoutLine > 0 && (
             <span title="Not found in the Markdown source, so copied with the quote and note but no line number">
               {" "}
               · {notes.withoutLine} without a line number
+            </span>
+          )}
+          {notes.requestsDone > 0 && (
+            <span title="The document already has the status the note asks for">
+              {" "}
+              · {notes.requestsDone} status change{notes.requestsDone !== 1 ? "s" : ""} already made, left out
             </span>
           )}
           {notes.leftOut > 0 && (

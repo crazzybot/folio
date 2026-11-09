@@ -20,7 +20,7 @@ interface DocumentPropertiesProps {
   onClearRequest?: (() => void) | undefined;
 }
 
-const NO_META = { status: null, statusDetail: null, date: null, people: [], tags: [] };
+const NO_META = { status: null, statusDetail: null, date: null, people: [], tags: [], statusLine: null };
 
 /**
  * The document's metadata (front matter, or its status line) above its

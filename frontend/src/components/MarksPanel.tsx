@@ -88,8 +88,12 @@ export default function MarksPanel({
   const copyable = useMemo(() => {
     const byDocShown = new Map<string, ReviewSelection>();
     for (const row of buildMarkRows({ documents, byDoc, query, notesOnly, collapsed: NOTHING_FOLDED, located })) {
-      if (row.kind !== "highlight") continue;
       const entry = byDocShown.get(row.doc.id);
+      // A note on the document is copied too: its comment, or a status change still to make
+      if (row.kind === "note" && (row.note.text !== null || !row.done)) {
+        byDocShown.set(row.doc.id, { doc: row.doc, highlights: entry?.highlights ?? [] });
+      }
+      if (row.kind !== "highlight") continue;
       byDocShown.set(row.doc.id, { doc: row.doc, highlights: [...(entry?.highlights ?? []), row.highlight] });
     }
     return byDocShown;

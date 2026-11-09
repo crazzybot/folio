@@ -8,6 +8,7 @@ const meta = (status: string | null, statusDetail: string | null = null): Metada
   date: null,
   people: [],
   tags: [],
+  statusLine: null,
 });
 
 const doc = (location: string, m?: Metadata): DocumentMeta => ({

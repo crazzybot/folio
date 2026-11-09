@@ -113,7 +113,7 @@ describe("buildMarkRows", () => {
 });
 
 describe("buildMarkRows with a note on the document", () => {
-  const adr = { ...doc("adr.md"), meta: { status: "proposed", statusDetail: null, date: null, people: [], tags: [] } };
+  const adr = { ...doc("adr.md"), meta: { status: "proposed", statusDetail: null, date: null, people: [], tags: [], statusLine: null } };
   const note = { text: "Fine once the rotation question is answered.", requestedStatus: "accepted", created: "", updated: "" };
   const input: MarkRowsInput = {
     ...base,

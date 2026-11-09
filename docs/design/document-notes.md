@@ -1,6 +1,6 @@
 # Document notes
 
-Status: proposed.
+Status: implemented (phases 1–3).
 
 A note on the document as a whole: an overall comment, and optionally a
 request to change the document's status ("accept this ADR"). It goes into
@@ -132,7 +132,12 @@ Overall: Fine once the rotation question below is answered.
 - **Opening line**: the default names what comes: "My overall comment comes
   first, then each quote…" with a note, and "…to address my comment" with a
   note and no highlights. A custom opening line (Settings) is used as it is.
-- A document with a note and no highlights can be copied.
+- A document with a note and no highlights can be copied: the toolbar's
+  Copy review notes button (and ⇧⌘C) works for it, and the button is
+  shown disabled — not hidden — on a document with nothing to copy, so it's
+  found and the toolbar doesn't shift. The Marks view's copy buttons count
+  notes too. The preview's summary reads "1 note on the document · 2 notes
+  on passages".
 - The path isn't repeated before the status line: with one document the
   opening line names the file and every numbered note has the full path;
   with several, the `## path` heading does.

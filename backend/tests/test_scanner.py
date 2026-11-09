@@ -33,6 +33,7 @@ def test_scan_matches_shared_expected_output():
                 "date": d.meta.date,
                 "people": list(d.meta.people),
                 "tags": list(d.meta.tags),
+                "statusLine": d.meta.status_line,
             }}),
         }
         for d in docs
@@ -78,6 +79,7 @@ def test_extract_meta(case):
         "date": meta.date,
         "people": list(meta.people),
         "tags": list(meta.tags),
+        "statusLine": meta.status_line,
     }
     assert as_json == case["meta"]
 
