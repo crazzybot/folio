@@ -316,6 +316,8 @@ export function formatReviewNotes(documents: readonly ReviewDocument[], intro?: 
 
   for (const { doc, highlights, request, comment } of parts) {
     if (documents.length > 1) out.push(`## ${doc.path}`, "");
+    // One document: the opening line names only the file, so its note says which one
+    else if (request !== null || comment !== null) out.push(`Document: ${doc.path}`);
     if (request !== null) out.push(request, "");
     if (comment !== null) {
       const [first = "", ...rest] = comment.split(/\r?\n/);

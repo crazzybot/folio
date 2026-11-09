@@ -107,6 +107,7 @@ Review notes on 0003-hmac-signatures.md. My overall comment comes first, then
 each quote from the document followed by my comment. Please revise the
 document to address them.
 
+Document: /Users/me/relay/docs/adr/0003-hmac-signatures.md
 Status: change it to "accepted". It is "proposed" now, on line 3:
 `Status: proposed · 2026-10-02`.
 
@@ -138,9 +139,10 @@ Overall: Fine once the rotation question below is answered.
   found and the toolbar doesn't shift. The Marks view's copy buttons count
   notes too. The preview's summary reads "1 note on the document · 2 notes
   on passages".
-- The path isn't repeated before the status line: with one document the
-  opening line names the file and every numbered note has the full path;
-  with several, the `## path` heading does.
+- **Which file**: with several documents the `## path` heading names it.
+  With one, the opening line names only the file, and a note-only copy has
+  no numbered notes carrying the path — so the note starts with
+  `Document: /full/path/to/file.md`.
 
 ## 5. UI
 

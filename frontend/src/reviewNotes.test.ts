@@ -219,6 +219,7 @@ describe("formatReviewNotes with a note on the document", () => {
       [
         "Review notes on adr.md. My overall comment comes first, then each quote from the document followed by my comment. Please revise the document to address them.",
         "",
+        "Document: docs/adr.md",
         'Status: change it to "accepted". It is "proposed" now, on line 3: `Status: proposed · 2026-10-02`.',
         "",
         "Overall: Fine once answered.",
@@ -253,7 +254,7 @@ describe("formatReviewNotes with a note on the document", () => {
   it("leaves out a change the document already has, and counts it", () => {
     const result = formatReviewNotes([adr({ status: "accepted", note: note("Accepted", "Good.") })]);
     expect(result.text).toBe(
-      ["Review notes on adr.md. Please revise the document as described below.", "", "Overall: Good."].join("\n"),
+      ["Review notes on adr.md. Please revise the document as described below.", "", "Document: docs/adr.md", "Overall: Good."].join("\n"),
     );
     expect([result.documentNotes, result.requestsDone]).toEqual([1, 1]);
   });
@@ -264,6 +265,7 @@ describe("formatReviewNotes with a note on the document", () => {
       [
         "Review notes on adr.md. Please revise the document as described below.",
         "",
+        "Document: docs/adr.md",
         'Status: change it to "rejected". It is "proposed" now, on line 3: `Status: proposed · 2026-10-02`.',
       ].join("\n"),
     );
