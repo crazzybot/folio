@@ -449,6 +449,16 @@ removed.
 (`{"heading": {"text", "level", "occurrence"}}`) and returns the bookmark —
 the existing one if it was already bookmarked. `DELETE` removes it (`204`).
 
+### `PUT /api/documents/{id}/note` · `DELETE …/note`
+
+A note on the document as a whole: `PUT` sets it from `{"text", "requestedStatus"}`
+— a comment (Markdown, up to 10 000 characters) and a status to ask the
+document's author to change it to (one line, up to 40 characters); either
+may be `null` — and returns it, with `created` and `updated`. Both `null`
+(or blank) removes the note and returns `null`. `DELETE` removes it (`204`,
+`404` if there's none). In `GET /api/marks`, a document's `note` is left out
+when it has none, and a document with only a note is listed.
+
 ### Missing documents: `POST /api/marks/{recordId}/relink` · `DELETE /api/marks/{recordId}`
 
 `GET /api/marks` also returns `missing`: the marks of files in the workspace

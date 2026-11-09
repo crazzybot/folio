@@ -86,6 +86,7 @@ describe("listMarks", () => {
     const docsFolder = path.join(WORKSPACE, "docs");
     const listing = await listMarks(store, docsFolder, await scanWorkspace(docsFolder, SKIP));
     expect(listing.documents.map((d) => [d.location, d.docId])).toEqual([
+      ["front-matter.md", stableId("front-matter.md")],
       ["guides/setup.markdown", stableId("guides/setup.markdown")],
       ["html-title.md", stableId("html-title.md")],
       ["plain.md", stableId("plain.md")],
@@ -241,5 +242,57 @@ describe("moved and deleted documents", () => {
   it("gives a missing file the same record id as the backend", () => {
     // Folders that still exist are resolved, as Python's os.path.realpath does
     expect(realPath(at("docs/gone/deeper.md"))).toBe(path.join(realPath(at("docs")), "gone", "deeper.md"));
+  });
+
+  // ── The document's note ──────────────────────────────────────────────────
+
+  const NOTED = path.join(WORKSPACE, "docs", "front-matter.md");
+  const BLANK = path.join(WORKSPACE, "docs", "blank.md"); // no marks
+
+  it("sets, updates and removes a document note", async () => {
+    const note = await store.setNote(BLANK, { text: "Overall fine.", requestedStatus: " accepted " });
+    expect([note?.text, note?.requestedStatus]).toEqual(["Overall fine.", "accepted"]);
+    const listing = await listMarks(store, WORKSPACE, await scanWorkspace(WORKSPACE, SKIP));
+    const listed = listing.documents.find((d) => d.docId === stableId("docs/blank.md"));
+    expect([listed?.note, listed?.bookmarks, listed?.highlights]).toEqual([note, [], []]);
+
+    const updated = await store.setNote(BLANK, { text: null, requestedStatus: "rejected" });
+    expect([updated?.text, updated?.requestedStatus, updated?.created]).toEqual([null, "rejected", note?.created]);
+
+    // Nothing left: the note goes, and the record with it
+    expect(await store.setNote(BLANK, { text: "  ", requestedStatus: null })).toBeNull();
+    expect(recordOf(BLANK)).toBeNull();
+    expect(await refusal(() => store.deleteNote(BLANK))).toBe(404);
+  });
+
+  it("keeps a note and unknown fields when marks change", async () => {
+    const added = await store.addHighlight(NOTED, highlight());
+    await store.deleteHighlight(NOTED, added.id);
+    const record = recordOf(NOTED) as { documentNote: { requestedStatus: string }; futureField: unknown };
+    expect(record.documentNote.requestedStatus).toBe("accepted");
+    expect(record.futureField).toEqual({ kept: true });
+
+    await store.deleteNote(NOTED);
+    expect(recordOf(NOTED)).toBeNull();
+  });
+
+  it("moves a note with a missing document's marks", async () => {
+    await store.relink(recordId(path.join(WORKSPACE, "docs", "gone.md")), NOTED);
+    const note = (recordOf(NOTED) as { documentNote: Record<string, unknown> }).documentNote;
+    // The document's own status request stays; the moved comment goes below its own
+    expect(note["text"]).toBe("Ready once the title matches the heading.\n\nWas this replaced by something?");
+    expect([note["requestedStatus"], note["created"]]).toEqual(["accepted", "2026-11-08T09:00:00Z"]);
+  });
+
+  it("moves a note to a document without one", async () => {
+    await store.relink(recordId(path.join(WORKSPACE, "docs", "gone.md")), PLAIN);
+    expect((recordOf(PLAIN) as { documentNote: { text: string } }).documentNote.text).toBe("Was this replaced by something?");
+  });
+
+  const invalidNotes = JSON.parse(readFileSync(path.join(MARKS, "invalid-notes.json"), "utf8")) as [string, unknown][];
+  it.each(invalidNotes)("refuses a note with %s", async (_name, body) => {
+    const before = recordOf(NOTED);
+    expect(await refusal(() => store.setNote(NOTED, body))).toBe(400);
+    expect(recordOf(NOTED)).toEqual(before);
   });
 });

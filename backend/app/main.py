@@ -352,11 +352,20 @@ class BookmarkItem(TypedDict):
     created: str
 
 
+class DocumentNoteItem(TypedDict):
+    text: str | None
+    requestedStatus: str | None
+    created: str
+    updated: str
+
+
 class DocumentMarksItem(TypedDict):
     docId: str
     location: str
     bookmarks: list[BookmarkItem]
     highlights: list[HighlightItem]
+    # The note on the document as a whole; left out when there's none
+    note: NotRequired[DocumentNoteItem]
 
 
 class SuggestionItem(TypedDict):
@@ -369,6 +378,7 @@ class MissingMarksItem(TypedDict):
     location: str
     bookmarks: list[BookmarkItem]
     highlights: list[HighlightItem]
+    note: NotRequired[DocumentNoteItem]
     suggestion: SuggestionItem | None
 
 
@@ -529,6 +539,32 @@ def add_bookmark(doc_id: str, body: Any = Depends(_json_body)) -> BookmarkItem:
 def delete_bookmark(doc_id: str, bookmark_id: str) -> Response:
     path = _document(doc_id)
     _store_call(lambda: _marks().delete_bookmark(path, bookmark_id))
+    return Response(status_code=204)
+
+
+@app.put(
+    "/api/documents/{doc_id}/note",
+    response_model=DocumentNoteItem | None,
+    summary="Set the note on a document as a whole",
+)
+def set_document_note(doc_id: str, body: Any = Depends(_json_body)) -> DocumentNoteItem | None:
+    """
+    Body: ``{"text", "requestedStatus"}`` — a comment (Markdown) and a status
+    to ask the document's author to change it to; either may be null. Returns
+    the saved note; both null (or blank) removes it and returns null.
+    """
+    path = _document(doc_id)
+    return _store_call(lambda: _marks().set_note(path, body))
+
+
+@app.delete(
+    "/api/documents/{doc_id}/note",
+    status_code=204,
+    summary="Remove the note on a document",
+)
+def delete_document_note(doc_id: str) -> Response:
+    path = _document(doc_id)
+    _store_call(lambda: _marks().delete_note(path))
     return Response(status_code=204)
 
 

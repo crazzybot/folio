@@ -85,6 +85,7 @@ def test_finds_the_same_marks_from_a_subfolder_workspace(client, monkeypatch):
     monkeypatch.setenv("MARKDOWN_WORKSPACE", str(WORKSPACE / "docs"))
     listing = client.get("/api/marks").json()
     assert [(d["location"], d["docId"]) for d in listing["documents"]] == [
+        ("front-matter.md", _stable_id("front-matter.md")),
         ("guides/setup.markdown", _stable_id("guides/setup.markdown")),
         ("html-title.md", _stable_id("html-title.md")),
         ("plain.md", _stable_id("plain.md")),
@@ -267,3 +268,61 @@ def test_fingerprints_the_files_bytes(tmp_path):
     file.write_bytes(b"one\r\ntwo\r\n")
     assert fingerprint(file) == {"sha1": hashlib.sha1(b"one\r\ntwo\r\n").hexdigest(), "size": 10, "filename": "crlf.md"}
     MarksStore(tmp_path / "data").add_bookmark(file, {"heading": None})
+
+
+# ── The document's note ──────────────────────────────────────────────────────
+
+NOTED = _stable_id("docs/front-matter.md")
+BLANK = _stable_id("docs/blank.md")  # no marks
+
+
+def test_sets_updates_and_removes_a_document_note(client, data_dir):
+    res = client.put(f"/api/documents/{BLANK}/note", json={"text": "Overall fine.", "requestedStatus": " accepted "})
+    assert res.status_code == 200
+    note = res.json()
+    assert (note["text"], note["requestedStatus"]) == ("Overall fine.", "accepted")
+    listed = next(d for d in client.get("/api/marks").json()["documents"] if d["docId"] == BLANK)
+    assert (listed["note"], listed["bookmarks"], listed["highlights"]) == (note, [], [])
+
+    updated = client.put(f"/api/documents/{BLANK}/note", json={"text": None, "requestedStatus": "rejected"}).json()
+    assert (updated["text"], updated["requestedStatus"], updated["created"]) == (None, "rejected", note["created"])
+
+    # Nothing left: the note goes, and the record with it
+    assert client.put(f"/api/documents/{BLANK}/note", json={"text": "  ", "requestedStatus": None}).json() is None
+    assert _record(data_dir, "docs/blank.md") is None
+    assert client.delete(f"/api/documents/{BLANK}/note").status_code == 404
+
+
+def test_keeps_a_note_and_unknown_fields_when_marks_change(client, data_dir):
+    hid = client.post(f"/api/documents/{NOTED}/highlights", json=_highlight()).json()["id"]
+    assert client.delete(f"/api/documents/{NOTED}/highlights/{hid}").status_code == 204
+    record = _record(data_dir, "docs/front-matter.md")
+    assert record["documentNote"]["requestedStatus"] == "accepted"
+    assert record["futureField"] == {"kept": True}
+
+    assert client.delete(f"/api/documents/{NOTED}/note").status_code == 204
+    assert _record(data_dir, "docs/front-matter.md") is None
+
+
+def test_moves_a_note_with_a_missing_documents_marks(client, data_dir):
+    gone = record_id(WORKSPACE / "docs/gone.md")
+    assert client.post(f"/api/marks/{gone}/relink", json={"docId": NOTED}).status_code == 204
+    note = _record(data_dir, "docs/front-matter.md")["documentNote"]
+    # The document's own status request stays; the moved comment goes below its own
+    assert note["text"] == "Ready once the title matches the heading.\n\nWas this replaced by something?"
+    assert (note["requestedStatus"], note["created"]) == ("accepted", "2026-11-08T09:00:00Z")
+
+
+def test_moves_a_note_to_a_document_without_one(client, data_dir):
+    gone = record_id(WORKSPACE / "docs/gone.md")
+    assert client.post(f"/api/marks/{gone}/relink", json={"docId": PLAIN}).status_code == 204
+    assert _record(data_dir, "docs/plain.md")["documentNote"]["text"] == "Was this replaced by something?"
+
+
+@pytest.mark.parametrize(
+    "case", json.loads((MARKS / "invalid-notes.json").read_text(encoding="utf-8")), ids=lambda c: c[0]
+)
+def test_refuses_invalid_notes(client, data_dir, case):
+    before = _record(data_dir, "docs/front-matter.md")
+    assert client.put(f"/api/documents/{NOTED}/note", json=case[1]).status_code == 400
+    assert _record(data_dir, "docs/front-matter.md") == before

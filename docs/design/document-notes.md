@@ -54,14 +54,16 @@ Records stay at version 1, with `documentNote` optional. Bumping the
 version would make older apps hide every mark of such a document (they skip
 other versions) and refuse to change them (409).
 
-Older apps keep fields they don't know when they rewrite a record (both
-stores spread the parsed record), so a note survives adding or removing a
-highlight there — with two exceptions, accepted as rare (two app versions
-on one marks folder; the desktop app updates itself):
+Apps before this one rebuild a record from the fields they know when they
+change it, so **they drop a document's note** when they add or remove a
+mark on that document, delete the record with its last highlight or
+bookmark, and move only highlights and bookmarks when relinking. Accepted
+as rare — two app versions on one marks folder (say, an old Docker backend
+beside the desktop app, which updates itself) — rather than hiding every
+mark of a noted document from older apps.
 
-- removing a document's last highlight or bookmark deletes the record file,
-  note included;
-- relinking a missing file's marks moves only highlights and bookmarks.
+From this version on, both stores keep fields they don't know when they
+rewrite a record, so later additions won't have the problem.
 
 ## 2. API
 

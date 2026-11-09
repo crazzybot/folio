@@ -34,6 +34,7 @@ MAX_NOTE = 10_000
 MAX_HIGHLIGHTS = 1_000  # per document
 MAX_BOOKMARKS = 1_000  # per document
 MAX_HEADING_TEXT = 1_000
+MAX_REQUESTED_STATUS = 40
 
 # Paths differ only by case on these platforms' default file systems
 _CASE_INSENSITIVE = sys.platform in ("darwin", "win32")
@@ -145,6 +146,65 @@ def _heading(value: Any) -> dict[str, Any] | None:
     }
 
 
+def _requested_status(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = _string(value, "requestedStatus", MAX_REQUESTED_STATUS).strip()
+    if "\n" in text or "\r" in text:
+        raise MarkError(400, "requestedStatus must be one line")
+    return text or None
+
+
+def _document_note_body(body: Any) -> tuple[str | None, str | None]:
+    """A PUT body's note: ``{text, requestedStatus}``, each null (or blank) for none."""
+    if not isinstance(body, dict):
+        raise MarkError(400, "Expected a JSON object")
+    return _note(body.get("text")), _requested_status(body.get("requestedStatus"))
+
+
+def stored_note(value: Any) -> dict[str, Any] | None:
+    """A record's saved note, or None when it has none (or one this version can't read)."""
+    if not isinstance(value, dict):
+        return None
+    created, updated = value.get("created"), value.get("updated")
+    if not isinstance(created, str) or not isinstance(updated, str):
+        return None
+
+    def text_or_none(v: Any) -> str | None:
+        return v if isinstance(v, str) and v.strip() else None
+
+    found = {
+        "text": text_or_none(value.get("text")),
+        "requestedStatus": text_or_none(value.get("requestedStatus")),
+        "created": created,
+        "updated": updated,
+    }
+    return None if found["text"] is None and found["requestedStatus"] is None else found
+
+
+def _has_marks(record: dict[str, Any]) -> bool:
+    """Whether a record still holds anything: a record without marks is removed."""
+    return bool(record["highlights"] or record["bookmarks"] or stored_note(record.get("documentNote")))
+
+
+def _merged_note(dest: dict[str, Any] | None, moved: dict[str, Any] | None) -> dict[str, Any] | None:
+    """A note moved onto a document that has one: its comment added below, its status only if there's none."""
+    if dest is None or moved is None:
+        return dest or moved
+    return {
+        "text": "\n\n".join(t for t in (dest["text"], moved["text"]) if t is not None) or None,
+        "requestedStatus": dest["requestedStatus"] or moved["requestedStatus"],
+        "created": dest["created"],
+        "updated": _now(),
+    }
+
+
+def _with_note(record: dict[str, Any], note: dict[str, Any] | None) -> dict[str, Any]:
+    """*record* with *note* as its document note (none for None)."""
+    rest = {k: v for k, v in record.items() if k != "documentNote"}
+    return rest if note is None else {**rest, "documentNote": note}
+
+
 def _now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -194,7 +254,7 @@ class MarksStore:
     def _write(self, rid: str, record: dict[str, Any]) -> None:
         """Save atomically (temp file, then rename); a record with no marks left is removed."""
         path = self._file(rid)
-        if not record["highlights"] and not record["bookmarks"]:
+        if not _has_marks(record):
             path.unlink(missing_ok=True)
             return
         self.folder.mkdir(parents=True, exist_ok=True)
@@ -251,10 +311,12 @@ class MarksStore:
             ids = {h.get("id") for h in dest["highlights"]}
             headings = [b.get("heading") for b in dest["bookmarks"]]
             merged = {
+                **dest,
                 "bookmarks": dest["bookmarks"] + [b for b in source["bookmarks"] if b.get("heading") not in headings],
                 "highlights": dest["highlights"] + [h for h in source["highlights"] if h.get("id") not in ids],
             }
-            self._write(target, _refreshed(merged, path))
+            note = _merged_note(stored_note(dest.get("documentNote")), stored_note(source.get("documentNote")))
+            self._write(target, _refreshed(_with_note(merged, note), path))
             self._file(rid).unlink(missing_ok=True)
 
     def forget(self, rid: str) -> None:
@@ -264,6 +326,32 @@ class MarksStore:
             if self._read(rid) is None:
                 raise MarkError(404, f"Marks '{rid}' not found")
             self._file(rid).unlink(missing_ok=True)
+
+    # ── The document's note ──────────────────────────────────────────────────
+
+    def set_note(self, path: Path, body: Any) -> dict[str, Any] | None:
+        """Set the document's note (``{text, requestedStatus}``); both null removes it. Returns it, or None."""
+        text, status = _document_note_body(body)
+        rid = record_id(path)
+        with _lock:
+            record = self._writable(rid) or {"version": VERSION, "bookmarks": [], "highlights": []}
+            old = stored_note(record.get("documentNote"))
+            now = _now()
+            saved = (
+                None
+                if text is None and status is None
+                else {"text": text, "requestedStatus": status, "created": old["created"] if old else now, "updated": now}
+            )
+            self._write(rid, _refreshed(_with_note(record, saved), path))
+        return saved
+
+    def delete_note(self, path: Path) -> None:
+        rid = record_id(path)
+        with _lock:
+            record = self._writable(rid)
+            if record is None or stored_note(record.get("documentNote")) is None:
+                raise MarkError(404, "The document has no note")
+            self._write(rid, _refreshed(_with_note(record, None), path))
 
     # ── Highlights ───────────────────────────────────────────────────────────
 
@@ -351,8 +439,12 @@ def fingerprint(path: Path) -> dict[str, Any]:
 
 
 def _refreshed(record: dict[str, Any], path: Path) -> dict[str, Any]:
-    """The record with its path and fingerprint brought up to date."""
+    """
+    The record with its path and fingerprint brought up to date. Fields this
+    version doesn't know are kept, so a newer version's survive its changes.
+    """
     return {
+        **record,
         "version": VERSION,
         "path": real_path(path),
         "fingerprint": fingerprint(path),
@@ -417,10 +509,17 @@ def list_marks(
     documents = []
     for doc in docs:
         entry = found.get(location_key(doc.location))
-        if entry is not None and (entry[2]["highlights"] or entry[2]["bookmarks"]):
+        if entry is not None and _has_marks(entry[2]):
             record = entry[2]
+            note = stored_note(record.get("documentNote"))
             documents.append(
-                {"docId": doc.id, "location": doc.location, "bookmarks": record["bookmarks"], "highlights": record["highlights"]}
+                {
+                    "docId": doc.id,
+                    "location": doc.location,
+                    "bookmarks": record["bookmarks"],
+                    "highlights": record["highlights"],
+                    **({} if note is None else {"note": note}),
+                }
             )
 
     listed_missing = []
@@ -439,6 +538,7 @@ def list_marks(
                 "location": location,
                 "bookmarks": record["bookmarks"],
                 "highlights": record["highlights"],
+                **({} if (note := stored_note(record.get("documentNote"))) is None else {"note": note}),
                 "suggestion": suggestion,
             }
         )

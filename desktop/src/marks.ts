@@ -25,6 +25,7 @@ const MAX_NOTE = 10_000;
 const MAX_HIGHLIGHTS = 1_000; // per document
 const MAX_BOOKMARKS = 1_000; // per document
 const MAX_HEADING_TEXT = 1_000;
+const MAX_REQUESTED_STATUS = 40;
 
 // Paths differ only by case on these platforms' default file systems
 const CASE_INSENSITIVE = process.platform === "darwin" || process.platform === "win32";
@@ -55,12 +56,22 @@ export interface Bookmark {
   created: string;
 }
 
+/** A note on the document as a whole: a comment and / or a status to change it to (document-notes.md). */
+export interface DocumentNote {
+  text: string | null;
+  requestedStatus: string | null;
+  created: string;
+  updated: string;
+}
+
 export interface MarksRecord {
   version: number;
   path: string;
   fingerprint: { sha1: string; size: number; filename: string };
   bookmarks: Bookmark[];
   highlights: Highlight[];
+  /** Absent when there's none. */
+  documentNote?: DocumentNote;
 }
 
 /** A request the store refuses; `status` matches the backend's HTTP status. */
@@ -150,6 +161,51 @@ function note(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   const text = string(value, "note", MAX_NOTE);
   return text.trim() === "" ? null : text;
+}
+
+function requestedStatus(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const text = string(value, "requestedStatus", MAX_REQUESTED_STATUS).trim();
+  if (/[\r\n]/.test(text)) throw new MarkError(400, "requestedStatus must be one line");
+  return text === "" ? null : text;
+}
+
+/** A PUT body's note: `{text, requestedStatus}`, each null (or blank) for none. */
+function documentNoteBody(body: unknown): Pick<DocumentNote, "text" | "requestedStatus"> {
+  if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
+  return { text: note(body["text"]), requestedStatus: requestedStatus(body["requestedStatus"]) };
+}
+
+/** A record's saved note, or null when it has none (or one this version can't read). */
+export function storedNote(value: unknown): DocumentNote | null {
+  if (!isObject(value)) return null;
+  const { text, requestedStatus: status, created, updated } = value;
+  const textOrNull = (v: unknown) => (typeof v === "string" && v.trim() !== "" ? v : null);
+  if (typeof created !== "string" || typeof updated !== "string") return null;
+  const found = { text: textOrNull(text), requestedStatus: textOrNull(status), created, updated };
+  return found.text === null && found.requestedStatus === null ? null : found;
+}
+
+/** Whether a record still holds anything: a record without marks is removed. */
+function hasMarks(record: MarksRecord): boolean {
+  return record.highlights.length > 0 || record.bookmarks.length > 0 || storedNote(record.documentNote) !== null;
+}
+
+/** A note moved onto a document that has one: its comment added below, its status only if there's none. */
+function mergedNote(dest: DocumentNote | null, moved: DocumentNote | null): DocumentNote | null {
+  if (dest === null || moved === null) return dest ?? moved;
+  return {
+    text: [dest.text, moved.text].filter((t): t is string => t !== null).join("\n\n") || null,
+    requestedStatus: dest.requestedStatus ?? moved.requestedStatus,
+    created: dest.created,
+    updated: now(),
+  };
+}
+
+/** `record` with `note` as its document note (none for null). */
+function withNote(record: MarksRecord, note: DocumentNote | null): MarksRecord {
+  const { documentNote: _old, ...rest } = record;
+  return note === null ? rest : { ...rest, documentNote: note };
 }
 
 function heading(value: unknown): BookmarkHeading | null {
@@ -259,7 +315,7 @@ export class MarksStore {
   /** Save atomically (temp file, then rename); a record with no marks left is removed. */
   private async write(id: string, record: MarksRecord): Promise<void> {
     const file = this.file(id);
-    if (record.highlights.length === 0 && record.bookmarks.length === 0) {
+    if (!hasMarks(record)) {
       await fs.rm(file, { force: true });
       return;
     }
@@ -378,6 +434,32 @@ export class MarksStore {
     });
   }
 
+  // ── The document's note ──────────────────────────────────────────────────
+
+  /** Set the document's note (`{text, requestedStatus}`); both null removes it. Returns it, or null. */
+  setNote(file: string, body: unknown): Promise<DocumentNote | null> {
+    const { text, requestedStatus: status } = documentNoteBody(body);
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = (await this.writable(id)) ?? emptyRecord();
+      const old = storedNote(record.documentNote);
+      const time = now();
+      const saved =
+        text === null && status === null ? null : { text, requestedStatus: status, created: old?.created ?? time, updated: time };
+      await this.write(id, await refreshed(withNote(record, saved), file));
+      return saved;
+    });
+  }
+
+  deleteNote(file: string): Promise<void> {
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = await this.writable(id);
+      if (record === null || storedNote(record.documentNote) === null) throw new MarkError(404, "The document has no note");
+      await this.write(id, await refreshed(withNote(record, null), file));
+    });
+  }
+
   // ── Moved and deleted documents ──────────────────────────────────────────
 
   /** Move record `id`'s marks to the document at `file`, merged with any it has. */
@@ -398,7 +480,8 @@ export class MarksStore {
         ],
         highlights: [...dest.highlights, ...source.highlights.filter((h) => !ids.has(h.id))],
       };
-      await this.write(target, await refreshed(merged, file));
+      const note = mergedNote(storedNote(dest.documentNote), storedNote(source.documentNote));
+      await this.write(target, await refreshed(withNote(merged, note), file));
       await fs.rm(this.file(id), { force: true });
     });
   }
@@ -441,9 +524,13 @@ export async function fingerprint(file: string): Promise<MarksRecord["fingerprin
   return { sha1: createHash("sha1").update(data).digest("hex"), size: data.length, filename: path.basename(file) };
 }
 
-/** The record with its path and fingerprint brought up to date. */
+/**
+ * The record with its path and fingerprint brought up to date. Fields this
+ * version doesn't know are kept, so a newer version's survive its changes.
+ */
 async function refreshed(record: MarksRecord, file: string): Promise<MarksRecord> {
   return {
+    ...record,
     version: VERSION,
     path: realPath(file),
     fingerprint: await fingerprint(file),
@@ -461,6 +548,8 @@ export interface DocumentMarks {
   location: string;
   bookmarks: Bookmark[];
   highlights: Highlight[];
+  /** Absent when there's none. */
+  note?: DocumentNote;
 }
 
 export interface MissingMarks {
@@ -468,6 +557,7 @@ export interface MissingMarks {
   location: string;
   bookmarks: Bookmark[];
   highlights: Highlight[];
+  note?: DocumentNote;
   /** The document the marks probably belong to now, if there's one. */
   suggestion: { docId: string; location: string } | null;
 }
@@ -529,8 +619,15 @@ export async function listMarks(
   const listed: DocumentMarks[] = [];
   for (const doc of documents) {
     const record = found.get(locationKey(doc.location))?.record;
-    if (record !== undefined && (record.highlights.length > 0 || record.bookmarks.length > 0)) {
-      listed.push({ docId: doc.id, location: doc.location, bookmarks: record.bookmarks, highlights: record.highlights });
+    if (record !== undefined && hasMarks(record)) {
+      const note = storedNote(record.documentNote);
+      listed.push({
+        docId: doc.id,
+        location: doc.location,
+        bookmarks: record.bookmarks,
+        highlights: record.highlights,
+        ...(note === null ? {} : { note }),
+      });
     }
   }
 
@@ -546,7 +643,15 @@ export async function listMarks(
         suggestion = { docId: doc.id, location: doc.location };
       }
     }
-    listedMissing.push({ recordId: id, location, bookmarks: record.bookmarks, highlights: record.highlights, suggestion });
+    const note = storedNote(record.documentNote);
+    listedMissing.push({
+      recordId: id,
+      location,
+      bookmarks: record.bookmarks,
+      highlights: record.highlights,
+      ...(note === null ? {} : { note }),
+      suggestion,
+    });
   }
   return { documents: listed, missing: listedMissing };
 }

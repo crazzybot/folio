@@ -1,10 +1,11 @@
-import type { DataSource, HighlightChanges } from "./dataSource";
+import type { DataSource, HighlightChanges, NoteChanges } from "./dataSource";
 import { createDemoSource } from "./demo/source";
 import type {
   Bookmark,
   BookmarkHeading,
   DocumentContent,
   DocumentMeta,
+  DocumentNote,
   Highlight,
   HighlightColor,
   MarksListing,
@@ -28,7 +29,7 @@ async function expectOk(res: Response): Promise<void> {
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 }
 
-function marksUrl(docId: string, kind: "highlights" | "bookmarks", markId?: string): string {
+function marksUrl(docId: string, kind: "highlights" | "bookmarks" | "note", markId?: string): string {
   const base = `${apiBase}/api/documents/${encodeURIComponent(docId)}/${kind}`;
   return markId === undefined ? base : `${base}/${encodeURIComponent(markId)}`;
 }
@@ -58,6 +59,9 @@ const httpSource: DataSource = {
       handleResponse<Bookmark>(await fetch(marksUrl(docId, "bookmarks"), sendJson("POST", { heading }))),
     deleteBookmark: async (docId, bookmarkId) =>
       expectOk(await fetch(marksUrl(docId, "bookmarks", bookmarkId), { method: "DELETE" })),
+    setNote: async (docId, note) =>
+      handleResponse<DocumentNote | null>(await fetch(marksUrl(docId, "note"), sendJson("PUT", note))),
+    deleteNote: async (docId) => expectOk(await fetch(marksUrl(docId, "note"), { method: "DELETE" })),
     relink: async (recordId, docId) =>
       expectOk(await fetch(`${apiBase}/api/marks/${encodeURIComponent(recordId)}/relink`, sendJson("POST", { docId }))),
     forget: async (recordId) =>
@@ -81,6 +85,8 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
       deleteHighlight: (docId, highlightId) => api.marks.deleteHighlight(docId, highlightId),
       addBookmark: (docId, heading) => api.marks.addBookmark(docId, { heading }),
       deleteBookmark: (docId, bookmarkId) => api.marks.deleteBookmark(docId, bookmarkId),
+      setNote: (docId, note) => api.marks.setNote(docId, note),
+      deleteNote: (docId) => api.marks.deleteNote(docId),
       relink: (recordId, docId) => api.marks.relink(recordId, docId),
       forget: (recordId) => api.marks.forget(recordId),
     },
@@ -149,6 +155,15 @@ export async function addBookmark(docId: string, heading: BookmarkHeading | null
 
 export async function deleteBookmark(docId: string, bookmarkId: string): Promise<void> {
   return source.marks.deleteBookmark(docId, bookmarkId);
+}
+
+/** Set the note on a document as a whole; resolves to it, or null when both parts are empty (removed). */
+export async function setDocumentNote(docId: string, note: NoteChanges): Promise<DocumentNote | null> {
+  return source.marks.setNote(docId, note);
+}
+
+export async function deleteDocumentNote(docId: string): Promise<void> {
+  return source.marks.deleteNote(docId);
 }
 
 /** Move a missing document's marks to `docId` (merged with any it has). */

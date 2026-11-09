@@ -1,6 +1,18 @@
 {
   "documents": [
     {
+      "docId": "{ID docs/front-matter.md}",
+      "location": "docs/front-matter.md",
+      "bookmarks": [],
+      "highlights": [],
+      "note": {
+        "text": "Ready once the title matches the heading.",
+        "requestedStatus": "accepted",
+        "created": "2026-11-08T09:00:00Z",
+        "updated": "2026-11-08T09:30:00Z"
+      }
+    },
+    {
       "docId": "{ID docs/guides/setup.markdown}",
       "location": "docs/guides/setup.markdown",
       "bookmarks": [
@@ -102,6 +114,12 @@
           "updated": "2026-11-07T12:00:00Z"
         }
       ],
+      "note": {
+        "text": "Was this replaced by something?",
+        "requestedStatus": null,
+        "created": "2026-11-07T12:30:00Z",
+        "updated": "2026-11-07T12:30:00Z"
+      },
       "suggestion": null
     },
     {
