@@ -24,6 +24,13 @@ const NOTE_MARGIN = 6;
 // A heading's row reaches this much further left than its button
 const HEADING_ROW_SLACK = 8;
 const HEADINGS = "h1, h2, h3, h4, h5, h6";
+// The blocks a note can be added to from the margin; where they nest (a
+// paragraph in a list item), the innermost one under the pointer
+const BLOCKS = `${HEADINGS}, p, li, dt, dd, table, pre`;
+// The margin the note button sits in counts as the block's row
+const NOTE_BUTTON_ROOM = 26;
+// Between a highlight and its popover
+const POPOVER_GAP = 6;
 
 const COLOR_NAMES: Record<HighlightColor, string> = { yellow: "Yellow", green: "Green", blue: "Blue", pink: "Pink" };
 
@@ -53,18 +60,34 @@ interface Placement {
   left: number;
   /** Shown below `rect` rather than above it. */
   below: boolean;
+  /** `rect`'s top and bottom, for the popover to go above it when there's no room below. */
+  rectTop: number;
+  rectBottom: number;
 }
 
 function placeBy(container: HTMLElement, rect: DOMRect, preferBelow: boolean): Placement {
   const box = container.getBoundingClientRect();
   const below = preferBelow || rect.top - box.top < TOOLBAR_ROOM;
   const center = rect.left + rect.width / 2 - box.left;
+  const rectTop = rect.top - box.top + container.scrollTop;
+  const rectBottom = rect.bottom - box.top + container.scrollTop;
   return {
-    top: (below ? rect.bottom : rect.top) - box.top + container.scrollTop,
+    top: below ? rectBottom : rectTop,
     // Kept inside the viewer once its width is known (see the layout effect)
     left: center,
     below,
+    rectTop,
+    rectBottom,
   };
+}
+
+/** The range of a block's own text: a list item's, without the lists nested in it. */
+function blockRange(block: Element): Range {
+  const range = document.createRange();
+  range.selectNodeContents(block);
+  const nested = block.tagName === "LI" ? block.querySelector(":scope > ul, :scope > ol") : null;
+  if (nested !== null) range.setEndBefore(nested);
+  return range;
 }
 
 /** Bring `rect` to the upper third of `container`'s view. */
@@ -82,6 +105,14 @@ export interface MarkFocus {
 interface Spot {
   top: number;
   left: number;
+}
+
+/** Text to highlight: its anchor, DOM range and text positions. */
+interface Selected {
+  anchor: TextAnchor;
+  range: Range;
+  start: number;
+  end: number;
 }
 
 interface HeadingSpot extends Spot {
@@ -133,14 +164,20 @@ export default function MarksLayer({
   onPainted,
 }: MarksLayerProps): React.ReactElement | null {
   const located = useRef(new Map<string, Range>());
-  const [toolbar, setToolbar] = useState<(Placement & { anchor: TextAnchor; range: Range }) | null>(null);
+  // Their text positions, to find a highlight that already covers a block
+  const spans = useRef(new Map<string, { start: number; end: number }>());
+  const [toolbar, setToolbar] = useState<(Placement & Selected) | null>(null);
   const [popover, setPopover] = useState<(Placement & { id: string }) | null>(null);
   // The note being written in the popover (null: not editing)
   const [draft, setDraft] = useState<string | null>(null);
   const [lastColor, setLastColor] = useState<HighlightColor>(loadColor);
   const [noteSpots, setNoteSpots] = useState<(Spot & { id: string })[]>([]);
+  // The text of highlights that have a note: a block with some has no note button
+  const [notedRanges, setNotedRanges] = useState<Range[]>([]);
   const [headingSpots, setHeadingSpots] = useState<HeadingSpot[]>([]);
   const [hoveredHeading, setHoveredHeading] = useState<number | null>(null);
+  // The block the pointer is beside, for the note button in the margin
+  const [hoveredBlock, setHoveredBlock] = useState<(Spot & { block: Element }) | null>(null);
   const [layoutVersion, setLayoutVersion] = useState(0);
   const popoverRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -152,6 +189,7 @@ export default function MarksLayer({
   useEffect(() => {
     const article = articleRef.current;
     located.current = new Map();
+    spans.current = new Map();
     if (!ready || article === null) {
       paint(new Map());
       onPainted?.(located.current);
@@ -164,6 +202,7 @@ export default function MarksLayer({
       if (span === null) continue;
       const range = model.range(span.start, span.end);
       located.current.set(highlight.id, range);
+      spans.current.set(highlight.id, span);
       byColor.set(highlight.color, [...(byColor.get(highlight.color) ?? []), range]);
     }
     paint(byColor);
@@ -187,6 +226,7 @@ export default function MarksLayer({
     const container = containerRef.current;
     if (!ready || article === null || container === null) {
       setNoteSpots([]);
+      setNotedRanges([]);
       setHeadingSpots([]);
       return;
     }
@@ -207,6 +247,8 @@ export default function MarksLayer({
       }),
     );
 
+    setNotedRanges(highlights.flatMap((h) => (h.note === null ? [] : [located.current.get(h.id) ?? []].flat())));
+
     const elements = [...article.querySelectorAll<HTMLElement>(HEADINGS)];
     const identities = headingIdentities(elements.map(headingOf));
     setHeadingSpots(
@@ -214,9 +256,9 @@ export default function MarksLayer({
     );
   }, [articleRef, containerRef, ready, renderKey, highlights, layoutVersion]);
 
-  // Which heading the pointer is beside, for its bookmark button: anywhere
-  // in the heading's row, including the margin the button sits in, so
-  // moving to the button doesn't hide it
+  // Which heading the pointer is beside, for its bookmark button, and which
+  // block, for the note button: anywhere in its row, including the margins
+  // the buttons sit in, so moving to a button doesn't hide it
   useEffect(() => {
     const container = containerRef.current;
     const article = articleRef.current;
@@ -232,11 +274,40 @@ export default function MarksLayer({
           return y >= r.top && y <= r.bottom && x >= r.left - HEADING_ICON_OFFSET - HEADING_ROW_SLACK && x <= r.right;
         });
         setHoveredHeading(index === -1 ? null : index);
+
+        const textBox = article.getBoundingClientRect();
+        const style = getComputedStyle(article);
+        const textLeft = textBox.left + parseFloat(style.paddingLeft);
+        const textRight = textBox.right - parseFloat(style.paddingRight);
+        let block: Element | undefined;
+        if (x >= textLeft - HEADING_ICON_OFFSET - HEADING_ROW_SLACK && x <= textRight + NOTE_MARGIN + NOTE_BUTTON_ROOM) {
+          // In document order, a block comes before those inside it: the last one is the innermost
+          for (const el of article.querySelectorAll(BLOCKS)) {
+            const r = el.getBoundingClientRect();
+            if (y >= r.top && y <= r.bottom && blockRange(el).toString().trim() !== "") block = el;
+          }
+        }
+        // Level with the block's first line, in the right margin (as note markers)
+        const first = block === undefined ? undefined : blockRange(block).getClientRects()[0];
+        const container = containerRef.current;
+        if (block === undefined || first === undefined || container === null) {
+          setHoveredBlock(null);
+          return;
+        }
+        const box = container.getBoundingClientRect();
+        const spot = {
+          top: first.top - box.top + container.scrollTop + first.height / 2,
+          left: textRight - box.left + container.scrollLeft + NOTE_MARGIN,
+        };
+        setHoveredBlock((prev) =>
+          prev !== null && prev.block === block && prev.top === spot.top && prev.left === spot.left ? prev : { block, ...spot },
+        );
       });
     }
     const onMouseLeave = () => {
       cancelAnimationFrame(frame);
       setHoveredHeading(null);
+      setHoveredBlock(null);
     };
     container.addEventListener("mousemove", onMouseMove);
     container.addEventListener("mouseleave", onMouseLeave);
@@ -281,6 +352,7 @@ export default function MarksLayer({
     setPopover(null);
     setDraft(null);
     setHoveredHeading(null);
+    setHoveredBlock(null);
   }
 
   // A removed highlight's popover closes
@@ -289,22 +361,32 @@ export default function MarksLayer({
     setDraft(null);
   }
 
+  /** A highlight's popover, by `rect`; with `note`, writing its note. */
+  const openPopover = useCallback(
+    (id: string, rect: DOMRect, note: string | null = null) => {
+      const container = containerRef.current;
+      if (container === null) return;
+      setPopover({ ...placeBy(container, rect, true), id });
+      setDraft(note);
+    },
+    [containerRef],
+  );
+
+  /** The most recent highlight that shares text with `start`–`end`. */
+  const highlightAt = useCallback((start: number, end: number): string | undefined => {
+    return [...spans.current].reverse().find(([, s]) => s.start < end && s.end > start)?.[0];
+  }, []);
+
   // ── Selection → toolbar ────────────────────────────────────────────────────
-  /** The selected text in the document as an anchor, with its range. */
-  const selectedAnchor = useCallback((): { anchor: TextAnchor; range: Range } | null => {
+  /** The selected text in the document as an anchor, with its range and text positions. */
+  const selectedAnchor = useCallback((): Selected | null => {
     const article = articleRef.current;
     const selection = window.getSelection();
     if (article === null || selection === null || selection.isCollapsed || selection.rangeCount === 0) return null;
     const range = selection.getRangeAt(0);
     if (!article.contains(range.commonAncestorContainer)) return null;
-    const model = buildTextModel(article);
-    let start = model.offsetOf(range.startContainer, range.startOffset);
-    let end = model.offsetOf(range.endContainer, range.endOffset);
-    // Not the whitespace a drag or double-click picks up at either end
-    while (start < end && /\s/.test(model.text[start] ?? "")) start++;
-    while (end > start && /\s/.test(model.text[end - 1] ?? "")) end--;
-    if (end <= start) return null;
-    return { anchor: describeSpan(model.text, start, end), range: range.cloneRange() };
+    const span = spanOf(article, range);
+    return span === null ? null : { anchor: span.anchor, range: range.cloneRange(), start: span.start, end: span.end };
   }, [articleRef]);
 
   useEffect(() => {
@@ -314,6 +396,14 @@ export default function MarksLayer({
       setTimeout(() => {
         const container = containerRef.current;
         const selected = selectedAnchor();
+        // Highlights don't overlap: text already highlighted shows that
+        // highlight instead (to remove it first, for another)
+        const existing = selected === null ? undefined : highlightAt(selected.start, selected.end);
+        if (selected !== null && existing !== undefined) {
+          setToolbar(null);
+          openPopover(existing, selected.range.getBoundingClientRect());
+          return;
+        }
         setToolbar(
           selected === null || container === null
             ? null
@@ -335,11 +425,21 @@ export default function MarksLayer({
       document.removeEventListener("keyup", onKeyUp);
       document.removeEventListener("selectionchange", onSelectionChange);
     };
-  }, [ready, containerRef, selectedAnchor]);
+  }, [ready, containerRef, selectedAnchor, highlightAt, openPopover]);
 
-  /** Highlight the selection; with `withNote`, then open its popover to write one. */
+  /**
+   * Highlight the selection; with `withNote`, then open its popover to write
+   * one. Where some of it is highlighted already, that highlight's popover.
+   */
   const highlightSelection = useCallback(
-    (selected: { anchor: TextAnchor; range: Range }, color: HighlightColor, withNote = false) => {
+    (selected: Selected, color: HighlightColor, withNote = false) => {
+      const existing = highlightAt(selected.start, selected.end);
+      if (existing !== undefined) {
+        setToolbar(null);
+        const note = withNote ? (highlights.find((h) => h.id === existing)?.note ?? "") : null;
+        openPopover(existing, selected.range.getBoundingClientRect(), note);
+        return;
+      }
       setLastColor(color);
       setItem(COLOR_KEY, color);
       window.getSelection()?.removeAllRanges();
@@ -351,7 +451,7 @@ export default function MarksLayer({
         setDraft("");
       });
     },
-    [onAdd, containerRef],
+    [onAdd, containerRef, highlightAt, openPopover, highlights],
   );
 
   // ⇧⌘H / Ctrl+Shift+H (or Edit → Highlight Selection): the last colour
@@ -377,14 +477,19 @@ export default function MarksLayer({
   }, [selectedAnchor, highlightSelection, lastColor]);
 
   // ── Click on a highlight → popover ─────────────────────────────────────────
-  const openPopover = useCallback(
-    (id: string, rect: DOMRect) => {
+
+  /** The note button beside a block: highlight it to write a note, or the note of a highlight in it. */
+  const noteOnBlock = useCallback(
+    (block: Element) => {
+      const article = articleRef.current;
       const container = containerRef.current;
-      if (container === null) return;
-      setPopover({ ...placeBy(container, rect, true), id });
-      setDraft(null);
+      if (article === null || container === null) return;
+      const span = spanOf(article, blockRange(block));
+      if (span === null) return;
+      const range = span.model.range(span.start, span.end);
+      highlightSelection({ anchor: span.anchor, range, start: span.start, end: span.end }, lastColor, true);
     },
-    [containerRef],
+    [articleRef, containerRef, highlightSelection, lastColor],
   );
 
   useEffect(() => {
@@ -458,7 +563,35 @@ export default function MarksLayer({
     }
   });
 
+  // The popover goes below its highlight, or above it when there's no room
+  // in the view below, else as low as fits: it never opens out of sight.
+  // Placed again only when it opens or its note editor does, not as it's
+  // written (nor moved when the view has been scrolled since).
+  const popoverEditing = draft !== null;
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const el = popoverRef.current;
+    if (container === null || el === null || popover === null) return;
+    const height = el.offsetHeight;
+    const viewTop = container.scrollTop + EDGE_GAP;
+    const viewBottom = container.scrollTop + container.clientHeight - EDGE_GAP;
+    const below = popover.rectBottom + POPOVER_GAP;
+    const above = popover.rectTop - POPOVER_GAP - height;
+    const top = below + height <= viewBottom ? below : above >= viewTop ? above : Math.max(viewTop, viewBottom - height);
+    el.style.top = `${top}px`;
+    // Once placed, so focusing it doesn't scroll the view (as autoFocus would)
+    if (popoverEditing) el.querySelector("textarea")?.focus({ preventScroll: true });
+  }, [containerRef, popover, popoverEditing]);
+
   if (!ready) return null;
+
+  /** A highlight with a note covers some of the block's text: its marker stands for the block's note. */
+  const blockHasNote = (block: Element): boolean => {
+    const own = blockRange(block);
+    return notedRanges.some(
+      (range) => range.compareBoundaryPoints(Range.START_TO_END, own) > 0 && range.compareBoundaryPoints(Range.END_TO_START, own) < 0,
+    );
+  };
 
   const hovered = hoveredHeading === null ? undefined : headingSpots[hoveredHeading];
   const headingButtons = headingSpots.filter(
@@ -486,6 +619,20 @@ export default function MarksLayer({
           </button>
         );
       })}
+
+      {/* ── The block beside the pointer: a note on it ── */}
+      {hoveredBlock !== null && !blockHasNote(hoveredBlock.block) && (
+          <button
+            type="button"
+            className={styles.blockNote}
+            style={{ top: hoveredBlock.top, left: hoveredBlock.left }}
+            onClick={() => noteOnBlock(hoveredBlock.block)}
+            aria-label="Add a note to this section"
+            title="Add a note"
+          >
+            <NoteIcon />
+          </button>
+        )}
 
       {/* ── Highlights with a note ── */}
       {noteSpots.map((spot) => {
@@ -564,8 +711,9 @@ export default function MarksLayer({
       {popover !== null && current !== undefined && (
         <div
           ref={popoverRef}
-          className={`${styles.bubble} ${styles.popover} ${styles.below}`}
-          style={{ top: popover.top, left: popover.left }}
+          className={`${styles.bubble} ${styles.popover} ${draft !== null || current.note !== null ? styles.popoverWide : ""}`}
+          // Its top is set once its height is known (see the layout effect)
+          style={{ left: popover.left }}
           role="dialog"
           aria-label="Highlight"
         >
@@ -637,9 +785,8 @@ export default function MarksLayer({
                 }}
                 aria-label="Note"
                 placeholder="Write a note…"
-                rows={3}
+                rows={5}
                 maxLength={10_000}
-                autoFocus
               />
               <div className={styles.noteActions}>
                 <span className={styles.noteHint}>{SAVE_SHORTCUT} to save · Esc to cancel</span>
@@ -653,6 +800,21 @@ export default function MarksLayer({
       )}
     </>
   );
+}
+
+/** A DOM range's text in the document, without whitespace at either end, as an anchor. */
+function spanOf(
+  article: HTMLElement,
+  range: Range,
+): { anchor: TextAnchor; start: number; end: number; model: ReturnType<typeof buildTextModel> } | null {
+  const model = buildTextModel(article);
+  let start = model.offsetOf(range.startContainer, range.startOffset);
+  let end = model.offsetOf(range.endContainer, range.endOffset);
+  // Not the whitespace a drag or double-click picks up at either end
+  while (start < end && /\s/.test(model.text[start] ?? "")) start++;
+  while (end > start && /\s/.test(model.text[end - 1] ?? "")) end--;
+  if (end <= start) return null;
+  return { anchor: describeSpan(model.text, start, end), start, end, model };
 }
 
 /** A heading element's level and text, as the scanner reads headings (whitespace collapsed). */
