@@ -333,6 +333,7 @@ Returns a sorted list of every Markdown file found in the workspace.
 | `title` | string | Front matter `title:`, first ATX heading (as it reads, without Markdown syntax), first non-empty line, or filename stem — in that order. |
 | `created` | string | File creation time as UTC ISO-8601. |
 | `headings` | array | ATX headings (`#` … `######`) outside fenced code blocks, as rendered text (links, emphasis and code markers removed), from the first 256 KB of the file. Used for instant heading search. |
+| `meta` | object | Left out when the document has none of these. `status`: the first word of front matter `status:`, lowercased (`accepted`, `superseded`, `draft`…); without one, of a `Status:` line or `## Status` section in the document's first section. `statusDetail`: the status as written when it says more (`superseded by ADR-0005`), else `null`. `date`: front matter `date:` as written. `people`: `decision-makers:` or `deciders:`. `tags`: `tags:` or `tag:`, lowercased, without `#`. See [docs/design/frontmatter-metadata.md](docs/design/frontmatter-metadata.md). |
 
 ---
 

@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   extractHeadings,
+  extractMeta,
   findDocument,
   scanAttachments,
   scanWorkspace,
@@ -18,7 +19,14 @@ const expected = JSON.parse(readFileSync(path.join(FIXTURES, "expected-scan.json
 describe("scanWorkspace", () => {
   it("matches the shared expected output", async () => {
     const docs = await scanWorkspace(WORKSPACE, SKIP);
-    const comparable = docs.map(({ id, filename, location, title, headings }) => ({ id, filename, location, title, headings }));
+    const comparable = docs.map(({ id, filename, location, title, headings, meta }) => ({
+      id,
+      filename,
+      location,
+      title,
+      headings,
+      ...(meta === undefined ? {} : { meta }),
+    }));
     expect(comparable).toEqual(expected.documents);
   });
 
@@ -49,6 +57,17 @@ describe("findDocument", () => {
     for (const location of ["nope.md", "node_modules/pkg/readme.md", "docs/outside-link.md"]) {
       expect(await findDocument(WORKSPACE, stableId(location), SKIP)).toBeNull();
     }
+  });
+});
+
+// The same cases as backend/tests/test_scanner.py
+const metaCases: { name: string; text: string; meta: unknown }[] = JSON.parse(
+  readFileSync(path.join(FIXTURES, "meta-cases.json"), "utf8"),
+);
+
+describe("extractMeta", () => {
+  it.each(metaCases)("$name", ({ text, meta }) => {
+    expect(extractMeta(text)).toEqual(meta);
   });
 });
 
