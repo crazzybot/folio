@@ -4,9 +4,12 @@ import { documentNumber, titleWithoutNumber } from "../docNumber";
 import { buildDocumentTree, foldersContaining } from "../documentTree";
 import type { TreeNode } from "../documentTree";
 import { slugify } from "../slug";
+import { addFilter, hasFilters, NO_FILTERS, toggleFilter } from "../metaFilter";
+import type { FilterOption, MetaFilters } from "../metaFilter";
 import { isRetired, statusText } from "../status";
 import { useRowHoverCard } from "../useRowHoverCard";
 import type { DocumentMeta, Heading, SearchMatch, SearchResult } from "../types";
+import FilterMenu from "./FilterMenu";
 import HoverCard from "./HoverCard";
 import { DocumentCard, FolderCard } from "./HoverCardContent";
 import MarkdownIcon from "./MarkdownIcon";
@@ -95,6 +98,11 @@ interface DocumentListProps {
   /** The folder the list is focused on ("docs/api"; `documents` are already narrowed to it), or null. */
   focus: string | null;
   onFocusChange: (folder: string | null) => void;
+  /** Status and tag filters; `documents` are already narrowed by them. */
+  filters?: MetaFilters;
+  /** What the filter menu offers, counted within the focused folder. */
+  filterOptions?: { statuses: FilterOption[]; tags: FilterOption[] };
+  onFiltersChange?: (filters: MetaFilters) => void;
   /** Number of highlights by document id (documents without any are absent). */
   highlightCounts?: ReadonlyMap<string, number>;
   /** Documents bookmarked as a whole. */
@@ -127,6 +135,9 @@ export default function DocumentList({
   onFullTextChange,
   focus,
   onFocusChange,
+  filters = NO_FILTERS,
+  filterOptions = NO_OPTIONS,
+  onFiltersChange,
   highlightCounts = NO_COUNTS,
   bookmarkedIds = NO_IDS,
   tabs,
@@ -456,12 +467,29 @@ export default function DocumentList({
   }, [selectedId, showTree]);
 
   const groupLabel = grouped ? "Show as a flat list" : "Group by folder";
+  // A row's status glyph or tag: filter by it
+  const filterBy =
+    onFiltersChange === undefined
+      ? undefined
+      : (kind: "status" | "tag", value: string) => onFiltersChange(addFilter(filters, kind, value));
 
   return (
     <div className={styles.container}>
       {/* ── Header ── */}
       <header className={styles.header}>
         {tabs ?? <h1 className={styles.heading}>Documents</h1>}
+        <div className={styles.headerActions}>
+        {onFiltersChange !== undefined &&
+          (filterOptions.statuses.length > 0 || filterOptions.tags.length > 0 || hasFilters(filters)) && (
+            <FilterMenu
+              filters={filters}
+              options={filterOptions}
+              onChange={onFiltersChange}
+              buttonClassName={styles.headerBtn}
+              activeClassName={styles.headerBtnOn}
+              badgeClassName={styles.filterBadge}
+            />
+          )}
         <button
           type="button"
           className={`${styles.headerBtn} ${grouped ? styles.headerBtnOn : ""}`}
@@ -477,6 +505,7 @@ export default function DocumentList({
             <path d="M7.5 9h7v2.5h-7zM7.5 11.5h7V14h-7z" />
           </svg>
         </button>
+        </div>
       </header>
 
       {/* ── Focused folder ── */}
@@ -570,6 +599,44 @@ export default function DocumentList({
             </button>
           )}
         </div>
+        {onFiltersChange !== undefined && hasFilters(filters) && (
+          <div className={styles.filterChips} role="group" aria-label="Filters">
+            {filters.statuses.map((status) => (
+              <button
+                key={`s:${status}`}
+                type="button"
+                className={styles.chip}
+                onClick={() => onFiltersChange(toggleFilter(filters, "status", status))}
+                aria-label={`Remove filter: ${status}`}
+                title="Remove filter"
+              >
+                <StatusIcon status={status} className={styles.chipIcon} />
+                {status}
+                <span className={styles.chipRemove} aria-hidden="true">
+                  ×
+                </span>
+              </button>
+            ))}
+            {filters.tags.map((tag) => (
+              <button
+                key={`t:${tag}`}
+                type="button"
+                className={styles.chip}
+                onClick={() => onFiltersChange(toggleFilter(filters, "tag", tag))}
+                aria-label={`Remove filter: #${tag}`}
+                title="Remove filter"
+              >
+                #{tag}
+                <span className={styles.chipRemove} aria-hidden="true">
+                  ×
+                </span>
+              </button>
+            ))}
+            <button type="button" className={`${styles.linkBtn} ${styles.chipsClear}`} onClick={() => onFiltersChange(NO_FILTERS)}>
+              Clear
+            </button>
+          </div>
+        )}
         <p id={`${searchId}-status`} className={styles.searchStatus} aria-live="polite">
           {fullText && contentSearch.status === "searching" && "Searching…"}
           {fullText && contentSearch.status === "error" && "Couldn't search document text"}
@@ -599,7 +666,14 @@ export default function DocumentList({
 
         {!loading && error === null && rows.length === 0 && !(fullText && contentSearch.status === "searching") && (
           <div className={styles.emptyArea}>
-            {!query && focus !== null ? (
+            {!query && hasFilters(filters) && onFiltersChange !== undefined ? (
+              <>
+                <p>No documents match these filters.</p>
+                <button type="button" className={styles.linkBtn} onClick={() => onFiltersChange(NO_FILTERS)}>
+                  Clear filters
+                </button>
+              </>
+            ) : !query && focus !== null ? (
               <>
                 <p>No documents in {focus}.</p>
                 <button type="button" className={styles.linkBtn} onClick={() => onFocusChange(null)}>
@@ -641,6 +715,7 @@ export default function DocumentList({
                 onFocus={() => setFocusKey(row.key)}
                 onActivate={() => activate(row)}
                 onFocusFolder={onFocusChange}
+                onFilterBy={filterBy}
                 bookmarked={row.kind === "document" && bookmarkedIds.has(row.doc.id)}
                 highlightCount={
                   row.kind === "document"
@@ -692,6 +767,8 @@ interface RowItemProps {
   onActivate: () => void;
   /** Focus on Folder, from a folder row's button or (desktop) context menu. */
   onFocusFolder: (folder: string) => void;
+  /** Filter the list by a status (a row's glyph) or tag (the selected row's tags); absent without filters. */
+  onFilterBy?: ((kind: "status" | "tag", value: string) => void) | undefined;
   /** A document's highlights; for a folder, more than 0 when something inside has any. */
   highlightCount: number;
   /** A document bookmarked as a whole. */
@@ -707,6 +784,7 @@ function RowItem({
   onFocus,
   onActivate,
   onFocusFolder,
+  onFilterBy,
   highlightCount,
   bookmarked,
 }: RowItemProps): React.ReactElement {
@@ -715,7 +793,21 @@ function RowItem({
     const indent = (tree ? TREE_PADDING + row.level * INDENT + CHEVRON : FLAT_PADDING) + ICON_WIDTH;
     return (
       <li className={styles.tagsLine} style={{ paddingLeft: indent }} role="presentation" aria-hidden="true">
-        {row.tags.map((tag) => `#${tag}`).join("  ")}
+        {onFilterBy === undefined
+          ? row.tags.map((tag) => `#${tag}`).join("  ")
+          : row.tags.map((tag) => (
+              // Mouse shortcut, as a folder row's button; the keyboard has the filter menu
+              <button
+                key={tag}
+                type="button"
+                className={styles.tagBtn}
+                tabIndex={-1}
+                onClick={() => onFilterBy("tag", tag)}
+                title={`Show only documents tagged #${tag}`}
+              >
+                #{tag}
+              </button>
+            ))}
       </li>
     );
   }
@@ -811,7 +903,26 @@ function RowItem({
         aria-selected={selected}
         aria-label={`${doc.title} — ${doc.location}${described}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
       >
-        {status === null ? <MarkdownIcon className={styles.entryIcon} /> : <StatusIcon status={status} className={styles.statusIcon} />}
+        {status === null ? (
+          <MarkdownIcon className={styles.entryIcon} />
+        ) : onFilterBy === undefined ? (
+          <StatusIcon status={status} className={styles.statusIcon} />
+        ) : (
+          // Mouse shortcut; the keyboard has the filter menu
+          <button
+            type="button"
+            className={styles.statusBtn}
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation();
+              onFilterBy("status", status);
+            }}
+            aria-label={`Show only ${status} documents`}
+            title={`Show only ${status} documents`}
+          >
+            <StatusIcon status={status} className={styles.statusIcon} />
+          </button>
+        )}
         {number !== null && <span className={styles.entryNumber}>{number}</span>}
         <span className={styles.entryTitle}>{number === null ? doc.title : titleWithoutNumber(doc.title, number)}</span>
         {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}
@@ -867,4 +978,5 @@ function RowItem({
 
 const LEAD_CHARS = 12;
 const NO_COUNTS: ReadonlyMap<string, number> = new Map();
+const NO_OPTIONS: { statuses: FilterOption[]; tags: FilterOption[] } = { statuses: [], tags: [] };
 const NO_IDS: ReadonlySet<string> = new Set();

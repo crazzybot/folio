@@ -8,6 +8,8 @@ interface DocumentPropertiesProps {
   doc: DocumentMeta;
   documents: readonly DocumentMeta[];
   onOpenDocument?: ((id: string, anchor: string | null) => void) | undefined;
+  /** Filter the document list by the status or a tag (clicking them). */
+  onFilterBy?: ((kind: "status" | "tag", value: string) => void) | undefined;
 }
 
 /**
@@ -15,7 +17,12 @@ interface DocumentPropertiesProps {
  * text: status, date and decision makers, then tags. Outside the article,
  * so highlights' text positions don't count it.
  */
-export default function DocumentProperties({ doc, documents, onOpenDocument }: DocumentPropertiesProps): React.ReactElement | null {
+export default function DocumentProperties({
+  doc,
+  documents,
+  onOpenDocument,
+  onFilterBy,
+}: DocumentPropertiesProps): React.ReactElement | null {
   const meta = doc.meta;
   if (meta === undefined) return null;
   const { status, date, people, tags } = meta;
@@ -26,7 +33,19 @@ export default function DocumentProperties({ doc, documents, onOpenDocument }: D
     <div className={styles.properties} aria-label="Document properties" role="group">
       {status !== null && (
         <span className={styles.status}>
-          <StatusIcon status={status} className={styles.statusIcon} />
+          {onFilterBy === undefined ? (
+            <StatusIcon status={status} className={styles.statusIcon} />
+          ) : (
+            <button
+              type="button"
+              className={styles.filterIcon}
+              onClick={() => onFilterBy("status", status)}
+              aria-label={`Show only ${status} documents`}
+              title={`Show only ${status} documents`}
+            >
+              <StatusIcon status={status} className={styles.statusIcon} />
+            </button>
+          )}
           {successor !== null ? (
             <button type="button" className={styles.link} onClick={() => onOpenDocument?.(successor.id, null)} title={successor.location}>
               {statusText(meta)}
@@ -43,11 +62,23 @@ export default function DocumentProperties({ doc, documents, onOpenDocument }: D
       ))}
       {tags.length > 0 && (
         <span className={styles.tags}>
-          {tags.map((tag) => (
-            <span key={tag} className={styles.tag}>
-              #{tag}
-            </span>
-          ))}
+          {tags.map((tag) =>
+            onFilterBy === undefined ? (
+              <span key={tag} className={styles.tag}>
+                #{tag}
+              </span>
+            ) : (
+              <button
+                key={tag}
+                type="button"
+                className={`${styles.tag} ${styles.tagButton}`}
+                onClick={() => onFilterBy("tag", tag)}
+                title={`Show only documents tagged #${tag}`}
+              >
+                #{tag}
+              </button>
+            ),
+          )}
         </span>
       )}
     </div>

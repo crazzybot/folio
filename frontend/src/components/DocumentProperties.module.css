@@ -55,3 +55,38 @@
 .tag {
   color: var(--color-text-subtle);
 }
+
+/* The status glyph and tags filter the document list */
+.filterIcon {
+  display: inline-flex;
+  padding: 2px;
+  margin: -2px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  cursor: pointer;
+}
+
+.tagButton {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.filterIcon:hover {
+  background: var(--color-hover-bg);
+}
+
+.tagButton:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+@media print {
+  .tagButton,
+  .filterIcon {
+    color: inherit;
+  }
+}

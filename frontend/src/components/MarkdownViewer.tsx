@@ -70,6 +70,8 @@ interface MarkdownViewerProps {
   currentLocation?: string | null;
   /** Called when the user clicks a link to another workspace document. */
   onOpenDocument?: (id: string, anchor: string | null) => void;
+  /** Filter the document list by a status or tag clicked in the document's metadata header. */
+  onFilterBy?: (kind: "status" | "tag", value: string) => void;
   /** Search text to highlight in the document ("" for none). */
   searchQuery?: string;
   /** A search match to scroll to once its document is shown. */
@@ -527,6 +529,7 @@ export default function MarkdownViewer({
   attachments = NO_ATTACHMENTS,
   currentLocation = null,
   onOpenDocument,
+  onFilterBy,
   searchQuery = "",
   searchFocus = null,
   showOutline = false,
@@ -1115,7 +1118,7 @@ export default function MarkdownViewer({
           {!loading && error === null && content !== null && (
             <>
             {currentDoc?.meta !== undefined && (
-              <DocumentProperties doc={currentDoc} documents={documents} onOpenDocument={onOpenDocument} />
+              <DocumentProperties doc={currentDoc} documents={documents} onOpenDocument={onOpenDocument} onFilterBy={onFilterBy} />
             )}
             <article className={`${styles.article} folio-document`} aria-label="Rendered markdown" ref={articleRef}>
               <LinkContext.Provider value={linkHandlers}>

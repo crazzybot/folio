@@ -27,6 +27,8 @@ import {
 import useTheme from "./theme";
 import { documentsInFolder } from "./documentTree";
 import { useFolderFocus } from "./folderFocus";
+import { addFilter, filterByMeta, filterOptions, hasFilters } from "./metaFilter";
+import { useMetaFilters } from "./useMetaFilters";
 import useMarks from "./useMarks";
 import DemoBanner from "./components/DemoBanner";
 import DisplayMenu from "./components/DisplayMenu";
@@ -132,7 +134,13 @@ function AppInner(): React.ReactElement {
 
   // ── Focus on Folder: the list, search and count narrow to one folder ───────
   const [focus, setFocus] = useFolderFocus();
-  const listedDocuments = useMemo(() => documentsInFolder(documents, focus), [documents, focus]);
+  const focusedDocuments = useMemo(() => documentsInFolder(documents, focus), [documents, focus]);
+  // ── Status and tag filters: the list, search and count narrow further ──────
+  // (not the Marks view, which has nowhere to show them)
+  const [metaFilters, setMetaFilters] = useMetaFilters();
+  const listedDocuments = useMemo(() => filterByMeta(focusedDocuments, metaFilters), [focusedDocuments, metaFilters]);
+  // Counted within the focused folder, so no choice leads to an empty list
+  const metaOptions = useMemo(() => filterOptions(focusedDocuments, metaFilters), [focusedDocuments, metaFilters]);
 
   // ── Content state ──────────────────────────────────────────────────────────
   // Only the latest result is stored; whether it's the shown document's (else
@@ -477,6 +485,16 @@ function AppInner(): React.ReactElement {
     [setFocus],
   );
 
+  // A status or tag clicked in the document header: filter the list by it, showing the list
+  const filterBy = useCallback(
+    (kind: "status" | "tag", value: string) => {
+      setMetaFilters(addFilter(metaFilters, kind, value));
+      chooseSidebarView("documents");
+      setCollapsed(false);
+    },
+    [metaFilters, setMetaFilters, chooseSidebarView],
+  );
+
   // ⌘B / Ctrl+B toggles the sidebar, as in VS Code
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -677,7 +695,7 @@ function AppInner(): React.ReactElement {
           <div className={styles.sidebarView} hidden={sidebarView !== "marks"}>
             <MarksPanel
               tabs={<SidebarTabs view={sidebarView} onChange={chooseSidebarView} />}
-              documents={listedDocuments}
+              documents={focusedDocuments}
               current={selectedDoc}
               byDoc={marks.byDoc}
               located={located}
@@ -707,6 +725,9 @@ function AppInner(): React.ReactElement {
             onFullTextChange={setSearchDocumentText}
             focus={focus}
             onFocusChange={setFocus}
+            filters={metaFilters}
+            filterOptions={metaOptions}
+            onFiltersChange={setMetaFilters}
             highlightCounts={highlightCounts}
             loading={listLoading}
             error={listError}
@@ -900,6 +921,7 @@ function AppInner(): React.ReactElement {
             attachments={attachments}
             currentLocation={selectedDoc?.location ?? null}
             onOpenDocument={handleOpenDocument}
+            onFilterBy={filterBy}
             searchQuery={searchQuery}
             searchFocus={searchFocus}
             showOutline={showOutline}
@@ -989,7 +1011,7 @@ function AppInner(): React.ReactElement {
         <span className={styles.statusItem} aria-live="polite">
           {listLoading
             ? "Loading…"
-            : focus !== null
+            : focus !== null || hasFilters(metaFilters)
               ? `${listedDocuments.length} of ${documents.length} documents`
               : `${documents.length} document${documents.length !== 1 ? "s" : ""}`}
         </span>

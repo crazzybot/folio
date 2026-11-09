@@ -265,8 +265,8 @@ location.
 
 ## 4. Filtering
 
-**State:** `{ statuses: Set<string>; tags: Set<string> }`, applied in `App`
-right after folder focus:
+**State:** `{ statuses: string[]; tags: string[] }` (`metaFilter.ts`),
+applied in `App` right after folder focus:
 
 ```ts
 const listedDocuments = filterByMeta(documentsInFolder(documents, focus), filters);
@@ -274,6 +274,8 @@ const listedDocuments = filterByMeta(documentsInFolder(documents, focus), filter
 
 So the tree, flat list, title / heading / full-text search and the status bar
 count ("12 of 340 documents") all follow it without changes of their own.
+The Marks view doesn't: it has nowhere to show the filters, and would hide
+marks without saying why; folder focus still narrows it.
 
 **Matching:** any of the chosen statuses, and any of the chosen tags; status
 and tags combine with *and*. Filters, folder focus and the search query all
@@ -290,8 +292,11 @@ items (`menuitemcheckbox`):
   top once there are more than 10.
 
 Counts are within the focused folder, and values with no documents there
-aren't listed, so the menu never offers an empty list. The button shows the
-number of active filters.
+aren't listed, so the menu never offers an empty list (chosen values stay
+listed, with 0, so they can be unchecked). Picking an item keeps the menu
+open; a Clear filters item ends it when any are on. The button is tinted
+and shows the number of active filters. The menu is in a portal, so the
+sidebar doesn't clip it at narrow widths.
 
 **Other ways in:** the status glyph on a row, a tag on the selected row, and
 the status or a tag in the document header (section 5) each add a filter.
@@ -304,8 +309,7 @@ glyph, a tag chip its `#`.
 **No results:** "No documents match these filters" with a Clear filters
 button, as for an empty focused folder.
 
-**Remembered** per workspace, like folder focus (a sibling of
-`folderFocus.ts`). A remembered value that no document has any more still
+**Remembered** per workspace, like folder focus (`useMetaFilters.ts`). A remembered value that no document has any more still
 shows as a chip, so it can be removed; it is never dropped silently.
 
 Not in the first version: typing `status:accepted` or `#queue` in the search
