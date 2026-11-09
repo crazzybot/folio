@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { searchDocuments } from "../api";
+import { documentNumber, titleWithoutNumber } from "../docNumber";
 import { buildDocumentTree, documentsInFolder, foldersContaining } from "../documentTree";
 import type { TreeNode } from "../documentTree";
 import { HoverIntent } from "../hoverCard";
@@ -46,7 +47,14 @@ function saveExpanded(keys: ReadonlySet<string>): void {
  */
 type Row = { key: string; level: number; parent: string | null } & (
   | { kind: "folder"; folderKey: string; label: string; expanded: boolean }
-  | { kind: "document"; doc: DocumentMeta; matchCount: number | null; onOpen: () => void }
+  | {
+      kind: "document";
+      doc: DocumentMeta;
+      /** Its file name's number ("0015"), shown before the title; null when not numbered. */
+      number: string | null;
+      matchCount: number | null;
+      onOpen: () => void;
+    }
   | { kind: "heading"; heading: Heading; onOpen: () => void }
   | { kind: "match"; match: SearchMatch; onOpen: () => void }
   | { kind: "more"; text: string }
@@ -223,6 +231,14 @@ export default function DocumentList({
   // ── Group by folder (shown while not searching) ────────────────────────────
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(loadExpanded);
   const tree = useMemo(() => buildDocumentTree(documents), [documents]);
+  const numbers = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const doc of documents) {
+      const number = documentNumber(doc.filename);
+      if (number !== null) byId.set(doc.id, number);
+    }
+    return byId;
+  }, [documents]);
   const showTree = grouped && trimmed === "";
 
   const chooseGrouped = onGroupedChange;
@@ -279,7 +295,10 @@ export default function DocumentList({
     parent: string | null,
     matchCount: number | null,
     onOpen: () => void,
-  ): Row => ({ kind: "document", key: `d:${doc.id}`, level, parent, doc, matchCount, onOpen });
+  ): Row => {
+    const number = numbers.get(doc.id) ?? null;
+    return { kind: "document", key: `d:${doc.id}`, level, parent, doc, number, matchCount, onOpen };
+  };
 
   if (showTree) {
     const addNodes = (nodes: readonly TreeNode[], level: number, parent: string | null) => {
@@ -832,7 +851,7 @@ function RowItem({
   }
 
   if (row.kind === "document") {
-    const { doc, matchCount } = row;
+    const { doc, number, matchCount } = row;
     const matches = matchCount === null ? "" : ` — ${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
     const marked = highlightCount === 0 ? "" : ` — ${highlightCount} ${highlightCount === 1 ? "highlight" : "highlights"}`;
     return (
@@ -844,7 +863,8 @@ function RowItem({
         aria-label={`${doc.title} — ${doc.location}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
       >
         <MarkdownIcon className={styles.entryIcon} />
-        <span className={styles.entryTitle}>{doc.title}</span>
+        {number !== null && <span className={styles.entryNumber}>{number}</span>}
+        <span className={styles.entryTitle}>{number === null ? doc.title : titleWithoutNumber(doc.title, number)}</span>
         {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}
         {bookmarked && (
           <svg className={styles.bookmarked} width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">

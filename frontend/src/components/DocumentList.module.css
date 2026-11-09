@@ -330,6 +330,17 @@
   color: var(--color-icon-markdown);
 }
 
+/* A numbered document's number ("0015"), the row's usual gap before the title */
+.entryNumber {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
+}
+
+.entrySelected .entryNumber {
+  color: var(--color-text-muted);
+}
+
 .entryTitle {
   flex-shrink: 1;
   min-width: 0;

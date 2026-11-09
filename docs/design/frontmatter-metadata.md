@@ -136,10 +136,11 @@ with `\d{4}-\d{2}-\d{2}`) and single-letter prefixes (`v2-api.md`).
 
 Worked out in the frontend from `filename`; no scanner or API change.
 
-- **Number column.** The digits, exactly as written, in a muted monospace
-  face between the icon and the title. The column is as wide as the longest
-  number among its siblings (one folder in the tree; the whole list when
-  flat), so titles line up.
+- **Number.** The digits, exactly as written, muted and in tabular figures
+  (the UI font, not monospace), between the icon and the title, with the
+  row's usual gap before the title. Titles aren't aligned to a shared number
+  width: in a list mixing `02` and `0015` the short numbers got a wide gap.
+  Documents without a number get nothing extra.
 - **Title dedupe.** When the title starts with the same number (compared as
   integers), that prefix is hidden in the row: `ADR 0001: Postgres…`,
   `1. Record decisions`, `01 — MSP/HIBC Billing…`. The pattern is an optional
