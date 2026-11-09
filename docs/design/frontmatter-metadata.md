@@ -1,6 +1,6 @@
 # Front matter metadata, document numbers and the document list
 
-Status: proposed.
+Status: implemented.
 
 ADRs, specs and notes often carry metadata in their front matter (`status`,
 `date`, `tags`…), and numbered documents are known by their number ("ADR
