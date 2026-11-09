@@ -9,6 +9,7 @@ import type { FilterOption, MetaFilters } from "../metaFilter";
 import { isRetired, statusText } from "../status";
 import { useRowHoverCard } from "../useRowHoverCard";
 import type { DocumentMeta, DocumentNote, Heading, SearchMatch, SearchResult } from "../types";
+import DrawerCloseButton from "./DrawerCloseButton";
 import FilterMenu from "./FilterMenu";
 import HoverCard from "./HoverCard";
 import { DocumentCard, FolderCard } from "./HoverCardContent";
@@ -111,6 +112,8 @@ interface DocumentListProps {
   bookmarkedIds?: ReadonlySet<string>;
   /** The sidebar's Documents | Marks switch, shown in place of the title. */
   tabs?: React.ReactNode;
+  /** In a narrow window, where the sidebar is a drawer: closes it. */
+  onCollapse?: () => void;
 }
 
 type ContentSearch =
@@ -144,6 +147,7 @@ export default function DocumentList({
   highlightCounts = NO_COUNTS,
   bookmarkedIds = NO_IDS,
   tabs,
+  onCollapse,
 }: DocumentListProps): React.ReactElement {
   const [query, setQuery] = useState("");
   const [lastContentSearch, setLastContentSearch] = useState<ContentSearchResult | null>(null);
@@ -508,6 +512,7 @@ export default function DocumentList({
             <path d="M7.5 9h7v2.5h-7zM7.5 11.5h7V14h-7z" />
           </svg>
         </button>
+        {onCollapse !== undefined && <DrawerCloseButton direction="left" label="Hide document list" onClick={onCollapse} />}
         </div>
       </header>
 

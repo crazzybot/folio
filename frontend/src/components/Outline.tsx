@@ -1,4 +1,6 @@
 import React, { useEffect, useRef } from "react";
+import { useDrawerFocus } from "../drawer";
+import DrawerCloseButton from "./DrawerCloseButton";
 import { BookmarkIcon } from "./MarksLayer";
 import styles from "./Outline.module.css";
 
@@ -18,6 +20,8 @@ interface OutlineProps {
   highlightCounts?: readonly number[];
   /** Whether each heading is bookmarked, by position in `headings`. */
   bookmarked?: readonly boolean[];
+  /** In a narrow window: a drawer over the document, shown while open. */
+  drawer?: { open: boolean; onClose: () => void };
 }
 
 /**
@@ -30,8 +34,11 @@ export default function Outline({
   onSelect,
   highlightCounts = [],
   bookmarked = [],
+  drawer,
 }: OutlineProps): React.ReactElement {
   const listRef = useRef<HTMLUListElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  useDrawerFocus(drawer?.open === true, navRef);
   // Indent relative to the shallowest heading, so a document without an h1 isn't pushed right
   const minLevel = headings.reduce((min, h) => Math.min(min, h.level), 6);
 
@@ -51,8 +58,23 @@ export default function Outline({
   }, [activeId]);
 
   return (
-    <nav className={styles.outline} aria-label="Outline">
-      <h2 className={styles.heading}>Outline</h2>
+    <nav
+      ref={navRef}
+      className={
+        drawer === undefined ? styles.outline : `${styles.outline} ${styles.drawer} ${drawer.open ? styles.drawerOpen : ""}`
+      }
+      aria-label="Outline"
+      inert={drawer !== undefined && !drawer.open}
+      tabIndex={drawer === undefined ? undefined : -1}
+    >
+      {drawer === undefined ? (
+        <h2 className={styles.heading}>Outline</h2>
+      ) : (
+        <div className={styles.drawerHeader}>
+          <h2 className={styles.heading}>Outline</h2>
+          <DrawerCloseButton direction="right" label="Hide outline" onClick={drawer.onClose} />
+        </div>
+      )}
       {headings.length === 0 ? (
         <p className={styles.empty}>No headings in this document.</p>
       ) : (

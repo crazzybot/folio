@@ -42,6 +42,7 @@ import type { ReviewNotes } from "./reviewNotes";
 import styles from "./App.module.css";
 import type { DocumentMeta, HighlightColor, TextAnchor } from "./types";
 import { getItem, setItem } from "./storage";
+import { OUTLINE_DRAWER_QUERY, SIDEBAR_DRAWER_QUERY, useDrawerFocus, useMediaQuery } from "./drawer";
 
 const PANEL_MIN_WIDTH = 160;
 const PANEL_DEFAULT_WIDTH = 260;
@@ -479,13 +480,51 @@ function AppInner(): React.ReactElement {
     setCollapsed((c) => !c);
   }, []);
 
+  // ── Drawers: in a narrow window the panels slide in over the document, one
+  // at a time, and close once used. Not remembered: the panels' settings
+  // above are for when there's room, and apply again when there is ─────────
+  const sidebarAsDrawer = useMediaQuery(SIDEBAR_DRAWER_QUERY);
+  const outlineAsDrawer = useMediaQuery(OUTLINE_DRAWER_QUERY);
+  const [drawer, setDrawer] = useState<"documents" | "outline" | null>(null);
+  // Resizing or rotating into another layout closes the open drawer
+  const drawerLayout = `${sidebarAsDrawer} ${outlineAsDrawer}`;
+  const [shownDrawerLayout, setShownDrawerLayout] = useState(drawerLayout);
+  if (drawerLayout !== shownDrawerLayout) {
+    setShownDrawerLayout(drawerLayout);
+    setDrawer(null);
+  }
+  const closeDrawer = useCallback(() => setDrawer(null), []);
+  const sidebarShown = sidebarAsDrawer ? drawer === "documents" : !collapsed;
+  const outlinePressed = outlineAsDrawer ? drawer === "outline" : showOutline;
+  const sidebarRef = useRef<HTMLElement>(null);
+  useDrawerFocus(sidebarAsDrawer && drawer === "documents", sidebarRef);
+
+  const toggleSidebar = useCallback(() => {
+    if (sidebarAsDrawer) setDrawer((d) => (d === "documents" ? null : "documents"));
+    else setCollapsed((c) => !c);
+  }, [sidebarAsDrawer]);
+  const showSidebar = useCallback(() => {
+    if (sidebarAsDrawer) setDrawer("documents");
+    else setCollapsed(false);
+  }, [sidebarAsDrawer]);
+
+  // Escape closes a drawer, unless something in it used the key
+  useEffect(() => {
+    if (drawer === null) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && !e.defaultPrevented) setDrawer(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [drawer]);
+
   // A breadcrumb folder: focus the list on it, showing the list if hidden
   const focusFolder = useCallback(
     (folder: string) => {
       setFocus(folder);
-      setCollapsed(false);
+      showSidebar();
     },
-    [setFocus],
+    [setFocus, showSidebar],
   );
 
   // A status or tag clicked in the document header: filter the list by it, showing the list
@@ -493,9 +532,9 @@ function AppInner(): React.ReactElement {
     (kind: "status" | "tag", value: string) => {
       setMetaFilters(addFilter(metaFilters, kind, value));
       chooseSidebarView("documents");
-      setCollapsed(false);
+      showSidebar();
     },
-    [metaFilters, setMetaFilters, chooseSidebarView],
+    [metaFilters, setMetaFilters, chooseSidebarView, showSidebar],
   );
 
   // ⌘B / Ctrl+B toggles the sidebar, as in VS Code
@@ -503,12 +542,12 @@ function AppInner(): React.ReactElement {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "b") {
         e.preventDefault();
-        toggleCollapse();
+        toggleSidebar();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [toggleCollapse]);
+  }, [toggleSidebar]);
 
   // Print styles (see @media print rules) strip the side panel and other app
   // chrome, leaving only the rendered document.
@@ -715,7 +754,7 @@ function AppInner(): React.ReactElement {
       unsubscribe?.();
     };
   }, [contentId, toggleBookmark]);
-  const toggleLabel = collapsed ? "Show document list (⌘B)" : "Hide document list (⌘B)";
+  const toggleLabel = sidebarShown ? "Hide document list (⌘B)" : "Show document list (⌘B)";
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -730,19 +769,29 @@ function AppInner(): React.ReactElement {
       <div className={styles.workbench}>
         {/* ── Left panel (document list) ── */}
         <aside
-          className={styles.leftPanel}
-          style={{ width: effectivePanelWidth }}
+          ref={sidebarRef}
+          className={
+            sidebarAsDrawer
+              ? `${styles.leftPanel} ${styles.drawer} ${sidebarShown ? styles.drawerOpen : ""}`
+              : styles.leftPanel
+          }
+          style={sidebarAsDrawer ? undefined : { width: effectivePanelWidth }}
           aria-label="Document list"
-          aria-hidden={collapsed}
+          inert={!sidebarShown}
+          tabIndex={sidebarAsDrawer ? -1 : undefined}
         >
           <div className={styles.sidebarView} hidden={sidebarView !== "marks"}>
             <MarksPanel
               tabs={<SidebarTabs view={sidebarView} onChange={chooseSidebarView} />}
+              {...(sidebarAsDrawer ? { onCollapse: closeDrawer } : {})}
               documents={focusedDocuments}
               current={selectedDoc}
               byDoc={marks.byDoc}
               located={located}
-              onOpen={openMark}
+              onOpen={(docId, target) => {
+                closeDrawer();
+                openMark(docId, target);
+              }}
               onRemoveHighlight={(docId, id) => void removeMark(docId, id)}
               onRemoveBookmark={(docId, id) => void removeBookmark(docId, id)}
               onRemoveDocumentNote={(docId) => void marks.removeDocumentNote(docId)}
@@ -757,12 +806,19 @@ function AppInner(): React.ReactElement {
           <div className={styles.sidebarView} hidden={sidebarView !== "documents"}>
           <DocumentList
             tabs={<SidebarTabs view={sidebarView} onChange={chooseSidebarView} />}
+            {...(sidebarAsDrawer ? { onCollapse: closeDrawer } : {})}
             bookmarkedIds={bookmarkedIds}
             documentNotes={documentNotes}
             documents={listedDocuments}
             selectedId={selectedId}
-            onSelect={handleSelect}
-            onOpenSection={handleOpenDocument}
+            onSelect={(id, occurrence) => {
+              closeDrawer();
+              handleSelect(id, occurrence);
+            }}
+            onOpenSection={(id, anchorId) => {
+              closeDrawer();
+              handleOpenDocument(id, anchorId);
+            }}
             onSearchQueryChange={setSearchQuery}
             grouped={groupByFolder}
             onGroupedChange={setGroupByFolder}
@@ -781,7 +837,7 @@ function AppInner(): React.ReactElement {
         </aside>
 
         {/* ── Divider ── */}
-        <div
+        {!sidebarAsDrawer && <div
           className={styles.divider}
           onMouseDown={handleDividerMouseDown}
           onDoubleClick={toggleCollapse}
@@ -803,25 +859,25 @@ function AppInner(): React.ReactElement {
               setCollapsed(false);
             }
           }}
-        />
+        />}
 
         {/* ── Right panel ── */}
         <main className={styles.rightPanel} aria-label="Markdown viewer">
           <header
-            className={`${styles.editorHeader} ${collapsed ? styles.editorHeaderInset : ""}`}
+            className={`${styles.editorHeader} ${sidebarAsDrawer || collapsed ? styles.editorHeaderInset : ""}`}
           >
             <button
               className={styles.iconBtn}
-              onClick={toggleCollapse}
+              onClick={toggleSidebar}
               aria-label={toggleLabel}
-              aria-pressed={!collapsed}
+              aria-pressed={sidebarShown}
               title={toggleLabel}
               type="button"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" />
                 <line x1="6" y1="3" x2="6" y2="13" stroke="currentColor" />
-                {!collapsed && <rect x="2" y="3" width="4" height="10" fill="currentColor" opacity="0.35" />}
+                {sidebarShown && <rect x="2" y="3" width="4" height="10" fill="currentColor" opacity="0.35" />}
               </svg>
             </button>
 
@@ -936,16 +992,19 @@ function AppInner(): React.ReactElement {
             )}
 
             <button
-              className={`${styles.iconBtn} ${showOutline ? styles.iconBtnPressed : ""}`}
-              onClick={() => setShowOutline(!showOutline)}
-              aria-pressed={showOutline}
-              aria-label={showOutline ? "Hide outline" : "Show outline"}
-              title={showOutline ? "Hide outline" : "Show outline"}
+              className={`${styles.iconBtn} ${outlinePressed ? styles.iconBtnPressed : ""}`}
+              onClick={() => {
+                if (outlineAsDrawer) setDrawer((d) => (d === "outline" ? null : "outline"));
+                else setShowOutline(!showOutline);
+              }}
+              aria-pressed={outlinePressed}
+              aria-label={outlinePressed ? "Hide outline" : "Show outline"}
+              title={outlinePressed ? "Hide outline" : "Show outline"}
               type="button"
             >
               {/* A list of headings, indented by level */}
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinecap="round" aria-hidden="true">
-                <path d="M2.5 4h11M5 7.33h8.5M5 10.67h8.5M7.5 14h6" opacity={showOutline ? 1 : 0.7} />
+                <path d="M2.5 4h11M5 7.33h8.5M5 10.67h8.5M7.5 14h6" opacity={outlinePressed ? 1 : 0.7} />
               </svg>
             </button>
 
@@ -1010,6 +1069,7 @@ function AppInner(): React.ReactElement {
             searchQuery={searchQuery}
             searchFocus={searchFocus}
             showOutline={showOutline}
+            {...(outlineAsDrawer ? { outlineDrawer: { open: drawer === "outline", onClose: closeDrawer } } : {})}
             {...(shownMarks === undefined ? {} : { highlights: shownMarks.highlights, bookmarks: shownMarks.bookmarks })}
             {...(markHandlers === undefined ? {} : { markHandlers })}
             markFocus={markFocus}
@@ -1017,6 +1077,15 @@ function AppInner(): React.ReactElement {
           />
         </main>
       </div>
+
+      {/* Behind an open drawer: a tap outside it closes it */}
+      {(sidebarAsDrawer || outlineAsDrawer) && (
+        <div
+          className={`${styles.scrim} ${drawer !== null ? styles.scrimShown : ""}`}
+          onClick={closeDrawer}
+          aria-hidden="true"
+        />
+      )}
 
       {dragging && (
         <div className={styles.dropOverlay} aria-hidden="true">
@@ -1036,7 +1105,7 @@ function AppInner(): React.ReactElement {
           onShowLeftOut={() => {
             setReview(null);
             chooseSidebarView("marks");
-            setCollapsed(false);
+            showSidebar();
           }}
         />
       )}

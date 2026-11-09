@@ -114,10 +114,48 @@
   border-left-color: var(--color-accent);
 }
 
-/* Not enough room beside the document: the reader comes first */
-@media (max-width: 960px) {
-  .outline {
-    display: none;
+/* ─── Drawer (narrow window): slides in from the right, over the document ── */
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 31;
+  width: min(85vw, 300px);
+  outline: none;
+  transform: translateX(100%);
+  visibility: hidden;
+  transition: transform var(--transition-normal), visibility 0s var(--transition-normal);
+}
+
+.drawerOpen {
+  transform: none;
+  visibility: visible;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.25);
+  transition: transform var(--transition-normal);
+}
+
+/* The heading, with the button that closes the drawer at the end */
+.drawerHeader {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: var(--space-2);
+}
+
+/* Rows big enough to tap */
+@media (pointer: coarse) {
+  .drawer .item {
+    height: 36px;
+    line-height: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  .drawerOpen {
+    transition: none;
   }
 }
 
