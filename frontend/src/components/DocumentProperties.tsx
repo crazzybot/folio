@@ -10,12 +10,10 @@ interface DocumentPropertiesProps {
   doc: DocumentMeta;
   documents: readonly DocumentMeta[];
   onOpenDocument?: ((id: string, anchor: string | null) => void) | undefined;
-  /** Filter the document list by the status or a tag (clicking them). */
-  onFilterBy?: ((kind: "status" | "tag", value: string) => void) | undefined;
   /** The user's note on the document as a whole (document-notes.md). */
   note?: DocumentNote | undefined;
-  /** Open the note editor. */
-  onEditNote?: (() => void) | undefined;
+  /** Open the note editor under `from` (clicking the status, or Edit). */
+  onEditNote?: ((from: HTMLElement) => void) | undefined;
   /** Remove the note's requested status, once the document has it. */
   onClearRequest?: (() => void) | undefined;
 }
@@ -32,7 +30,6 @@ export default function DocumentProperties({
   doc,
   documents,
   onOpenDocument,
-  onFilterBy,
   note,
   onEditNote,
   onClearRequest,
@@ -48,25 +45,45 @@ export default function DocumentProperties({
     <div className={styles.properties} aria-label="Document properties" role="group">
       {status !== null && (
         <span className={styles.status}>
-          {onFilterBy === undefined ? (
-            <StatusIcon status={status} className={styles.statusIcon} />
+          {onEditNote === undefined ? (
+            <>
+              <StatusIcon status={status} className={styles.statusIcon} />
+              {successor !== null ? (
+                <button type="button" className={styles.link} onClick={() => onOpenDocument?.(successor.id, null)} title={successor.location}>
+                  {statusText(meta)}
+                </button>
+              ) : (
+                statusText(meta)
+              )}
+            </>
+          ) : successor !== null ? (
+            // The text links to the successor; the glyph opens the note
+            <>
+              <button
+                type="button"
+                className={styles.statusButton}
+                onClick={(e) => onEditNote(e.currentTarget)}
+                aria-haspopup="dialog"
+                aria-label={`Status: ${status}. Suggest a change`}
+                title="Suggest a status change"
+              >
+                <StatusIcon status={status} className={styles.statusIcon} />
+              </button>
+              <button type="button" className={styles.link} onClick={() => onOpenDocument?.(successor.id, null)} title={successor.location}>
+                {statusText(meta)}
+              </button>
+            </>
           ) : (
             <button
               type="button"
-              className={styles.filterIcon}
-              onClick={() => onFilterBy("status", status)}
-              aria-label={`Show only ${status} documents`}
-              title={`Show only ${status} documents`}
+              className={styles.statusButton}
+              onClick={(e) => onEditNote(e.currentTarget)}
+              aria-haspopup="dialog"
+              title="Suggest a status change"
             >
               <StatusIcon status={status} className={styles.statusIcon} />
-            </button>
-          )}
-          {successor !== null ? (
-            <button type="button" className={styles.link} onClick={() => onOpenDocument?.(successor.id, null)} title={successor.location}>
               {statusText(meta)}
             </button>
-          ) : (
-            statusText(meta)
           )}
         </span>
       )}
@@ -77,23 +94,11 @@ export default function DocumentProperties({
       ))}
       {tags.length > 0 && (
         <span className={styles.tags}>
-          {tags.map((tag) =>
-            onFilterBy === undefined ? (
-              <span key={tag} className={styles.tag}>
-                #{tag}
-              </span>
-            ) : (
-              <button
-                key={tag}
-                type="button"
-                className={`${styles.tag} ${styles.tagButton}`}
-                onClick={() => onFilterBy("tag", tag)}
-                title={`Show only documents tagged #${tag}`}
-              >
-                #{tag}
-              </button>
-            ),
-          )}
+          {tags.map((tag) => (
+            <span key={tag} className={styles.tag}>
+              #{tag}
+            </span>
+          ))}
         </span>
       )}
       {note !== undefined && (
@@ -116,7 +121,7 @@ export default function DocumentProperties({
           )}
           {note.text !== null && <span className={styles.noteText}>{note.text.split("\n")[0]}</span>}
           {onEditNote !== undefined && (
-            <button type="button" className={styles.link} onClick={onEditNote}>
+            <button type="button" className={styles.link} onClick={(e) => onEditNote(e.currentTarget)}>
               Edit
             </button>
           )}
