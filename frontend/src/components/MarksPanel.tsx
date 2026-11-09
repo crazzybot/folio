@@ -5,6 +5,7 @@ import type { BookmarkHeading, DocumentMeta, Highlight, MissingMarks } from "../
 import type { DocMarks } from "../useMarks";
 import { useRowHoverCard } from "../useRowHoverCard";
 import DocumentNoteIcon from "./DocumentNoteIcon";
+import DrawerCloseButton from "./DrawerCloseButton";
 import HoverCard from "./HoverCard";
 import { BookmarkCard, DocumentCard, DocumentNoteCard, HighlightCard } from "./HoverCardContent";
 import NoteRequest, { noteRequestText } from "./NoteRequest";
@@ -29,6 +30,8 @@ const NOTHING_FOLDED: ReadonlySet<string> = new Set();
 interface MarksPanelProps {
   /** The sidebar's Documents | Marks switch, shown in the header. */
   tabs: React.ReactNode;
+  /** In a narrow window, where the sidebar is a drawer: closes it. */
+  onCollapse?: () => void;
   /** The listed documents (the focused folder's, if any), in list order. */
   documents: readonly DocumentMeta[];
   /** The open document, whose marks stand out. */
@@ -58,6 +61,7 @@ interface MarksPanelProps {
  */
 export default function MarksPanel({
   tabs,
+  onCollapse,
   documents,
   current,
   byDoc,
@@ -196,7 +200,14 @@ export default function MarksPanel({
 
   return (
     <div className={listStyles.container}>
-      <header className={listStyles.header}>{tabs}</header>
+      <header className={listStyles.header}>
+        {tabs}
+        {onCollapse !== undefined && (
+          <div className={listStyles.headerActions}>
+            <DrawerCloseButton direction="left" label="Hide document list" onClick={onCollapse} />
+          </div>
+        )}
+      </header>
 
       {/* ── Filter, and Copy review notes on what it shows ── */}
       <div className={`${listStyles.searchWrapper} ${styles.filterRow}`}>
@@ -686,7 +697,11 @@ function MissingItem({ marks, documents, onRelink, onForget }: MissingItemProps)
             value={choice}
             onChange={(e) => setChoice(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Escape") setMode("idle");
+              if (e.key === "Escape") {
+                // Only the picker: the sidebar drawer stays open
+                e.preventDefault();
+                setMode("idle");
+              }
             }}
             placeholder="Document…"
             autoFocus

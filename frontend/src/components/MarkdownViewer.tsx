@@ -84,6 +84,8 @@ interface MarkdownViewerProps {
   searchFocus?: SearchFocus | null;
   /** Show the outline of headings beside the document. */
   showOutline?: boolean;
+  /** In a narrow window, the outline is a drawer over the document instead (whatever `showOutline`). */
+  outlineDrawer?: { open: boolean; onClose: () => void };
   /** The shown document's highlights and bookmarks. */
   highlights?: readonly Highlight[];
   bookmarks?: readonly Bookmark[];
@@ -542,6 +544,7 @@ export default function MarkdownViewer({
   searchQuery = "",
   searchFocus = null,
   showOutline = false,
+  outlineDrawer,
   highlights = NO_HIGHLIGHTS,
   bookmarks = NO_BOOKMARKS,
   markFocus = null,
@@ -934,9 +937,11 @@ export default function MarkdownViewer({
     setOutlineHeadings((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
   }, [content, contentId, loading]);
 
+  // The section being read, while the outline is in view (a closed drawer isn't)
+  const trackActiveHeading = outlineDrawer === undefined ? showOutline : outlineDrawer.open;
   useEffect(() => {
     const scroller = scrollRef.current;
-    if (!showOutline || scroller === null) return;
+    if (!trackActiveHeading || scroller === null) return;
     let frame = 0;
 
     function update() {
@@ -971,7 +976,7 @@ export default function MarkdownViewer({
       resizes.disconnect();
       cancelAnimationFrame(frame);
     };
-  }, [showOutline, outlineHeadings]);
+  }, [trackActiveHeading, outlineHeadings]);
 
   // -------------------------------------------------------------------------
   // Link handlers shared with MarkdownLink via context
@@ -1170,11 +1175,19 @@ export default function MarkdownViewer({
           )}
         </div>
       </div>
-      {showOutline && !loading && error === null && content !== null && (
+      {(showOutline || outlineDrawer !== undefined) && !loading && error === null && content !== null && (
         <Outline
           headings={outlineHeadings}
           activeId={activeHeadingId}
-          onSelect={linkHandlers.onAnchor}
+          onSelect={
+            outlineDrawer === undefined
+              ? linkHandlers.onAnchor
+              : (id) => {
+                  outlineDrawer.onClose();
+                  linkHandlers.onAnchor(id);
+                }
+          }
+          {...(outlineDrawer === undefined ? {} : { drawer: { open: outlineDrawer.open, onClose: outlineDrawer.onClose } })}
           highlightCounts={outlineCounts}
           bookmarked={outlineBookmarked}
         />

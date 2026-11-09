@@ -3,6 +3,8 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  /* On phones, the height left by the browser's toolbars */
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
   background: var(--color-bg);
@@ -22,6 +24,54 @@
   background: var(--color-surface);
   transition: width var(--transition-fast);
   will-change: width;
+}
+
+/* Narrow window: a drawer over the document, from the left (see drawer.ts) */
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 31;
+  width: min(85vw, 320px);
+  height: auto;
+  outline: none;
+  will-change: auto;
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform var(--transition-normal), visibility 0s var(--transition-normal);
+}
+
+.drawerOpen {
+  transform: none;
+  visibility: visible;
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.25);
+  transition: transform var(--transition-normal);
+}
+
+/* Dims the document behind an open drawer */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);
+  -webkit-app-region: no-drag;
+}
+
+.scrimShown {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  .drawerOpen,
+  .scrim {
+    transition: none;
+  }
 }
 
 /* ─── Divider (sash) ──────────────────────────────────────────────────────── */
@@ -188,6 +238,7 @@
 @media print {
   .leftPanel,
   .divider,
+  .scrim,
   .editorHeader,
   .statusBar {
     display: none !important;
