@@ -198,6 +198,44 @@
   background: color-mix(in srgb, var(--color-selected-bg) 55%, transparent);
 }
 
+/* The note on the document as a whole, first under it */
+.docNoteRow {
+  align-items: flex-start;
+}
+
+.docNoteIcon {
+  flex-shrink: 0;
+  display: flex;
+  margin-top: 2px;
+  color: var(--color-accent);
+}
+
+.request {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text);
+}
+
+.requestIcon {
+  width: 13px;
+  height: 13px;
+}
+
+/* Its comment: three lines at most */
+.docNoteText {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
 .bookmarkRow {
   align-items: center;
   min-height: 22px;

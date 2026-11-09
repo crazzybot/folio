@@ -84,3 +84,31 @@
 .note + .path {
   margin-top: var(--space-2);
 }
+
+/* A document note's requested status: "→ ◐ Accepted" */
+.request {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: bottom;
+}
+
+.requestIcon {
+  width: 13px;
+  height: 13px;
+}
+
+/* The document card's line about the user's note */
+.noteSummary {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status + .note,
+.title + .note {
+  margin-top: var(--space-2);
+}

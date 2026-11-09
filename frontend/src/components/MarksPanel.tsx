@@ -4,8 +4,10 @@ import type { MarkRow } from "../marksView";
 import type { BookmarkHeading, DocumentMeta, Highlight, MissingMarks } from "../types";
 import type { DocMarks } from "../useMarks";
 import { useRowHoverCard } from "../useRowHoverCard";
+import DocumentNoteIcon from "./DocumentNoteIcon";
 import HoverCard from "./HoverCard";
-import { BookmarkCard, DocumentCard, HighlightCard } from "./HoverCardContent";
+import { BookmarkCard, DocumentCard, DocumentNoteCard, HighlightCard } from "./HoverCardContent";
+import NoteRequest, { noteRequestText } from "./NoteRequest";
 import { BookmarkIcon } from "./MarksLayer";
 import { ReviewNotesIcon } from "./ReviewNotesPanel";
 import listStyles from "./DocumentList.module.css";
@@ -37,6 +39,8 @@ interface MarksPanelProps {
   onOpen: (docId: string, target: MarkTarget) => void;
   onRemoveHighlight: (docId: string, highlightId: string) => void;
   onRemoveBookmark: (docId: string, bookmarkId: string) => void;
+  /** Remove the note on a document as a whole. */
+  onRemoveDocumentNote: (docId: string) => void;
   /** Marks of files in the workspace that no longer exist. */
   missing: readonly MissingMarks[];
   /** Every document in the workspace, to move a missing document's marks to. */
@@ -61,6 +65,7 @@ export default function MarksPanel({
   onOpen,
   onRemoveHighlight,
   onRemoveBookmark,
+  onRemoveDocumentNote,
   missing,
   allDocuments,
   onRelink,
@@ -110,14 +115,16 @@ export default function MarksPanel({
     if (row.kind === "document") {
       onOpen(row.doc.id, null);
       if (row.count > 0) toggleCollapsed(row.doc.id, true);
-    } else if (row.kind === "bookmark") onOpen(row.doc.id, row.missing ? null : { heading: row.bookmark.heading });
+    } else if (row.kind === "note") onOpen(row.doc.id, null);
+    else if (row.kind === "bookmark") onOpen(row.doc.id, row.missing ? null : { heading: row.bookmark.heading });
     else onOpen(row.doc.id, row.unplaced ? null : { highlight: row.highlight.id });
   };
 
   const remove = (row: MarkRow) => {
     if (row.kind === "document") {
       if (row.bookmark !== undefined) onRemoveBookmark(row.doc.id, row.bookmark.id);
-    } else if (row.kind === "bookmark") onRemoveBookmark(row.doc.id, row.bookmark.id);
+    } else if (row.kind === "note") onRemoveDocumentNote(row.doc.id);
+    else if (row.kind === "bookmark") onRemoveBookmark(row.doc.id, row.bookmark.id);
     else onRemoveHighlight(row.doc.id, row.highlight.id);
   };
 
@@ -175,9 +182,10 @@ export default function MarksPanel({
   const q = query.trim().toLowerCase();
   const shownMissing = missing.filter(
     (m) =>
-      (!notesOnly || m.highlights.some((h) => h.note !== null)) &&
+      (!notesOnly || m.note !== undefined || m.highlights.some((h) => h.note !== null)) &&
       (q === "" ||
         m.location.toLowerCase().includes(q) ||
+        `${m.note?.requestedStatus ?? ""}\n${m.note?.text ?? ""}`.toLowerCase().includes(q) ||
         m.highlights.some((h) => `${h.quote.exact}\n${h.note ?? ""}`.toLowerCase().includes(q)) ||
         m.bookmarks.some((b) => b.heading?.text.toLowerCase().includes(q))),
   );
@@ -299,7 +307,10 @@ export default function MarksPanel({
                 doc={cardRow.doc}
                 bookmarked={cardRow.bookmark !== undefined}
                 highlightCount={byDoc.get(cardRow.doc.id)?.highlights.length ?? 0}
+                note={byDoc.get(cardRow.doc.id)?.note}
               />
+            ) : cardRow.kind === "note" ? (
+              <DocumentNoteCard doc={cardRow.doc} note={cardRow.note} />
             ) : cardRow.kind === "bookmark" ? (
               <BookmarkCard doc={cardRow.doc} heading={cardRow.bookmark.heading.text} missing={cardRow.missing} />
             ) : (
@@ -445,6 +456,29 @@ function MarkRowItem({
     );
   }
 
+  if (row.kind === "note") {
+    const { note, done } = row;
+    const request = note.requestedStatus === null ? "" : `${noteRequestText(note.requestedStatus, done)}. `;
+    return (
+      <li
+        {...common}
+        className={`${styles.markRow} ${styles.docNoteRow} ${selected ? styles.current : ""}`}
+        aria-label={`Note on the document: ${request}${note.text ?? ""}`}
+      >
+        <span className={styles.docNoteIcon} aria-hidden="true">
+          <DocumentNoteIcon size={14} />
+        </span>
+        <span className={styles.highlightBody}>
+          {note.requestedStatus !== null && (
+            <NoteRequest requested={note.requestedStatus} done={done} className={styles.request} iconClassName={styles.requestIcon} />
+          )}
+          {note.text !== null && <span className={styles.docNoteText}>{note.text}</span>}
+        </span>
+        {removeButton("Remove the note on the document")}
+      </li>
+    );
+  }
+
   if (row.kind === "bookmark") {
     const { heading } = row.bookmark;
     return (
@@ -541,7 +575,7 @@ function MissingItem({ marks, documents, onRelink, onForget }: MissingItemProps)
   const slash = marks.location.lastIndexOf("/");
   const filename = marks.location.slice(slash + 1);
   const folder = slash === -1 ? null : marks.location.slice(0, slash);
-  const count = marks.bookmarks.length + marks.highlights.length;
+  const count = (marks.note === undefined ? 0 : 1) + marks.bookmarks.length + marks.highlights.length;
   const label = `${count} ${count === 1 ? "mark" : "marks"}`;
   const chosen = documents.find((doc) => doc.location === choice.trim());
 
@@ -576,6 +610,19 @@ function MissingItem({ marks, documents, onRelink, onForget }: MissingItemProps)
 
       {open && (
         <ul className={styles.missingMarks} aria-label={`Marks of ${marks.location}`}>
+          {marks.note !== undefined && (
+            <li className={styles.missingMark}>
+              <span className={styles.docNoteIcon}>
+                <DocumentNoteIcon size={14} />
+              </span>
+              <span className={styles.highlightBody}>
+                {marks.note.requestedStatus !== null && (
+                  <NoteRequest requested={marks.note.requestedStatus} done={false} className={styles.request} iconClassName={styles.requestIcon} />
+                )}
+                {marks.note.text !== null && <span className={styles.noteText}>{marks.note.text}</span>}
+              </span>
+            </li>
+          )}
           {marks.bookmarks.map((b) => (
             <li key={b.id} className={styles.missingMark}>
               <span className={styles.bookmarkIcon}>

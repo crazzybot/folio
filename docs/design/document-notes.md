@@ -143,21 +143,25 @@ Overall: Fine once the rotation question below is answered.
 
 - **Toolbar**: a "Note on document" button beside the bookmark, filled when
   the document has a note. It opens a popover under it:
-  - **Status**: a select — "No change", the known statuses (with their
-    glyphs), others used in the workspace, and "Other…" (a text field);
-    the document's current status is marked "(current)" and not offered as
-    a change;
+  - **Status**: a select — "No change (now proposed)", the known statuses,
+    others used in the workspace, and "Other…" (a text field); the chosen
+    status's glyph shows beside it (a native select can't show icons), and
+    the document's current status isn't offered as a change;
   - **Comment**: a text area, as the highlight note editor (⌘↩ / Ctrl+Enter
     saves, Esc cancels);
-  - Save, and Remove when there's a note.
+  - Save, and Remove when there's a note. Clicking elsewhere saves what
+    changed, as a highlight's note does; pressing the toolbar button again
+    does the same.
 - The document header (metadata strip) shows the note's request and the
-  start of its comment; clicking it opens the popover. A document without
-  metadata gets the strip when it has a note.
+  start of its comment, with an Edit link that opens the popover. A
+  document without metadata gets the strip when it has a note.
 
 ### Showing it
 
-- **Header**: `◐ Proposed → Accepted (requested)` and the comment's first
-  line, muted. Done: `✓ Now accepted · Clear request`.
+- **Header**: a line under the metadata — the note icon, `→ ✓ Accepted`
+  and the comment's first line, muted. Done: `✓ Now accepted · Clear
+  request`; clearing a request leaves the comment (a note with neither is
+  removed).
 - **Marks view**: a "Note" row first under its document — the request and
   the comment's first line; its hover card shows the comment in full.
   Notes only includes it; the filter matches its text. The document's copy
