@@ -4,6 +4,7 @@ import { fetchAttachments, fetchDocumentContent, fetchDocuments } from "./api";
 import { savedScrollPosition } from "./scrollHistory";
 import DocumentList from "./components/DocumentList";
 import DocumentNoteEditor from "./components/DocumentNoteEditor";
+import type { NoteEditorAnchor } from "./components/DocumentNoteEditor";
 import DocumentNoteIcon from "./components/DocumentNoteIcon";
 import MarkdownViewer from "./components/MarkdownViewer";
 import type { MarkHandlers, SearchFocus } from "./components/MarkdownViewer";
@@ -583,12 +584,21 @@ function AppInner(): React.ReactElement {
   // click outside it does); the click that follows mustn't open it again
   const noteEditorWasOpen = useRef(false);
   // Open for one document: showing another closes it
-  const [noteEditorFor, setNoteEditor] = useState<{ docId: string; right: number; bottom: number } | null>(null);
+  const [noteEditorFor, setNoteEditor] = useState<({ docId: string } & NoteEditorAnchor) | null>(null);
   const noteEditor = noteEditorFor !== null && noteEditorFor.docId === contentId ? noteEditorFor : null;
-  const openNoteEditor = useCallback(() => {
-    const box = noteButtonRef.current?.getBoundingClientRect();
-    if (box !== undefined && contentId !== null) setNoteEditor({ docId: contentId, right: box.right, bottom: box.bottom });
-  }, [contentId]);
+  // Under the toolbar button, or under what was clicked in the document (its status, Edit)
+  const openNoteEditor = useCallback(
+    (from?: HTMLElement) => {
+      const box = (from ?? noteButtonRef.current)?.getBoundingClientRect();
+      if (box === undefined || contentId === null) return;
+      setNoteEditor(
+        from === undefined
+          ? { docId: contentId, right: box.right, bottom: box.bottom }
+          : { docId: contentId, left: box.left, bottom: box.bottom },
+      );
+    },
+    [contentId],
+  );
   // Offered in the editor after the known statuses
   const workspaceStatuses = useMemo(
     () => [...new Set(documents.flatMap((doc) => (doc.meta?.status != null ? [doc.meta.status] : [])))],
