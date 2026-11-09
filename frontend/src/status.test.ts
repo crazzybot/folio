@@ -23,12 +23,13 @@ const doc = (location: string, m?: Metadata): DocumentMeta => ({
 describe("statusKind and isRetired", () => {
   it("knows MADR's statuses", () => {
     expect(statusKind("accepted")).toBe("accepted");
+    expect(statusKind("implemented")).toBe("implemented");
     expect(statusKind("superseded")).toBe("superseded");
     expect(statusKind("draft")).toBe("other");
   });
 
   it("dims what no longer applies", () => {
-    expect(["proposed", "accepted", "draft"].map(isRetired)).toEqual([false, false, false]);
+    expect(["proposed", "accepted", "implemented", "draft"].map(isRetired)).toEqual([false, false, false, false]);
     expect(["rejected", "deprecated", "superseded"].map(isRetired)).toEqual([true, true, true]);
   });
 });

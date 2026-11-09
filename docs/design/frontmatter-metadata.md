@@ -46,8 +46,9 @@ tags: [queue, postgres]
 | `date` | String, as written. Shown as is; it is not `created` (the file's creation time). |
 | `decision-makers`, or MADR 3's `deciders` | List of names, as written. |
 
-Known statuses, in MADR's order: `proposed`, `accepted`, `rejected`,
-`deprecated`, `superseded`. Any other value (`draft`, `wip`…) is kept as it is
+Known statuses, in MADR's order with `implemented` after `accepted`:
+`proposed`, `accepted`, `implemented`, `rejected`, `deprecated`,
+`superseded`. Any other value (`draft`, `wip`…) is kept as it is
 and shown as an unknown status — it is not mapped onto a known one.
 
 ### Parsing
@@ -174,7 +175,7 @@ alone:
 | Status | Glyph | Colour | Title |
 |---|---|---|---|
 | proposed | half-filled circle | accent | normal |
-| accepted | check in a circle | green | normal |
+| accepted, implemented | check in a circle | green | normal |
 | rejected | cross | muted | dimmed |
 | deprecated | dash | muted | dimmed |
 | superseded | curved arrow | muted | dimmed |

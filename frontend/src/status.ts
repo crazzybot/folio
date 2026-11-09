@@ -7,8 +7,8 @@
 import { documentNumber } from "./docNumber";
 import type { DocumentMeta, Metadata } from "./types";
 
-/** MADR's statuses, in its order. */
-export const KNOWN_STATUSES = ["proposed", "accepted", "rejected", "deprecated", "superseded"] as const;
+/** MADR's statuses in its order, plus "implemented" (shown as accepted). */
+export const KNOWN_STATUSES = ["proposed", "accepted", "implemented", "rejected", "deprecated", "superseded"] as const;
 export type StatusKind = (typeof KNOWN_STATUSES)[number] | "other";
 
 export function statusKind(status: string): StatusKind {
