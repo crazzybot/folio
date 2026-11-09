@@ -50,6 +50,27 @@
   outline: none;
 }
 
+.selectWrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+
+.select {
+  appearance: none;
+  padding-right: 28px;
+  cursor: pointer;
+}
+
+.selectArrow {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
 .select:focus,
 .input:focus,
 .textarea:focus {

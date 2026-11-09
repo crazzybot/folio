@@ -115,6 +115,7 @@ export default function DocumentNoteEditor({
         <span className={styles.statusIcon} aria-hidden="true">
           {shownStatus !== "" && <StatusIcon status={shownStatus} />}
         </span>
+        <span className={styles.selectWrap}>
         <select
           id={`${id}-status`}
           className={styles.select}
@@ -130,6 +131,11 @@ export default function DocumentNoteEditor({
           ))}
           <option value={OTHER}>Other…</option>
         </select>
+        {/* Our own arrow: the native one hugs the border and differs by platform */}
+        <svg className={styles.selectArrow} width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+          <path d="M4 6l4 4 4-4" strokeWidth="1.2" />
+        </svg>
+        </span>
       </div>
       {choice === OTHER && (
         <input
