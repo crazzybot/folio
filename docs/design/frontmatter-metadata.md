@@ -239,10 +239,10 @@ and can't show a status glyph or tags.
 Sections without data are left out: a plain note shows its title and
 location. A folder row shows its path and `12 documents · 3 with highlights`.
 
-- **Placement:** beside the row, outside the sidebar (over the document);
-  on the left when the sidebar is on the right (`PanelSide`). Kept inside the
-  window vertically. Rendered in a portal so the list's `overflow: hidden`
-  doesn't clip it.
+- **Placement:** beside the row, outside the sidebar (over the document),
+  kept inside the window. Rendered in a portal so the list's
+  `overflow: hidden` doesn't clip it. (The sidebar is always on the left;
+  should it ever move, the card moves to its other side.)
 - **Timing:** appears after 500ms over a row; once one is showing, moving to
   another row swaps it at once (as macOS tooltips do). Hidden on pointer
   leaving the list, scroll, click or a key press.
@@ -359,5 +359,5 @@ updated.
 - Filtering: status only, tags only, both; combined with folder focus and
   search; counts within the focused folder; a remembered value that no longer
   exists.
-- Hover card: delay and instant swap, flip with the sidebar on the right,
-  keyboard focus, no native tooltip alongside it.
+- Hover card: delay and instant swap, staying inside the window, keyboard
+  focus, no native tooltip alongside it.

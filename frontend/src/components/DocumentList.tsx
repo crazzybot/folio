@@ -1,9 +1,13 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { searchDocuments } from "../api";
-import { buildDocumentTree, foldersContaining } from "../documentTree";
+import { buildDocumentTree, documentsInFolder, foldersContaining } from "../documentTree";
 import type { TreeNode } from "../documentTree";
+import { HoverIntent } from "../hoverCard";
+import type { CardAnchor } from "../hoverCard";
 import { slugify } from "../slug";
 import type { DocumentMeta, Heading, SearchMatch, SearchResult } from "../types";
+import HoverCard from "./HoverCard";
+import hoverCardStyles from "./HoverCard.module.css";
 import MarkdownIcon from "./MarkdownIcon";
 import styles from "./DocumentList.module.css";
 import { getItem, setItem } from "../storage";
@@ -34,11 +38,6 @@ function saveExpanded(keys: ReadonlySet<string>): void {
   setItem(EXPANDED_KEY, JSON.stringify([...keys].slice(-MAX_REMEMBERED_FOLDERS)));
 }
 
-/** The folder part of a location, shown dimmed beside a document's title. */
-function folderOf(location: string): string | null {
-  return location.includes("/") ? location.slice(0, location.lastIndexOf("/")) : null;
-}
-
 /**
  * One row of the sidebar list. All three views (folder tree, flat list,
  * search results) are a list of rows, so keyboard navigation is shared:
@@ -47,7 +46,7 @@ function folderOf(location: string): string | null {
  */
 type Row = { key: string; level: number; parent: string | null } & (
   | { kind: "folder"; folderKey: string; label: string; expanded: boolean }
-  | { kind: "document"; doc: DocumentMeta; hint: string | null; matchCount: number | null; onOpen: () => void }
+  | { kind: "document"; doc: DocumentMeta; matchCount: number | null; onOpen: () => void }
   | { kind: "heading"; heading: Heading; onOpen: () => void }
   | { kind: "match"; match: SearchMatch; onOpen: () => void }
   | { kind: "more"; text: string }
@@ -278,16 +277,15 @@ export default function DocumentList({
     doc: DocumentMeta,
     level: number,
     parent: string | null,
-    hint: string | null,
     matchCount: number | null,
     onOpen: () => void,
-  ): Row => ({ kind: "document", key: `d:${doc.id}`, level, parent, doc, hint, matchCount, onOpen });
+  ): Row => ({ kind: "document", key: `d:${doc.id}`, level, parent, doc, matchCount, onOpen });
 
   if (showTree) {
     const addNodes = (nodes: readonly TreeNode[], level: number, parent: string | null) => {
       for (const node of nodes) {
         if (node.kind === "document") {
-          rows.push(documentRow(node.doc, level, parent, node.hint, null, () => onSelect(node.doc.id)));
+          rows.push(documentRow(node.doc, level, parent, null, () => onSelect(node.doc.id)));
           continue;
         }
         const key = `f:${node.key}`;
@@ -301,7 +299,7 @@ export default function DocumentList({
     for (const entry of results) {
       const { doc, content } = entry;
       const key = `d:${doc.id}`;
-      rows.push(documentRow(doc, 0, null, folderOf(doc.location), content?.matchCount ?? null, () => openEntry(entry)));
+      rows.push(documentRow(doc, 0, null, content?.matchCount ?? null, () => openEntry(entry)));
       // Text matches already include heading lines, so they replace the heading rows
       const headings = content === undefined ? entry.headings : [];
       headings.slice(0, MAX_HEADING_ROWS).forEach((heading, i) => {
@@ -356,6 +354,31 @@ export default function DocumentList({
     el?.scrollIntoView({ block: "nearest" });
   };
 
+  // ── Hover card: a row's full title, location and marks ─────────────────────
+  const [card, setCard] = useState<CardAnchor | null>(null);
+  const [hoverIntent] = useState(() => new HoverIntent(setCard));
+  useEffect(() => () => hoverIntent.dispose(), [hoverIntent]);
+  // The rows change under it as the search narrows
+  useEffect(() => hoverIntent.dismiss(), [hoverIntent, trimmed]);
+
+  /** The card for the row `el` is in, when it's a document or folder row. */
+  const hoverRow = (el: Element) => {
+    const rowEl = el.closest<HTMLElement>("[data-row]");
+    const key = rowEl?.dataset["row"];
+    const kind = key === undefined ? undefined : rowsByKey.get(key)?.kind;
+    // A row's own button has its own tooltip
+    if (rowEl === null || key === undefined || el.closest("button") !== null || (kind !== "document" && kind !== "folder")) {
+      hoverIntent.pause();
+      return;
+    }
+    hoverIntent.enter(key, () => {
+      const box = rowEl.getBoundingClientRect();
+      return { top: box.top, bottom: box.bottom, right: box.right };
+    });
+  };
+
+  const cardRow = card === null ? undefined : rowsByKey.get(card.key);
+
   const activate = (row: Row) => {
     if (row.kind === "folder") setFolderExpanded([row.folderKey], !row.expanded);
     else if (row.kind !== "more") row.onOpen();
@@ -394,9 +417,11 @@ export default function DocumentList({
         break;
       case "Enter":
       case " ":
+        hoverIntent.dismiss();
         activate(row);
         break;
       case "Escape":
+        hoverIntent.dismiss();
         if (focus === null) return;
         onFocusChange(null);
         break;
@@ -542,7 +567,7 @@ export default function DocumentList({
       </div>
 
       {/* ── List body ── */}
-      <div className={styles.listBody} role="region" aria-label="Document entries">
+      <div className={styles.listBody} role="region" aria-label="Document entries" onScroll={() => hoverIntent.dismiss()}>
         {loading && (
           <div className={styles.statusArea} aria-live="polite" aria-busy="true">
             <span className={styles.spinner} aria-hidden="true" />
@@ -587,6 +612,18 @@ export default function DocumentList({
             role={showTree ? "tree" : "listbox"}
             aria-label="Documents"
             onKeyDown={onListKeyDown}
+            onPointerOver={(e) => {
+              if (e.pointerType !== "touch") hoverRow(e.target as Element);
+            }}
+            onPointerLeave={() => hoverIntent.dismiss()}
+            onPointerDown={() => hoverIntent.dismiss()}
+            // From the keyboard, the focused row gets the card too
+            onFocus={(e) => {
+              if (isKeyboardFocus(e.target)) hoverRow(e.target);
+            }}
+            onBlur={(e) => {
+              if (!listRef.current?.contains(e.relatedTarget)) hoverIntent.dismiss();
+            }}
           >
             {rows.map((row) => (
               <RowItem
@@ -612,7 +649,75 @@ export default function DocumentList({
           </ul>
         )}
       </div>
+      {card !== null && (cardRow?.kind === "document" || cardRow?.kind === "folder") && (
+        <HoverCard anchor={card}>
+          {cardRow.kind === "document" ? (
+            <DocumentCard
+              doc={cardRow.doc}
+              bookmarked={bookmarkedIds.has(cardRow.doc.id)}
+              highlightCount={highlightCounts.get(cardRow.doc.id) ?? 0}
+            />
+          ) : (
+            <FolderCard folder={cardRow.folderKey} label={cardRow.label} documents={documents} highlightCounts={highlightCounts} />
+          )}
+        </HoverCard>
+      )}
     </div>
+  );
+}
+
+/** Whether `el` has focus from the keyboard (not a click), as :focus-visible tells. */
+function isKeyboardFocus(el: Element): boolean {
+  try {
+    return el.matches(":focus-visible");
+  } catch {
+    return false;
+  }
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+function DocumentCard({
+  doc,
+  bookmarked,
+  highlightCount,
+}: {
+  doc: DocumentMeta;
+  bookmarked: boolean;
+  highlightCount: number;
+}): React.ReactElement {
+  const marks = [bookmarked && "Bookmarked", highlightCount > 0 && plural(highlightCount, "highlight", "highlights")].filter(Boolean);
+  return (
+    <>
+      <div className={hoverCardStyles.title}>{doc.title}</div>
+      <div className={hoverCardStyles.path}>{doc.location}</div>
+      {marks.length > 0 && <div className={hoverCardStyles.detail}>{marks.join(" · ")}</div>}
+    </>
+  );
+}
+
+function FolderCard({
+  folder,
+  label,
+  documents,
+  highlightCounts,
+}: {
+  folder: string;
+  label: string;
+  documents: DocumentMeta[];
+  highlightCounts: ReadonlyMap<string, number>;
+}): React.ReactElement {
+  const inside = documentsInFolder(documents, folder);
+  const highlighted = inside.filter((doc) => (highlightCounts.get(doc.id) ?? 0) > 0).length;
+  return (
+    <>
+      <div className={hoverCardStyles.title}>{label}</div>
+      <div className={hoverCardStyles.path}>{folder}</div>
+      <div className={hoverCardStyles.detail}>
+        {plural(inside.length, "document", "documents")}
+        {highlighted > 0 && ` · ${highlighted} with highlights`}
+      </div>
+    </>
   );
 }
 
@@ -677,7 +782,6 @@ function RowItem({
         style={{ paddingLeft: TREE_PADDING + row.level * INDENT }}
         aria-expanded={row.expanded}
         aria-selected={false}
-        title={row.folderKey}
         onContextMenu={(e) => {
           // Desktop: a native menu (Focus on Folder, Open Folder as Workspace);
           // the browser keeps its own menu
@@ -703,7 +807,7 @@ function RowItem({
         </svg>
         <span className={styles.entryTitle}>{row.label}</span>
         {!row.expanded && highlightCount > 0 && (
-          <span className={styles.folderMarks} title="Has highlights" aria-label="Has highlights" />
+          <span className={styles.folderMarks} aria-label="Has highlights" />
         )}
         {/* Mouse shortcut; the keyboard has the breadcrumb and context menu */}
         <button
@@ -728,7 +832,7 @@ function RowItem({
   }
 
   if (row.kind === "document") {
-    const { doc, hint, matchCount } = row;
+    const { doc, matchCount } = row;
     const matches = matchCount === null ? "" : ` — ${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
     const marked = highlightCount === 0 ? "" : ` — ${highlightCount} ${highlightCount === 1 ? "highlight" : "highlights"}`;
     return (
@@ -738,11 +842,9 @@ function RowItem({
         style={tree ? { paddingLeft: TREE_PADDING + row.level * INDENT + CHEVRON } : undefined}
         aria-selected={selected}
         aria-label={`${doc.title} — ${doc.location}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
-        title={doc.location}
       >
         <MarkdownIcon className={styles.entryIcon} />
         <span className={styles.entryTitle}>{doc.title}</span>
-        {hint && <span className={styles.entryFolder}>{hint}</span>}
         {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}
         {bookmarked && (
           <svg className={styles.bookmarked} width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
@@ -750,7 +852,7 @@ function RowItem({
           </svg>
         )}
         {matchCount === null && highlightCount > 0 && (
-          <span className={styles.marksCount} title={marked.slice(3)} aria-hidden="true">
+          <span className={styles.marksCount} aria-hidden="true">
             <span className={styles.marksDot} />
             {highlightCount}
           </span>

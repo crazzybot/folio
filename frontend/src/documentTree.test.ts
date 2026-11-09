@@ -12,17 +12,17 @@ const doc = (location: string): DocumentMeta => ({
   headings: [],
 });
 
-/** The tree as indented lines: "▾ label/" for folders, "label  (hint)" for documents. */
+/** The tree as indented lines: "▾ label/" for folders, the file name for documents. */
 function outline(nodes: readonly TreeNode[], depth = 0): string[] {
   return nodes.flatMap((n) =>
     n.kind === "folder"
       ? [`${"  ".repeat(depth)}▾ ${n.label}/`, ...outline(n.children, depth + 1)]
-      : [`${"  ".repeat(depth)}${n.doc.location.split("/").pop()}${n.hint ? `  (${n.hint})` : ""}`],
+      : [`${"  ".repeat(depth)}${n.doc.location.split("/").pop()}`],
   );
 }
 
 describe("buildDocumentTree", () => {
-  it("merges folder chains and lifts single-document folders (option B)", () => {
+  it("merges folder chains and keeps single-document folders", () => {
     const tree = buildDocumentTree(
       [
         "README.md",
@@ -41,21 +41,25 @@ describe("buildDocumentTree", () => {
     );
     expect(outline(tree)).toEqual([
       "▾ docs/",
+      "  ▾ adr/",
+      "    0001-record.md",
       "  ▾ api / v2 / endpoints/",
       "    orders.md",
       "    users.md",
       "  ▾ guides/",
       "    getting-started.md",
       "    install.md",
-      "  0001-record.md  (adr)",
       "  index.md",
+      "▾ notes / 2026 / 11/",
+      "  standup.md",
       "▾ packages/",
-      "  ▾ ui/",
-      "    theming.md  (docs)",
+      "  ▾ core / src/",
       "    README.md",
-      "  README.md  (core / src)",
+      "  ▾ ui/",
+      "    ▾ docs/",
+      "      theming.md",
+      "    README.md",
       "CHANGELOG.md",
-      "standup.md  (notes / 2026 / 11)",
       "README.md",
     ]);
   });

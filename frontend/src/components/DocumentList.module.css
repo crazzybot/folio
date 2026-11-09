@@ -342,18 +342,6 @@
   color: var(--color-selected-text);
 }
 
-.entryFolder {
-  flex-shrink: 100;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: var(--text-sm);
-  color: var(--color-text-subtle);
-}
-
-.entrySelected .entryFolder {
-  color: var(--color-text-muted);
-}
 
 /* ─── Folder tree ─────────────────────────────────────────────────────────── */
 .folderEntry {

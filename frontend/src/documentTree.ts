@@ -4,8 +4,6 @@
  * Only folders that hold documents appear, and the tree is kept shallow:
  *   - a folder whose only content is one subfolder merges with it
  *     ("api / v2 / endpoints"), as VS Code's compact folders do;
- *   - a folder holding just one document is replaced by that document, with
- *     the folder named beside it ("README  core / src");
  *   - when everything sits inside one folder, its contents are the top level.
  * Folders come first, then documents; each in natural, case-insensitive order
  * ("v2" before "v10", "CHANGELOG" before "notes/…" before "README").
@@ -25,8 +23,6 @@ export interface FolderNode {
 export interface DocumentNode {
   kind: "document";
   doc: DocumentMeta;
-  /** Folder(s) folded into this row, shown beside it ("core / src"). */
-  hint: string | null;
 }
 
 export type TreeNode = FolderNode | DocumentNode;
@@ -64,7 +60,7 @@ const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base"
 /** Tree nodes for `folder`'s contents. */
 function nodesOf(folder: Folder): TreeNode[] {
   const folders: FolderNode[] = [];
-  const docs: DocumentNode[] = folder.docs.map((doc) => ({ kind: "document", doc, hint: null }));
+  const docs: DocumentNode[] = folder.docs.map((doc) => ({ kind: "document", doc }));
 
   for (const start of folder.folders.values()) {
     // Merge chains of folders that hold nothing but one subfolder
@@ -76,12 +72,7 @@ function nodesOf(folder: Folder): TreeNode[] {
       current = only;
       label += SEPARATOR + only.name;
     }
-    if (current.folders.size === 0 && current.docs.length === 1 && current.docs[0] !== undefined) {
-      // Just one document: show it instead of the folder
-      docs.push({ kind: "document", doc: current.docs[0], hint: label });
-    } else {
-      folders.push({ kind: "folder", key: current.path, label, children: nodesOf(current) });
-    }
+    folders.push({ kind: "folder", key: current.path, label, children: nodesOf(current) });
   }
 
   folders.sort((a, b) => byName.compare(a.label, b.label));
