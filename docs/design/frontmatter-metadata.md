@@ -243,6 +243,12 @@ and can't show a status glyph or tags.
 Sections without data are left out: a plain note shows its title and
 location. A folder row shows its path and `12 documents · 3 with highlights`.
 
+The Marks view uses the same card (`useRowHoverCard`): a document row shows
+the document's card; a bookmark row its heading in full, the document's title
+and location; a highlight row its passage (with its colour) and note in full
+— up to 12 lines each, where the row cuts them at 2 and 3 — and the
+location.
+
 - **Placement:** beside the row, outside the sidebar (over the document),
   kept inside the window. Rendered in a portal so the list's
   `overflow: hidden` doesn't clip it. (The sidebar is always on the left;

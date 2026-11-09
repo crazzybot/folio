@@ -1,15 +1,14 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { searchDocuments } from "../api";
 import { documentNumber, titleWithoutNumber } from "../docNumber";
-import { buildDocumentTree, documentsInFolder, foldersContaining } from "../documentTree";
+import { buildDocumentTree, foldersContaining } from "../documentTree";
 import type { TreeNode } from "../documentTree";
-import { HoverIntent } from "../hoverCard";
-import type { CardAnchor } from "../hoverCard";
 import { slugify } from "../slug";
 import { isRetired, statusText } from "../status";
+import { useRowHoverCard } from "../useRowHoverCard";
 import type { DocumentMeta, Heading, SearchMatch, SearchResult } from "../types";
 import HoverCard from "./HoverCard";
-import hoverCardStyles from "./HoverCard.module.css";
+import { DocumentCard, FolderCard } from "./HoverCardContent";
 import MarkdownIcon from "./MarkdownIcon";
 import StatusIcon from "./StatusIcon";
 import styles from "./DocumentList.module.css";
@@ -387,27 +386,12 @@ export default function DocumentList({
   };
 
   // ── Hover card: a row's full title, location and marks ─────────────────────
-  const [card, setCard] = useState<CardAnchor | null>(null);
-  const [hoverIntent] = useState(() => new HoverIntent(setCard));
-  useEffect(() => () => hoverIntent.dispose(), [hoverIntent]);
+  const { card, listProps: hoverProps, dismiss: dismissCard } = useRowHoverCard((key) => {
+    const kind = rowsByKey.get(key)?.kind;
+    return kind === "document" || kind === "folder";
+  });
   // The rows change under it as the search narrows
-  useEffect(() => hoverIntent.dismiss(), [hoverIntent, trimmed]);
-
-  /** The card for the row `el` is in, when it's a document or folder row. */
-  const hoverRow = (el: Element) => {
-    const rowEl = el.closest<HTMLElement>("[data-row]");
-    const key = rowEl?.dataset["row"];
-    const kind = key === undefined ? undefined : rowsByKey.get(key)?.kind;
-    // A row's own button has its own tooltip
-    if (rowEl === null || key === undefined || el.closest("button") !== null || (kind !== "document" && kind !== "folder")) {
-      hoverIntent.pause();
-      return;
-    }
-    hoverIntent.enter(key, () => {
-      const box = rowEl.getBoundingClientRect();
-      return { top: box.top, bottom: box.bottom, right: box.right };
-    });
-  };
+  useEffect(() => dismissCard(), [dismissCard, trimmed]);
 
   const cardRow = card === null ? undefined : rowsByKey.get(card.key);
 
@@ -449,11 +433,11 @@ export default function DocumentList({
         break;
       case "Enter":
       case " ":
-        hoverIntent.dismiss();
+        dismissCard();
         activate(row);
         break;
       case "Escape":
-        hoverIntent.dismiss();
+        dismissCard();
         if (focus === null) return;
         onFocusChange(null);
         break;
@@ -599,7 +583,7 @@ export default function DocumentList({
       </div>
 
       {/* ── List body ── */}
-      <div className={styles.listBody} role="region" aria-label="Document entries" onScroll={() => hoverIntent.dismiss()}>
+      <div className={styles.listBody} role="region" aria-label="Document entries" onScroll={() => dismissCard()}>
         {loading && (
           <div className={styles.statusArea} aria-live="polite" aria-busy="true">
             <span className={styles.spinner} aria-hidden="true" />
@@ -644,18 +628,7 @@ export default function DocumentList({
             role={showTree ? "tree" : "listbox"}
             aria-label="Documents"
             onKeyDown={onListKeyDown}
-            onPointerOver={(e) => {
-              if (e.pointerType !== "touch") hoverRow(e.target as Element);
-            }}
-            onPointerLeave={() => hoverIntent.dismiss()}
-            onPointerDown={() => hoverIntent.dismiss()}
-            // From the keyboard, the focused row gets the card too
-            onFocus={(e) => {
-              if (isKeyboardFocus(e.target)) hoverRow(e.target);
-            }}
-            onBlur={(e) => {
-              if (!listRef.current?.contains(e.relatedTarget)) hoverIntent.dismiss();
-            }}
+            {...hoverProps}
           >
             {rows.map((row) => (
               <RowItem
@@ -695,70 +668,6 @@ export default function DocumentList({
         </HoverCard>
       )}
     </div>
-  );
-}
-
-/** Whether `el` has focus from the keyboard (not a click), as :focus-visible tells. */
-function isKeyboardFocus(el: Element): boolean {
-  try {
-    return el.matches(":focus-visible");
-  } catch {
-    return false;
-  }
-}
-
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-function DocumentCard({
-  doc,
-  bookmarked,
-  highlightCount,
-}: {
-  doc: DocumentMeta;
-  bookmarked: boolean;
-  highlightCount: number;
-}): React.ReactElement {
-  const marks = [bookmarked && "Bookmarked", highlightCount > 0 && plural(highlightCount, "highlight", "highlights")].filter(Boolean);
-  const { status = null, statusDetail = null, date = null, people = [], tags = [] } = doc.meta ?? {};
-  return (
-    <>
-      <div className={hoverCardStyles.title}>{doc.title}</div>
-      <div className={hoverCardStyles.path}>{doc.location}</div>
-      {(status !== null || date !== null) && (
-        <div className={hoverCardStyles.status}>
-          {status !== null && <StatusIcon status={status} className={hoverCardStyles.statusIcon} />}
-          {[status === null ? null : statusText({ status, statusDetail }), date].filter(Boolean).join(" · ")}
-        </div>
-      )}
-      {people.length > 0 && <div className={hoverCardStyles.detail}>{people.join(", ")}</div>}
-      {tags.length > 0 && <div className={hoverCardStyles.detail}>{tags.map((tag) => `#${tag}`).join("  ")}</div>}
-      {marks.length > 0 && <div className={hoverCardStyles.detail}>{marks.join(" · ")}</div>}
-    </>
-  );
-}
-
-function FolderCard({
-  folder,
-  label,
-  documents,
-  highlightCounts,
-}: {
-  folder: string;
-  label: string;
-  documents: DocumentMeta[];
-  highlightCounts: ReadonlyMap<string, number>;
-}): React.ReactElement {
-  const inside = documentsInFolder(documents, folder);
-  const highlighted = inside.filter((doc) => (highlightCounts.get(doc.id) ?? 0) > 0).length;
-  return (
-    <>
-      <div className={hoverCardStyles.title}>{label}</div>
-      <div className={hoverCardStyles.path}>{folder}</div>
-      <div className={hoverCardStyles.detail}>
-        {plural(inside.length, "document", "documents")}
-        {highlighted > 0 && ` · ${highlighted} with highlights`}
-      </div>
-    </>
   );
 }
 

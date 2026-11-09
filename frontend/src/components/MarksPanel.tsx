@@ -1,8 +1,11 @@
-import React, { useCallback, useId, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { buildMarkRows } from "../marksView";
 import type { MarkRow } from "../marksView";
 import type { BookmarkHeading, DocumentMeta, Highlight, MissingMarks } from "../types";
 import type { DocMarks } from "../useMarks";
+import { useRowHoverCard } from "../useRowHoverCard";
+import HoverCard from "./HoverCard";
+import { BookmarkCard, DocumentCard, HighlightCard } from "./HoverCardContent";
 import { BookmarkIcon } from "./MarksLayer";
 import { ReviewNotesIcon } from "./ReviewNotesPanel";
 import listStyles from "./DocumentList.module.css";
@@ -87,6 +90,11 @@ export default function MarksPanel({
     return byDocShown;
   }, [documents, byDoc, query, notesOnly, located]);
   const tabStop = (rows.some((r) => r.key === focusKey) ? focusKey : undefined) ?? rows[0]?.key;
+
+  // Hover card: a document's title and location, a mark in full (rows cut them short)
+  const { card, listProps: hoverProps, dismiss: dismissCard } = useRowHoverCard(() => true);
+  useEffect(() => dismissCard(), [dismissCard, query, notesOnly]);
+  const cardRow = card === null ? undefined : rows.find((r) => r.key === card.key);
 
   const toggleCollapsed = useCallback((docId: string, open?: boolean) => {
     setCollapsed((prev) => {
@@ -235,7 +243,7 @@ export default function MarksPanel({
       </div>
 
       {/* ── Marks ── */}
-      <div className={listStyles.listBody} role="region" aria-label="Marks">
+      <div className={listStyles.listBody} role="region" aria-label="Marks" onScroll={dismissCard}>
         {rows.length === 0 && shownMissing.length === 0 ? (
           <div className={listStyles.emptyArea}>
             {!hasAny ? (
@@ -252,7 +260,18 @@ export default function MarksPanel({
             )}
           </div>
         ) : (
-          <ul ref={listRef} className={styles.list} role="tree" aria-label="Marks" onKeyDown={onListKeyDown}>
+          <ul
+            ref={listRef}
+            className={styles.list}
+            role="tree"
+            aria-label="Marks"
+            onKeyDown={(e) => {
+              // Moving between rows keeps the card (it follows focus); other keys put it away
+              if (!["ArrowUp", "ArrowDown", "Home", "End"].includes(e.key)) dismissCard();
+              onListKeyDown(e);
+            }}
+            {...hoverProps}
+          >
             {rows.map((row) => (
               <MarkRowItem
                 key={row.key}
@@ -272,6 +291,21 @@ export default function MarksPanel({
               />
             ))}
           </ul>
+        )}
+        {card !== null && cardRow !== undefined && (
+          <HoverCard anchor={card}>
+            {cardRow.kind === "document" ? (
+              <DocumentCard
+                doc={cardRow.doc}
+                bookmarked={cardRow.bookmark !== undefined}
+                highlightCount={byDoc.get(cardRow.doc.id)?.highlights.length ?? 0}
+              />
+            ) : cardRow.kind === "bookmark" ? (
+              <BookmarkCard doc={cardRow.doc} heading={cardRow.bookmark.heading.text} missing={cardRow.missing} />
+            ) : (
+              <HighlightCard doc={cardRow.doc} highlight={cardRow.highlight} unplaced={cardRow.unplaced} />
+            )}
+          </HoverCard>
         )}
         {shownMissing.length > 0 && (
           <MissingSection missing={shownMissing} documents={allDocuments} onRelink={onRelink} onForget={onForget} />
@@ -348,7 +382,6 @@ function MarkRowItem({
         className={`${styles.docRow} ${selected ? styles.current : ""}`}
         {...(row.count > 0 ? { "aria-expanded": row.expanded } : {})}
         aria-label={`${row.doc.title}${bookmarked ? ", bookmarked" : ""}${row.count > 0 ? `, ${row.count} ${row.count === 1 ? "mark" : "marks"}` : ""}`}
-        title={row.doc.location}
       >
         {row.count > 0 ? (
           <button
@@ -419,7 +452,6 @@ function MarkRowItem({
         {...common}
         className={`${styles.markRow} ${styles.bookmarkRow} ${selected ? styles.current : ""}`}
         aria-label={`Bookmark: ${heading.text}${row.missing ? " (heading not found)" : ""}`}
-        title={`${row.doc.title} › ${heading.text}`}
       >
         <span className={styles.bookmarkIcon}>
           <BookmarkIcon filled />
