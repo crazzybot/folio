@@ -8,6 +8,60 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Added
+
+- **Document status, dates, decision makers and tags**, read from front
+  matter (`status:`, `date:`, `decision-makers:` / `deciders:`, `tags:`) or
+  from a `Status:` line or `## Status` section at the start of a document,
+  as ADR templates write them. A document's status replaces its icon in the
+  list (accepted or implemented, proposed, rejected, deprecated, superseded
+  or other), and rejected, deprecated and superseded titles are dimmed. A
+  line above the document shows them all, and "Superseded by ADR-0005"
+  links to that document. (#80)
+- **Filter by status and tags**: the funnel button in the sidebar header
+  lists the statuses and tags in the workspace or focused folder, with
+  counts. Chosen filters show as removable chips under the search box,
+  narrow the list, search and the document count, and are remembered per
+  workspace. (#80)
+- **Numbered documents** (`0015-hmac.md`, `ADR-015-hmac.md`) show their
+  number before the title, and a title that repeats it (`ADR 0015: …`) is
+  shown without it. (#80)
+- **Hover cards** in the document list and the Marks view: a document's full
+  title, location, status, date, decision makers, tags and marks; a
+  folder's document count; a highlight's passage and note in full. Arrow
+  keys show them too. (#80)
+- **Notes on a document as a whole**: the note button beside the bookmark,
+  or clicking the document's status, opens an editor for an overall comment
+  and a status to ask for (`accepted`, `rejected` or any word). The note
+  shows above the document, with "✓ Now accepted" once the document has
+  that status, and first under the document in the Marks view. Folio still
+  never edits the document: **Copy review notes** starts with the status
+  change, naming the line it's written on, and the comment, for the agent
+  that wrote it to make the change. (#81, #83)
+- **Notes from the margin**: hovering a heading, paragraph, list item,
+  table or code block shows a note button in the right margin, which
+  highlights the section and opens its note. (#83)
+- **Narrow windows and phones**: below 960px wide the outline slides in as a
+  drawer from the right, and below 768px the document list slides in from
+  the left too, instead of taking room from the document. A drawer closes
+  once used, on a tap outside it or on Escape. (#82)
+
+### Changed
+
+- Highlights no longer overlap: selecting text that's already highlighted,
+  or `⇧⌘H` on it, opens that highlight instead. Its popover is wider when it
+  has a note, and opens above the highlight when there's no room below. (#83)
+- A folder holding a single document stays a folder in the tree, rather
+  than being replaced by the document. (#80)
+- **Group by folder** and the outline button show when they're on. (#80)
+
+### Fixed
+
+- Adding a note near the bottom of the window no longer scrolls the
+  document away. (#83)
+- Page height follows mobile browsers' toolbars, so the status bar stays on
+  screen. (#82)
+
 ## [0.3.2] — 2026-11-08
 
 ### Fixed
