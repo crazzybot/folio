@@ -30,7 +30,7 @@ import {
 import useTheme from "./theme";
 import { documentsInFolder } from "./documentTree";
 import { useFolderFocus } from "./folderFocus";
-import { addFilter, filterByMeta, filterOptions, hasFilters } from "./metaFilter";
+import { filterByMeta, filterOptions, hasFilters } from "./metaFilter";
 import { requestDone } from "./status";
 import { useMetaFilters } from "./useMetaFilters";
 import useMarks from "./useMarks";
@@ -528,15 +528,6 @@ function AppInner(): React.ReactElement {
     [setFocus, showSidebar],
   );
 
-  // A status or tag clicked in the document header: filter the list by it, showing the list
-  const filterBy = useCallback(
-    (kind: "status" | "tag", value: string) => {
-      setMetaFilters(addFilter(metaFilters, kind, value));
-      chooseSidebarView("documents");
-      showSidebar();
-    },
-    [metaFilters, setMetaFilters, chooseSidebarView, showSidebar],
-  );
 
   // ⌘B / Ctrl+B toggles the sidebar, as in VS Code
   useEffect(() => {
@@ -1068,7 +1059,6 @@ function AppInner(): React.ReactElement {
             attachments={attachments}
             currentLocation={selectedDoc?.location ?? null}
             onOpenDocument={handleOpenDocument}
-            onFilterBy={filterBy}
             documentNote={documentNote}
             onEditDocumentNote={openNoteEditor}
             onClearNoteRequest={() => {

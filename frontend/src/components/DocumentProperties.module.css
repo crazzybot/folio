@@ -103,27 +103,11 @@
   cursor: pointer;
 }
 
-/* Tags filter the document list */
-
-.tagButton {
-  padding: 0;
-  border: none;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-}
-
 .statusButton:hover {
   background: var(--color-hover-bg);
 }
 
-.tagButton:hover {
-  color: var(--color-text);
-  text-decoration: underline;
-}
-
 @media print {
-  .tagButton,
   .statusButton {
     color: inherit;
   }

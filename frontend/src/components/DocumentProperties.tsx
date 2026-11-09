@@ -10,8 +10,6 @@ interface DocumentPropertiesProps {
   doc: DocumentMeta;
   documents: readonly DocumentMeta[];
   onOpenDocument?: ((id: string, anchor: string | null) => void) | undefined;
-  /** Filter the document list by a tag (clicking it). */
-  onFilterBy?: ((kind: "status" | "tag", value: string) => void) | undefined;
   /** The user's note on the document as a whole (document-notes.md). */
   note?: DocumentNote | undefined;
   /** Open the note editor under `from` (clicking the status, or Edit). */
@@ -32,7 +30,6 @@ export default function DocumentProperties({
   doc,
   documents,
   onOpenDocument,
-  onFilterBy,
   note,
   onEditNote,
   onClearRequest,
@@ -97,23 +94,11 @@ export default function DocumentProperties({
       ))}
       {tags.length > 0 && (
         <span className={styles.tags}>
-          {tags.map((tag) =>
-            onFilterBy === undefined ? (
-              <span key={tag} className={styles.tag}>
-                #{tag}
-              </span>
-            ) : (
-              <button
-                key={tag}
-                type="button"
-                className={`${styles.tag} ${styles.tagButton}`}
-                onClick={() => onFilterBy("tag", tag)}
-                title={`Show only documents tagged #${tag}`}
-              >
-                #{tag}
-              </button>
-            ),
-          )}
+          {tags.map((tag) => (
+            <span key={tag} className={styles.tag}>
+              #{tag}
+            </span>
+          ))}
         </span>
       )}
       {note !== undefined && (
