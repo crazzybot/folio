@@ -112,6 +112,13 @@
   color: var(--color-accent);
 }
 
+/* A panel toggle that's on (the outline is shown): tinted, as the sidebar's Group by folder */
+.iconBtnPressed,
+.iconBtnPressed:hover {
+  color: var(--color-text-strong);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
 .iconBtn:disabled {
   opacity: 0.4;
   cursor: default;

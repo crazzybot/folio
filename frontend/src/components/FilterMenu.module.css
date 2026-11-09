@@ -1,0 +1,105 @@
+/* As DisplayMenu's menu, but fixed: rendered in a portal, beside the sidebar's edge */
+.menu {
+  position: fixed;
+  z-index: 100;
+  padding: var(--space-1) 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  font-size: var(--text-ui);
+}
+
+.heading {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--color-selected-focus-bg);
+  color: var(--color-selected-text);
+  outline: none;
+}
+
+.check {
+  flex-shrink: 0;
+  width: 1em;
+  text-align: center;
+}
+
+.icon {
+  flex-shrink: 0;
+}
+
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count {
+  margin-left: auto;
+  padding-left: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+.item:hover .count,
+.item:focus-visible .count {
+  color: inherit;
+}
+
+/* Many tags: a box to narrow them, and the list scrolls */
+.search {
+  display: block;
+  width: calc(100% - 2 * var(--space-3));
+  margin: 0 var(--space-3) var(--space-1);
+  padding: 2px 6px;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-input-bg, var(--color-bg));
+  color: var(--color-text);
+  font: inherit;
+}
+
+.search:focus {
+  outline: 1px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
+.scroll {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.none {
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+.separator {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--color-border);
+}

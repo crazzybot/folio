@@ -1,6 +1,10 @@
+---
+status: accepted
+date: 2026-08-12
+decision-makers: [Priya, Tomás]
+tags: [queue, postgres]
+---
 # ADR 0001: Postgres for the delivery queue
-
-Status: accepted · 2026-08-12
 
 ## Context
 

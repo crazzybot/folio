@@ -21,6 +21,19 @@ export interface Heading {
   text: string; // as rendered: no markdown syntax
 }
 
+/** What a document says about itself: front matter fields, or its status line. */
+export interface Metadata {
+  /** First word of the status, lowercased: "accepted", "superseded", "draft"… */
+  status: string | null;
+  /** The status as written, when it says more than that word ("superseded by ADR-0005"). */
+  statusDetail: string | null;
+  date: string | null;
+  /** decision-makers (MADR 4) or deciders (MADR 3). */
+  people: string[];
+  /** Lowercased, without "#", no duplicates. */
+  tags: string[];
+}
+
 export interface DocumentMeta {
   id: string;
   filename: string;
@@ -28,6 +41,8 @@ export interface DocumentMeta {
   title: string;
   created: string; // ISO-8601
   headings: Heading[];
+  /** Left out when the document has none of its fields. */
+  meta?: Metadata;
 }
 
 export interface ScanOptions {
@@ -150,6 +165,144 @@ export function extractHeadings(text: string): Heading[] {
   return headings;
 }
 
+// ---------------------------------------------------------------------------
+// Metadata (docs/design/frontmatter-metadata.md)
+// Not a YAML parser: the few forms these keys are written in, the same rules
+// as backend/app/scanner.py.
+// ---------------------------------------------------------------------------
+
+const MAX_TAGS = 20;
+const MAX_TAG_LENGTH = 40;
+const MAX_PEOPLE = 20;
+
+// A top-level key and its value: "status: accepted", "tags:" (a block list follows)
+const FRONT_MATTER_KEY = /^([A-Za-z][\w-]*)[ \t]*:(?:[ \t]+(.*?))?[ \t]*$/;
+const QUOTED = /^(["'])(.*)\1$/;
+const BLOCK_LIST_ITEM = /^[ \t]+-[ \t]+(.*?)[ \t]*$/;
+// "Status: accepted", "* Status: accepted", "**Status:** accepted"
+const STATUS_LINE = /^ {0,3}(?:[*+-][ \t]+)?(?:\*\*|__)?status(?:\*\*|__)?[ \t]*:(?:\*\*|__)?[ \t]*(.+?)[ \t]*$/i;
+
+/** Top-level keys of front matter: a scalar's text, or a block list's items. First of each key wins. */
+function frontMatterFields(block: string): Map<string, string | string[]> {
+  const fields = new Map<string, string | string[]>();
+  const lines = block.split(/\r\n|\r|\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const match = FRONT_MATTER_KEY.exec(lines[i] ?? "");
+    if (match?.[1] === undefined) continue;
+    let value: string | string[] = match[2] ?? "";
+    if (value === "") {
+      const items: string[] = [];
+      for (let item = BLOCK_LIST_ITEM.exec(lines[i + 1] ?? ""); item?.[1] !== undefined; item = BLOCK_LIST_ITEM.exec(lines[i + 1] ?? "")) {
+        items.push(item[1]);
+        i++;
+      }
+      if (items.length > 0) value = items;
+    }
+    if (!fields.has(match[1])) fields.set(match[1], value);
+  }
+  return fields;
+}
+
+/** A scalar's text: unquoted, without a trailing comment; null for anything but plain text. */
+function scalar(raw: string): string | null {
+  const value = raw.trim();
+  const quoted = QUOTED.exec(value) ?? QUOTED.exec(value.replace(/[ \t]+#.*$/, ""));
+  if (quoted?.[2] !== undefined) return quoted[2].trim() || null;
+  const plain = value.replace(/[ \t]+#.*$/, "").trim();
+  // Flow collections and block scalars aren't plain text
+  if (plain === "" || /^[[{|>]/.test(plain)) return null;
+  return plain;
+}
+
+/** A list's items: a block list, a flow list ("[a, b]") or comma-separated text. */
+function list(raw: string | string[] | undefined): string[] {
+  if (raw === undefined) return [];
+  if (Array.isArray(raw)) return raw.flatMap((item) => scalar(item) ?? []);
+  let value = raw.trim();
+  if (!/["']/.test(value)) value = value.replace(/[ \t]+#.*$/, "");
+  const flow = /^\[(.*)\](?:[ \t]+#.*)?$/.exec(value);
+  if (flow?.[1] !== undefined) value = flow[1];
+  else if (/^[{|>]/.test(value)) return [];
+  return value.split(",").flatMap((item) => scalar(item) ?? []);
+}
+
+/** "superseded by ADR-0005" → status "superseded", detail as written; null when there's no word. */
+function parseStatus(raw: string): Pick<Metadata, "status" | "statusDetail"> | null {
+  const value = raw.replace(/[*`]/g, "").trim();
+  const word = /^\S+/.exec(value)?.[0].replace(/[.,;:!]+$/, "").toLowerCase() ?? "";
+  if (word === "") return null;
+  const bare = value.replace(/[.,;:!]+$/, "").toLowerCase() === word;
+  return { status: word, statusDetail: bare ? null : value };
+}
+
+/** The status written in the first section: a "Status:" line before the second heading, or a "## Status" section. */
+function bodyStatus(body: string): Pick<Metadata, "status" | "statusDetail"> | null {
+  let fence: string | null = null;
+  let started = false; // past the first non-blank line
+  let section: string[] | null = null; // the "Status" section's first paragraph, once inside it
+  for (const line of body.split(/\r\n|\r|\n/)) {
+    const fenceMatch = FENCE.exec(line);
+    if (fenceMatch?.[1] !== undefined) {
+      const marker = fenceMatch[1];
+      if (fence === null) fence = marker;
+      else if (marker[0] === fence[0] && marker.length >= fence.length) fence = null;
+      started = true;
+      if (section !== null && section.length > 0) break;
+      continue;
+    }
+    if (fence !== null) continue;
+    const blank = line.trim() === "";
+    if (section !== null) {
+      if (blank ? section.length > 0 : HEADING_LINE.test(line)) break;
+      if (!blank) section.push(line.trim());
+      continue;
+    }
+    if (blank) continue;
+    const heading = HEADING_LINE.exec(line);
+    if (heading?.[2] !== undefined) {
+      // The heading the document starts with is its title; the next one ends the first section
+      if (!started) {
+        started = true;
+        continue;
+      }
+      if (plainHeading(heading[2]).toLowerCase() !== "status") return null;
+      section = [];
+      continue;
+    }
+    started = true;
+    const statusLine = STATUS_LINE.exec(line);
+    if (statusLine?.[1] !== undefined) return parseStatus(statusLine[1]);
+  }
+  return section === null || section.length === 0 ? null : parseStatus(section.join(" "));
+}
+
+/** The document's metadata (see Metadata), or null when it has none. */
+export function extractMeta(text: string): Metadata | null {
+  const match = FRONT_MATTER.exec(text);
+  const fields = frontMatterFields(match?.[1] ?? "");
+  const rawStatus = fields.get("status");
+  const status =
+    (typeof rawStatus === "string" ? parseStatus(scalar(rawStatus) ?? "") : null) ??
+    bodyStatus(match === null ? text : text.slice(match[0].length));
+  const rawDate = fields.get("date");
+  const tags = [
+    ...new Set(
+      list(fields.get("tags") ?? fields.get("tag"))
+        .map((tag) => tag.replace(/^#+/, "").trim().toLowerCase())
+        .filter((tag) => tag !== "" && tag.length <= MAX_TAG_LENGTH),
+    ),
+  ].slice(0, MAX_TAGS);
+  const meta: Metadata = {
+    status: status?.status ?? null,
+    statusDetail: status?.statusDetail ?? null,
+    date: typeof rawDate === "string" ? scalar(rawDate) : null,
+    people: list(fields.get("decision-makers") ?? fields.get("deciders")).slice(0, MAX_PEOPLE),
+    tags,
+  };
+  const empty = meta.status === null && meta.date === null && meta.people.length === 0 && meta.tags.length === 0;
+  return empty ? null : meta;
+}
+
 /**
  * Return a human-readable title for the file using this priority:
  *   1. Front matter `title:`
@@ -195,6 +348,7 @@ async function isFileEntry(entry: Dirent, fullPath: string, realWorkspace: strin
 async function buildMeta(workspace: string, fullPath: string): Promise<DocumentMeta> {
   const location = path.relative(workspace, fullPath).split(path.sep).join("/");
   const [stat, head] = await Promise.all([fs.stat(fullPath), readHead(fullPath)]);
+  const meta = head === null ? null : extractMeta(head);
   return {
     id: stableId(location),
     filename: path.basename(fullPath),
@@ -202,6 +356,7 @@ async function buildMeta(workspace: string, fullPath: string): Promise<DocumentM
     title: extractTitle(head, path.basename(fullPath, path.extname(fullPath))),
     created: new Date(stat.ctimeMs).toISOString(),
     headings: head === null ? [] : extractHeadings(head),
+    ...(meta === null ? {} : { meta }),
   };
 }
 

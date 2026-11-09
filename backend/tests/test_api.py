@@ -24,8 +24,20 @@ def test_reports_the_version_in_pyproject(client):
 
 def test_lists_documents(client):
     docs = client.get("/api/documents").json()
-    assert [d["location"] for d in docs][:2] == ["README.md", "docs/blank.md"]
+    assert [d["location"] for d in docs][:2] == ["README.md", "docs/adr/0001-front-matter.md"]
     assert docs[0]["headings"][0] == {"level": 1, "text": "Project Readme"}
+
+
+def test_lists_metadata_only_when_there_is_some(client):
+    docs = {d["location"]: d for d in client.get("/api/documents").json()}
+    assert "meta" not in docs["README.md"]
+    assert docs["docs/adr/0001-front-matter.md"]["meta"] == {
+        "status": "superseded",
+        "statusDetail": "superseded by ADR-0002",
+        "date": "2026-08-12",
+        "people": ["Ana", "Ben"],
+        "tags": ["queue", "postgres"],
+    }
 
 
 def test_returns_content_and_404s_unknown_ids(client):

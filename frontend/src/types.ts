@@ -4,6 +4,19 @@ export interface Heading {
   text: string;
 }
 
+/** What a document says about itself: front matter fields, or its status line (GET /api/documents). */
+export interface Metadata {
+  /** First word of the status, lowercased: "accepted", "superseded", "draft"… */
+  status: string | null;
+  /** The status as written, when it says more than that word ("superseded by ADR-0005"); may hold Markdown links. */
+  statusDetail: string | null;
+  date: string | null;
+  /** decision-makers / deciders. */
+  people: string[];
+  /** Lowercased, without "#". */
+  tags: string[];
+}
+
 export interface DocumentMeta {
   id: string;
   filename: string;
@@ -11,6 +24,8 @@ export interface DocumentMeta {
   title: string;
   created: string; // ISO-8601
   headings: Heading[];
+  /** Left out when the document has none of its fields. */
+  meta?: Metadata;
 }
 
 export interface DocumentContent {

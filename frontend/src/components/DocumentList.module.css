@@ -33,14 +33,23 @@
   white-space: nowrap;
 }
 
-/* Group by folder: at the end of the header row; clickable, not a drag area */
-.headerBtn {
+/* Group by folder: at the end of the header row; clickable, not a drag area.
+   Sized as the editor header's buttons (App.module.css .iconBtn) */
+/* Filter, Group by folder: at the end of the header row */
+.headerActions {
   margin-left: auto;
-  width: 22px;
-  height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.headerBtn {
+  position: relative;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: none;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -55,10 +64,28 @@
   background: var(--color-hover-bg);
 }
 
-/* On: like the search box's text-search toggle */
+/* On: tinted, as the search box's text-search toggle (without its border) */
 .headerBtnOn,
 .headerBtnOn:hover {
   color: var(--color-text-strong);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+/* How many filters are on, on the filter button's corner */
+.filterBadge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 13px;
+  text-align: center;
 }
 
 .headerBtn:focus-visible {
@@ -330,6 +357,22 @@
   color: var(--color-icon-markdown);
 }
 
+/* A numbered document's number ("0015"), the row's usual gap before the title */
+.entryNumber {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
+}
+
+.entrySelected .entryNumber {
+  color: var(--color-text-muted);
+}
+
+/* In place of the Markdown icon, for a document with a status; colour by status */
+.statusIcon {
+  flex-shrink: 0;
+}
+
 .entryTitle {
   flex-shrink: 1;
   min-width: 0;
@@ -342,18 +385,12 @@
   color: var(--color-selected-text);
 }
 
-.entryFolder {
-  flex-shrink: 100;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: var(--text-sm);
+/* Rejected, deprecated, superseded: no longer applies */
+.entryRetired .entryTitle,
+.entrySelected.entryRetired .entryTitle {
   color: var(--color-text-subtle);
 }
 
-.entrySelected .entryFolder {
-  color: var(--color-text-muted);
-}
 
 /* ─── Folder tree ─────────────────────────────────────────────────────────── */
 .folderEntry {
@@ -471,6 +508,96 @@
 
 .linkBtn:focus-visible {
   outline: 1px solid var(--color-accent);
+}
+
+/* A status glyph that filters by its status (in place of the Markdown icon) */
+.statusBtn {
+  flex-shrink: 0;
+  display: flex;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+
+.statusBtn:hover {
+  background: var(--color-hover-bg);
+}
+
+/* Active filters, under the search box: removable chips and Clear */
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding-top: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 4px 0 6px;
+  border: 1px solid var(--color-input-border);
+  border-radius: 10px;
+  background: none;
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.chip:hover {
+  background: var(--color-hover-bg);
+}
+
+.chipIcon {
+  width: 12px;
+  height: 12px;
+  margin-left: -2px;
+}
+
+.chipRemove {
+  font-size: 13px;
+  line-height: 1;
+  color: var(--color-text-subtle);
+}
+
+.chipsClear {
+  margin-left: var(--space-1);
+  font-size: var(--text-xs);
+}
+
+.chip:hover .chipRemove {
+  color: var(--color-text);
+}
+
+/* The selected document's tags, below it */
+.tagsLine {
+  height: 18px;
+  line-height: 16px;
+  padding-right: var(--space-3);
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: ellipsis;
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+.tagBtn {
+  margin-right: var(--space-2);
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tagBtn:hover {
+  color: var(--color-text);
+  text-decoration: underline;
 }
 
 .moreMatches {

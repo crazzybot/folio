@@ -159,12 +159,20 @@ if _cors_origins:
 # Response models (typed dicts keep things lightweight without Pydantic models)
 # ---------------------------------------------------------------------------
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 
 class HeadingItem(TypedDict):
     level: int
     text: str
+
+
+class MetadataItem(TypedDict):
+    status: str | None
+    statusDetail: str | None
+    date: str | None
+    people: list[str]
+    tags: list[str]
 
 
 class DocumentListItem(TypedDict):
@@ -174,6 +182,8 @@ class DocumentListItem(TypedDict):
     title: str
     created: str
     headings: list[HeadingItem]
+    # Left out when the document has none of its fields
+    meta: NotRequired[MetadataItem]
 
 
 class DocumentContent(TypedDict):
@@ -216,17 +226,27 @@ def list_documents() -> list[DocumentListItem]:
     docs: list[DocumentMeta] = scan_workspace(
         workspace, skip_dirs=_skip_dirs(), max_depth=_max_depth()
     )
-    return [
-        DocumentListItem(
-            id=doc.id,
-            filename=doc.filename,
-            location=doc.location,
-            title=doc.title,
-            created=doc.created,
-            headings=[HeadingItem(level=h.level, text=h.text) for h in doc.headings],
+    return [_list_item(doc) for doc in docs]
+
+
+def _list_item(doc: DocumentMeta) -> DocumentListItem:
+    item = DocumentListItem(
+        id=doc.id,
+        filename=doc.filename,
+        location=doc.location,
+        title=doc.title,
+        created=doc.created,
+        headings=[HeadingItem(level=h.level, text=h.text) for h in doc.headings],
+    )
+    if doc.meta is not None:
+        item["meta"] = MetadataItem(
+            status=doc.meta.status,
+            statusDetail=doc.meta.status_detail,
+            date=doc.meta.date,
+            people=list(doc.meta.people),
+            tags=list(doc.meta.tags),
         )
-        for doc in docs
-    ]
+    return item
 
 
 @app.get(

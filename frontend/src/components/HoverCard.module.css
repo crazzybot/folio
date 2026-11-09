@@ -1,0 +1,86 @@
+.card {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  max-width: 320px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  font-size: var(--text-ui);
+  line-height: 1.4;
+  color: var(--color-text);
+  pointer-events: none;
+  overflow-wrap: anywhere;
+}
+
+.title {
+  font-weight: 500;
+}
+
+/* Location or folder path */
+.path {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+/* Status and date */
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text);
+}
+
+.statusIcon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+/* People, tags, counts, marks */
+.detail {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+/* A highlight's passage, with its colour as a bar; long ones are cut at 12 lines */
+.quote {
+  margin: 0;
+  padding-left: var(--space-2);
+  border-left: 3px solid var(--mark-yellow-swatch);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 12;
+  line-clamp: 12;
+  overflow: hidden;
+}
+
+.yellow { border-left-color: var(--mark-yellow-swatch); }
+.green { border-left-color: var(--mark-green-swatch); }
+.blue { border-left-color: var(--mark-blue-swatch); }
+.pink { border-left-color: var(--mark-pink-swatch); }
+
+/* Its note, as written */
+.note {
+  margin-top: var(--space-2);
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 12;
+  line-clamp: 12;
+  overflow: hidden;
+  color: var(--color-text-muted);
+}
+
+.quote + .path,
+.note + .path {
+  margin-top: var(--space-2);
+}

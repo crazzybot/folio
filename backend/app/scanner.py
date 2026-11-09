@@ -27,6 +27,16 @@ class Heading:
 
 
 @dataclass(frozen=True)
+class Metadata:
+    """What a document says about itself: front matter fields, or its status line."""
+    status: str | None          # first word of the status, lowercased: "accepted", "draft"…
+    status_detail: str | None   # the status as written, when it says more ("superseded by ADR-0005")
+    date: str | None
+    people: tuple[str, ...]     # decision-makers (MADR 4) or deciders (MADR 3)
+    tags: tuple[str, ...]       # lowercased, without "#", no duplicates
+
+
+@dataclass(frozen=True)
 class DocumentMeta:
     """Lightweight record for the document listing endpoint."""
     id: str
@@ -35,6 +45,7 @@ class DocumentMeta:
     title: str
     created: str    # ISO-8601 with timezone
     headings: tuple[Heading, ...] = ()
+    meta: Metadata | None = None    # None when the document has none of its fields
 
 
 # ---------------------------------------------------------------------------
@@ -142,6 +153,162 @@ def extract_headings(text: str) -> tuple[Heading, ...]:
     return tuple(headings)
 
 
+# ---------------------------------------------------------------------------
+# Metadata (docs/design/frontmatter-metadata.md)
+# Not a YAML parser: the few forms these keys are written in, the same rules
+# as desktop/src/scanner.ts.
+# ---------------------------------------------------------------------------
+
+_MAX_TAGS = 20
+_MAX_TAG_LENGTH = 40
+_MAX_PEOPLE = 20
+
+# A top-level key and its value: "status: accepted", "tags:" (a block list follows)
+_FRONT_MATTER_KEY = re.compile(r"^([A-Za-z][\w-]*)[ \t]*:(?:[ \t]+(.*?))?[ \t]*$")
+_QUOTED = re.compile(r"^([\"'])(.*)\1$")
+_BLOCK_LIST_ITEM = re.compile(r"^[ \t]+-[ \t]+(.*?)[ \t]*$")
+_COMMENT = re.compile(r"[ \t]+#.*$")
+_TRAILING_PUNCTUATION = re.compile(r"[.,;:!]+$")
+# "Status: accepted", "* Status: accepted", "**Status:** accepted"
+_STATUS_LINE = re.compile(
+    r"^ {0,3}(?:[*+-][ \t]+)?(?:\*\*|__)?status(?:\*\*|__)?[ \t]*:(?:\*\*|__)?[ \t]*(.+?)[ \t]*$",
+    re.IGNORECASE,
+)
+
+
+def _front_matter_fields(block: str) -> dict[str, str | list[str]]:
+    """Top-level keys of front matter: a scalar's text, or a block list's items. First of each key wins."""
+    fields: dict[str, str | list[str]] = {}
+    lines = re.split(r"\r\n|\r|\n", block)
+    i = 0
+    while i < len(lines):
+        match = _FRONT_MATTER_KEY.match(lines[i])
+        if match:
+            value: str | list[str] = match.group(2) or ""
+            if value == "":
+                items: list[str] = []
+                while i + 1 < len(lines) and (item := _BLOCK_LIST_ITEM.match(lines[i + 1])):
+                    items.append(item.group(1))
+                    i += 1
+                if items:
+                    value = items
+            fields.setdefault(match.group(1), value)
+        i += 1
+    return fields
+
+
+def _scalar(raw: str) -> str | None:
+    """A scalar's text: unquoted, without a trailing comment; None for anything but plain text."""
+    value = raw.strip()
+    quoted = _QUOTED.match(value) or _QUOTED.match(_COMMENT.sub("", value))
+    if quoted:
+        return quoted.group(2).strip() or None
+    plain = _COMMENT.sub("", value).strip()
+    # Flow collections and block scalars aren't plain text
+    if plain == "" or plain[0] in "[{|>":
+        return None
+    return plain
+
+
+def _list(raw: str | list[str] | None) -> list[str]:
+    """A list's items: a block list, a flow list ("[a, b]") or comma-separated text."""
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return [item for item in map(_scalar, raw) if item is not None]
+    value = raw.strip()
+    if not re.search(r"[\"']", value):
+        value = _COMMENT.sub("", value)
+    flow = re.match(r"^\[(.*)\](?:[ \t]+#.*)?$", value)
+    if flow:
+        value = flow.group(1)
+    elif value[:1] in ("{", "|", ">"):
+        return []
+    return [item for item in map(_scalar, value.split(",")) if item is not None]
+
+
+def _parse_status(raw: str) -> tuple[str, str | None] | None:
+    """A status as words: ("superseded", "superseded by ADR-0005"); None when there's no word."""
+    value = re.sub(r"[*`]", "", raw).strip()
+    first = re.match(r"^\S+", value)
+    word = _TRAILING_PUNCTUATION.sub("", first.group(0)).lower() if first else ""
+    if word == "":
+        return None
+    bare = _TRAILING_PUNCTUATION.sub("", value).lower() == word
+    return word, None if bare else value
+
+
+def _body_status(body: str) -> tuple[str, str | None] | None:
+    """The status written in the first section: a "Status:" line before the second heading, or a "## Status" section."""
+    fence: str | None = None
+    started = False  # past the first non-blank line
+    section: list[str] | None = None  # the "Status" section's first paragraph, once inside it
+    for line in re.split(r"\r\n|\r|\n", body):
+        fence_match = _FENCE.match(line)
+        if fence_match:
+            marker = fence_match.group(1)
+            if fence is None:
+                fence = marker
+            elif marker[0] == fence[0] and len(marker) >= len(fence):
+                fence = None
+            started = True
+            if section:
+                break
+            continue
+        if fence is not None:
+            continue
+        blank = line.strip() == ""
+        if section is not None:
+            if (section if blank else _HEADING_LINE.match(line)):
+                break
+            if not blank:
+                section.append(line.strip())
+            continue
+        if blank:
+            continue
+        heading = _HEADING_LINE.match(line)
+        if heading:
+            # The heading the document starts with is its title; the next one ends the first section
+            if not started:
+                started = True
+                continue
+            if _plain_heading(heading.group(2)).lower() != "status":
+                return None
+            section = []
+            continue
+        started = True
+        status_line = _STATUS_LINE.match(line)
+        if status_line:
+            return _parse_status(status_line.group(1))
+    return _parse_status(" ".join(section)) if section else None
+
+
+def extract_meta(text: str) -> Metadata | None:
+    """The document's metadata (see :class:`Metadata`), or None when it has none."""
+    match = _FRONT_MATTER.match(text)
+    fields = _front_matter_fields((match.group(1) or "") if match else "")
+    raw_status = fields.get("status")
+    status = (_parse_status(_scalar(raw_status) or "") if isinstance(raw_status, str) else None) or _body_status(
+        text[match.end():] if match else text
+    )
+    raw_date = fields.get("date")
+    tags: list[str] = []
+    for tag in _list(fields.get("tags", fields.get("tag"))):
+        tag = tag.lstrip("#").strip().lower()
+        if tag and len(tag) <= _MAX_TAG_LENGTH and tag not in tags:
+            tags.append(tag)
+    meta = Metadata(
+        status=status[0] if status else None,
+        status_detail=status[1] if status else None,
+        date=_scalar(raw_date) if isinstance(raw_date, str) else None,
+        people=tuple(_list(fields.get("decision-makers", fields.get("deciders")))[:_MAX_PEOPLE]),
+        tags=tuple(tags[:_MAX_TAGS]),
+    )
+    if meta.status is None and meta.date is None and not meta.people and not meta.tags:
+        return None
+    return meta
+
+
 def _extract_title(text: str | None, path: Path) -> str:
     """
     Return a human-readable title for the file using this priority:
@@ -202,6 +369,7 @@ def _build_meta(file_path: Path, workspace: Path) -> DocumentMeta:
         title=_extract_title(head, file_path),
         created=_ctime_iso(file_path),
         headings=() if head is None else extract_headings(head),
+        meta=None if head is None else extract_meta(head),
     )
 
 

@@ -5,6 +5,7 @@ import pytest
 from app.scanner import (
     _stable_id,
     extract_headings,
+    extract_meta,
     find_document,
     scan_attachments,
     scan_workspace,
@@ -26,6 +27,13 @@ def test_scan_matches_shared_expected_output():
             "location": d.location,
             "title": d.title,
             "headings": [{"level": h.level, "text": h.text} for h in d.headings],
+            **({} if d.meta is None else {"meta": {
+                "status": d.meta.status,
+                "statusDetail": d.meta.status_detail,
+                "date": d.meta.date,
+                "people": list(d.meta.people),
+                "tags": list(d.meta.tags),
+            }}),
         }
         for d in docs
     ]
@@ -55,6 +63,23 @@ def test_find_document_returns_content():
 @pytest.mark.parametrize("location", ["nope.md", "node_modules/pkg/readme.md", "docs/outside-link.md"])
 def test_find_document_refuses_unknown_skipped_and_escaping(location):
     assert find_document(WORKSPACE, _stable_id(location), skip_dirs=SKIP_DIRS) is None
+
+
+# The same cases as desktop/test/scanner.test.ts
+META_CASES = json.loads((FIXTURES / "meta-cases.json").read_text())
+
+
+@pytest.mark.parametrize("case", META_CASES, ids=[c["name"] for c in META_CASES])
+def test_extract_meta(case):
+    meta = extract_meta(case["text"])
+    as_json = None if meta is None else {
+        "status": meta.status,
+        "statusDetail": meta.status_detail,
+        "date": meta.date,
+        "people": list(meta.people),
+        "tags": list(meta.tags),
+    }
+    assert as_json == case["meta"]
 
 
 @pytest.mark.parametrize(

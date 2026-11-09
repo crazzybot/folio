@@ -1,0 +1,334 @@
+[
+  {
+    "name": "no front matter or status",
+    "text": "# Title\n\nText.\n",
+    "meta": null
+  },
+  {
+    "name": "empty front matter",
+    "text": "---\n---\n# Title\n",
+    "meta": null
+  },
+  {
+    "name": "plain status",
+    "text": "---\nstatus: accepted\n---\n",
+    "meta": {
+      "status": "accepted",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "unknown status kept, lowercased",
+    "text": "---\nstatus: Draft\n---\n",
+    "meta": {
+      "status": "draft",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "status with detail",
+    "text": "---\nstatus: superseded by ADR-0005\n---\n",
+    "meta": {
+      "status": "superseded",
+      "statusDetail": "superseded by ADR-0005",
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "quoted status with a comment",
+    "text": "---\nstatus: 'accepted' # since May\n---\n",
+    "meta": {
+      "status": "accepted",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "block scalar status falls back to the text",
+    "text": "---\nstatus: |\n  accepted\n---\nStatus: proposed\n",
+    "meta": {
+      "status": "proposed",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "flow list tags with quotes and a comment",
+    "text": "---\ntags: [a, \"b c\"] # note\n---\n",
+    "meta": {
+      "status": null,
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": [
+        "a",
+        "b c"
+      ]
+    }
+  },
+  {
+    "name": "comma-separated tags with a comment",
+    "text": "---\ntags: a, b # note\n---\n",
+    "meta": {
+      "status": null,
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": [
+        "a",
+        "b"
+      ]
+    }
+  },
+  {
+    "name": "block list tags",
+    "text": "---\ntags:\n  - One\n  - \"#two\"\n  - one\n---\n",
+    "meta": {
+      "status": null,
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": [
+        "one",
+        "two"
+      ]
+    }
+  },
+  {
+    "name": "obsidian tag key",
+    "text": "---\ntag: '#Solo'\n---\n",
+    "meta": {
+      "status": null,
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": [
+        "solo"
+      ]
+    }
+  },
+  {
+    "name": "long tags dropped",
+    "text": "---\ntags: [ok, xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]\n---\n",
+    "meta": {
+      "status": null,
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": [
+        "ok"
+      ]
+    }
+  },
+  {
+    "name": "tags as a map ignored",
+    "text": "---\ntags: {a: 1}\n---\n",
+    "meta": null
+  },
+  {
+    "name": "nested keys ignored",
+    "text": "---\nextra:\n  status: accepted\n---\n",
+    "meta": null
+  },
+  {
+    "name": "first key wins",
+    "text": "---\nstatus: proposed\nstatus: accepted\n---\n",
+    "meta": {
+      "status": "proposed",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "decision-makers over deciders",
+    "text": "---\ndecision-makers: [Ana]\ndeciders: [Ben]\n---\n",
+    "meta": {
+      "status": null,
+      "statusDetail": null,
+      "date": null,
+      "people": [
+        "Ana"
+      ],
+      "tags": []
+    }
+  },
+  {
+    "name": "comma-separated deciders",
+    "text": "---\ndeciders: Ana, Ben Smith\n---\n",
+    "meta": {
+      "status": null,
+      "statusDetail": null,
+      "date": null,
+      "people": [
+        "Ana",
+        "Ben Smith"
+      ],
+      "tags": []
+    }
+  },
+  {
+    "name": "quoted date",
+    "text": "---\ndate: \"2026-01-01\"\n---\n",
+    "meta": {
+      "status": null,
+      "statusDetail": null,
+      "date": "2026-01-01",
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "status line under the title",
+    "text": "# ADR 1: X\n\nStatus: accepted · 2026-08-12\n\n## Context\n",
+    "meta": {
+      "status": "accepted",
+      "statusDetail": "accepted · 2026-08-12",
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "status line with trailing punctuation",
+    "text": "Status: proposed.\n",
+    "meta": {
+      "status": "proposed",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "status list item",
+    "text": "# T\n\n* Status: proposed\n* Deciders: Ana\n",
+    "meta": {
+      "status": "proposed",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "bold status with a link",
+    "text": "# T\n\n**Status:** superseded by [ADR-0005](0005-kafka.md)\n",
+    "meta": {
+      "status": "superseded",
+      "statusDetail": "superseded by [ADR-0005](0005-kafka.md)",
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "status after an intro paragraph",
+    "text": "Intro line.\n\nStatus: accepted\n",
+    "meta": {
+      "status": "accepted",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "status after the first section ignored",
+    "text": "# T\n\n## Context\n\nStatus: accepted\n",
+    "meta": null
+  },
+  {
+    "name": "status before any title heading ends at the first heading",
+    "text": "Intro.\n\n# Title\n\nStatus: accepted\n",
+    "meta": null
+  },
+  {
+    "name": "status in a code block ignored",
+    "text": "# T\n\n```\nStatus: rejected\n```\n\nStatus: accepted\n",
+    "meta": {
+      "status": "accepted",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "status section",
+    "text": "# 1. X\n\nDate: 2026-09-01\n\n## Status\n\n**Accepted**\n\n## Context\n",
+    "meta": {
+      "status": "accepted",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "status section over two lines",
+    "text": "# 1. X\n\n## Status\n\nSuperseded by\nADR 4\n\nMore.\n",
+    "meta": {
+      "status": "superseded",
+      "statusDetail": "Superseded by ADR 4",
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "empty status section",
+    "text": "# 1. X\n\n## Status\n\n## Context\n",
+    "meta": null
+  },
+  {
+    "name": "front matter without status falls back to the text",
+    "text": "---\ntags: [a]\n---\n# T\n\nStatus: accepted\n",
+    "meta": {
+      "status": "accepted",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": [
+        "a"
+      ]
+    }
+  },
+  {
+    "name": "front matter status wins over the text",
+    "text": "---\nstatus: proposed\n---\nStatus: accepted\n",
+    "meta": {
+      "status": "proposed",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": []
+    }
+  },
+  {
+    "name": "windows line endings",
+    "text": "---\r\nstatus: accepted\r\ntags:\r\n  - a\r\n---\r\n# T\r\n",
+    "meta": {
+      "status": "accepted",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": [
+        "a"
+      ]
+    }
+  }
+]

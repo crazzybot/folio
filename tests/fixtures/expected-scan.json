@@ -21,6 +21,86 @@
       ]
     },
     {
+      "id": "cb7e0e83419b74a7145061ccb767250362b43542",
+      "filename": "0001-front-matter.md",
+      "location": "docs/adr/0001-front-matter.md",
+      "title": "Front matter metadata",
+      "headings": [
+        {
+          "level": 1,
+          "text": "ADR 0001: Not the title"
+        }
+      ],
+      "meta": {
+        "status": "superseded",
+        "statusDetail": "superseded by ADR-0002",
+        "date": "2026-08-12",
+        "people": [
+          "Ana",
+          "Ben"
+        ],
+        "tags": [
+          "queue",
+          "postgres"
+        ]
+      }
+    },
+    {
+      "id": "81807f8cf44d1da3fa544e05e2246330173076be",
+      "filename": "0002-body-status.md",
+      "location": "docs/adr/0002-body-status.md",
+      "title": "ADR 0002: Status in the text",
+      "headings": [
+        {
+          "level": 1,
+          "text": "ADR 0002: Status in the text"
+        },
+        {
+          "level": 2,
+          "text": "Context"
+        }
+      ],
+      "meta": {
+        "status": "accepted",
+        "statusDetail": null,
+        "date": null,
+        "people": [
+          "Cy"
+        ],
+        "tags": [
+          "delivery",
+          "retries"
+        ]
+      }
+    },
+    {
+      "id": "d02f217644167ff96dfa901a15441a60d6170fb5",
+      "filename": "0003-status-section.md",
+      "location": "docs/adr/0003-status-section.md",
+      "title": "3. A status section",
+      "headings": [
+        {
+          "level": 1,
+          "text": "3. A status section"
+        },
+        {
+          "level": 2,
+          "text": "Status"
+        },
+        {
+          "level": 2,
+          "text": "Context"
+        }
+      ],
+      "meta": {
+        "status": "superseded",
+        "statusDetail": "Superseded by [4. Kafka](0004-kafka.md)",
+        "date": null,
+        "people": [],
+        "tags": []
+      }
+    },
+    {
       "id": "1aa2a39beb36119fdb73963b633a705559adeb60",
       "filename": "blank.md",
       "location": "docs/blank.md",
@@ -53,7 +133,17 @@
           "level": 2,
           "text": "Section"
         }
-      ]
+      ],
+      "meta": {
+        "status": null,
+        "statusDetail": null,
+        "date": null,
+        "people": [],
+        "tags": [
+          "a",
+          "b"
+        ]
+      }
     },
     {
       "id": "a07a0e6e2d218bc340c24eba27aa5e40d6f8f46d",

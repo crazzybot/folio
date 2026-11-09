@@ -1,10 +1,19 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { searchDocuments } from "../api";
+import { documentNumber, titleWithoutNumber } from "../docNumber";
 import { buildDocumentTree, foldersContaining } from "../documentTree";
 import type { TreeNode } from "../documentTree";
 import { slugify } from "../slug";
+import { addFilter, hasFilters, NO_FILTERS, toggleFilter } from "../metaFilter";
+import type { FilterOption, MetaFilters } from "../metaFilter";
+import { isRetired, statusText } from "../status";
+import { useRowHoverCard } from "../useRowHoverCard";
 import type { DocumentMeta, Heading, SearchMatch, SearchResult } from "../types";
+import FilterMenu from "./FilterMenu";
+import HoverCard from "./HoverCard";
+import { DocumentCard, FolderCard } from "./HoverCardContent";
 import MarkdownIcon from "./MarkdownIcon";
+import StatusIcon from "./StatusIcon";
 import styles from "./DocumentList.module.css";
 import { getItem, setItem } from "../storage";
 
@@ -34,11 +43,6 @@ function saveExpanded(keys: ReadonlySet<string>): void {
   setItem(EXPANDED_KEY, JSON.stringify([...keys].slice(-MAX_REMEMBERED_FOLDERS)));
 }
 
-/** The folder part of a location, shown dimmed beside a document's title. */
-function folderOf(location: string): string | null {
-  return location.includes("/") ? location.slice(0, location.lastIndexOf("/")) : null;
-}
-
 /**
  * One row of the sidebar list. All three views (folder tree, flat list,
  * search results) are a list of rows, so keyboard navigation is shared:
@@ -47,10 +51,19 @@ function folderOf(location: string): string | null {
  */
 type Row = { key: string; level: number; parent: string | null } & (
   | { kind: "folder"; folderKey: string; label: string; expanded: boolean }
-  | { kind: "document"; doc: DocumentMeta; hint: string | null; matchCount: number | null; onOpen: () => void }
+  | {
+      kind: "document";
+      doc: DocumentMeta;
+      /** Its file name's number ("0015"), shown before the title; null when not numbered. */
+      number: string | null;
+      matchCount: number | null;
+      onOpen: () => void;
+    }
   | { kind: "heading"; heading: Heading; onOpen: () => void }
   | { kind: "match"; match: SearchMatch; onOpen: () => void }
   | { kind: "more"; text: string }
+  /** The selected document's tags, on a line of their own below it. */
+  | { kind: "tags"; tags: string[] }
 );
 
 /**
@@ -85,6 +98,11 @@ interface DocumentListProps {
   /** The folder the list is focused on ("docs/api"; `documents` are already narrowed to it), or null. */
   focus: string | null;
   onFocusChange: (folder: string | null) => void;
+  /** Status and tag filters; `documents` are already narrowed by them. */
+  filters?: MetaFilters;
+  /** What the filter menu offers, counted within the focused folder. */
+  filterOptions?: { statuses: FilterOption[]; tags: FilterOption[] };
+  onFiltersChange?: (filters: MetaFilters) => void;
   /** Number of highlights by document id (documents without any are absent). */
   highlightCounts?: ReadonlyMap<string, number>;
   /** Documents bookmarked as a whole. */
@@ -117,6 +135,9 @@ export default function DocumentList({
   onFullTextChange,
   focus,
   onFocusChange,
+  filters = NO_FILTERS,
+  filterOptions = NO_OPTIONS,
+  onFiltersChange,
   highlightCounts = NO_COUNTS,
   bookmarkedIds = NO_IDS,
   tabs,
@@ -224,6 +245,14 @@ export default function DocumentList({
   // ── Group by folder (shown while not searching) ────────────────────────────
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(loadExpanded);
   const tree = useMemo(() => buildDocumentTree(documents), [documents]);
+  const numbers = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const doc of documents) {
+      const number = documentNumber(doc.filename);
+      if (number !== null) byId.set(doc.id, number);
+    }
+    return byId;
+  }, [documents]);
   const showTree = grouped && trimmed === "";
 
   const chooseGrouped = onGroupedChange;
@@ -278,16 +307,26 @@ export default function DocumentList({
     doc: DocumentMeta,
     level: number,
     parent: string | null,
-    hint: string | null,
     matchCount: number | null,
     onOpen: () => void,
-  ): Row => ({ kind: "document", key: `d:${doc.id}`, level, parent, doc, hint, matchCount, onOpen });
+  ): Row => {
+    const number = numbers.get(doc.id) ?? null;
+    return { kind: "document", key: `d:${doc.id}`, level, parent, doc, number, matchCount, onOpen };
+  };
+  // Below the selected document: its tags (the hover card has everyone's)
+  const addTags = (doc: DocumentMeta, level: number) => {
+    const tags = doc.meta?.tags ?? [];
+    if (doc.id === selectedId && tags.length > 0) {
+      rows.push({ kind: "tags", key: `t:${doc.id}`, level, parent: `d:${doc.id}`, tags });
+    }
+  };
 
   if (showTree) {
     const addNodes = (nodes: readonly TreeNode[], level: number, parent: string | null) => {
       for (const node of nodes) {
         if (node.kind === "document") {
-          rows.push(documentRow(node.doc, level, parent, node.hint, null, () => onSelect(node.doc.id)));
+          rows.push(documentRow(node.doc, level, parent, null, () => onSelect(node.doc.id)));
+          addTags(node.doc, level);
           continue;
         }
         const key = `f:${node.key}`;
@@ -301,7 +340,8 @@ export default function DocumentList({
     for (const entry of results) {
       const { doc, content } = entry;
       const key = `d:${doc.id}`;
-      rows.push(documentRow(doc, 0, null, folderOf(doc.location), content?.matchCount ?? null, () => openEntry(entry)));
+      rows.push(documentRow(doc, 0, null, content?.matchCount ?? null, () => openEntry(entry)));
+      addTags(doc, 0);
       // Text matches already include heading lines, so they replace the heading rows
       const headings = content === undefined ? entry.headings : [];
       headings.slice(0, MAX_HEADING_ROWS).forEach((heading, i) => {
@@ -343,7 +383,7 @@ export default function DocumentList({
   const listRef = useRef<HTMLUListElement>(null);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const rowsByKey = new Map(rows.map((row) => [row.key, row]));
-  const focusable = rows.filter((row) => row.kind !== "more");
+  const focusable = rows.filter((row) => row.kind !== "more" && row.kind !== "tags");
   const tabStop =
     (focusKey !== null && rowsByKey.has(focusKey) ? focusKey : undefined) ??
     focusable.find((row) => row.kind === "document" && row.doc.id === selectedId)?.key ??
@@ -356,9 +396,19 @@ export default function DocumentList({
     el?.scrollIntoView({ block: "nearest" });
   };
 
+  // ── Hover card: a row's full title, location and marks ─────────────────────
+  const { card, listProps: hoverProps, dismiss: dismissCard } = useRowHoverCard((key) => {
+    const kind = rowsByKey.get(key)?.kind;
+    return kind === "document" || kind === "folder";
+  });
+  // The rows change under it as the search narrows
+  useEffect(() => dismissCard(), [dismissCard, trimmed]);
+
+  const cardRow = card === null ? undefined : rowsByKey.get(card.key);
+
   const activate = (row: Row) => {
     if (row.kind === "folder") setFolderExpanded([row.folderKey], !row.expanded);
-    else if (row.kind !== "more") row.onOpen();
+    else if (row.kind !== "more" && row.kind !== "tags") row.onOpen();
   };
 
   function onListKeyDown(e: React.KeyboardEvent) {
@@ -394,9 +444,11 @@ export default function DocumentList({
         break;
       case "Enter":
       case " ":
+        dismissCard();
         activate(row);
         break;
       case "Escape":
+        dismissCard();
         if (focus === null) return;
         onFocusChange(null);
         break;
@@ -415,12 +467,29 @@ export default function DocumentList({
   }, [selectedId, showTree]);
 
   const groupLabel = grouped ? "Show as a flat list" : "Group by folder";
+  // A row's status glyph or tag: filter by it
+  const filterBy =
+    onFiltersChange === undefined
+      ? undefined
+      : (kind: "status" | "tag", value: string) => onFiltersChange(addFilter(filters, kind, value));
 
   return (
     <div className={styles.container}>
       {/* ── Header ── */}
       <header className={styles.header}>
         {tabs ?? <h1 className={styles.heading}>Documents</h1>}
+        <div className={styles.headerActions}>
+        {onFiltersChange !== undefined &&
+          (filterOptions.statuses.length > 0 || filterOptions.tags.length > 0 || hasFilters(filters)) && (
+            <FilterMenu
+              filters={filters}
+              options={filterOptions}
+              onChange={onFiltersChange}
+              buttonClassName={styles.headerBtn}
+              activeClassName={styles.headerBtnOn}
+              badgeClassName={styles.filterBadge}
+            />
+          )}
         <button
           type="button"
           className={`${styles.headerBtn} ${grouped ? styles.headerBtnOn : ""}`}
@@ -436,6 +505,7 @@ export default function DocumentList({
             <path d="M7.5 9h7v2.5h-7zM7.5 11.5h7V14h-7z" />
           </svg>
         </button>
+        </div>
       </header>
 
       {/* ── Focused folder ── */}
@@ -529,6 +599,44 @@ export default function DocumentList({
             </button>
           )}
         </div>
+        {onFiltersChange !== undefined && hasFilters(filters) && (
+          <div className={styles.filterChips} role="group" aria-label="Filters">
+            {filters.statuses.map((status) => (
+              <button
+                key={`s:${status}`}
+                type="button"
+                className={styles.chip}
+                onClick={() => onFiltersChange(toggleFilter(filters, "status", status))}
+                aria-label={`Remove filter: ${status}`}
+                title="Remove filter"
+              >
+                <StatusIcon status={status} className={styles.chipIcon} />
+                {status}
+                <span className={styles.chipRemove} aria-hidden="true">
+                  ×
+                </span>
+              </button>
+            ))}
+            {filters.tags.map((tag) => (
+              <button
+                key={`t:${tag}`}
+                type="button"
+                className={styles.chip}
+                onClick={() => onFiltersChange(toggleFilter(filters, "tag", tag))}
+                aria-label={`Remove filter: #${tag}`}
+                title="Remove filter"
+              >
+                #{tag}
+                <span className={styles.chipRemove} aria-hidden="true">
+                  ×
+                </span>
+              </button>
+            ))}
+            <button type="button" className={`${styles.linkBtn} ${styles.chipsClear}`} onClick={() => onFiltersChange(NO_FILTERS)}>
+              Clear
+            </button>
+          </div>
+        )}
         <p id={`${searchId}-status`} className={styles.searchStatus} aria-live="polite">
           {fullText && contentSearch.status === "searching" && "Searching…"}
           {fullText && contentSearch.status === "error" && "Couldn't search document text"}
@@ -542,7 +650,7 @@ export default function DocumentList({
       </div>
 
       {/* ── List body ── */}
-      <div className={styles.listBody} role="region" aria-label="Document entries">
+      <div className={styles.listBody} role="region" aria-label="Document entries" onScroll={() => dismissCard()}>
         {loading && (
           <div className={styles.statusArea} aria-live="polite" aria-busy="true">
             <span className={styles.spinner} aria-hidden="true" />
@@ -558,7 +666,14 @@ export default function DocumentList({
 
         {!loading && error === null && rows.length === 0 && !(fullText && contentSearch.status === "searching") && (
           <div className={styles.emptyArea}>
-            {!query && focus !== null ? (
+            {!query && hasFilters(filters) && onFiltersChange !== undefined ? (
+              <>
+                <p>No documents match these filters.</p>
+                <button type="button" className={styles.linkBtn} onClick={() => onFiltersChange(NO_FILTERS)}>
+                  Clear filters
+                </button>
+              </>
+            ) : !query && focus !== null ? (
               <>
                 <p>No documents in {focus}.</p>
                 <button type="button" className={styles.linkBtn} onClick={() => onFocusChange(null)}>
@@ -587,6 +702,7 @@ export default function DocumentList({
             role={showTree ? "tree" : "listbox"}
             aria-label="Documents"
             onKeyDown={onListKeyDown}
+            {...hoverProps}
           >
             {rows.map((row) => (
               <RowItem
@@ -599,6 +715,7 @@ export default function DocumentList({
                 onFocus={() => setFocusKey(row.key)}
                 onActivate={() => activate(row)}
                 onFocusFolder={onFocusChange}
+                onFilterBy={filterBy}
                 bookmarked={row.kind === "document" && bookmarkedIds.has(row.doc.id)}
                 highlightCount={
                   row.kind === "document"
@@ -612,6 +729,19 @@ export default function DocumentList({
           </ul>
         )}
       </div>
+      {card !== null && (cardRow?.kind === "document" || cardRow?.kind === "folder") && (
+        <HoverCard anchor={card}>
+          {cardRow.kind === "document" ? (
+            <DocumentCard
+              doc={cardRow.doc}
+              bookmarked={bookmarkedIds.has(cardRow.doc.id)}
+              highlightCount={highlightCounts.get(cardRow.doc.id) ?? 0}
+            />
+          ) : (
+            <FolderCard folder={cardRow.folderKey} label={cardRow.label} documents={documents} highlightCounts={highlightCounts} />
+          )}
+        </HoverCard>
+      )}
     </div>
   );
 }
@@ -622,6 +752,9 @@ export default function DocumentList({
 const INDENT = 12;
 const CHEVRON = 16;
 const TREE_PADDING = 8;
+// A flat list row's left padding (--space-5), and the icon with its gap
+const FLAT_PADDING = 20;
+const ICON_WIDTH = 22;
 
 interface RowItemProps {
   row: Row;
@@ -634,6 +767,8 @@ interface RowItemProps {
   onActivate: () => void;
   /** Focus on Folder, from a folder row's button or (desktop) context menu. */
   onFocusFolder: (folder: string) => void;
+  /** Filter the list by a status (a row's glyph) or tag (the selected row's tags); absent without filters. */
+  onFilterBy?: ((kind: "status" | "tag", value: string) => void) | undefined;
   /** A document's highlights; for a folder, more than 0 when something inside has any. */
   highlightCount: number;
   /** A document bookmarked as a whole. */
@@ -649,9 +784,34 @@ function RowItem({
   onFocus,
   onActivate,
   onFocusFolder,
+  onFilterBy,
   highlightCount,
   bookmarked,
 }: RowItemProps): React.ReactElement {
+  if (row.kind === "tags") {
+    // Lined up with the title: past the row's icon and its gap
+    const indent = (tree ? TREE_PADDING + row.level * INDENT + CHEVRON : FLAT_PADDING) + ICON_WIDTH;
+    return (
+      <li className={styles.tagsLine} style={{ paddingLeft: indent }} role="presentation" aria-hidden="true">
+        {onFilterBy === undefined
+          ? row.tags.map((tag) => `#${tag}`).join("  ")
+          : row.tags.map((tag) => (
+              // Mouse shortcut, as a folder row's button; the keyboard has the filter menu
+              <button
+                key={tag}
+                type="button"
+                className={styles.tagBtn}
+                tabIndex={-1}
+                onClick={() => onFilterBy("tag", tag)}
+                title={`Show only documents tagged #${tag}`}
+              >
+                #{tag}
+              </button>
+            ))}
+      </li>
+    );
+  }
+
   if (row.kind === "more") {
     return (
       <li className={styles.moreMatches} role="presentation" aria-hidden="true">
@@ -677,7 +837,6 @@ function RowItem({
         style={{ paddingLeft: TREE_PADDING + row.level * INDENT }}
         aria-expanded={row.expanded}
         aria-selected={false}
-        title={row.folderKey}
         onContextMenu={(e) => {
           // Desktop: a native menu (Focus on Folder, Open Folder as Workspace);
           // the browser keeps its own menu
@@ -703,7 +862,7 @@ function RowItem({
         </svg>
         <span className={styles.entryTitle}>{row.label}</span>
         {!row.expanded && highlightCount > 0 && (
-          <span className={styles.folderMarks} title="Has highlights" aria-label="Has highlights" />
+          <span className={styles.folderMarks} aria-label="Has highlights" />
         )}
         {/* Mouse shortcut; the keyboard has the breadcrumb and context menu */}
         <button
@@ -728,21 +887,44 @@ function RowItem({
   }
 
   if (row.kind === "document") {
-    const { doc, hint, matchCount } = row;
+    const { doc, number, matchCount } = row;
+    const status = doc.meta?.status ?? null;
+    const tags = doc.meta?.tags ?? [];
+    const described =
+      (status === null ? "" : ` — ${statusText({ status, statusDetail: doc.meta?.statusDetail ?? null })}`) +
+      (tags.length === 0 ? "" : ` — tags ${tags.join(", ")}`);
     const matches = matchCount === null ? "" : ` — ${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
     const marked = highlightCount === 0 ? "" : ` — ${highlightCount} ${highlightCount === 1 ? "highlight" : "highlights"}`;
     return (
       <li
         {...common}
-        className={`${styles.entry} ${selected ? styles.entrySelected : ""}`}
+        className={`${styles.entry} ${selected ? styles.entrySelected : ""} ${status !== null && isRetired(status) ? styles.entryRetired : ""}`}
         style={tree ? { paddingLeft: TREE_PADDING + row.level * INDENT + CHEVRON } : undefined}
         aria-selected={selected}
-        aria-label={`${doc.title} — ${doc.location}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
-        title={doc.location}
+        aria-label={`${doc.title} — ${doc.location}${described}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
       >
-        <MarkdownIcon className={styles.entryIcon} />
-        <span className={styles.entryTitle}>{doc.title}</span>
-        {hint && <span className={styles.entryFolder}>{hint}</span>}
+        {status === null ? (
+          <MarkdownIcon className={styles.entryIcon} />
+        ) : onFilterBy === undefined ? (
+          <StatusIcon status={status} className={styles.statusIcon} />
+        ) : (
+          // Mouse shortcut; the keyboard has the filter menu
+          <button
+            type="button"
+            className={styles.statusBtn}
+            tabIndex={-1}
+            onClick={(e) => {
+              e.stopPropagation();
+              onFilterBy("status", status);
+            }}
+            aria-label={`Show only ${status} documents`}
+            title={`Show only ${status} documents`}
+          >
+            <StatusIcon status={status} className={styles.statusIcon} />
+          </button>
+        )}
+        {number !== null && <span className={styles.entryNumber}>{number}</span>}
+        <span className={styles.entryTitle}>{number === null ? doc.title : titleWithoutNumber(doc.title, number)}</span>
         {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}
         {bookmarked && (
           <svg className={styles.bookmarked} width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
@@ -750,7 +932,7 @@ function RowItem({
           </svg>
         )}
         {matchCount === null && highlightCount > 0 && (
-          <span className={styles.marksCount} title={marked.slice(3)} aria-hidden="true">
+          <span className={styles.marksCount} aria-hidden="true">
             <span className={styles.marksDot} />
             {highlightCount}
           </span>
@@ -796,4 +978,5 @@ function RowItem({
 
 const LEAD_CHARS = 12;
 const NO_COUNTS: ReadonlyMap<string, number> = new Map();
+const NO_OPTIONS: { statuses: FilterOption[]; tags: FilterOption[] } = { statuses: [], tags: [] };
 const NO_IDS: ReadonlySet<string> = new Set();
