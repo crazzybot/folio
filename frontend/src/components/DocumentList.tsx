@@ -6,10 +6,12 @@ import type { TreeNode } from "../documentTree";
 import { HoverIntent } from "../hoverCard";
 import type { CardAnchor } from "../hoverCard";
 import { slugify } from "../slug";
+import { isRetired, statusText } from "../status";
 import type { DocumentMeta, Heading, SearchMatch, SearchResult } from "../types";
 import HoverCard from "./HoverCard";
 import hoverCardStyles from "./HoverCard.module.css";
 import MarkdownIcon from "./MarkdownIcon";
+import StatusIcon from "./StatusIcon";
 import styles from "./DocumentList.module.css";
 import { getItem, setItem } from "../storage";
 
@@ -58,6 +60,8 @@ type Row = { key: string; level: number; parent: string | null } & (
   | { kind: "heading"; heading: Heading; onOpen: () => void }
   | { kind: "match"; match: SearchMatch; onOpen: () => void }
   | { kind: "more"; text: string }
+  /** The selected document's tags, on a line of their own below it. */
+  | { kind: "tags"; tags: string[] }
 );
 
 /**
@@ -299,12 +303,20 @@ export default function DocumentList({
     const number = numbers.get(doc.id) ?? null;
     return { kind: "document", key: `d:${doc.id}`, level, parent, doc, number, matchCount, onOpen };
   };
+  // Below the selected document: its tags (the hover card has everyone's)
+  const addTags = (doc: DocumentMeta, level: number) => {
+    const tags = doc.meta?.tags ?? [];
+    if (doc.id === selectedId && tags.length > 0) {
+      rows.push({ kind: "tags", key: `t:${doc.id}`, level, parent: `d:${doc.id}`, tags });
+    }
+  };
 
   if (showTree) {
     const addNodes = (nodes: readonly TreeNode[], level: number, parent: string | null) => {
       for (const node of nodes) {
         if (node.kind === "document") {
           rows.push(documentRow(node.doc, level, parent, null, () => onSelect(node.doc.id)));
+          addTags(node.doc, level);
           continue;
         }
         const key = `f:${node.key}`;
@@ -319,6 +331,7 @@ export default function DocumentList({
       const { doc, content } = entry;
       const key = `d:${doc.id}`;
       rows.push(documentRow(doc, 0, null, content?.matchCount ?? null, () => openEntry(entry)));
+      addTags(doc, 0);
       // Text matches already include heading lines, so they replace the heading rows
       const headings = content === undefined ? entry.headings : [];
       headings.slice(0, MAX_HEADING_ROWS).forEach((heading, i) => {
@@ -360,7 +373,7 @@ export default function DocumentList({
   const listRef = useRef<HTMLUListElement>(null);
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const rowsByKey = new Map(rows.map((row) => [row.key, row]));
-  const focusable = rows.filter((row) => row.kind !== "more");
+  const focusable = rows.filter((row) => row.kind !== "more" && row.kind !== "tags");
   const tabStop =
     (focusKey !== null && rowsByKey.has(focusKey) ? focusKey : undefined) ??
     focusable.find((row) => row.kind === "document" && row.doc.id === selectedId)?.key ??
@@ -400,7 +413,7 @@ export default function DocumentList({
 
   const activate = (row: Row) => {
     if (row.kind === "folder") setFolderExpanded([row.folderKey], !row.expanded);
-    else if (row.kind !== "more") row.onOpen();
+    else if (row.kind !== "more" && row.kind !== "tags") row.onOpen();
   };
 
   function onListKeyDown(e: React.KeyboardEvent) {
@@ -706,10 +719,19 @@ function DocumentCard({
   highlightCount: number;
 }): React.ReactElement {
   const marks = [bookmarked && "Bookmarked", highlightCount > 0 && plural(highlightCount, "highlight", "highlights")].filter(Boolean);
+  const { status = null, statusDetail = null, date = null, people = [], tags = [] } = doc.meta ?? {};
   return (
     <>
       <div className={hoverCardStyles.title}>{doc.title}</div>
       <div className={hoverCardStyles.path}>{doc.location}</div>
+      {(status !== null || date !== null) && (
+        <div className={hoverCardStyles.status}>
+          {status !== null && <StatusIcon status={status} className={hoverCardStyles.statusIcon} />}
+          {[status === null ? null : statusText({ status, statusDetail }), date].filter(Boolean).join(" · ")}
+        </div>
+      )}
+      {people.length > 0 && <div className={hoverCardStyles.detail}>{people.join(", ")}</div>}
+      {tags.length > 0 && <div className={hoverCardStyles.detail}>{tags.map((tag) => `#${tag}`).join("  ")}</div>}
       {marks.length > 0 && <div className={hoverCardStyles.detail}>{marks.join(" · ")}</div>}
     </>
   );
@@ -746,6 +768,9 @@ function FolderCard({
 const INDENT = 12;
 const CHEVRON = 16;
 const TREE_PADDING = 8;
+// A flat list row's left padding (--space-5), and the icon with its gap
+const FLAT_PADDING = 20;
+const ICON_WIDTH = 22;
 
 interface RowItemProps {
   row: Row;
@@ -776,6 +801,16 @@ function RowItem({
   highlightCount,
   bookmarked,
 }: RowItemProps): React.ReactElement {
+  if (row.kind === "tags") {
+    // Lined up with the title: past the row's icon and its gap
+    const indent = (tree ? TREE_PADDING + row.level * INDENT + CHEVRON : FLAT_PADDING) + ICON_WIDTH;
+    return (
+      <li className={styles.tagsLine} style={{ paddingLeft: indent }} role="presentation" aria-hidden="true">
+        {row.tags.map((tag) => `#${tag}`).join("  ")}
+      </li>
+    );
+  }
+
   if (row.kind === "more") {
     return (
       <li className={styles.moreMatches} role="presentation" aria-hidden="true">
@@ -852,17 +887,22 @@ function RowItem({
 
   if (row.kind === "document") {
     const { doc, number, matchCount } = row;
+    const status = doc.meta?.status ?? null;
+    const tags = doc.meta?.tags ?? [];
+    const described =
+      (status === null ? "" : ` — ${statusText({ status, statusDetail: doc.meta?.statusDetail ?? null })}`) +
+      (tags.length === 0 ? "" : ` — tags ${tags.join(", ")}`);
     const matches = matchCount === null ? "" : ` — ${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
     const marked = highlightCount === 0 ? "" : ` — ${highlightCount} ${highlightCount === 1 ? "highlight" : "highlights"}`;
     return (
       <li
         {...common}
-        className={`${styles.entry} ${selected ? styles.entrySelected : ""}`}
+        className={`${styles.entry} ${selected ? styles.entrySelected : ""} ${status !== null && isRetired(status) ? styles.entryRetired : ""}`}
         style={tree ? { paddingLeft: TREE_PADDING + row.level * INDENT + CHEVRON } : undefined}
         aria-selected={selected}
-        aria-label={`${doc.title} — ${doc.location}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
+        aria-label={`${doc.title} — ${doc.location}${described}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
       >
-        <MarkdownIcon className={styles.entryIcon} />
+        {status === null ? <MarkdownIcon className={styles.entryIcon} /> : <StatusIcon status={status} className={styles.statusIcon} />}
         {number !== null && <span className={styles.entryNumber}>{number}</span>}
         <span className={styles.entryTitle}>{number === null ? doc.title : titleWithoutNumber(doc.title, number)}</span>
         {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}

@@ -67,8 +67,9 @@ than two YAML libraries.
   A document whose front matter can't be read keeps working exactly as
   today.
 
-`splitFrontMatter` grows into returning the parsed fields as well as `title`
-and `body`.
+`extractMeta` (`extract_meta` in Python) reads them; `splitFrontMatter`
+keeps returning only `title` and `body`. The rules are checked by cases
+shared between vitest and pytest (`tests/fixtures/meta-cases.json`).
 
 ### Status in the first section
 
@@ -190,7 +191,8 @@ takes (`ADR 0001: ` is ~70px). Below ~200px a container query reduces the
 highlights marker to its dot, without the count; the number never hides.
 
 **Selected row.** Shows the document's tags on a second line in small muted
-text (`#queue  #postgres`), ending in `+2` when they don't fit. Clicking a tag
+text (`#queue  #postgres`), cut off with an ellipsis when they don't fit (the
+hover card and document header have them all). Clicking a tag
 adds it to the filters. Other rows stay one line; their tags are in the hover
 card.
 
@@ -312,8 +314,10 @@ strip above the document's content, in the reading column:
 ↷ Superseded by ADR-0021 · 2026-08-12 · Ana, Ben          #gateway  #auth
 ```
 
-- Status glyph + word (the detail when there is one), date, decision makers,
-  then the tags — status and tags look different, as in the list.
+- Status glyph + word (the detail when there is one, first letter
+  capitalised), date, decision makers, then the tags — status and tags look
+  different, as in the list. Outside the article, so highlights' text
+  positions don't count it.
 - "Superseded by ADR-0021" links to that document when the detail holds a
   Markdown link, or a number matching a numbered document in the same folder.
 - Clicking the status or a tag adds it to the filters.
@@ -323,9 +327,10 @@ strip above the document's content, in the reading column:
 ## 6. Demo
 
 The demo ADRs (`demo/relay/docs/adr/`) write `Status: accepted · …` in the
-body, which is read as it is. To show both ways in, one of them moves to
-front matter (with tags), and the set gains a superseded and a proposed ADR
-so the glyphs and filters have something to show. The demo bundle is built with the desktop scanner, so it
+body, which is read as it is (0003 is proposed). ADR 0001 moves to front
+matter with tags, and the set gains ADR 0004 (superseded by 0005) and ADR
+0005 (accepted), so the glyphs, the header's link and the filters have
+something to show. The specs' `Status:` lines are read too. The demo bundle is built with the desktop scanner, so it
 picks up `meta` without changes; demo search tests may need their counts
 updated.
 

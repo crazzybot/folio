@@ -1,0 +1,57 @@
+/* Same column as the article (MarkdownViewer.module.css .article) */
+.properties {
+  width: 100%;
+  max-width: var(--reading-width, 880px);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-8) 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  font-size: calc(var(--reading-font-size, var(--text-content)) * 0.85);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text);
+}
+
+.statusIcon {
+  flex-shrink: 0;
+}
+
+/* Date, decision makers: "·" between them and after the status */
+.status + .detail::before,
+.detail + .detail::before {
+  content: "·";
+  margin-right: var(--space-3);
+  color: var(--color-text-subtle);
+}
+
+.link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--color-link);
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tag {
+  color: var(--color-text-subtle);
+}

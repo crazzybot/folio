@@ -41,6 +41,7 @@ import remarkMathDollars from "../mathDollars";
 import { loadRehypeKatex, loadedRehypeKatex, mayContainMath } from "../katexLoader";
 import type { RehypeKatex } from "../katexLoader";
 import remarkObsidian from "../obsidian";
+import DocumentProperties from "./DocumentProperties";
 import MermaidDiagram from "./MermaidDiagram";
 import styles from "./MarkdownViewer.module.css";
 // After the module CSS: document styles override the base rules by order
@@ -537,6 +538,8 @@ export default function MarkdownViewer({
 }: MarkdownViewerProps): React.ReactElement {
   const scrollRef = useRef<HTMLDivElement>(null);
   const articleRef = useRef<HTMLElement>(null);
+  // The shown document's listing, for its metadata header
+  const currentDoc = documents.find((doc) => doc.id === (contentId ?? selectedId));
 
   // -------------------------------------------------------------------------
   // KaTeX, loaded the first time a document may contain math
@@ -1110,6 +1113,10 @@ export default function MarkdownViewer({
 
           {/* ── Rendered markdown ── */}
           {!loading && error === null && content !== null && (
+            <>
+            {currentDoc?.meta !== undefined && (
+              <DocumentProperties doc={currentDoc} documents={documents} onOpenDocument={onOpenDocument} />
+            )}
             <article className={`${styles.article} folio-document`} aria-label="Rendered markdown" ref={articleRef}>
               <LinkContext.Provider value={linkHandlers}>
                 <ReactMarkdown
@@ -1122,6 +1129,7 @@ export default function MarkdownViewer({
                 </ReactMarkdown>
               </LinkContext.Provider>
             </article>
+            </>
           )}
           {markHandlers !== undefined && (
             <MarksLayer

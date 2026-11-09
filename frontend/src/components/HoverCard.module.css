@@ -28,7 +28,23 @@
   color: var(--color-text-muted);
 }
 
-/* Counts, marks */
+/* Status and date */
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text);
+}
+
+.statusIcon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+
+/* People, tags, counts, marks */
 .detail {
   margin-top: var(--space-1);
   font-size: var(--text-xs);

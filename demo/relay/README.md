@@ -13,7 +13,8 @@ copy your notes for the agent from the clipboard button in the header.
 - [[delivery-queue|Offline delivery queue]]: the spec under review
 - [[rate-limits|Per-tenant rate limits]] and [[signed-payloads|Signed payloads]]
 - Decisions so far: [[0001-postgres-for-the-queue|ADR 0001]],
-  [[0002-at-least-once-delivery|ADR 0002]], [[0003-hmac-signatures|ADR 0003]]
+  [[0002-at-least-once-delivery|ADR 0002]], [[0003-hmac-signatures|ADR 0003]],
+  [[0005-exponential-backoff|ADR 0005]] (replacing [[0004-retry-on-a-fixed-schedule|ADR 0004]])
 - Background: [[queue-options|Research: queue options]]
 - When something goes wrong: [[replay-events|Runbook: replay events]]
 

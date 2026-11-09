@@ -22,6 +22,9 @@
 
   --color-accent:        #0078d4; /* focus rings, sash, active borders */
   --color-accent-dim:    #3c3c3c;
+  /* Document status (status.ts): accepted, proposed; retired and others use text colours */
+  --color-status-accepted: #3cb96b;
+  --color-status-proposed: #3794ff;
   --color-selected-bg:   #37373d; /* list selection while the list is unfocused */
   --color-selected-focus-bg: #04395e; /* list selection while the list is focused */
   --color-selected-text: #ffffff;
@@ -166,6 +169,8 @@ body {
 
   --color-accent:        #005fb8;
   --color-accent-dim:    #d8d8d8;
+  --color-status-accepted: #1a7f37;
+  --color-status-proposed: #005fb8;
   --color-selected-bg:   #e4e6f1;
   --color-selected-focus-bg: #d6ebff;
   --color-selected-text: #1f1f1f;
@@ -256,6 +261,8 @@ body {
 
     --color-accent:        #0969da;
     --color-accent-dim:    #d0d7de;
+    --color-status-accepted: #1a7f37;
+    --color-status-proposed: #0969da;
 
     --color-link:          #0969da;
     --color-code-bg:       #f6f8fa;
