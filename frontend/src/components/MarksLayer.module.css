@@ -79,12 +79,19 @@
 }
 
 /* ─── Popover: colours and actions, then the note ─────────────────────────── */
+/* Below or above its highlight: top is set to fit the view */
 .popover {
+  transform: translateX(-50%);
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
   padding: 6px;
   white-space: normal;
+}
+
+/* With a note to read or write: room for it */
+.popoverWide {
+  width: min(420px, calc(100% - 16px));
 }
 
 .row {
@@ -95,8 +102,7 @@
 
 /* The note, as written; click to edit */
 .noteText {
-  max-width: 280px;
-  max-height: 160px;
+  max-height: 240px;
   overflow-y: auto;
   padding: 4px 6px;
   border: none;
@@ -120,13 +126,12 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  width: 280px;
 }
 
 .noteField {
   width: 100%;
-  min-height: 64px;
-  max-height: 240px;
+  min-height: 96px;
+  max-height: 320px;
   padding: 4px 6px;
   resize: vertical;
   background: var(--color-input-bg);
@@ -174,7 +179,8 @@
 /* ─── Markers beside the text ─────────────────────────────────────────────── */
 /* After a highlight that has a note; centred on the line (top is its middle) */
 .noteMarker,
-.headingBookmark {
+.headingBookmark,
+.blockNote {
   position: absolute;
   z-index: 4;
   width: 20px;
@@ -192,13 +198,15 @@
 }
 
 .noteMarker:hover,
-.headingBookmark:hover {
+.headingBookmark:hover,
+.blockNote:hover {
   color: var(--color-text);
   background: var(--color-hover-bg);
 }
 
 .noteMarker:focus-visible,
-.headingBookmark:focus-visible {
+.headingBookmark:focus-visible,
+.blockNote:focus-visible {
   outline: 2px solid var(--color-accent);
 }
 
@@ -210,7 +218,8 @@
 @media print {
   .bubble,
   .noteMarker,
-  .headingBookmark {
+  .headingBookmark,
+  .blockNote {
     display: none;
   }
 }

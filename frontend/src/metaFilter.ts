@@ -76,12 +76,6 @@ export function toggleFilter(filters: MetaFilters, kind: "status" | "tag", value
   return { ...filters, [key]: list.includes(value) ? list.filter((v) => v !== value) : [...list, value] };
 }
 
-/** `filters` with `value` in its list (unchanged if it already is). */
-export function addFilter(filters: MetaFilters, kind: "status" | "tag", value: string): MetaFilters {
-  const key = kind === "status" ? "statuses" : "tags";
-  return filters[key].includes(value) ? filters : { ...filters, [key]: [...filters[key], value] };
-}
-
 // ── Remembered per workspace ──────────────────────────────────────────────────
 
 const strings = (value: unknown): string[] =>

@@ -70,12 +70,10 @@ interface MarkdownViewerProps {
   currentLocation?: string | null;
   /** Called when the user clicks a link to another workspace document. */
   onOpenDocument?: (id: string, anchor: string | null) => void;
-  /** Filter the document list by a status or tag clicked in the document's metadata header. */
-  onFilterBy?: (kind: "status" | "tag", value: string) => void;
   /** The note on the shown document as a whole, shown in its metadata header. */
   documentNote?: DocumentNote | undefined;
-  /** Open the document note editor (clicking the note in the header). */
-  onEditDocumentNote?: () => void;
+  /** Open the document note editor under `from` (clicking the status or the note in the header). */
+  onEditDocumentNote?: (from: HTMLElement) => void;
   /** Remove the note's requested status once the document has it. */
   onClearNoteRequest?: () => void;
   /** Search text to highlight in the document ("" for none). */
@@ -537,7 +535,6 @@ export default function MarkdownViewer({
   attachments = NO_ATTACHMENTS,
   currentLocation = null,
   onOpenDocument,
-  onFilterBy,
   documentNote,
   onEditDocumentNote,
   onClearNoteRequest,
@@ -1136,7 +1133,6 @@ export default function MarkdownViewer({
                 doc={currentDoc}
                 documents={documents}
                 onOpenDocument={onOpenDocument}
-                onFilterBy={onFilterBy}
                 note={documentNote}
                 onEditNote={onEditDocumentNote}
                 onClearRequest={onClearNoteRequest}

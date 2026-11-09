@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addFilter, filterByMeta, filterOptions, NO_FILTERS, parseSavedFilters, toggleFilter } from "./metaFilter";
+import { filterByMeta, filterOptions, NO_FILTERS, parseSavedFilters, toggleFilter } from "./metaFilter";
 import type { DocumentMeta } from "./types";
 
 const doc = (location: string, status: string | null, tags: string[] = []): DocumentMeta => ({
@@ -67,17 +67,12 @@ describe("filterOptions", () => {
   });
 });
 
-describe("toggleFilter and addFilter", () => {
+describe("toggleFilter", () => {
   it("adds and removes values", () => {
     const one = toggleFilter(NO_FILTERS, "status", "accepted");
     expect(one).toEqual({ statuses: ["accepted"], tags: [] });
     expect(toggleFilter(one, "status", "accepted")).toEqual(NO_FILTERS);
     expect(toggleFilter(one, "tag", "queue")).toEqual({ statuses: ["accepted"], tags: ["queue"] });
-  });
-
-  it("adds a value once", () => {
-    const one = addFilter(NO_FILTERS, "tag", "queue");
-    expect(addFilter(one, "tag", "queue")).toBe(one);
   });
 });
 

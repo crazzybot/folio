@@ -16,9 +16,11 @@ const OTHER = "\u0000other";
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+export type NoteEditorAnchor = { bottom: number } & ({ right: number } | { left: number });
+
 interface DocumentNoteEditorProps {
-  /** The toolbar button it opens under (viewport pixels). */
-  anchor: { right: number; bottom: number };
+  /** What it opens under (viewport pixels): right-aligned with the toolbar button, left-aligned with the status in the document. */
+  anchor: NoteEditorAnchor;
   /** The document's status now, if it has one: not offered as a change. */
   currentStatus: string | null;
   note: DocumentNote | undefined;
@@ -92,7 +94,10 @@ export default function DocumentNoteEditor({
       aria-label="Note on this document"
       style={{
         top: anchor.bottom + 6,
-        left: Math.max(MARGIN, Math.min(anchor.right - WIDTH, window.innerWidth - WIDTH - MARGIN)),
+        left: Math.max(
+          MARGIN,
+          Math.min("left" in anchor ? anchor.left : anchor.right - WIDTH, window.innerWidth - WIDTH - MARGIN),
+        ),
         width: WIDTH,
       }}
       onKeyDown={(e) => {
