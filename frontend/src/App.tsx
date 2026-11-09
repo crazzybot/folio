@@ -837,7 +837,7 @@ function AppInner(): React.ReactElement {
             )}
 
             <button
-              className={styles.iconBtn}
+              className={`${styles.iconBtn} ${showOutline ? styles.iconBtnPressed : ""}`}
               onClick={() => setShowOutline(!showOutline)}
               aria-pressed={showOutline}
               aria-label={showOutline ? "Hide outline" : "Show outline"}

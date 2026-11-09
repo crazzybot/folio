@@ -55,10 +55,11 @@
   background: var(--color-hover-bg);
 }
 
-/* On: like the search box's text-search toggle */
+/* On: tinted, as the search box's text-search toggle (without its border) */
 .headerBtnOn,
 .headerBtnOn:hover {
   color: var(--color-text-strong);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
 .headerBtn:focus-visible {
