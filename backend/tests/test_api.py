@@ -37,6 +37,7 @@ def test_lists_metadata_only_when_there_is_some(client):
         "date": "2026-08-12",
         "people": ["Ana", "Ben"],
         "tags": ["queue", "postgres"],
+        "statusLine": 3,
     }
 
 

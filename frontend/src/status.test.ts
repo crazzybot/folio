@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isRetired, statusKind, statusText, supersedingDocument } from "./status";
+import { isRetired, normaliseStatus, requestDone, statusKind, statusText, supersedingDocument } from "./status";
 import type { DocumentMeta, Metadata } from "./types";
 
 const meta = (status: string | null, statusDetail: string | null = null): Metadata => ({
@@ -8,6 +8,7 @@ const meta = (status: string | null, statusDetail: string | null = null): Metada
   date: null,
   people: [],
   tags: [],
+  statusLine: null,
 });
 
 const doc = (location: string, m?: Metadata): DocumentMeta => ({
@@ -31,6 +32,25 @@ describe("statusKind and isRetired", () => {
   it("dims what no longer applies", () => {
     expect(["proposed", "accepted", "implemented", "draft"].map(isRetired)).toEqual([false, false, false, false]);
     expect(["rejected", "deprecated", "superseded"].map(isRetired)).toEqual([true, true, true]);
+  });
+});
+
+describe("normaliseStatus and requestDone", () => {
+  it("reads a status as the scanners do", () => {
+    expect(["Accepted", " accepted. ", "**Approved**", "superseded by ADR-5", ""].map(normaliseStatus)).toEqual([
+      "accepted",
+      "accepted",
+      "approved",
+      "superseded",
+      "",
+    ]);
+  });
+
+  it("is done when the document has the requested status", () => {
+    expect(requestDone("accepted", "Accepted")).toBe(true);
+    expect(requestDone("proposed", "accepted")).toBe(false);
+    expect(requestDone(null, "accepted")).toBe(false);
+    expect(requestDone("accepted", null)).toBe(false);
   });
 });
 

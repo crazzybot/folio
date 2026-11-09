@@ -1,4 +1,4 @@
-import type { Bookmark, DocumentContent, DocumentMeta, Highlight, MarksListing, NavigationState, SearchResult } from "./types";
+import type { Bookmark, DocumentContent, DocumentMeta, DocumentNote, Highlight, MarksListing, NavigationState, SearchResult } from "./types";
 
 /** The desktop settings the in-app panel shows (desktop/src/main.ts settingsView). */
 export interface DesktopSettings {
@@ -78,6 +78,8 @@ interface MarkdownDesktopApi {
     deleteHighlight(docId: string, highlightId: string): Promise<void>;
     addBookmark(docId: string, body: unknown): Promise<Bookmark>;
     deleteBookmark(docId: string, bookmarkId: string): Promise<void>;
+    setNote(docId: string, body: unknown): Promise<DocumentNote | null>;
+    deleteNote(docId: string): Promise<void>;
     relink(recordId: string, docId: string): Promise<void>;
     forget(recordId: string): Promise<void>;
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */

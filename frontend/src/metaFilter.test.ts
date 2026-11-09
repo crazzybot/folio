@@ -9,7 +9,7 @@ const doc = (location: string, status: string | null, tags: string[] = []): Docu
   title: location,
   created: "",
   headings: [],
-  ...(status === null && tags.length === 0 ? {} : { meta: { status, statusDetail: null, date: null, people: [], tags } }),
+  ...(status === null && tags.length === 0 ? {} : { meta: { status, statusDetail: null, date: null, people: [], tags, statusLine: null } }),
 });
 
 const docs = [

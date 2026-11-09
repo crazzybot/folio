@@ -14,8 +14,8 @@
  * and last until the page is closed.
  */
 
-import type { HighlightChanges, NewHighlight } from "../dataSource";
-import type { Bookmark, BookmarkHeading, DocumentMarks, Highlight, MarksListing } from "../types";
+import type { HighlightChanges, NewHighlight, NoteChanges } from "../dataSource";
+import type { Bookmark, BookmarkHeading, DocumentMarks, DocumentNote, Highlight, MarksListing } from "../types";
 
 export const STORAGE_KEY = "folio.demo.marks";
 const VERSION = 1;
@@ -24,6 +24,8 @@ const VERSION = 1;
 export interface StoredMarks {
   bookmarks: Bookmark[];
   highlights: Highlight[];
+  /** The note on the document as a whole; absent when there's none. */
+  note?: DocumentNote;
 }
 
 /** What's kept under STORAGE_KEY. */
@@ -97,7 +99,7 @@ export class DemoMarks {
   /** Save, dropping a document with no marks left. */
   private changed(docId: string): void {
     const marks = this.documents[docId];
-    if (marks !== undefined && marks.bookmarks.length === 0 && marks.highlights.length === 0) {
+    if (marks !== undefined && marks.bookmarks.length === 0 && marks.highlights.length === 0 && marks.note === undefined) {
       delete this.documents[docId];
     }
     this.save();
@@ -169,6 +171,29 @@ export class DemoMarks {
       throw new Error(`Bookmark '${bookmarkId}' not found`);
     }
     marks.bookmarks = marks.bookmarks.filter((b) => b.id !== bookmarkId);
+    this.changed(docId);
+  }
+
+  /** Set the document's note; both parts empty removes it (and resolves to null). */
+  setNote(docId: string, changes: NoteChanges): DocumentNote | null {
+    const marks = this.marksOf(docId);
+    const text = note(changes.text);
+    const requestedStatus = changes.requestedStatus?.trim() || null;
+    if (text === null && requestedStatus === null) {
+      delete marks.note;
+      this.changed(docId);
+      return null;
+    }
+    const time = now();
+    marks.note = { text, requestedStatus, created: marks.note?.created ?? time, updated: time };
+    this.changed(docId);
+    return structuredClone(marks.note);
+  }
+
+  deleteNote(docId: string): void {
+    const marks = this.documents[docId];
+    if (marks?.note === undefined) throw new Error("The document has no note");
+    delete marks.note;
     this.changed(docId);
   }
 

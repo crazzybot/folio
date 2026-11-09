@@ -20,7 +20,7 @@ import { clearMatches, findMatches, showMatches } from "../searchHighlight";
 import MarksLayer from "./MarksLayer";
 import { findBookmark, headingIdentities } from "../bookmarks";
 import type { MarkFocus } from "./MarksLayer";
-import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, TextAnchor } from "../types";
+import type { Bookmark, BookmarkHeading, DocumentNote, Highlight, HighlightColor, TextAnchor } from "../types";
 import FindBar from "./FindBar";
 import Outline from "./Outline";
 import type { OutlineHeading } from "./Outline";
@@ -72,6 +72,12 @@ interface MarkdownViewerProps {
   onOpenDocument?: (id: string, anchor: string | null) => void;
   /** Filter the document list by a status or tag clicked in the document's metadata header. */
   onFilterBy?: (kind: "status" | "tag", value: string) => void;
+  /** The note on the shown document as a whole, shown in its metadata header. */
+  documentNote?: DocumentNote | undefined;
+  /** Open the document note editor (clicking the note in the header). */
+  onEditDocumentNote?: () => void;
+  /** Remove the note's requested status once the document has it. */
+  onClearNoteRequest?: () => void;
   /** Search text to highlight in the document ("" for none). */
   searchQuery?: string;
   /** A search match to scroll to once its document is shown. */
@@ -530,6 +536,9 @@ export default function MarkdownViewer({
   currentLocation = null,
   onOpenDocument,
   onFilterBy,
+  documentNote,
+  onEditDocumentNote,
+  onClearNoteRequest,
   searchQuery = "",
   searchFocus = null,
   showOutline = false,
@@ -1117,8 +1126,16 @@ export default function MarkdownViewer({
           {/* ── Rendered markdown ── */}
           {!loading && error === null && content !== null && (
             <>
-            {currentDoc?.meta !== undefined && (
-              <DocumentProperties doc={currentDoc} documents={documents} onOpenDocument={onOpenDocument} onFilterBy={onFilterBy} />
+            {currentDoc !== undefined && (currentDoc.meta !== undefined || documentNote !== undefined) && (
+              <DocumentProperties
+                doc={currentDoc}
+                documents={documents}
+                onOpenDocument={onOpenDocument}
+                onFilterBy={onFilterBy}
+                note={documentNote}
+                onEditNote={onEditDocumentNote}
+                onClearRequest={onClearNoteRequest}
+              />
             )}
             <article className={`${styles.article} folio-document`} aria-label="Rendered markdown" ref={articleRef}>
               <LinkContext.Provider value={linkHandlers}>

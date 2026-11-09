@@ -32,6 +32,11 @@ export interface Metadata {
   people: string[];
   /** Lowercased, without "#", no duplicates. */
   tags: string[];
+  /**
+   * The 1-based line the status is written on: front matter's `status:`, the
+   * "Status:" line, or the Status section's first line; null without a status.
+   */
+  statusLine: number | null;
 }
 
 export interface DocumentMeta {
@@ -203,6 +208,11 @@ function frontMatterFields(block: string): Map<string, string | string[]> {
   return fields;
 }
 
+/** The index of `key`'s line in front matter, or -1. */
+function keyLine(block: string, key: string): number {
+  return block.split(/\r\n|\r|\n/).findIndex((line) => FRONT_MATTER_KEY.exec(line)?.[1] === key);
+}
+
 /** A scalar's text: unquoted, without a trailing comment; null for anything but plain text. */
 function scalar(raw: string): string | null {
   const value = raw.trim();
@@ -235,12 +245,20 @@ function parseStatus(raw: string): Pick<Metadata, "status" | "statusDetail"> | n
   return { status: word, statusDetail: bare ? null : value };
 }
 
-/** The status written in the first section: a "Status:" line before the second heading, or a "## Status" section. */
-function bodyStatus(body: string): Pick<Metadata, "status" | "statusDetail"> | null {
+type BodyStatus = Pick<Metadata, "status" | "statusDetail"> & { line: number };
+
+/**
+ * The status written in the first section: a "Status:" line before the
+ * second heading, or a "## Status" section; `line` is its index in `body`.
+ */
+function bodyStatus(body: string): BodyStatus | null {
   let fence: string | null = null;
   let started = false; // past the first non-blank line
   let section: string[] | null = null; // the "Status" section's first paragraph, once inside it
-  for (const line of body.split(/\r\n|\r|\n/)) {
+  let sectionLine = -1;
+  const lines = body.split(/\r\n|\r|\n/);
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index] ?? "";
     const fenceMatch = FENCE.exec(line);
     if (fenceMatch?.[1] !== undefined) {
       const marker = fenceMatch[1];
@@ -254,7 +272,10 @@ function bodyStatus(body: string): Pick<Metadata, "status" | "statusDetail"> | n
     const blank = line.trim() === "";
     if (section !== null) {
       if (blank ? section.length > 0 : HEADING_LINE.test(line)) break;
-      if (!blank) section.push(line.trim());
+      if (!blank) {
+        if (section.length === 0) sectionLine = index;
+        section.push(line.trim());
+      }
       continue;
     }
     if (blank) continue;
@@ -271,9 +292,13 @@ function bodyStatus(body: string): Pick<Metadata, "status" | "statusDetail"> | n
     }
     started = true;
     const statusLine = STATUS_LINE.exec(line);
-    if (statusLine?.[1] !== undefined) return parseStatus(statusLine[1]);
+    if (statusLine?.[1] !== undefined) {
+      const status = parseStatus(statusLine[1]);
+      return status === null ? null : { ...status, line: index };
+    }
   }
-  return section === null || section.length === 0 ? null : parseStatus(section.join(" "));
+  const status = section === null || section.length === 0 ? null : parseStatus(section.join(" "));
+  return status === null ? null : { ...status, line: sectionLine };
 }
 
 /** The document's metadata (see Metadata), or null when it has none. */
@@ -281,9 +306,13 @@ export function extractMeta(text: string): Metadata | null {
   const match = FRONT_MATTER.exec(text);
   const fields = frontMatterFields(match?.[1] ?? "");
   const rawStatus = fields.get("status");
-  const status =
-    (typeof rawStatus === "string" ? parseStatus(scalar(rawStatus) ?? "") : null) ??
-    bodyStatus(match === null ? text : text.slice(match[0].length));
+  const frontStatus = typeof rawStatus === "string" ? parseStatus(scalar(rawStatus) ?? "") : null;
+  // Lines are counted in the file: front matter's first line is the "---"
+  const frontLines = match === null ? 0 : match[0].split(/\r\n|\r|\n/).length - 1;
+  const fromBody = frontStatus === null ? bodyStatus(match === null ? text : text.slice(match[0].length)) : null;
+  const status = frontStatus ?? fromBody;
+  const statusLine =
+    frontStatus !== null ? keyLine(match?.[1] ?? "", "status") + 2 : fromBody !== null ? frontLines + fromBody.line + 1 : null;
   const rawDate = fields.get("date");
   const tags = [
     ...new Set(
@@ -298,6 +327,7 @@ export function extractMeta(text: string): Metadata | null {
     date: typeof rawDate === "string" ? scalar(rawDate) : null,
     people: list(fields.get("decision-makers") ?? fields.get("deciders")).slice(0, MAX_PEOPLE),
     tags,
+    statusLine,
   };
   const empty = meta.status === null && meta.date === null && meta.people.length === 0 && meta.tags.length === 0;
   return empty ? null : meta;

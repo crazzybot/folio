@@ -128,4 +128,19 @@ describe("DemoMarks", () => {
     marks.reset();
     expect(marks.list().documents.map((d) => d.docId)).toEqual(["b"]);
   });
+
+  it("sets, updates and removes a document note", () => {
+    const marks = new DemoMarks(listed, seed, memoryStorage());
+    const note = marks.setNote("a", { text: "Fine.", requestedStatus: " accepted " });
+    expect([note?.text, note?.requestedStatus]).toEqual(["Fine.", "accepted"]);
+    expect(marks.list().documents.find((d) => d.docId === "a")).toMatchObject({ note, bookmarks: [], highlights: [] });
+
+    const updated = marks.setNote("a", { text: null, requestedStatus: "rejected" });
+    expect([updated?.text, updated?.created]).toEqual([null, note?.created]);
+
+    // Nothing left: the document drops out of the listing
+    expect(marks.setNote("a", { text: " ", requestedStatus: null })).toBeNull();
+    expect(marks.list().documents.map((d) => d.docId)).toEqual(["b"]);
+    expect(() => marks.deleteNote("a")).toThrow();
+  });
 });

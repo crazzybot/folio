@@ -13,7 +13,8 @@
  * Copying is stateless: nothing here changes or records the marks.
  */
 
-import type { Highlight } from "./types";
+import { requestDone } from "./status";
+import type { DocumentNote, Highlight } from "./types";
 
 // Left out when a quote is looked for in the source: Markdown punctuation,
 // escapes, list dashes and autolinks' brackets, and all whitespace (rendered
@@ -182,6 +183,11 @@ export interface ReviewDocument {
   highlights: readonly Highlight[];
   /** Highlights known not to be in the current text (the open document's); left out. */
   unplaced?: ReadonlySet<string>;
+  /** The note on the document as a whole (document-notes.md): copied before its highlights. */
+  note?: DocumentNote | undefined;
+  /** The document's status now (meta.status), and the line it's written on (meta.statusLine). */
+  status?: string | null | undefined;
+  statusLine?: number | null | undefined;
 }
 
 /** A note in the copied text. */
@@ -201,6 +207,10 @@ export interface ReviewNotes {
   withoutLine: number;
   /** Highlights left out because they're no longer in the document. */
   leftOut: number;
+  /** Notes on documents as a whole copied (a comment, or a status change still to make). */
+  documentNotes: number;
+  /** Status changes asked for that the documents already have: left out. */
+  requestsDone: number;
 }
 
 /** "file.md", or "3 documents": what {documents} in the opening line stands for. */
@@ -208,11 +218,55 @@ function documentsLabel(documents: readonly Pick<ReviewDocument, "name">[]): str
   return documents.length === 1 ? (documents[0]?.name ?? "the document") : `${documents.length} documents`;
 }
 
-/** The default opening line. */
-export function defaultIntro(documents: readonly Pick<ReviewDocument, "name">[]): string {
-  return documents.length === 1
-    ? `Review notes on ${documents[0]?.name ?? "the document"}. Each quote is from the document, followed by my comment. Please revise the document to address them.`
-    : `Review notes on ${documents.length} documents. Each quote is from its document, followed by my comment. Please revise the documents to address them.`;
+/**
+ * The default opening line. `withNotes`: some document has a note on it as
+ * a whole, copied first; `withQuotes`: some highlight is copied.
+ */
+export function defaultIntro(
+  documents: readonly Pick<ReviewDocument, "name">[],
+  { withNotes = false, withQuotes = true }: { withNotes?: boolean; withQuotes?: boolean } = {},
+): string {
+  const one = documents.length === 1;
+  const on = `Review notes on ${one ? (documents[0]?.name ?? "the document") : `${documents.length} documents`}.`;
+  const revise = one ? "Please revise the document" : "Please revise the documents";
+  if (!withQuotes) return `${on} ${revise} as described below.`;
+  const quotes = one ? "each quote from the document" : "each quote from it";
+  if (withNotes) {
+    const first = one ? "My overall comment comes first" : "Each document's overall comment comes first";
+    return `${on} ${first}, then ${quotes} followed by my comment. ${revise} to address them.`;
+  }
+  return one
+    ? `${on} Each quote is from the document, followed by my comment. ${revise} to address them.`
+    : `${on} Each quote is from its document, followed by my comment. ${revise} to address them.`;
+}
+
+/** `text` as inline code, with enough backticks around it for the ones inside. */
+function code(text: string): string {
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = "`".repeat(longest + 1);
+  return longest === 0 ? `${fence}${text}${fence}` : `${fence} ${text} ${fence}`;
+}
+
+// Front matter at the start of a source (as the scanners find it)
+const FRONT_MATTER = /^\uFEFF?---[ \t]*\r?\n/;
+
+/**
+ * The status change a document's note asks for, as an instruction naming
+ * where the status is written; null when there's none or it's already made.
+ */
+export function statusRequest(doc: Pick<ReviewDocument, "note" | "status" | "statusLine" | "source">): string | null {
+  const wanted = doc.note?.requestedStatus?.trim();
+  if (wanted == null || wanted === "" || requestDone(doc.status, wanted)) return null;
+  const status = doc.status ?? null;
+  if (status === null) {
+    return FRONT_MATTER.test(doc.source)
+      ? `Status: add ${code(`status: ${wanted}`)} to its front matter.`
+      : `Status: add a ${code(`Status: ${wanted}`)} line under its title.`;
+  }
+  const line = doc.statusLine == null ? undefined : doc.source.split(/\r\n|\r|\n/)[doc.statusLine - 1]?.trim();
+  return line === undefined || line === ""
+    ? `Status: change it to "${wanted}". It is "${status}" now.`
+    : `Status: change it to "${wanted}". It is "${status}" now, on line ${doc.statusLine}: ${code(line)}.`;
 }
 
 /** A quote over QUOTE_MAX characters, shortened to its first and last QUOTE_KEEP. */
@@ -234,13 +288,11 @@ export function formatReviewNotes(documents: readonly ReviewDocument[], intro?: 
   const notes: ReviewNote[] = [];
   let withoutLine = 0;
   let leftOut = 0;
+  let requestsDone = 0;
   let n = 0;
 
-  const opening =
-    intro === undefined ? defaultIntro(documents) : intro?.replace(/\{documents\}/g, documentsLabel(documents)) ?? null;
-  if (opening !== null && opening.trim() !== "") out.push(opening.trim(), "");
-
-  for (const doc of documents) {
+  // What each document has to copy: its note's status change and comment, then its highlights
+  const parts = documents.flatMap((doc) => {
     const highlights = [...doc.highlights]
       .filter((h) => {
         const gone = doc.unplaced?.has(h.id) ?? false;
@@ -248,8 +300,29 @@ export function formatReviewNotes(documents: readonly ReviewDocument[], intro?: 
         return !gone;
       })
       .sort((a, b) => a.position.start - b.position.start);
-    if (highlights.length === 0) continue;
+    const request = statusRequest(doc);
+    if (request === null && requestDone(doc.status, doc.note?.requestedStatus)) requestsDone++;
+    const comment = doc.note?.text?.trim() || null;
+    return highlights.length === 0 && request === null && comment === null ? [] : [{ doc, highlights, request, comment }];
+  });
+  const copied = parts.length > 0 ? parts.map((part) => part.doc) : documents;
+  const documentNotes = parts.filter((part) => part.request !== null || part.comment !== null).length;
+
+  const opening =
+    intro === undefined
+      ? defaultIntro(copied, { withNotes: documentNotes > 0, withQuotes: parts.some((part) => part.highlights.length > 0) })
+      : (intro?.replace(/\{documents\}/g, documentsLabel(copied)) ?? null);
+  if (opening !== null && opening.trim() !== "") out.push(opening.trim(), "");
+
+  for (const { doc, highlights, request, comment } of parts) {
     if (documents.length > 1) out.push(`## ${doc.path}`, "");
+    // One document: the opening line names only the file, so its note says which one
+    else if (request !== null || comment !== null) out.push(`Document: ${doc.path}`);
+    if (request !== null) out.push(request, "");
+    if (comment !== null) {
+      const [first = "", ...rest] = comment.split(/\r?\n/);
+      out.push(`Overall: ${first}`, ...rest, "");
+    }
 
     for (const h of highlights) {
       n++;
@@ -280,7 +353,7 @@ export function formatReviewNotes(documents: readonly ReviewDocument[], intro?: 
   }
   // No trailing blank line
   while (out.length > 0 && out[out.length - 1] === "") out.pop();
-  return { text: out.join("\n"), notes, withoutLine, leftOut };
+  return { text: out.join("\n"), notes, withoutLine, leftOut, documentNotes, requestsDone };
 }
 
 /**

@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "path": "{WORKSPACE}/docs/front-matter.md",
+  "fingerprint": {
+    "sha1": "{SHA1 docs/front-matter.md}",
+    "size": "{SIZE docs/front-matter.md}",
+    "filename": "front-matter.md"
+  },
+  "bookmarks": [],
+  "highlights": [],
+  "documentNote": {
+    "text": "Ready once the title matches the heading.",
+    "requestedStatus": "accepted",
+    "created": "2026-11-08T09:00:00Z",
+    "updated": "2026-11-08T09:30:00Z"
+  },
+  "futureField": {
+    "kept": true
+  }
+}

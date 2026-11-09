@@ -8,7 +8,7 @@ import { addFilter, hasFilters, NO_FILTERS, toggleFilter } from "../metaFilter";
 import type { FilterOption, MetaFilters } from "../metaFilter";
 import { isRetired, statusText } from "../status";
 import { useRowHoverCard } from "../useRowHoverCard";
-import type { DocumentMeta, Heading, SearchMatch, SearchResult } from "../types";
+import type { DocumentMeta, DocumentNote, Heading, SearchMatch, SearchResult } from "../types";
 import FilterMenu from "./FilterMenu";
 import HoverCard from "./HoverCard";
 import { DocumentCard, FolderCard } from "./HoverCardContent";
@@ -98,6 +98,8 @@ interface DocumentListProps {
   /** The folder the list is focused on ("docs/api"; `documents` are already narrowed to it), or null. */
   focus: string | null;
   onFocusChange: (folder: string | null) => void;
+  /** The user's notes on documents as a whole, by document id (hover cards). */
+  documentNotes?: ReadonlyMap<string, DocumentNote>;
   /** Status and tag filters; `documents` are already narrowed by them. */
   filters?: MetaFilters;
   /** What the filter menu offers, counted within the focused folder. */
@@ -135,6 +137,7 @@ export default function DocumentList({
   onFullTextChange,
   focus,
   onFocusChange,
+  documentNotes = NO_NOTES,
   filters = NO_FILTERS,
   filterOptions = NO_OPTIONS,
   onFiltersChange,
@@ -736,6 +739,7 @@ export default function DocumentList({
               doc={cardRow.doc}
               bookmarked={bookmarkedIds.has(cardRow.doc.id)}
               highlightCount={highlightCounts.get(cardRow.doc.id) ?? 0}
+              note={documentNotes.get(cardRow.doc.id)}
             />
           ) : (
             <FolderCard folder={cardRow.folderKey} label={cardRow.label} documents={documents} highlightCounts={highlightCounts} />
@@ -978,5 +982,6 @@ function RowItem({
 
 const LEAD_CHARS = 12;
 const NO_COUNTS: ReadonlyMap<string, number> = new Map();
+const NO_NOTES: ReadonlyMap<string, DocumentNote> = new Map();
 const NO_OPTIONS: { statuses: FilterOption[]; tags: FilterOption[] } = { statuses: [], tags: [] };
 const NO_IDS: ReadonlySet<string> = new Set();

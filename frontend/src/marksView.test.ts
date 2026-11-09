@@ -111,3 +111,41 @@ describe("buildMarkRows", () => {
     expect(keys({ documents: [notes] })).toEqual(["d:notes.md", "h:notes.md:h3"]);
   });
 });
+
+describe("buildMarkRows with a note on the document", () => {
+  const adr = { ...doc("adr.md"), meta: { status: "proposed", statusDetail: null, date: null, people: [], tags: [], statusLine: null } };
+  const note = { text: "Fine once the rotation question is answered.", requestedStatus: "accepted", created: "", updated: "" };
+  const input: MarkRowsInput = {
+    ...base,
+    documents: [adr, notes],
+    byDoc: new Map([
+      ["adr.md", { bookmarks: [], highlights: [highlight("h9", "a passage", 3)], note }],
+      ["notes.md", { bookmarks: [], highlights: [highlight("h3", "an idea", 5)] }],
+    ]),
+  };
+  const keys = (rows: ReturnType<typeof buildMarkRows>) => rows.map((r) => r.key);
+
+  it("lists the note first under its document, counted with its marks", () => {
+    const rows = buildMarkRows(input);
+    expect(keys(rows)).toEqual(["d:adr.md", "n:adr.md", "h:adr.md:h9", "d:notes.md", "h:notes.md:h3"]);
+    expect(rows[0]).toMatchObject({ kind: "document", count: 2 });
+    expect(rows[1]).toMatchObject({ kind: "note", done: false });
+  });
+
+  it("lists a document that has only a note", () => {
+    const only = new Map([["adr.md", { bookmarks: [], highlights: [], note }]]);
+    expect(keys(buildMarkRows({ ...input, byDoc: only }))).toEqual(["d:adr.md", "n:adr.md"]);
+  });
+
+  it("keeps it with Notes only, and finds it by its comment or status", () => {
+    expect(keys(buildMarkRows({ ...input, notesOnly: true }))).toEqual(["d:adr.md", "n:adr.md"]);
+    expect(keys(buildMarkRows({ ...input, query: "rotation" }))).toEqual(["d:adr.md", "n:adr.md"]);
+    expect(keys(buildMarkRows({ ...input, query: "accepted" }))).toEqual(["d:adr.md", "n:adr.md"]);
+  });
+
+  it("knows when the document already has the requested status", () => {
+    const accepted = { ...adr, meta: { ...adr.meta, status: "accepted" } };
+    const rows = buildMarkRows({ ...input, documents: [accepted] });
+    expect(rows[1]).toMatchObject({ kind: "note", done: true });
+  });
+});

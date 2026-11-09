@@ -12,14 +12,17 @@ import {
   addBookmark,
   addHighlight,
   deleteBookmark,
+  deleteDocumentNote,
   deleteHighlight,
   fetchMarks,
   forgetMarks,
   relinkMarks,
+  setDocumentNote,
   updateHighlight,
 } from "./api";
+import type { NoteChanges } from "./dataSource";
 import { findBookmark } from "./bookmarks";
-import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, MissingMarks, TextAnchor } from "./types";
+import type { Bookmark, BookmarkHeading, DocumentNote, Highlight, HighlightColor, MissingMarks, TextAnchor } from "./types";
 
 // How long a failed change is reported in the status bar
 const ERROR_SHOWN_MS = 6000;
@@ -28,6 +31,8 @@ const ERROR_SHOWN_MS = 6000;
 export interface DocMarks {
   bookmarks: readonly Bookmark[];
   highlights: readonly Highlight[];
+  /** The note on the document as a whole (document-notes.md); absent when there's none. */
+  note?: DocumentNote;
 }
 
 export interface Marks {
@@ -43,6 +48,9 @@ export interface Marks {
   toggleBookmark(docId: string, heading: BookmarkHeading | null): Promise<void>;
   /** Remove a bookmark by id (e.g. one whose heading is gone). */
   removeBookmark(docId: string, bookmarkId: string): Promise<void>;
+  /** Set the note on the document as a whole; both parts empty removes it. */
+  saveDocumentNote(docId: string, note: NoteChanges): Promise<void>;
+  removeDocumentNote(docId: string): Promise<void>;
   /** Marks of files in the workspace that no longer exist. */
   missing: readonly MissingMarks[];
   /** Move a missing document's marks to `docId`. */
@@ -67,7 +75,14 @@ export default function useMarks(): Marks {
     return fetchMarks()
       .then((listing) => {
         if (current !== generation.current) return;
-        setByDoc(new Map(listing.documents.map((doc) => [doc.docId, { bookmarks: doc.bookmarks, highlights: doc.highlights }])));
+        setByDoc(
+          new Map(
+            listing.documents.map((doc) => [
+              doc.docId,
+              { bookmarks: doc.bookmarks, highlights: doc.highlights, ...(doc.note === undefined ? {} : { note: doc.note }) },
+            ]),
+          ),
+        );
         setMissing(listing.missing);
       })
       .catch(() => {
@@ -105,7 +120,7 @@ export default function useMarks(): Marks {
     setByDoc((prev) => {
       const next = new Map(prev);
       const marks = change(prev.get(docId) ?? NO_MARKS);
-      if (marks.highlights.length === 0 && marks.bookmarks.length === 0) next.delete(docId);
+      if (marks.highlights.length === 0 && marks.bookmarks.length === 0 && marks.note === undefined) next.delete(docId);
       else next.set(docId, marks);
       return next;
     });
@@ -191,5 +206,43 @@ export default function useMarks(): Marks {
     [reload, failed],
   );
 
-  return { byDoc, add, recolor, setNote, remove, toggleBookmark, removeBookmark, missing, relink, forget, error };
+  /** `marks` with `note` as its document note (none for null). */
+  const withNote = (marks: DocMarks, note: DocumentNote | null): DocMarks => {
+    const { note: _old, ...rest } = marks;
+    return note === null ? rest : { ...rest, note };
+  };
+
+  const saveDocumentNote = useCallback(
+    (docId: string, note: NoteChanges) =>
+      setDocumentNote(docId, note).then(
+        (saved) => update(docId, (m) => withNote(m, saved)),
+        failed("save the note on the document"),
+      ),
+    [update, failed],
+  );
+
+  const removeDocumentNote = useCallback(
+    (docId: string) =>
+      deleteDocumentNote(docId).then(
+        () => update(docId, (m) => withNote(m, null)),
+        failed("remove the note on the document"),
+      ),
+    [update, failed],
+  );
+
+  return {
+    byDoc,
+    add,
+    recolor,
+    setNote,
+    remove,
+    toggleBookmark,
+    removeBookmark,
+    saveDocumentNote,
+    removeDocumentNote,
+    missing,
+    relink,
+    forget,
+    error,
+  };
 }

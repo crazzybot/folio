@@ -41,7 +41,7 @@ import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
 import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } from "./openPaths";
 import { defaultDataDir, listMarks, MarksStore } from "./marks";
-import type { Bookmark, DocumentMarks, Highlight, MissingMarks } from "./marks";
+import type { Bookmark, DocumentMarks, DocumentNote, Highlight, MissingMarks } from "./marks";
 import { findDocument, scanAttachments, scanWorkspace, stableId } from "./scanner";
 import { searchWorkspace } from "./search";
 import type { SearchResult } from "./search";
@@ -300,6 +300,17 @@ function registerIpcHandlers(): void {
     assertTrustedSender(event);
     if (typeof bookmarkId !== "string") throw new Error("Bookmark id must be a string");
     await marks.deleteBookmark(await markedDocument(docId), bookmarkId);
+    notifyMarksChanged();
+  });
+  ipcMain.handle("marks:note-set", async (event, docId: unknown, body: unknown): Promise<DocumentNote | null> => {
+    assertTrustedSender(event);
+    const note = await marks.setNote(await markedDocument(docId), body);
+    notifyMarksChanged();
+    return note;
+  });
+  ipcMain.handle("marks:note-delete", async (event, docId: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    await marks.deleteNote(await markedDocument(docId));
     notifyMarksChanged();
   });
   // A missing document's marks: moved to a document, or deleted

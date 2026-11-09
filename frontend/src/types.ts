@@ -15,6 +15,8 @@ export interface Metadata {
   people: string[];
   /** Lowercased, without "#". */
   tags: string[];
+  /** The 1-based line the status is written on (front matter or a "Status:" line); null without a status. */
+  statusLine: number | null;
 }
 
 export interface DocumentMeta {
@@ -95,9 +97,21 @@ export interface Bookmark {
 }
 
 /** A document that has marks. */
+/** A note on the document as a whole: a comment and / or a status to ask for (document-notes.md). */
+export interface DocumentNote {
+  /** Markdown, or null. */
+  text: string | null;
+  /** The status to ask the document's author to change it to, or null. */
+  requestedStatus: string | null;
+  created: string; // ISO-8601
+  updated: string;
+}
+
 export interface DocumentMarks {
   docId: string;
   location: string;
+  /** Absent when there's none. */
+  note?: DocumentNote;
   bookmarks: Bookmark[];
   highlights: Highlight[];
 }
@@ -106,6 +120,7 @@ export interface DocumentMarks {
 export interface MissingMarks {
   /** Identifies the marks, to move or delete them. */
   recordId: string;
+  note?: DocumentNote;
   /** Where the file was (workspace-relative). */
   location: string;
   bookmarks: Bookmark[];

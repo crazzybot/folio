@@ -121,7 +121,7 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.removeListener("workspace:changed", listener);
     };
   },
-  /** Highlights and bookmarks (see marks.ts); the same shapes as the REST API. */
+  /** Highlights, bookmarks and document notes (see marks.ts); the same shapes as the REST API. */
   marks: {
     list: () => ipcRenderer.invoke("marks:list"),
     addHighlight: (docId: string, body: unknown) => ipcRenderer.invoke("marks:highlight-add", docId, body),
@@ -131,6 +131,8 @@ contextBridge.exposeInMainWorld("markdownApi", {
       ipcRenderer.invoke("marks:highlight-delete", docId, highlightId),
     addBookmark: (docId: string, body: unknown) => ipcRenderer.invoke("marks:bookmark-add", docId, body),
     deleteBookmark: (docId: string, bookmarkId: string) => ipcRenderer.invoke("marks:bookmark-delete", docId, bookmarkId),
+    setNote: (docId: string, body: unknown) => ipcRenderer.invoke("marks:note-set", docId, body),
+    deleteNote: (docId: string) => ipcRenderer.invoke("marks:note-delete", docId),
     relink: (recordId: string, docId: string) => ipcRenderer.invoke("marks:relink", recordId, docId),
     forget: (recordId: string) => ipcRenderer.invoke("marks:forget", recordId),
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */

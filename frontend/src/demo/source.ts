@@ -84,6 +84,8 @@ export function createDemoSource(base: string, storage: MarksStorage | null = br
       deleteHighlight: async (docId, highlightId) => (await marks()).deleteHighlight(docId, highlightId),
       addBookmark: async (docId, heading) => (await marks()).addBookmark(docId, heading),
       deleteBookmark: async (docId, bookmarkId) => (await marks()).deleteBookmark(docId, bookmarkId),
+      setNote: async (docId, note) => (await marks()).setNote(docId, note),
+      deleteNote: async (docId) => (await marks()).deleteNote(docId),
       // The demo's documents never move or disappear, so no marks are ever missing
       relink: async () => undefined,
       forget: async () => undefined,

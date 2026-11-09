@@ -1,7 +1,8 @@
 import React from "react";
 import { documentsInFolder } from "../documentTree";
-import { statusText } from "../status";
-import type { DocumentMeta, Highlight } from "../types";
+import { requestDone, statusText } from "../status";
+import type { DocumentMeta, DocumentNote, Highlight } from "../types";
+import NoteRequest from "./NoteRequest";
 import StatusIcon from "./StatusIcon";
 import styles from "./HoverCard.module.css";
 
@@ -12,10 +13,13 @@ export function DocumentCard({
   doc,
   bookmarked,
   highlightCount,
+  note,
 }: {
   doc: DocumentMeta;
   bookmarked: boolean;
   highlightCount: number;
+  /** The user's note on the document: its request and the comment's first line. */
+  note?: DocumentNote | undefined;
 }): React.ReactElement {
   const marks = [bookmarked && "Bookmarked", highlightCount > 0 && plural(highlightCount, "highlight", "highlights")].filter(Boolean);
   const { status = null, statusDetail = null, date = null, people = [], tags = [] } = doc.meta ?? {};
@@ -32,6 +36,47 @@ export function DocumentCard({
       {people.length > 0 && <div className={styles.detail}>{people.join(", ")}</div>}
       {tags.length > 0 && <div className={styles.detail}>{tags.map((tag) => `#${tag}`).join("  ")}</div>}
       {marks.length > 0 && <div className={styles.detail}>{marks.join(" · ")}</div>}
+      {note !== undefined && <NoteSummary note={note} status={status} />}
+    </>
+  );
+}
+
+/** "Your note: → Accepted · first line of the comment". */
+function NoteSummary({ note, status }: { note: DocumentNote; status: string | null }): React.ReactElement {
+  return (
+    <div className={styles.noteSummary}>
+      Your note:{" "}
+      {note.requestedStatus !== null && (
+        <NoteRequest
+          requested={note.requestedStatus}
+          done={requestDone(status, note.requestedStatus)}
+          className={styles.request}
+          iconClassName={styles.requestIcon}
+        />
+      )}
+      {note.requestedStatus !== null && note.text !== null && " · "}
+      {note.text?.split("\n")[0]}
+    </div>
+  );
+}
+
+/** The note on a document (Marks view): its request and the comment in full. */
+export function DocumentNoteCard({ doc, note }: { doc: DocumentMeta; note: DocumentNote }): React.ReactElement {
+  return (
+    <>
+      <div className={styles.title}>Note on {doc.title}</div>
+      {note.requestedStatus !== null && (
+        <div className={styles.status}>
+          <NoteRequest
+            requested={note.requestedStatus}
+            done={requestDone(doc.meta?.status, note.requestedStatus)}
+            className={styles.request}
+            iconClassName={styles.requestIcon}
+          />
+        </div>
+      )}
+      {note.text !== null && <div className={styles.note}>{note.text}</div>}
+      <div className={styles.path}>{doc.location}</div>
     </>
   );
 }

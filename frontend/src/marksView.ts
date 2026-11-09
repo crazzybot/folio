@@ -2,14 +2,16 @@
  * marksView.ts — The rows of the sidebar's Marks view: every listed
  * document that has marks, each followed by its heading bookmarks (named by
  * the heading, in document order) and then its highlights and notes (in
- * text order), narrowed by the filter box and "Notes only". A bookmark on
+ * text order), after its note on the document as a whole if it has one,
+ * narrowed by the filter box and "Notes only". A bookmark on
  * the document itself is shown on its row. (The open document's marks also
  * show in its outline.)
  */
 
 import { findBookmark, headingIndex } from "./bookmarks";
 import type { DocMarks } from "./useMarks";
-import type { Bookmark, BookmarkHeading, DocumentMeta, Highlight } from "./types";
+import { requestDone } from "./status";
+import type { Bookmark, BookmarkHeading, DocumentMeta, DocumentNote, Highlight } from "./types";
 
 export type MarkRow =
   | {
@@ -18,9 +20,18 @@ export type MarkRow =
       doc: DocumentMeta;
       /** The document is bookmarked as a whole. */
       bookmark: Bookmark | undefined;
-      /** Heading bookmarks and highlights listed under it. */
+      /** Its note, heading bookmarks and highlights listed under it. */
       count: number;
       expanded: boolean;
+    }
+  | {
+      /** The note on the document as a whole, first under it. */
+      kind: "note";
+      key: string;
+      doc: DocumentMeta;
+      note: DocumentNote;
+      /** The requested status is already the document's. */
+      done: boolean;
     }
   | {
       kind: "bookmark";
@@ -79,7 +90,13 @@ export function buildMarkRows(input: MarkRowsInput): MarkRow[] {
       .filter((h) => titleMatch || includes(h.quote.exact, q) || includes(h.note, q))
       .sort((a, b) => a.position.start - b.position.start);
 
-    const count = bookmarks.length + highlights.length;
+    // The document's note counts as a note (Notes only), and its comment and status are searched
+    const note =
+      marks.note !== undefined && (titleMatch || includes(marks.note.text, q) || includes(marks.note.requestedStatus, q))
+        ? marks.note
+        : undefined;
+
+    const count = (note === undefined ? 0 : 1) + bookmarks.length + highlights.length;
     // Listed when something under it matches, or for its own bookmark
     if (count === 0 && !(docBookmark !== undefined && titleMatch)) continue;
     // While filtering, every match shows
@@ -87,6 +104,9 @@ export function buildMarkRows(input: MarkRowsInput): MarkRow[] {
     rows.push({ kind: "document", key: `d:${doc.id}`, doc, bookmark: docBookmark, count, expanded });
     if (!expanded) continue;
 
+    if (note !== undefined) {
+      rows.push({ kind: "note", key: `n:${doc.id}`, doc, note, done: requestDone(doc.meta?.status, note.requestedStatus) });
+    }
     for (const { bookmark, index } of bookmarks) {
       rows.push({ kind: "bookmark", key: `b:${doc.id}:${bookmark.id}`, doc, bookmark, missing: index === -1 });
     }

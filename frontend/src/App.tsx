@@ -3,6 +3,8 @@ import { Routes, Route, useNavigate, useNavigationType, useParams, useLocation }
 import { fetchAttachments, fetchDocumentContent, fetchDocuments } from "./api";
 import { savedScrollPosition } from "./scrollHistory";
 import DocumentList from "./components/DocumentList";
+import DocumentNoteEditor from "./components/DocumentNoteEditor";
+import DocumentNoteIcon from "./components/DocumentNoteIcon";
 import MarkdownViewer from "./components/MarkdownViewer";
 import type { MarkHandlers, SearchFocus } from "./components/MarkdownViewer";
 import type { MarkFocus } from "./components/MarksLayer";
@@ -28,6 +30,7 @@ import useTheme from "./theme";
 import { documentsInFolder } from "./documentTree";
 import { useFolderFocus } from "./folderFocus";
 import { addFilter, filterByMeta, filterOptions, hasFilters } from "./metaFilter";
+import { requestDone } from "./status";
 import { useMetaFilters } from "./useMetaFilters";
 import useMarks from "./useMarks";
 import DemoBanner from "./components/DemoBanner";
@@ -534,6 +537,30 @@ function AppInner(): React.ReactElement {
   const shownMarks = contentId === null ? undefined : marks.byDoc.get(contentId);
   const documentBookmarked = shownMarks !== undefined && findBookmark(shownMarks.bookmarks, null) !== undefined;
 
+  // ── The note on the document as a whole (document-notes.md) ────────────────
+  const documentNote = shownMarks?.note;
+  const noteButtonRef = useRef<HTMLButtonElement>(null);
+  // Pressing the button while the editor is open saves and closes it (as any
+  // click outside it does); the click that follows mustn't open it again
+  const noteEditorWasOpen = useRef(false);
+  // Open for one document: showing another closes it
+  const [noteEditorFor, setNoteEditor] = useState<{ docId: string; right: number; bottom: number } | null>(null);
+  const noteEditor = noteEditorFor !== null && noteEditorFor.docId === contentId ? noteEditorFor : null;
+  const openNoteEditor = useCallback(() => {
+    const box = noteButtonRef.current?.getBoundingClientRect();
+    if (box !== undefined && contentId !== null) setNoteEditor({ docId: contentId, right: box.right, bottom: box.bottom });
+  }, [contentId]);
+  // Offered in the editor after the known statuses
+  const workspaceStatuses = useMemo(
+    () => [...new Set(documents.flatMap((doc) => (doc.meta?.status != null ? [doc.meta.status] : [])))],
+    [documents],
+  );
+  const shownStatus = documents.find((doc) => doc.id === contentId)?.meta?.status ?? null;
+  const documentNotes = useMemo(
+    () => new Map([...marks.byDoc].flatMap(([id, m]) => (m.note !== undefined ? [[id, m.note] as const] : []))),
+    [marks.byDoc],
+  );
+
   // Open a mark from the Marks view: its document (a history entry, so Back
   // returns), scrolled to the highlight or heading
   const openMark = useCallback(
@@ -561,7 +588,18 @@ function AppInner(): React.ReactElement {
   }, [statusMessage]);
 
   const shownHighlights = useMemo(() => shownMarks?.highlights ?? [], [shownMarks]);
+  // Something to copy as review notes: a highlight, or a comment or status change still to make
+  const canCopyReview = useMemo(
+    () =>
+      contentId !== null &&
+      (shownHighlights.length > 0 ||
+        (documentNote !== undefined &&
+          (documentNote.text !== null ||
+            (documentNote.requestedStatus !== null && !requestDone(shownStatus, documentNote.requestedStatus))))),
+    [contentId, shownHighlights, documentNote, shownStatus],
+  );
 
+  const marksByDoc = marks.byDoc;
   /** Review notes on documents' highlights, given their sources. */
   const buildReview = useCallback(
     (docs: readonly ReviewSelection[], sources: readonly string[]): { title: string; notes: ReviewNotes } => {
@@ -579,6 +617,10 @@ function AppInner(): React.ReactElement {
             source: sources[i] ?? "",
             highlights,
             ...(unplaced === undefined ? {} : { unplaced }),
+            // The note on the document as a whole, and where its status is written (document-notes.md)
+            note: marksByDoc.get(doc.id)?.note,
+            status: doc.meta?.status ?? null,
+            statusLine: doc.meta?.statusLine ?? null,
           };
         }),
         reviewIntroText,
@@ -586,14 +628,14 @@ function AppInner(): React.ReactElement {
       const title = docs.length === 1 ? (docs[0]?.doc.filename ?? "") : `${docs.length} documents`;
       return { title, notes };
     },
-    [located, reviewIntroText],
+    [located, reviewIntroText, marksByDoc],
   );
 
   const openDocumentNotes = useCallback((): { title: string; notes: ReviewNotes } | null => {
     if (contentId === null || contentValue === null || selectedDoc === null || selectedDoc.id !== contentId) return null;
-    if (shownHighlights.length === 0) return null;
+    if (!canCopyReview) return null;
     return buildReview([{ doc: selectedDoc, highlights: shownHighlights }], [contentValue]);
-  }, [contentId, contentValue, selectedDoc, shownHighlights, buildReview]);
+  }, [contentId, contentValue, selectedDoc, shownHighlights, canCopyReview, buildReview]);
 
   // From the Marks view: the documents' sources (the open one is loaded already), then the preview
   const showReviewNotes = useCallback(
@@ -617,8 +659,8 @@ function AppInner(): React.ReactElement {
   // without the preview; where the page has no clipboard, show the preview
   const copyReviewNotes = useCallback(() => {
     const review = openDocumentNotes();
-    if (review === null || review.notes.notes.length === 0) {
-      setStatusMessage("No highlights to copy");
+    if (review === null || (review.notes.notes.length === 0 && review.notes.documentNotes === 0)) {
+      setStatusMessage("No highlights or notes to copy");
       return;
     }
     const { notes, title } = review;
@@ -627,7 +669,8 @@ function AppInner(): React.ReactElement {
         setReview(review);
         return;
       }
-      const count = notes.notes.length;
+      // Notes on passages, and the note on the document as a whole
+      const count = notes.notes.length + notes.documentNotes;
       setStatusMessage(
         `Copied ${count} note${count !== 1 ? "s" : ""} on ${title}` +
           (notes.leftOut > 0 ? ` · ${notes.leftOut} out of date, left out` : ""),
@@ -702,6 +745,7 @@ function AppInner(): React.ReactElement {
               onOpen={openMark}
               onRemoveHighlight={(docId, id) => void removeMark(docId, id)}
               onRemoveBookmark={(docId, id) => void removeBookmark(docId, id)}
+              onRemoveDocumentNote={(docId) => void marks.removeDocumentNote(docId)}
               missing={marks.missing}
               allDocuments={documents}
               onRelink={(recordId, docId) => void marks.relink(recordId, docId)}
@@ -714,6 +758,7 @@ function AppInner(): React.ReactElement {
           <DocumentList
             tabs={<SidebarTabs view={sidebarView} onChange={chooseSidebarView} />}
             bookmarkedIds={bookmarkedIds}
+            documentNotes={documentNotes}
             documents={listedDocuments}
             selectedId={selectedId}
             onSelect={handleSelect}
@@ -826,19 +871,52 @@ function AppInner(): React.ReactElement {
                 <path d="M4 2h8v12l-4-3-4 3z" fill={documentBookmarked ? "currentColor" : "none"} />
               </svg>
             </button>
-
-            {shownHighlights.length > 0 && (
-              <button
-                className={styles.iconBtn}
-                onClick={() => setReview(openDocumentNotes())}
-                disabled={contentId === null}
-                aria-label={`Copy review notes (${REVIEW_SHORTCUT})`}
-                title={`Copy review notes (${REVIEW_SHORTCUT})`}
-                type="button"
-              >
-                <ReviewNotesIcon />
-              </button>
+            <button
+              ref={noteButtonRef}
+              className={`${styles.iconBtn} ${documentNote !== undefined ? styles.iconBtnOn : ""}`}
+              onPointerDown={() => {
+                noteEditorWasOpen.current = noteEditor !== null;
+              }}
+              onClick={() => {
+                if (noteEditorWasOpen.current) noteEditorWasOpen.current = false;
+                else if (noteEditor === null) openNoteEditor();
+              }}
+              disabled={contentId === null}
+              aria-haspopup="dialog"
+              aria-expanded={noteEditor !== null}
+              aria-label={documentNote !== undefined ? "Edit the note on this document" : "Note on this document"}
+              title={documentNote !== undefined ? "Edit the note on this document" : "Note on this document"}
+              type="button"
+            >
+              <DocumentNoteIcon />
+            </button>
+            {noteEditor !== null && contentId !== null && (
+              <DocumentNoteEditor
+                anchor={noteEditor}
+                currentStatus={shownStatus}
+                note={documentNote}
+                workspaceStatuses={workspaceStatuses}
+                onSave={(changes) => void marks.saveDocumentNote(contentId, changes)}
+                onRemove={() => void marks.removeDocumentNote(contentId)}
+                onClose={() => setNoteEditor(null)}
+              />
             )}
+
+            {/* Shown even with nothing to copy (disabled), so it's found and the toolbar keeps its place */}
+            <button
+              className={styles.iconBtn}
+              onClick={() => setReview(openDocumentNotes())}
+              disabled={!canCopyReview}
+              aria-label={`Copy review notes (${REVIEW_SHORTCUT})`}
+              title={
+                canCopyReview
+                  ? `Copy review notes (${REVIEW_SHORTCUT})`
+                  : "Copy review notes: highlight a passage, or add a note on the document, first"
+              }
+              type="button"
+            >
+              <ReviewNotesIcon />
+            </button>
 
             {editorName !== undefined && (
               <button
@@ -922,6 +1000,13 @@ function AppInner(): React.ReactElement {
             currentLocation={selectedDoc?.location ?? null}
             onOpenDocument={handleOpenDocument}
             onFilterBy={filterBy}
+            documentNote={documentNote}
+            onEditDocumentNote={openNoteEditor}
+            onClearNoteRequest={() => {
+              if (contentId !== null && documentNote !== undefined) {
+                void marks.saveDocumentNote(contentId, { text: documentNote.text, requestedStatus: null });
+              }
+            }}
             searchQuery={searchQuery}
             searchFocus={searchFocus}
             showOutline={showOutline}

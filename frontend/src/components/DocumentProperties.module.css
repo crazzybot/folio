@@ -56,6 +56,38 @@
   color: var(--color-text-subtle);
 }
 
+/* The user's note on the document: its request and the comment's first line */
+.note {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text-muted);
+}
+
+.noteIcon {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--color-accent);
+}
+
+.request {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  color: var(--color-text);
+}
+
+.noteText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+}
+
 /* The status glyph and tags filter the document list */
 .filterIcon {
   display: inline-flex;

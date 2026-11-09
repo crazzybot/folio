@@ -42,7 +42,8 @@
         "tags": [
           "queue",
           "postgres"
-        ]
+        ],
+        "statusLine": 3
       }
     },
     {
@@ -70,7 +71,8 @@
         "tags": [
           "delivery",
           "retries"
-        ]
+        ],
+        "statusLine": 11
       }
     },
     {
@@ -97,7 +99,8 @@
         "statusDetail": "Superseded by [4. Kafka](0004-kafka.md)",
         "date": null,
         "people": [],
-        "tags": []
+        "tags": [],
+        "statusLine": 7
       }
     },
     {
@@ -142,7 +145,8 @@
         "tags": [
           "a",
           "b"
-        ]
+        ],
+        "statusLine": null
       }
     },
     {

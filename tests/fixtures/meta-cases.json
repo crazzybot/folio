@@ -17,7 +17,8 @@
       "statusDetail": null,
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 2
     }
   },
   {
@@ -28,7 +29,8 @@
       "statusDetail": null,
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 2
     }
   },
   {
@@ -39,7 +41,8 @@
       "statusDetail": "superseded by ADR-0005",
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 2
     }
   },
   {
@@ -50,7 +53,8 @@
       "statusDetail": null,
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 2
     }
   },
   {
@@ -61,7 +65,8 @@
       "statusDetail": null,
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 5
     }
   },
   {
@@ -75,7 +80,8 @@
       "tags": [
         "a",
         "b c"
-      ]
+      ],
+      "statusLine": null
     }
   },
   {
@@ -89,7 +95,8 @@
       "tags": [
         "a",
         "b"
-      ]
+      ],
+      "statusLine": null
     }
   },
   {
@@ -103,7 +110,8 @@
       "tags": [
         "one",
         "two"
-      ]
+      ],
+      "statusLine": null
     }
   },
   {
@@ -116,7 +124,8 @@
       "people": [],
       "tags": [
         "solo"
-      ]
+      ],
+      "statusLine": null
     }
   },
   {
@@ -129,7 +138,8 @@
       "people": [],
       "tags": [
         "ok"
-      ]
+      ],
+      "statusLine": null
     }
   },
   {
@@ -150,7 +160,8 @@
       "statusDetail": null,
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 2
     }
   },
   {
@@ -163,7 +174,8 @@
       "people": [
         "Ana"
       ],
-      "tags": []
+      "tags": [],
+      "statusLine": null
     }
   },
   {
@@ -177,7 +189,8 @@
         "Ana",
         "Ben Smith"
       ],
-      "tags": []
+      "tags": [],
+      "statusLine": null
     }
   },
   {
@@ -188,7 +201,8 @@
       "statusDetail": null,
       "date": "2026-01-01",
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": null
     }
   },
   {
@@ -199,7 +213,8 @@
       "statusDetail": "accepted · 2026-08-12",
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 3
     }
   },
   {
@@ -210,7 +225,8 @@
       "statusDetail": null,
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 1
     }
   },
   {
@@ -221,7 +237,8 @@
       "statusDetail": null,
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 3
     }
   },
   {
@@ -232,7 +249,8 @@
       "statusDetail": "superseded by [ADR-0005](0005-kafka.md)",
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 3
     }
   },
   {
@@ -243,7 +261,8 @@
       "statusDetail": null,
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 3
     }
   },
   {
@@ -264,7 +283,8 @@
       "statusDetail": null,
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 7
     }
   },
   {
@@ -275,7 +295,8 @@
       "statusDetail": null,
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 7
     }
   },
   {
@@ -286,7 +307,8 @@
       "statusDetail": "Superseded by ADR 4",
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 5
     }
   },
   {
@@ -304,7 +326,8 @@
       "people": [],
       "tags": [
         "a"
-      ]
+      ],
+      "statusLine": 6
     }
   },
   {
@@ -315,7 +338,8 @@
       "statusDetail": null,
       "date": null,
       "people": [],
-      "tags": []
+      "tags": [],
+      "statusLine": 2
     }
   },
   {
@@ -328,7 +352,8 @@
       "people": [],
       "tags": [
         "a"
-      ]
+      ],
+      "statusLine": 2
     }
   }
 ]

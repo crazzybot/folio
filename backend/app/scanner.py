@@ -34,6 +34,9 @@ class Metadata:
     date: str | None
     people: tuple[str, ...]     # decision-makers (MADR 4) or deciders (MADR 3)
     tags: tuple[str, ...]       # lowercased, without "#", no duplicates
+    # The 1-based line the status is written on: front matter's ``status:``,
+    # the "Status:" line, or the Status section's first line; None without one
+    status_line: int | None = None
 
 
 @dataclass(frozen=True)
@@ -197,6 +200,15 @@ def _front_matter_fields(block: str) -> dict[str, str | list[str]]:
     return fields
 
 
+def _key_line(block: str, key: str) -> int:
+    """The index of *key*'s line in front matter, or -1."""
+    for index, line in enumerate(re.split(r"\r\n|\r|\n", block)):
+        match = _FRONT_MATTER_KEY.match(line)
+        if match and match.group(1) == key:
+            return index
+    return -1
+
+
 def _scalar(raw: str) -> str | None:
     """A scalar's text: unquoted, without a trailing comment; None for anything but plain text."""
     value = raw.strip()
@@ -238,12 +250,16 @@ def _parse_status(raw: str) -> tuple[str, str | None] | None:
     return word, None if bare else value
 
 
-def _body_status(body: str) -> tuple[str, str | None] | None:
-    """The status written in the first section: a "Status:" line before the second heading, or a "## Status" section."""
+def _body_status(body: str) -> tuple[str, str | None, int] | None:
+    """
+    The status written in the first section: a "Status:" line before the
+    second heading, or a "## Status" section; with its line's index in *body*.
+    """
     fence: str | None = None
     started = False  # past the first non-blank line
     section: list[str] | None = None  # the "Status" section's first paragraph, once inside it
-    for line in re.split(r"\r\n|\r|\n", body):
+    section_line = -1
+    for index, line in enumerate(re.split(r"\r\n|\r|\n", body)):
         fence_match = _FENCE.match(line)
         if fence_match:
             marker = fence_match.group(1)
@@ -262,6 +278,8 @@ def _body_status(body: str) -> tuple[str, str | None] | None:
             if (section if blank else _HEADING_LINE.match(line)):
                 break
             if not blank:
+                if not section:
+                    section_line = index
                 section.append(line.strip())
             continue
         if blank:
@@ -279,8 +297,10 @@ def _body_status(body: str) -> tuple[str, str | None] | None:
         started = True
         status_line = _STATUS_LINE.match(line)
         if status_line:
-            return _parse_status(status_line.group(1))
-    return _parse_status(" ".join(section)) if section else None
+            status = _parse_status(status_line.group(1))
+            return None if status is None else (*status, index)
+    status = _parse_status(" ".join(section)) if section else None
+    return None if status is None else (*status, section_line)
 
 
 def extract_meta(text: str) -> Metadata | None:
@@ -288,9 +308,17 @@ def extract_meta(text: str) -> Metadata | None:
     match = _FRONT_MATTER.match(text)
     fields = _front_matter_fields((match.group(1) or "") if match else "")
     raw_status = fields.get("status")
-    status = (_parse_status(_scalar(raw_status) or "") if isinstance(raw_status, str) else None) or _body_status(
-        text[match.end():] if match else text
-    )
+    front_status = _parse_status(_scalar(raw_status) or "") if isinstance(raw_status, str) else None
+    # Lines are counted in the file: front matter's first line is the "---"
+    front_lines = len(re.split(r"\r\n|\r|\n", match.group(0))) - 1 if match else 0
+    from_body = _body_status(text[match.end():] if match else text) if front_status is None else None
+    status = front_status or (from_body[:2] if from_body else None)
+    if front_status is not None:
+        status_line = _key_line((match.group(1) or "") if match else "", "status") + 2
+    elif from_body is not None:
+        status_line = front_lines + from_body[2] + 1
+    else:
+        status_line = None
     raw_date = fields.get("date")
     tags: list[str] = []
     for tag in _list(fields.get("tags", fields.get("tag"))):
@@ -303,6 +331,7 @@ def extract_meta(text: str) -> Metadata | None:
         date=_scalar(raw_date) if isinstance(raw_date, str) else None,
         people=tuple(_list(fields.get("decision-makers", fields.get("deciders")))[:_MAX_PEOPLE]),
         tags=tuple(tags[:_MAX_TAGS]),
+        status_line=status_line,
     )
     if meta.status is None and meta.date is None and not meta.people and not meta.tags:
         return None
