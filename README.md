@@ -16,13 +16,16 @@
 </p>
 
 <p align="center">
-  <img src="site/img/app-light.webp" alt="Folio showing a document list beside a rendered Markdown document">
+  <img src="site/img/app-light.webp" alt="Folio showing a docs folder of ADRs and specs, each with its status, beside a proposed ADR with a highlight and a review note">
 </p>
 
 Open a folder and Folio lists every Markdown file in it, lets you search titles,
 headings and full text, and renders documents with syntax highlighting, math,
-Mermaid diagrams and Obsidian-style links. Highlight passages, write notes on
-them and bookmark sections as you read, then find every mark again in one list.
+Mermaid diagrams and Obsidian-style links. It reads each document's status and
+tags from its front matter or `Status:` line, so you see at a glance which
+decisions are accepted, proposed or superseded, and can filter by them.
+Highlight passages, write notes on them, give your verdict on a whole document
+and bookmark sections as you read, then find every mark again in one list.
 It never edits your files: marks are kept in Folio's own folder.
 
 Folio is made for the documents you have to read closely, such as the specs,
@@ -61,7 +64,7 @@ The app checks for updates at launch (**Folio → Check for Updates…**).
 - Marks are kept in `~/.folio` (`%USERPROFILE%\.folio` on Windows), never in your files, and follow the text when the document is edited. The same file has the same marks whichever folder you open
 - Moved and deleted documents: marks follow a file moved or renamed without edits by themselves. Otherwise its marks are listed under **Missing documents** in the Marks view, with a suggested document when one with the same name holds most of them, **Move to…** any document, or **Delete** (after asking). Nothing is deleted on its own
 - Instant search across titles, filenames and headings — a matching heading opens the document at that section
-- Outline of the open document's headings beside it (header toggle, remembered): the section being read is highlighted as you scroll, and clicking a heading jumps there (Back returns). Hidden in narrow windows
+- Outline of the open document's headings beside it (header toggle, remembered): the section being read is highlighted as you scroll, and clicking a heading jumps there (Back returns). In windows narrower than 960px it slides in from the right as a drawer, and below 768px the document list slides in from the left too; one drawer is open at a time, and it closes once used, on a tap outside it or on Escape
 - Find in the open document (`⌘F` / `Ctrl+F`): matches highlighted with a "3 of 12" count; Enter / Shift+Enter, `⌘G` / `⇧⌘G` or F3 / Shift+F3 step through them, Escape closes
 - Full-text search on demand (the page icon in the search box, `⇧⌘F` / `Ctrl+Shift+F`, remembered): matching lines appear under each document, and opening one highlights every match in the viewer and scrolls to it
 - Resizable / collapsible sidebar (mouse drag, keyboard arrows, `⌘B`)
