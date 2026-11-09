@@ -659,8 +659,8 @@ function AppInner(): React.ReactElement {
   // without the preview; where the page has no clipboard, show the preview
   const copyReviewNotes = useCallback(() => {
     const review = openDocumentNotes();
-    if (review === null || review.notes.notes.length === 0) {
-      setStatusMessage("No highlights to copy");
+    if (review === null || (review.notes.notes.length === 0 && review.notes.documentNotes === 0)) {
+      setStatusMessage("No highlights or notes to copy");
       return;
     }
     const { notes, title } = review;
@@ -669,7 +669,8 @@ function AppInner(): React.ReactElement {
         setReview(review);
         return;
       }
-      const count = notes.notes.length;
+      // Notes on passages, and the note on the document as a whole
+      const count = notes.notes.length + notes.documentNotes;
       setStatusMessage(
         `Copied ${count} note${count !== 1 ? "s" : ""} on ${title}` +
           (notes.leftOut > 0 ? ` · ${notes.leftOut} out of date, left out` : ""),
