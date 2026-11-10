@@ -8,6 +8,8 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-11-09
+
 ### Added
 
 - **Document status, dates, decision makers and tags**, read from front
@@ -143,6 +145,7 @@ the `folio-data` volume.
 First release: signed and notarized macOS builds (Apple Silicon and Intel),
 Windows and Linux builds, and in-app updates.
 
+[0.4.0]: https://github.com/crazzybot/folio/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/crazzybot/folio/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/crazzybot/folio/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/crazzybot/folio/compare/v0.2.0...v0.3.0
