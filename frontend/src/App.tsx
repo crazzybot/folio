@@ -184,6 +184,13 @@ function AppInner(): React.ReactElement {
   }, []);
   // A mark to scroll to once its document is shown (opened from the Marks view)
   const [markFocus, setMarkFocus] = useState<(MarkFocus & { docId: string }) | null>(null);
+  // Leaving its document uses it up, so Back to that document returns to the
+  // saved scroll position, not to the mark again (reset while rendering)
+  const [focusSeenIn, setFocusSeenIn] = useState(selectedId);
+  if (focusSeenIn !== selectedId) {
+    setFocusSeenIn(selectedId);
+    if (markFocus !== null && markFocus.docId === focusSeenIn) setMarkFocus(null);
+  }
   // The open document's highlights found in its text (the viewer reports them)
   const [located, setLocated] = useState<{ docId: string; ids: ReadonlySet<string> } | null>(null);
   const handleLocatedChange = useCallback((docId: string, ids: ReadonlySet<string>) => setLocated({ docId, ids }), []);
