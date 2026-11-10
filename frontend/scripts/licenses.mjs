@@ -1,8 +1,7 @@
 // Third-party license notices and the license allow-list, shared by the
 // frontend build (vite.config.ts writes third-party-licenses.txt), the
 // desktop app (desktop/scripts/copy-renderer.mjs adds its own dependencies
-// and Electron) and CI (check-licenses.mjs). In frontend/, so the frontend's
-// Docker build, which sees only this folder, has it too.
+// and Electron) and CI (check-licenses.mjs).
 //
 // Folio ships its dependencies' code, bundled and minified, so the notices
 // their licenses ask to be kept with every copy travel in a file of their

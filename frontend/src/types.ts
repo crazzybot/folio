@@ -4,7 +4,7 @@ export interface Heading {
   text: string;
 }
 
-/** What a document says about itself: front matter fields, or its status line (GET /api/documents). */
+/** What a document says about itself: front matter fields, or its status line. */
 export interface Metadata {
   /** First word of the status, lowercased: "accepted", "superseded", "draft"… */
   status: string | null;
@@ -35,7 +35,7 @@ export interface DocumentContent {
   content: string;
 }
 
-/** A matching line in a document (GET /api/search). */
+/** A matching line in a document (full-text search). */
 export interface SearchMatch {
   /** 1-based line number. */
   line: number;
@@ -63,7 +63,7 @@ export interface NavigationState {
   canGoForward: boolean;
 }
 
-// ─── Marks (GET /api/marks, /api/documents/{id}/highlights and /bookmarks) ──
+// ─── Marks ───────────────────────────────────────────────────────────────────
 
 export const HIGHLIGHT_COLORS = ["yellow", "green", "blue", "pink"] as const;
 export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number];

@@ -15,7 +15,7 @@ desktop app update themselves from GitHub Releases.
 
 Include what you can of:
 
-- the affected component (desktop app, browser frontend, backend API) and version
+- the affected component (desktop app or live demo) and version
 - steps to reproduce, ideally with a sample Markdown file or workspace
 - the impact you see (e.g. script execution, reading files outside the
   workspace, opening an executable)

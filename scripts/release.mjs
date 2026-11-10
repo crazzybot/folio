@@ -5,9 +5,8 @@
 //   node scripts/release.mjs --check
 //
 // Preparing (from a clean, up-to-date main):
-//   1. sets the version in desktop/package.json, frontend/package.json and
-//      backend/pyproject.toml (the backend reads it from there), and updates
-//      their lock files;
+//   1. sets the version in desktop/package.json and frontend/package.json,
+//      and updates their lock files;
 //   2. turns CHANGELOG.md's "## [Unreleased]" notes into the release's
 //      section, dated today, under a new empty "## [Unreleased]", and adds
 //      the release's compare link;
@@ -15,7 +14,7 @@
 //      release-X.Y.Z.
 // Merging, tagging and publishing stay manual (README → Releasing).
 //
-// --check (CI) fails unless the three files and their lock files agree.
+// --check (CI) fails unless both files and their lock files agree.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -44,17 +43,12 @@ function run(command, args, cwd = ROOT) {
 const SOURCES = [
   { file: "desktop/package.json", read: (text) => JSON.parse(text).version },
   { file: "frontend/package.json", read: (text) => JSON.parse(text).version },
-  { file: "backend/pyproject.toml", read: (text) => /^version = "([^"]+)"/m.exec(text)?.[1] },
 ];
 
 /** The lock files, which repeat the version; updated by their tools, only checked here. */
 const LOCKS = [
   { file: "desktop/package-lock.json", read: (text) => JSON.parse(text).version },
   { file: "frontend/package-lock.json", read: (text) => JSON.parse(text).version },
-  {
-    file: "backend/uv.lock",
-    read: (text) => /\[\[package\]\]\nname = "backend"\nversion = "([^"]+)"/.exec(text)?.[1],
-  },
 ];
 
 /** The version in each file, by file. */
@@ -139,14 +133,12 @@ function prepare(asked) {
   for (const file of ["desktop/package.json", "frontend/package.json"]) {
     writeFileSync(path(file), read(file).replace(`"version": "${previous}"`, `"version": "${version}"`));
   }
-  writeFileSync(path("backend/pyproject.toml"), read("backend/pyproject.toml").replace(/^version = "[^"]+"/m, `version = "${version}"`));
   writeFileSync(path("CHANGELOG.md"), changelog);
 
   console.log("Updating lock files…");
   for (const dir of ["desktop", "frontend"]) {
     run("npm", ["install", "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund"], path(dir));
   }
-  run("uv", ["lock", "--quiet"], path("backend"));
   check();
 
   run("git", ["switch", "--create", releaseBranch]);

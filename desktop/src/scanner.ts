@@ -1,8 +1,8 @@
 /**
  * scanner.ts — Discovers and catalogues markdown files under the workspace folder.
  *
- * Port of backend/app/scanner.py: IDs, titles and ordering match the Python
- * backend so deep links (/doc/<id>) are interchangeable between the two.
+ * IDs, titles and ordering are fixed by tests/fixtures/expected-scan.json,
+ * so deep links (/doc/<id>) keep working from one version to the next.
  */
 
 import { createHash } from "node:crypto";
@@ -172,8 +172,8 @@ export function extractHeadings(text: string): Heading[] {
 
 // ---------------------------------------------------------------------------
 // Metadata (docs/design/frontmatter-metadata.md)
-// Not a YAML parser: the few forms these keys are written in, the same rules
-// as backend/app/scanner.py.
+// Not a YAML parser: the few forms these keys are written in
+// (tests/fixtures/meta-cases.json).
 // ---------------------------------------------------------------------------
 
 const MAX_TAGS = 20;

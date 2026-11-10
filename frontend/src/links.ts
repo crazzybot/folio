@@ -19,11 +19,10 @@ export type LinkTarget =
   | { kind: "missing"; location: string };
 
 /**
- * Files a link may open (in its app on the desktop, from the backend in the
- * browser): documents, data, office files, images and media — never HTML,
+ * Files a link may open (in its app on the desktop, in a new tab in the live
+ * demo): documents, data, office files, images and media — never HTML,
  * SVG, scripts, executables, launchers or archives. Enforced by the desktop
- * app (desktop/src/files.ts) and the backend (LINKED_FILE_TYPES); here it
- * only decides how a link looks.
+ * app (desktop/src/files.ts); here it only decides how a link looks.
  */
 const OPENABLE_EXTENSIONS = new Set(
   (

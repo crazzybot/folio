@@ -1,6 +1,6 @@
 /**
  * demo/search.ts — Full-text search for the live demo, done in the page,
- * mirroring desktop/src/search.ts (which mirrors backend/app/search.py).
+ * mirroring desktop/src/search.ts.
  * desktop/test/demoSearch.test.ts runs both on the same inputs.
  *
  * A case-insensitive plain-text match (no regex). Each result carries the

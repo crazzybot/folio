@@ -25,7 +25,7 @@ body:
       label: Which version of Folio?
       options:
         - Desktop app
-        - Browser (backend + frontend)
+        - Live demo (browser)
     validations:
       required: true
   - type: input

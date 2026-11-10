@@ -1,5 +1,5 @@
-Shared fixtures for the two marks stores (`backend/app/marks.py` and
-`desktop/src/marks.ts`); both test suites read them.
+Fixtures for the marks store (`desktop/src/marks.ts`), read by
+`desktop/test/marks.test.ts`.
 
 - `records/*.json` — saved records. `{WORKSPACE}` in `path` stands for the
   fixture workspace's real path, and `{SHA1 <location>}` / `{SIZE <location>}`
@@ -13,5 +13,5 @@ Shared fixtures for the two marks stores (`backend/app/marks.py` and
   returns for those records; `{ID <location>}` stands for that document's id
   and `{RECORD <location>}` for the record id of a missing file there.
 - `invalid-highlights.json`, `invalid-bookmarks.json`, `invalid-notes.json` —
-  `[description, body]` pairs both stores must refuse when adding a highlight
+  `[description, body]` pairs the store must refuse when adding a highlight
   or a bookmark, or setting a document's note.
