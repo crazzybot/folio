@@ -258,7 +258,7 @@ function MarkdownLink({
         );
       }
       // Desktop: the main process opens it in its default app (safe types
-      // only). Browser: the backend serves it, in a new tab.
+      // only). Live demo: the demo's bundle serves it, in a new tab.
       if (desktopApi) {
         return (
           <a

@@ -1,8 +1,8 @@
 /**
  * main.ts — Electron main process for the Folio desktop app.
  *
- * Replaces the FastAPI backend: the workspace is scanned in-process and the
- * renderer reaches it over IPC (see preload.ts). The React build is served
+ * The workspace is scanned in-process and the renderer reaches it over IPC
+ * (see preload.ts). The React build is served
  * from a privileged `app://` scheme with an index.html fallback, so the
  * frontend's BrowserRouter and /doc/<id>#anchor URLs work unchanged. Images
  * embedded by documents are served under app://bundle/@workspace/<location>
@@ -198,7 +198,7 @@ function openExternal(url: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Document API (IPC) — mirrors GET /api/documents, /api/documents/{id}/content and /api/search
+// Document API (IPC): the document list, a document's content and full-text search
 // ---------------------------------------------------------------------------
 
 function assertTrustedSender(event: IpcMainInvokeEvent): void {
@@ -261,8 +261,8 @@ function registerIpcHandlers(): void {
     return searchWorkspace(settings.workspace, query, scanOptions());
   });
 
-  // Marks — mirrors GET /api/marks, /api/documents/{id}/highlights[/{hid}],
-  // /bookmarks[/{bid}] and /api/marks/{recordId}[/relink]
+  // Marks: listing, highlights, bookmarks, the document's note, and missing
+  // documents' marks (relink, forget)
   ipcMain.handle("marks:list", async (event): Promise<{ documents: DocumentMarks[]; missing: MissingMarks[] }> => {
     assertTrustedSender(event);
     if (settings.workspace === null) return { documents: [], missing: [] };

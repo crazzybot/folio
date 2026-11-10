@@ -15,8 +15,7 @@ all welcome.
 
 ## Development setup
 
-You need Node.js 20.19 or later (CI uses 24), npm, Python 3.13 and
-[uv](https://docs.astral.sh/uv/).
+You need Node.js 20.19 or later (CI uses 24) and npm.
 
 ```bash
 git clone https://github.com/crazzybot/folio.git
@@ -26,8 +25,8 @@ cd folio
 cd desktop && npm install && npm start
 ```
 
-For the browser version (FastAPI backend + Vite dev server) and live-reload
-development of the desktop app, see the [README](README.md#quick-start).
+For live-reload development of the desktop app and running the live demo
+locally, see the [README](README.md#quick-start).
 
 ## Before opening a pull request
 
@@ -39,17 +38,14 @@ npm run lint && npx tsc --noEmit && npm test
 
 # desktop/
 npx tsc --noEmit && npm test
-
-# backend/
-uv run pytest -q
 ```
 
 A few things worth knowing:
 
-- **Two scanners, one spec.** The workspace scanner exists twice —
-  `backend/app/scanner.py` and its Node port `desktop/src/scanner.ts` — and both
-  are tested against `tests/fixtures/expected-scan.json`. If you change scanning
-  rules, update the fixture deliberately and make both implementations pass.
+- **Document IDs are part of links.** The scanner (`desktop/src/scanner.ts`)
+  is tested against `tests/fixtures/expected-scan.json`; IDs and titles must
+  stay stable, since deep links and marks rely on them. If you change
+  scanning rules, update the fixture deliberately.
 - **Untrusted Markdown.** Documents may come from cloned repositories, so
   rendering and file serving are locked down (see
   [Security](README.md#security) in the README). Changes that loosen the HTML

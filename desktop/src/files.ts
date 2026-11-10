@@ -7,8 +7,7 @@
  * open: documents, data, office files, images and media. Never HTML or SVG
  * (they'd run scripts from a local file), executables, scripts, launchers
  * (.command, .webloc, .app), archives, disk images or macro-enabled Office
- * files; not .key either (Keynote, but also private keys). The same list as
- * the backend's LINKED_FILE_TYPES (backend/app/scanner.py), plus images.
+ * files; not .key either (Keynote, but also private keys). Images too.
  */
 
 import { shell } from "electron";

@@ -6,7 +6,7 @@
 
 <p align="center">
   Read, search and review folders of Markdown — specs, ADRs, notes and Obsidian vaults.<br>
-  For macOS, Windows and Linux, or self-hosted in the browser.
+  For macOS, Windows and Linux.
 </p>
 
 <p align="center">
@@ -57,7 +57,7 @@ The app checks for updates at launch (**Folio → Check for Updates…**).
 - Documents grouped by folder (toggle in the sidebar header, remembered): only folders that hold documents, folder-only chains merged ("api / v2"); the open document's folders expand. Numbered documents (`0015-hmac.md`, `ADR-015-hmac.md`) show their number before the title, and a title that starts with the same number (`ADR 0015: …`) is shown without it. A document's status — front matter `status:`, or a `Status:` line or `## Status` section at its start — replaces its icon (accepted or implemented, proposed, rejected, deprecated, superseded or other); rejected, deprecated and superseded titles are dimmed. The hover card adds status, date, decision makers and tags. Above a document with any of these, a line shows them, with "Superseded by ADR-0005" linking to that document. The funnel button in the sidebar header filters the list by status and tags (with counts; any chosen status, and any chosen tag); the filters show as removable chips under the search box, are remembered per workspace, and narrow search and the document count too. Clicking the status above the document opens the note on the document, to suggest another status. Hovering a document or folder (or reaching it with the arrow keys) shows a card with its full title and location, or a folder's document count, and its marks; in the Marks view, a highlight's card shows its passage and note in full. Full keyboard navigation: ↑ ↓ Home End, → ← to expand / collapse, Enter to open, ↓ from the search box into the list
 - Focus on a folder: the focus button on a folder row (it appears on hover), a folder in the breadcrumb, or right-click a folder in the desktop app. The list, search and document count narrow to that folder; links and images still resolve across the whole workspace. Clear it with ✕ on the folder bar or Escape in the list; it's remembered per workspace. The desktop app's folder menu also has **Open Folder as Workspace**
 - Highlights and notes: select text and pick one of four colours from the toolbar above it (or `⇧⌘H` / `Ctrl+Shift+H` for the last colour), or **Add note** to highlight it and write a note. Click a highlight to change its colour, write or edit its note, or remove it; highlights with a note show an icon in the margin. Hovering a section (heading, paragraph, list item, table, code block) shows a note button in the margin that highlights the whole section and opens its note. Highlights don't overlap: selecting text that is already highlighted opens that highlight instead. Documents with highlights show a count in the list, and the outline shows how many each section has
-- Copy review notes: the header's clipboard button shows the open document's note on the document as a whole (its status change, with the line the status is on, and overall comment — a change the document already has is left out) and its highlights and notes as Markdown for a coding agent (Claude Code, Cursor, …) — each with its file path and line (`/path/to/spec.md:42`), section, quote and note, or `(no comment)` — and copies it. `⇧⌘C` / `Ctrl+Shift+C` (**Edit → Copy Review Notes**) copies without the preview. Highlights no longer found in the document are left out. In the Marks view, the button on a document's row copies its notes, and the one beside the filter copies every highlight the view shows (the focused folder, the filter and **Notes only** apply). Paths are absolute in the desktop app and workspace-relative in the browser. **Settings → Review notes** changes or turns off the opening instructions for the agent
+- Copy review notes: the header's clipboard button shows the open document's note on the document as a whole (its status change, with the line the status is on, and overall comment — a change the document already has is left out) and its highlights and notes as Markdown for a coding agent (Claude Code, Cursor, …) — each with its file path and line (`/path/to/spec.md:42`), section, quote and note, or `(no comment)` — and copies it. `⇧⌘C` / `Ctrl+Shift+C` (**Edit → Copy Review Notes**) copies without the preview. Highlights no longer found in the document are left out. In the Marks view, the button on a document's row copies its notes, and the one beside the filter copies every highlight the view shows (the focused folder, the filter and **Notes only** apply). Paths are absolute in the desktop app and workspace-relative in the live demo. **Settings → Review notes** changes or turns off the opening instructions for the agent
 - Notes on a document as a whole: the header's note button (beside the bookmark) opens an editor for an overall comment and a status to ask for (`accepted`, `rejected`, or any word). The note shows above the document — with "✓ Now accepted · Clear request" once the document has that status — first under the document in the Marks view, and in the hover cards
 - Bookmarks: bookmark the document with the header's bookmark button (`⌘D` / `Ctrl+D`), or a section with the button that appears beside a heading on hover
 - Marks view (the sidebar's **Marks** tab): the marks of every document in the workspace (or the focused folder), grouped by document — its bookmarked sections by heading, then its highlights and notes — with a filter and a **Notes only** switch. A ★ on a document's row means the document itself is bookmarked. Click one to go to it; Back returns. Highlights whose text was since deleted from the document are shown as not found, and can be removed there. The open document's bookmarked sections show a bookmark icon in its outline
@@ -78,15 +78,15 @@ The app checks for updates at launch (**Folio → Check for Updates…**).
 - Mermaid diagrams from ```` ```mermaid ```` blocks, drawn in the current light / dark theme (Mermaid loads only when a document has one). A diagram that sets its own colours (`rect rgb(…)`, `fill:`) or theme (`%%{init: {"theme": …}}%%`) is drawn for the background it was written for, on a card of that background, so its text stays readable in either theme. Hover a diagram and click its expand button (or double-click it) to open it in the whole window, under a title bar with its caption (the diagram's `title`, or the nearest heading) that still drags the window: zoom with the toolbar, ⌘ / Ctrl + scroll, a trackpad pinch or `+` / `-`; pan by dragging, scrolling or with the arrow keys; `0` fits and recentres, `1` shows actual size, Escape closes
 - Images from the workspace (`![](img/diagram.png)`, relative to the document) and the web
 - Copy button on code blocks (on hover or keyboard focus)
-- Links to other files (`[data](report.pdf)`) open in their app on the desktop, or in a new tab in the browser — documents, data, office files, images and media only; links to scripts, executables, HTML and the like are shown as unavailable
+- Links to other files (`[data](report.pdf)`) open in their app on the desktop, or in a new tab in the live demo — documents, data, office files, images and media only; links to scripts, executables, HTML and the like are shown as unavailable
 - Syntax-highlighted fenced code blocks (Python, JS/TS, JSON, Bash, CSS, HTML, YAML, Markdown)
 
 ---
 
 ## Building from source
 
-You only need this to work on Folio or to run the browser version; to just use
-the app, [download it](#download). Contributions are welcome: see
+You only need this to work on Folio; to just use the app,
+[download it](#download). Contributions are welcome: see
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Prerequisites
@@ -95,48 +95,37 @@ the app, [download it](#download). Contributions are welcome: see
 |------|----------------|
 | Node.js | 20.19 (CI uses 24) |
 | npm | 10 |
-| Python (browser version only) | 3.13 |
-| [uv](https://docs.astral.sh/uv/) (browser version only) | latest |
 
-### Quick start (browser version)
+### Quick start
 
 ```bash
 git clone https://github.com/crazzybot/folio.git
-cd folio
-cp .env.example .env   # edit as needed
-```
-
-**Terminal 1 — Backend**
-
-```bash
-cd backend
-MARKDOWN_WORKSPACE=../workspace uv run uvicorn app.main:app --reload --port 8000
-```
-
-**Terminal 2 — Frontend dev server**
-
-```bash
-cd frontend
+cd folio/desktop
 npm install
-npm run dev
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+`npm start` builds the frontend and the main process and launches the app.
+Pick the repository's `workspace/` folder when it asks for one: it holds two
+sample documents (`welcome.md` and `samples/code-demo.md`).
 
-> **Tip:** The `workspace/` folder already contains two sample documents
-> (`welcome.md` and `samples/code-demo.md`) so the app is usable immediately.
+To work on the frontend in a browser without the desktop app, run the live
+demo locally: `npm run demo:bundle` in `desktop/`, then `npm run dev:demo`
+in `frontend/`.
 
-**Or with Docker** — `docker compose up --build` serves the app at
-[http://127.0.0.1:3000](http://127.0.0.1:3000), browsing `./workspace`
-read-only (set `WORKSPACE_DIR` in `.env` to browse another folder).
+> **Self-hosting:** up to version 0.4.0 Folio also ran in the browser from
+> a self-hosted server (Python backend and Docker). It was dropped after
+> 0.4.0; the [`v0.4.0` tag](https://github.com/crazzybot/folio/tree/v0.4.0)
+> has it and its instructions. Its marks (the `marks/` folder in its data
+> volume) use the same format as the desktop app's `~/.folio/marks/`, so
+> they can be copied across.
 
 ---
 
 ## Desktop app (Electron)
 
-The `desktop/` package wraps the same React frontend in an Electron app. The
-FastAPI backend isn't needed there: the workspace scanner is ported to Node
-(`desktop/src/scanner.ts`, same IDs and titles) and runs in the main process,
+The `desktop/` package wraps the React frontend in an Electron app. The
+workspace scanner (`desktop/src/scanner.ts`) runs in the main process,
 reached from the UI over IPC.
 
 ```bash
@@ -191,7 +180,7 @@ state (`window-state.json`; an off-screen position falls back to the
 default), and view preferences: sidebar width, folder tree and expanded
 folders, outline, reading width, font size, text-search toggle
 (`view-state.json`). Both live in the app's data folder next to
-`settings.json` and aren't meant for hand-editing. In the browser, view
+`settings.json` and aren't meant for hand-editing. In the live demo, view
 preferences are kept in `localStorage`.
 
 **Settings** — `settings.json` (in the app's data folder, e.g.
@@ -217,14 +206,13 @@ version control, dependencies, virtual environments, caches and tool data:
 for real documentation — add them if yours don't). A list left at an earlier
 default is upgraded to this one; a customised list is kept as it is. `maxDepth` caps how
 many folder levels below the workspace are scanned (`docs/guide.md` is depth
-1, `null` = unlimited) — the same as `MARKDOWN_SKIP_DIRS` / `MARKDOWN_MAX_DEPTH`
-for the backend. `theme` is `"system"`, `"light"` or `"dark"`. `editor` chooses
+1, `null` = unlimited). `theme` is `"system"`, `"light"` or `"dark"`. `editor` chooses
 the editor for **Open in Editor**: on macOS an app name (`"Visual Studio
 Code"`, `"Cursor"`, `"Typora"`…), elsewhere a command on the `PATH`
 (`"code"`, `"subl"`…). Left `null`, macOS uses the first of VS Code, Cursor,
 Zed, Windsurf, Sublime Text, BBEdit, Nova, Typora, iA Writer and MarkText
 that's installed (else the default text editor), and Windows / Linux use the
-default app for Markdown files. In the browser
+default app for Markdown files. In the live demo
 the appearance, reading width and font size chosen in the display options
 menu are remembered in `localStorage`; in the desktop app the reading width
 and font size are too.
@@ -249,9 +237,8 @@ updates (**Folio → Check for Updates…**, also checked quietly at launch).
    ```bash
    node scripts/release.mjs patch   # or minor, major, or a version: 0.4.0
    ```
-   It sets the version in `desktop/package.json`, `frontend/package.json`
-   and `backend/pyproject.toml` (the backend reads it from there), updates
-   the lock files (`npm`, `uv`), dates the changelog section, and commits it
+   It sets the version in `desktop/package.json` and `frontend/package.json`,
+   updates their lock files, dates the changelog section, and commits it
    all on a `release-X.Y.Z` branch. Review it, push it and merge it to `main`.
    CI checks that every file has the same version
    (`node scripts/release.mjs --check`).
@@ -280,254 +267,14 @@ and every pull request.
 
 ---
 
-## Environment variables
-
-| Variable | Where it is read | Default | Description |
-|---|---|---|---|
-| `MARKDOWN_WORKSPACE` | Backend (runtime) | `./workspace` | Absolute or relative path to the folder the server scans for Markdown files. Relative paths are resolved from the backend's working directory. |
-| `MARKDOWN_SKIP_DIRS` | Backend (runtime) | the desktop app's default list (see Settings above) | Comma-separated folder **names** skipped wherever they appear. Skipping caches and build output is the most effective way to speed up scanning a large workspace. |
-| `MARKDOWN_MAX_DEPTH` | Backend (runtime) | unlimited | Folder levels below the workspace to scan (`docs/guide.md` is depth 1). A safety cap — documents deeper than this are not listed or served. |
-| `MARKDOWN_DATA_DIR` | Backend (runtime) | `~/.folio` | Folder for Folio's own data: highlights, in its `marks/` subfolder. Never inside the workspace; the desktop app uses `~/.folio` too, so both see the same highlights. |
-| `MARKDOWN_CORS_ORIGINS` | Backend (runtime) | local dev servers (`http://localhost:3000`, `:5173`, and their `127.0.0.1` forms) | Comma-separated browser origins allowed to call the API cross-origin. Set it empty to disable CORS when the frontend is served from the same origin. |
-| `MARKDOWN_ALLOWED_HOSTS` | Backend (runtime) | `localhost,127.0.0.1` | Comma-separated `Host` header values the API answers to; anything else gets `400`, which blocks DNS rebinding. Add your domain when deploying. |
-| `VITE_API_BASE_URL` | Frontend (build time) | `http://localhost:8000` | Base URL the browser uses to call the backend API. Must be set before running `npm run build` for production deployments. |
-
----
-
-## REST API reference
-
-### `GET /api/documents`
-
-Returns a sorted list of every Markdown file found in the workspace.
-
-**Response** `200 OK`
-
-```json
-[
-  {
-    "id": "a3f1c2d4...",
-    "filename": "welcome.md",
-    "location": "welcome.md",
-    "title": "Welcome",
-    "created": "2026-07-11T22:08:00Z",
-    "headings": [
-      { "level": 1, "text": "Welcome" },
-      { "level": 2, "text": "Getting started" }
-    ]
-  },
-  {
-    "id": "b9e0d1f3...",
-    "filename": "code-demo.md",
-    "location": "samples/code-demo.md",
-    "title": "Code Demo",
-    "created": "2026-07-11T22:08:00Z",
-    "headings": [
-      { "level": 1, "text": "Code Demo" },
-      { "level": 2, "text": "Python example" }
-    ]
-  }
-]
-```
-
-| Field | Type | Description |
-|---|---|---|
-| `id` | string | SHA-1 of the POSIX-relative path. Stable across server restarts. |
-| `filename` | string | Bare filename (e.g. `welcome.md`). |
-| `location` | string | Relative POSIX path from workspace root. |
-| `title` | string | Front matter `title:`, first ATX heading (as it reads, without Markdown syntax), first non-empty line, or filename stem — in that order. |
-| `created` | string | File creation time as UTC ISO-8601. |
-| `headings` | array | ATX headings (`#` … `######`) outside fenced code blocks, as rendered text (links, emphasis and code markers removed), from the first 256 KB of the file. Used for instant heading search. |
-| `meta` | object | Left out when the document has none of these. `status`: the first word of front matter `status:`, lowercased (`accepted`, `superseded`, `draft`…); without one, of a `Status:` line or `## Status` section in the document's first section. `statusDetail`: the status as written when it says more (`superseded by ADR-0005`), else `null`. `date`: front matter `date:` as written. `people`: `decision-makers:` or `deciders:`. `tags`: `tags:` or `tag:`, lowercased, without `#`. `statusLine`: the 1-based line the status is written on, or `null`. See [docs/design/frontmatter-metadata.md](docs/design/frontmatter-metadata.md). |
-
----
-
-### `GET /api/documents/{id}/content`
-
-Returns the raw Markdown source for a single document.
-
-**Response** `200 OK`
-
-```json
-{
-  "id": "a3f1c2d4...",
-  "content": "# Welcome\n\nWelcome to **Folio** …"
-}
-```
-
-**Response** `404 Not Found` — when `id` does not match any file in the workspace.
-
-```json
-{ "detail": "Document a3f1c2d4 not found" }
-```
-
-### `GET /api/attachments`
-
-Returns the workspace-relative paths of every image file, sorted, so
-Obsidian-style embeds (`![[diagram.png]]`, which give only a file name) can
-be resolved. Skips the same folders as the document list.
-
-```json
-["attachments/diagram.png", "docs/img/flow.svg"]
-```
-
-### `GET /api/search?q={query}`
-
-Searches the text of every document (case-insensitive, plain text — no
-regex). Returns matching documents in document-list order, each with its
-match count and up to three matching lines. `occurrence` is the match's
-index among all matches in the document, which the viewer uses to scroll to
-it. Queries shorter than two characters return `[]`; files over 2 MB are
-skipped.
-
-**Response** `200 OK`
-
-```json
-[
-  {
-    "id": "a3f1c2d4...",
-    "matchCount": 4,
-    "matches": [
-      { "line": 12, "text": "class Document:", "start": 6, "end": 14, "occurrence": 0 }
-    ]
-  }
-]
-```
-
-### `GET /api/marks`
-
-Returns the bookmarks and highlights of every listed document that has any,
-in document-list order. Marks are stored by the file's real path (in
-`MARKDOWN_DATA_DIR/marks`), so the same file has the same marks from any
-workspace that contains it.
-
-```json
-{
-  "documents": [
-    {
-      "docId": "a3f1c2d4...",
-      "location": "docs/setup.md",
-      "bookmarks": [
-        { "id": "5b7e0c9a12f4d683", "heading": null, "created": "2026-11-07T10:00:00Z" },
-        { "id": "c02f9e4b7a1d3856", "heading": { "text": "Install", "level": 2, "occurrence": 0 }, "created": "2026-11-07T10:05:00Z" }
-      ],
-      "highlights": [
-        {
-          "id": "9f2c41d07ab3e815",
-          "color": "yellow",
-          "note": null,
-          "quote": { "exact": "Run the installer", "prefix": "…32 characters before", "suffix": "…32 after" },
-          "position": { "start": 120, "end": 137 },
-          "created": "2026-11-07T10:00:00Z",
-          "updated": "2026-11-07T10:00:00Z"
-        }
-      ]
-    }
-  ]
-}
-```
-
-`quote` and `position` refer to the document's rendered text; the viewer uses
-them to find the passage again after the document is edited. A bookmark's
-`heading` is `null` for the document itself; `occurrence` counts earlier
-headings with the same text and level, since such headings share an anchor.
-
-### `POST /api/documents/{id}/highlights`
-
-Adds a highlight. Body (`Content-Type: application/json` required):
-`{"color", "quote": {"exact", "prefix", "suffix"}, "position": {"start", "end"}}`,
-`color` one of `yellow`, `green`, `blue`, `pink`. Returns `201` with the saved
-highlight. `400` for an invalid body, `415` for another content type, `409`
-when the document's marks file was written by a newer Folio or is damaged
-(it's left as it is).
-
-### `PATCH /api/documents/{id}/highlights/{highlightId}` · `DELETE …`
-
-`PATCH` changes `color` and / or `note` (JSON body; an empty or blank note
-removes it) and returns the highlight; `DELETE` removes it (`204`). `POST`
-also accepts a `note`. A document with no marks left has its marks file
-removed.
-
-### `POST /api/documents/{id}/bookmarks` · `DELETE …/bookmarks/{bookmarkId}`
-
-`POST` bookmarks the document (`{"heading": null}`) or one of its headings
-(`{"heading": {"text", "level", "occurrence"}}`) and returns the bookmark —
-the existing one if it was already bookmarked. `DELETE` removes it (`204`).
-
-### `PUT /api/documents/{id}/note` · `DELETE …/note`
-
-A note on the document as a whole: `PUT` sets it from `{"text", "requestedStatus"}`
-— a comment (Markdown, up to 10 000 characters) and a status to ask the
-document's author to change it to (one line, up to 40 characters); either
-may be `null` — and returns it, with `created` and `updated`. Both `null`
-(or blank) removes the note and returns `null`. `DELETE` removes it (`204`,
-`404` if there's none). In `GET /api/marks`, a document's `note` is left out
-when it has none, and a document with only a note is listed.
-
-### Missing documents: `POST /api/marks/{recordId}/relink` · `DELETE /api/marks/{recordId}`
-
-`GET /api/marks` also returns `missing`: the marks of files in the workspace
-that no longer exist, by where they were.
-
-```json
-"missing": [
-  {
-    "recordId": "3f9a…c1",
-    "location": "docs/old/setup.md",
-    "bookmarks": [],
-    "highlights": [ … ],
-    "suggestion": { "docId": "a3f1c2d4...", "location": "docs/setup.md" }
-  }
-]
-```
-
-Before listing, a missing file's marks move by themselves to the one
-unmarked document with the same content (its bytes' SHA-1, kept in the marks
-file), so a file moved or renamed without edits keeps its marks. Otherwise
-`suggestion` is the one unmarked document with the same file name, when at
-least half of the marks (highlighted passages, bookmarked headings) are found
-in it; else `null`.
-
-`POST …/relink` with `{"docId"}` moves them to that document (merged with any
-marks it has); `DELETE` deletes them. Both answer `204`, and `404` for
-anything but a missing file's marks in this workspace.
-
-### `GET /api/files/{location}`
-
-Returns an image embedded by a document, so `![](img/diagram.png)` works, or
-a file a document links to (`[data](report.pdf)`).
-`location` is the image's workspace-relative path with forward slashes, e.g.
-`/api/files/docs/img/diagram.png`; the frontend resolves relative `src`
-values against the document's folder before calling it.
-
-Only image files (`png`, `jpg`/`jpeg`, `gif`, `webp`, `avif`, `bmp`, `ico`,
-`svg`) and linkable document, data, office and media files (`pdf`, `txt`,
-`csv`, `json`, `yaml`, `docx`, `xlsx`, `mp4`… — `LINKED_FILE_TYPES` in
-`backend/app/scanner.py`) inside the workspace are served, never from a folder in
-`MARKDOWN_SKIP_DIRS`. Responses carry a `sandbox` Content-Security-Policy so
-an SVG opened directly can't run scripts.
-
-**Response** `404 Not Found` — for anything else.
-
----
-
 ## Project structure
 
 ```
 folio/
-├── .env.example                  # template — copy to .env and edit
 ├── README.md
-├── workspace/                    # Markdown files served by the backend
-│   ├── welcome.md
-│   └── samples/
-│       └── code-demo.md
-│
-├── backend/
-│   ├── pyproject.toml            # uv project — FastAPI + uvicorn
-│   └── app/
-│       ├── __init__.py
-│       ├── main.py               # FastAPI app, CORS + trusted hosts, route handlers
-│       ├── scanner.py            # workspace scanner, ID generation, title extraction
-│       └── search.py             # full-text search
+├── workspace/                    # two sample documents to try the app on
+├── demo/                         # the live demo's sample repository and seed marks
+├── tests/fixtures/               # workspace, expected scan and marks for the desktop tests
 │
 ├── desktop/
 │   ├── package.json              # Electron + electron-builder config
@@ -536,57 +283,44 @@ folio/
 │       ├── cli.ts                # macOS: installs the `folio` shell command
 │       ├── images.ts             # serves workspace images under app://bundle/@workspace/
 │       ├── main.ts               # window, app:// scheme, IPC, menu, PDF export
+│       ├── marks.ts              # highlights, notes and bookmarks in ~/.folio
 │       ├── openPaths.ts          # paths from the command line, Open With and drops
 │       ├── preload.ts            # exposes window.markdownApi
 │       ├── recent.ts             # recently opened workspace folders (recent.json)
-│       ├── scanner.ts            # Node port of backend/app/scanner.py
-│       ├── search.ts             # Node port of backend/app/search.py
-│       ├── settings.ts           # remembers the workspace folder
+│       ├── scanner.ts            # workspace scanner, ID generation, title extraction
+│       ├── search.ts             # full-text search
+│       ├── settings.ts           # settings.json
 │       └── watcher.ts            # watches the workspace for live reload
 │
 └── frontend/
-    ├── package.json              # Vite + React 18 + TypeScript
-    ├── vite.config.ts            # manual chunk splitting, /api proxy
+    ├── package.json              # Vite + React + TypeScript
+    ├── vite.config.ts            # manual chunk splitting, the demo build
     ├── tsconfig.json             # strict mode + noUncheckedIndexedAccess
     ├── index.html
     └── src/
         ├── main.tsx              # React root
-        ├── types.ts              # DocumentMeta, DocumentContent
-        ├── api.ts                # fetch helpers (IPC bridge in the desktop app)
+        ├── types.ts              # DocumentMeta, DocumentContent, marks
+        ├── api.ts                # data access: the IPC bridge, or the demo's bundle
         ├── desktop.d.ts          # window.markdownApi type
+        ├── demo/                 # the live demo's data source, in the page
         ├── index.css             # design tokens (CSS custom properties)
         ├── App.tsx               # layout, drag-resize, data fetching
-        ├── App.module.css
-        └── components/
-            ├── DocumentList.tsx        # searchable sidebar list
-            ├── DocumentList.module.css
-            ├── MarkdownViewer.tsx      # react-markdown + remark-gfm + rehype-highlight
-            └── MarkdownViewer.module.css
+        └── components/           # document list, viewer, marks, settings…
 ```
 
 ---
 
 ## Development scripts
 
-### Backend
-
-```bash
-# Install deps and start with hot-reload
-cd backend
-MARKDOWN_WORKSPACE=../workspace uv run uvicorn app.main:app --reload --port 8000
-
-# Run the tests
-uv run pytest
-```
-
 ### Frontend
 
 ```bash
 cd frontend
 
-npm run dev          # Vite dev server at http://localhost:3000
+npm run dev          # Vite dev server at http://localhost:3000, for the desktop app's live reload
+npm run dev:demo     # the live demo at http://localhost:3000 (after npm run demo:bundle in desktop/)
 npm run build        # type-check + production bundle → dist/
-npm run preview      # serve the production build locally
+npm run build:demo   # the live demo → dist-demo/
 npm run lint         # ESLint (TypeScript + React hooks rules), no warnings allowed
 npm test             # Vitest: links, wiki links, math dollars, diagram themes
 ```
@@ -601,25 +335,11 @@ npm test             # Vitest: scanner, search, images, paths, file watcher
 
 ### Tests
 
-`tests/fixtures/workspace/` is a small workspace shared by the backend and
-desktop tests, and `tests/fixtures/expected-scan.json` is what scanning it
-must produce (document IDs, titles, headings, images). Both scanners are
-tested against that one file, so they can't drift apart: change the expected
-output deliberately when the scanning rules change, and both implementations
-must follow.
-
----
-
-## Deployment notes
-
-1. **Backend** — any ASGI host (Railway, Fly.io, Render) running `uvicorn app.main:app`.
-   Set `MARKDOWN_WORKSPACE` to a persistent volume path, and
-   `MARKDOWN_DATA_DIR` to a writable persistent one for highlights.
-2. **Frontend** — run `VITE_API_BASE_URL=https://your-backend.example.com npm run build`,
-   then serve the `dist/` folder from any static host (Netlify, Vercel, GitHub Pages, nginx).
-3. **CORS / hosts** — set `MARKDOWN_CORS_ORIGINS` to your frontend's origin and
-   `MARKDOWN_ALLOWED_HOSTS` to the backend's domain. Never use `*`: the API
-   serves file contents, so any website could read them.
+`tests/fixtures/workspace/` is a small workspace for the desktop tests, and
+`tests/fixtures/expected-scan.json` is what scanning it must produce
+(document IDs, titles, headings, images). Document IDs are part of deep
+links, so change the expected output only deliberately, when the scanning
+rules change.
 
 ---
 
@@ -631,7 +351,7 @@ repositories or vendored packages.
 - **Rendering** — raw HTML in documents is filtered through GitHub's
   allow-list (`rehype-sanitize`): no scripts, event handlers, styles, frames,
   forms, `<meta>`/`<base>` or `javascript:` URLs. A Content-Security-Policy
-  (nginx in Docker, the `app://` handler in the desktop app) is the second layer.
+  (set by the desktop app's `app://` handler) is the second layer.
 - **Files** — only `.md`/`.markdown` files inside the workspace are served,
   by ID rather than path; symlinks pointing outside the workspace are ignored.
   Images and linked files are served by path, but only allowlisted types
@@ -640,16 +360,9 @@ repositories or vendored packages.
   workspace and outside skipped folders, with a sandboxing CSP so nothing
   served can run scripts. The desktop app opens linked files in their default
   app under the same allowlist, checked again after resolving symlinks.
-- **Highlights** — kept in `MARKDOWN_DATA_DIR` (the desktop app: `~/.folio`),
-  never in the workspace, which Folio still never writes to. The endpoints
-  that change them accept only `application/json` bodies, so a page on another
-  site can't send one without a CORS preflight, which it fails; the `Host`
-  check above blocks DNS rebinding. A damaged marks file, or one written by a
-  newer Folio, is left untouched.
-- **Network (Docker)** — only nginx is published, on `127.0.0.1:3000`; the
-  backend is reachable solely through it. Both containers run as non-root
-  users and the workspace is mounted read-only; highlights go to a separate
-  named volume, shared by everyone using the server.
+- **Highlights** — kept in `~/.folio`, never in the workspace, which Folio
+  still never writes to. A damaged marks file, or one written by a newer
+  Folio, is left untouched.
 - **Desktop** — context isolation and sandboxing, IPC limited to the app's own
   page, external links opened only for `http(s)`/`mailto`, all permission
   requests denied, and Electron fuses (no `ELECTRON_RUN_AS_NODE`,
@@ -676,7 +389,7 @@ project follows a [Code of Conduct](CODE_OF_CONDUCT.md).
 
 Folio includes open-source software under its own licenses. Every build
 writes their notices to `third-party-licenses.txt` next to the app (desktop:
-**Help → Third-Party Licenses**; browser version and live demo: **Settings →
+**Help → Third-Party Licenses**; live demo: **Settings →
 Third-party licenses**), from the packages actually in the build
 (`frontend/scripts/licenses.mjs`). CI fails when a production dependency's
 license isn't on the allow-list there (`frontend/scripts/check-licenses.mjs`).

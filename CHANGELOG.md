@@ -1,12 +1,20 @@
 # Changelog
 
 Notable changes to Folio. Versions follow [Semantic Versioning](https://semver.org);
-the desktop app, frontend and backend share one version number.
+the desktop app and frontend share one version number.
 
 Changes go under **Unreleased** as they're merged; `node scripts/release.mjs`
 turns them into the next release's section.
 
 ## [Unreleased]
+
+### Removed
+
+- **The self-hosted browser version** (the Python backend and the Docker
+  setup). Folio is the desktop app, plus the live demo on the website.
+  Self-hosting stays available at the `v0.4.0` tag, and its marks (the
+  `marks/` folder in its data volume) can be copied into `~/.folio/marks/`
+  to keep them in the desktop app.
 
 ## [0.4.0] — 2026-11-09
 

@@ -1,6 +1,6 @@
 /**
  * images.ts — Serves images embedded by documents (`![](img/diagram.png)`)
- * from the workspace, mirroring GET /api/files/{location} in the backend.
+ * from the workspace.
  *
  * Only image types are served, never from a skipped folder, and the
  * resolved file (symlinks included) must lie inside the workspace.

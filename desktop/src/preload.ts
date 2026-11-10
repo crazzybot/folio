@@ -1,8 +1,8 @@
 /**
  * preload.ts — Exposes the document API to the renderer as `window.markdownApi`.
  *
- * Runs sandboxed, so it may only import `electron`. The shape mirrors the
- * REST API in backend/app/main.py; see frontend/src/api.ts for the consumer.
+ * Runs sandboxed, so it may only import `electron`. See frontend/src/api.ts
+ * for the consumer.
  */
 
 import { contextBridge, ipcRenderer, webUtils } from "electron";

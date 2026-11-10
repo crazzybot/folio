@@ -1,7 +1,7 @@
 /**
- * dataSource.ts — Where documents and marks come from: the REST backend,
- * the desktop app's IPC bridge, or the live demo's bundle (demo/source.ts).
- * api.ts chooses one at startup.
+ * dataSource.ts — Where documents and marks come from: the desktop app's
+ * IPC bridge, or the live demo's bundle (demo/source.ts). api.ts chooses
+ * one at startup.
  */
 
 import type {

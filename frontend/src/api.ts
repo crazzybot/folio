@@ -13,62 +13,6 @@ import type {
   TextAnchor,
 } from "./types";
 
-const apiBase: string =
-  (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "";
-
-// ─── REST backend ─────────────────────────────────────────────────────────────
-
-async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-  }
-  return res.json() as Promise<T>;
-}
-
-async function expectOk(res: Response): Promise<void> {
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-}
-
-function marksUrl(docId: string, kind: "highlights" | "bookmarks" | "note", markId?: string): string {
-  const base = `${apiBase}/api/documents/${encodeURIComponent(docId)}/${kind}`;
-  return markId === undefined ? base : `${base}/${encodeURIComponent(markId)}`;
-}
-
-// JSON bodies only: the backend refuses other content types (no cross-site form posts)
-function sendJson(method: string, body: unknown): RequestInit {
-  return { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
-}
-
-const httpSource: DataSource = {
-  listDocuments: async () => handleResponse<DocumentMeta[]>(await fetch(`${apiBase}/api/documents`)),
-  listAttachments: async () => handleResponse<string[]>(await fetch(`${apiBase}/api/attachments`)),
-  searchDocuments: async (query) =>
-    handleResponse<SearchResult[]>(await fetch(`${apiBase}/api/search?q=${encodeURIComponent(query)}`)),
-  workspaceFileUrl: (encoded) => `${apiBase}/api/files/${encoded}`,
-  getDocumentContent: async (id) =>
-    handleResponse<DocumentContent>(await fetch(`${apiBase}/api/documents/${encodeURIComponent(id)}/content`)),
-  marks: {
-    list: async () => handleResponse<MarksListing>(await fetch(`${apiBase}/api/marks`)),
-    addHighlight: async (docId, body) =>
-      handleResponse<Highlight>(await fetch(marksUrl(docId, "highlights"), sendJson("POST", body))),
-    updateHighlight: async (docId, highlightId, changes) =>
-      handleResponse<Highlight>(await fetch(marksUrl(docId, "highlights", highlightId), sendJson("PATCH", changes))),
-    deleteHighlight: async (docId, highlightId) =>
-      expectOk(await fetch(marksUrl(docId, "highlights", highlightId), { method: "DELETE" })),
-    addBookmark: async (docId, heading) =>
-      handleResponse<Bookmark>(await fetch(marksUrl(docId, "bookmarks"), sendJson("POST", { heading }))),
-    deleteBookmark: async (docId, bookmarkId) =>
-      expectOk(await fetch(marksUrl(docId, "bookmarks", bookmarkId), { method: "DELETE" })),
-    setNote: async (docId, note) =>
-      handleResponse<DocumentNote | null>(await fetch(marksUrl(docId, "note"), sendJson("PUT", note))),
-    deleteNote: async (docId) => expectOk(await fetch(marksUrl(docId, "note"), { method: "DELETE" })),
-    relink: async (recordId, docId) =>
-      expectOk(await fetch(`${apiBase}/api/marks/${encodeURIComponent(recordId)}/relink`, sendJson("POST", { docId }))),
-    forget: async (recordId) =>
-      expectOk(await fetch(`${apiBase}/api/marks/${encodeURIComponent(recordId)}`, { method: "DELETE" })),
-  },
-};
-
 // ─── Desktop app (IPC) ────────────────────────────────────────────────────────
 
 function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
@@ -93,11 +37,41 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
   };
 }
 
-// In the desktop app the documents come over IPC instead of the REST backend;
-// the live demo (`vite build --mode demo`) brings its own. Other builds
-// leave the demo out: the mode is a constant, so its branch is dropped.
+// ─── Anywhere else ────────────────────────────────────────────────────────────
+
+/** Folio's frontend opened outside the desktop app and the demo build, e.g. `npm run dev` in a browser. */
+export const UNAVAILABLE_MESSAGE =
+  "No documents here: Folio's frontend runs in the desktop app. For the live demo in a browser, run 'npm run dev:demo'.";
+
+function unavailable(): Promise<never> {
+  return Promise.reject(new Error(UNAVAILABLE_MESSAGE));
+}
+
+const unavailableSource: DataSource = {
+  listDocuments: unavailable,
+  listAttachments: unavailable,
+  searchDocuments: unavailable,
+  workspaceFileUrl: () => "",
+  getDocumentContent: unavailable,
+  marks: {
+    list: unavailable,
+    addHighlight: unavailable,
+    updateHighlight: unavailable,
+    deleteHighlight: unavailable,
+    addBookmark: unavailable,
+    deleteBookmark: unavailable,
+    setNote: unavailable,
+    deleteNote: unavailable,
+    relink: unavailable,
+    forget: unavailable,
+  },
+};
+
+// In the desktop app the documents come over IPC; the live demo
+// (`vite build --mode demo`) brings its own. Other builds leave the demo
+// out: the mode is a constant, so its branch is dropped.
 const demo = import.meta.env.MODE === "demo" ? createDemoSource(import.meta.env.BASE_URL) : null;
-const source: DataSource = demo ?? (window.markdownApi ? desktopSource(window.markdownApi) : httpSource);
+const source: DataSource = demo ?? (window.markdownApi ? desktopSource(window.markdownApi) : unavailableSource);
 
 // ─── Documents ────────────────────────────────────────────────────────────────
 

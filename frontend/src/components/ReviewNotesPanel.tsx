@@ -5,8 +5,8 @@ import styles from "./ReviewNotesPanel.module.css";
 const IS_MAC = window.markdownApi?.platform === "darwin" || navigator.platform.toUpperCase().includes("MAC");
 
 /**
- * Write `text` to the clipboard. False when the page can't: a self-hosted
- * server on plain HTTP isn't a secure context, so it has no clipboard.
+ * Write `text` to the clipboard. False when the page can't: outside a secure
+ * context (a page served over plain HTTP) there's no clipboard.
  */
 export async function copyText(text: string): Promise<boolean> {
   if (!window.isSecureContext || navigator.clipboard === undefined) return false;

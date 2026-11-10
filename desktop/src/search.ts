@@ -1,6 +1,5 @@
 /**
- * search.ts — Full-text search across the workspace's markdown files,
- * mirroring GET /api/search in the backend (backend/app/search.py).
+ * search.ts — Full-text search across the workspace's markdown files.
  *
  * A case-insensitive plain-text match (no regex). Each result carries the
  * document's match count and a few matching lines as snippets; a snippet's

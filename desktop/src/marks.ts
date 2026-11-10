@@ -4,12 +4,9 @@
  * Folio never writes to documents. Marks live in `<data dir>/marks/`
  * (~/.folio, %USERPROFILE%\.folio on Windows), one JSON record per
  * document, named by the SHA-1 of the document's normalised real path — so
- * a file keeps its marks whichever folder is opened as the workspace, and
- * the desktop app and a local backend sharing the folder find the same
- * record.
+ * a file keeps its marks whichever folder is opened as the workspace.
  *
- * Same format and rules as backend/app/marks.py; both are tested against
- * tests/fixtures/marks. See docs/design/marks.md.
+ * Tested against tests/fixtures/marks. See docs/design/marks.md.
  */
 
 import { createHash, randomBytes } from "node:crypto";
@@ -74,7 +71,7 @@ export interface MarksRecord {
   documentNote?: DocumentNote;
 }
 
-/** A request the store refuses; `status` matches the backend's HTTP status. */
+/** A request the store refuses; `status` is the matching HTTP status (404, 409…). */
 export class MarkError extends Error {
   constructor(
     readonly status: number,
@@ -102,7 +99,8 @@ function normalise(p: string): string {
 /**
  * The path stored in a record: symlinks resolved, NFC. For a file that no
  * longer exists, the folders that do are still resolved (as Python's
- * os.path.realpath does), so its record id is the same in both stores.
+ * os.path.realpath does: records made by the former Python backend, up to
+ * 0.4, keep their ids).
  */
 export function realPath(p: string): string {
   const missing: string[] = [];
@@ -593,7 +591,7 @@ const filenameOf = (location: string) => location.slice(location.lastIndexOf("/"
 /**
  * The marks of the listed `documents` (a workspace scan) that have any, in
  * list order, and the records of files in `workspace` that no longer exist —
- * what GET /api/marks returns.
+ * what `marks:list` returns.
  *
  * A missing file's marks move by themselves to the one unmarked document
  * with the same content (a file moved or renamed without edits). Failing

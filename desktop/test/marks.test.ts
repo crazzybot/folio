@@ -7,7 +7,6 @@ import { fingerprint, listMarks, MarkError, MarksStore, realPath, recordId } fro
 import { scanWorkspace, stableId } from "../src/scanner";
 import { FIXTURES, SKIP, WORKSPACE } from "./fixtures";
 
-// The backend's store must behave the same (backend/tests/test_marks.py)
 const MARKS = path.join(FIXTURES, "marks");
 const PLAIN = path.join(WORKSPACE, "docs", "plain.md");
 const README = path.join(WORKSPACE, "README.md");
@@ -228,7 +227,7 @@ describe("moved and deleted documents", () => {
   });
 
   it("fingerprints the file's bytes", async () => {
-    // Windows line endings count as stored, as the backend reads them
+    // Windows line endings count as stored
     const folder = mkdtempSync(path.join(os.tmpdir(), "folio-crlf-"));
     const file = path.join(folder, "crlf.md");
     writeFileSync(file, "one\r\ntwo\r\n");
@@ -239,7 +238,7 @@ describe("moved and deleted documents", () => {
     });
   });
 
-  it("gives a missing file the same record id as the backend", () => {
+  it("gives a missing file the same record id as the former Python backend", () => {
     // Folders that still exist are resolved, as Python's os.path.realpath does
     expect(realPath(at("docs/gone/deeper.md"))).toBe(path.join(realPath(at("docs")), "gone", "deeper.md"));
   });

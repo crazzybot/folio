@@ -1,4 +1,4 @@
-# Lint, type-check and test the frontend, desktop app and backend.
+# Lint, type-check and test the frontend and desktop app.
 name: CI
 
 on:
@@ -19,7 +19,6 @@ jobs:
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       desktop: ${{ steps.filter.outputs.desktop }}
-      backend: ${{ steps.filter.outputs.backend }}
       demo: ${{ steps.filter.outputs.demo }}
     steps:
       - uses: actions/checkout@v7
@@ -40,10 +39,6 @@ jobs:
               - tests/fixtures/**
               # test/demoSearch.test.ts checks it against desktop/src/search.ts
               - frontend/src/demo/search.ts
-            backend:
-              - *ci
-              - backend/**
-              - tests/fixtures/**
             demo:
               - *ci
               - demo/**
@@ -52,7 +47,7 @@ jobs:
               - desktop/scripts/demo-bundle.mjs
               - desktop/package*.json
 
-  # The desktop app, frontend and backend share one version number
+  # The desktop app and frontend share one version number
   # (scripts/release.mjs sets it); a hand edit that misses a file fails here
   versions:
     runs-on: ubuntu-latest
@@ -101,18 +96,6 @@ jobs:
       - run: npm test
       - name: Licenses of production dependencies
         run: node ../frontend/scripts/check-licenses.mjs
-
-  backend:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v7
-      - run: uv run pytest -q
 
   # The live demo (docs/design/live-demo.md) still builds: its bundle, with
   # every seed mark found in its document, and the demo app. The Pages

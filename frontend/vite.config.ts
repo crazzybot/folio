@@ -43,7 +43,7 @@ function thirdPartyNotices(): Plugin {
 
 /**
  * The live demo's link preview (Open Graph), for when its URL is shared. Only
- * the demo build: a self-hosted Folio shouldn't point at the product site.
+ * the demo build: the desktop app's page has no URL to share.
  */
 function demoLinkPreview(): Plugin {
   const site = "https://crazzybot.github.io/folio/";
@@ -121,12 +121,6 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 3000,
     historyApiFallback: true,
-    proxy: {
-      "/api": {
-        target: process.env["VITE_API_BASE_URL"] ?? "http://localhost:8000",
-        changeOrigin: true,
-      },
-    },
   },
   preview: {
     historyApiFallback: true,

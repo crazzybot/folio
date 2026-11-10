@@ -13,7 +13,6 @@ import {
 } from "../src/scanner";
 import { FIXTURES, SKIP, WORKSPACE } from "./fixtures";
 
-// The backend's scanner must produce the same (backend/tests/test_scanner.py)
 const expected = JSON.parse(readFileSync(path.join(FIXTURES, "expected-scan.json"), "utf8"));
 
 describe("scanWorkspace", () => {
@@ -60,7 +59,6 @@ describe("findDocument", () => {
   });
 });
 
-// The same cases as backend/tests/test_scanner.py
 const metaCases: { name: string; text: string; meta: unknown }[] = JSON.parse(
   readFileSync(path.join(FIXTURES, "meta-cases.json"), "utf8"),
 );

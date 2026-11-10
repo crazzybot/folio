@@ -6,7 +6,7 @@
  * The narrowing itself is documentsInFolder (documentTree.ts).
  *
  * Remembered per workspace (storage.ts): the desktop app knows its
- * workspace folder; the browser version has one workspace per server.
+ * workspace folder; the live demo has one workspace.
  */
 
 import { useCallback, useState } from "react";

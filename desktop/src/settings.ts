@@ -34,9 +34,9 @@ export interface Settings {
 
 /**
  * Folders never worth scanning: version control, dependencies, virtualenvs,
- * caches and tool data — large, and full of other projects' READMEs. Same
- * list as the backend's MARKDOWN_SKIP_DIRS default. Not dist / build /
- * vendor / target: some projects keep real documentation there.
+ * caches and tool data — large, and full of other projects' READMEs. Not
+ * dist / build / vendor / target: some projects keep real documentation
+ * there.
  */
 export const DEFAULT_SKIP_DIRS: readonly string[] = [
   ".git",
