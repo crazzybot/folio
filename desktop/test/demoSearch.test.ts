@@ -6,7 +6,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import * as demo from "../../frontend/src/demo/search";
-import { scanWorkspace } from "../src/scanner";
+import { scanWorkspace } from "../../packages/core/src/scanner";
 import { searchContent, searchWorkspace } from "../src/search";
 import { SKIP, WORKSPACE } from "./fixtures";
 

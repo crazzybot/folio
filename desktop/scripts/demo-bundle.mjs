@@ -25,7 +25,7 @@ const seedFile = join(root, "demo", "seed-marks.json");
 const out = join(root, "demo", "build");
 
 const { scanWorkspace, scanAttachments, findDocument } = createRequire(import.meta.url)(
-  join(desktop, "dist", "scanner.js"),
+  join(desktop, "dist", "packages", "core", "src", "scanner.js"),
 );
 
 // Seed marks carry fixed ids and times, so the bundle only changes when the

@@ -6,10 +6,10 @@
   "description": "Desktop app for browsing and reading a folder of Markdown files",
   "author": "Alexei Pogrebtsov",
   "license": "MIT",
-  "main": "dist/main.js",
+  "main": "dist/desktop/src/main.js",
   "scripts": {
     "build:renderer": "npm --prefix ../frontend run build && node scripts/copy-renderer.mjs",
-    "build:main": "tsc",
+    "build:main": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc",
     "demo:bundle": "npm run build:main && node scripts/demo-bundle.mjs",
     "build": "npm run build:renderer && npm run build:main",
     "start": "npm run build && electron .",

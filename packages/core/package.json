@@ -1,0 +1,15 @@
+{
+  "name": "@folio/core",
+  "private": true,
+  "license": "MIT",
+  "description": "What the desktop app, the MCP server and the VS Code extension share: the marks store, the workspace scanner and locating quotes in the source",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

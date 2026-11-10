@@ -13,7 +13,8 @@
  * Files and folders can be opened from the system — command line, Open With,
  * a second launch, a drop on the window — see openPaths.ts and cli.ts.
  * The workspace is watched for markdown changes (see watcher.ts), which the
- * renderer is told about so it can refresh without a reload.
+ * renderer is told about so it can refresh without a reload; so are marks
+ * written by other processes (the MCP server, the VS Code extension).
  *
  * Environment variables
  * ---------------------
@@ -40,12 +41,12 @@ import { ensureCustomCss, readCustomCss, watchCustomCss } from "./customCss";
 import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
 import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } from "./openPaths";
-import { defaultDataDir, listMarks, MarksStore } from "./marks";
-import type { Bookmark, DocumentMarks, DocumentNote, Highlight, MissingMarks } from "./marks";
-import { findDocument, scanAttachments, scanWorkspace, stableId } from "./scanner";
+import { defaultDataDir, listMarks, MarksStore } from "../../packages/core/src/marks";
+import type { Bookmark, DocumentMarks, DocumentNote, Highlight, MissingMarks } from "../../packages/core/src/marks";
+import { findDocument, scanAttachments, scanWorkspace, stableId } from "../../packages/core/src/scanner";
 import { searchWorkspace } from "./search";
 import type { SearchResult } from "./search";
-import type { DocumentContent, DocumentMeta, ScanOptions } from "./scanner";
+import type { DocumentContent, DocumentMeta, ScanOptions } from "../../packages/core/src/scanner";
 import {
   DEFAULT_SETTINGS,
   DEFAULT_SKIP_DIRS,
@@ -59,7 +60,7 @@ import {
 import type { Settings, Theme } from "./settings";
 import { hasPendingViewState, loadViewState, saveViewState, setViewState, viewStateSnapshot } from "./viewState";
 import { checkForUpdatesNow, initUpdater } from "./updater";
-import { watchWorkspace } from "./watcher";
+import { watchMarks, watchWorkspace } from "./watcher";
 import { DEFAULT_SIZE, loadWindowState, trackWindowState } from "./windowState";
 
 // ---------------------------------------------------------------------------
@@ -71,7 +72,8 @@ const APP_SCHEME = "app";
 const APP_ORIGIN = `${APP_SCHEME}://bundle`;
 // Path prefix for workspace images; must match preload.ts
 const WORKSPACE_FILES_PREFIX = "/@workspace/";
-const RENDERER_DIR = path.join(__dirname, "..", "renderer");
+// Compiled to dist/desktop/src/ (tsconfig.json: the core package is compiled with it)
+const RENDERER_DIR = path.join(__dirname, "..", "..", "..", "renderer");
 const DEV_SERVER_URL = app.isPackaged ? undefined : process.env["VITE_DEV_SERVER_URL"];
 const DEV_SERVER_ORIGIN = DEV_SERVER_URL !== undefined ? new URL(DEV_SERVER_URL).origin : null;
 
@@ -1203,6 +1205,7 @@ void app.whenReady().then(() => {
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send("custom-css:changed", css);
   });
   restartWatcher();
+  watchMarks(marks.folder, (id) => marks.changedOutside(id), notifyMarksChanged);
   Menu.setApplicationMenu(buildMenu());
   mainWindow = createWindow();
   initUpdater();

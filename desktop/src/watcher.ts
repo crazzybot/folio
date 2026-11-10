@@ -1,14 +1,17 @@
 /**
  * watcher.ts — Reports changes to the markdown files of the open workspace,
- * so the renderer can refresh the document list and the open document.
+ * so the renderer can refresh the document list and the open document, and
+ * to marks written by other processes (the MCP server, the VS Code
+ * extension), so it can repaint them.
  *
- * One recursive fs.watch on the workspace folder. Bursts of events (an
- * editor's save writes, renames and touches several files) are coalesced
- * into a single notification.
+ * One recursive fs.watch on the workspace folder, one on the marks folder.
+ * Bursts of events (an editor's save writes, renames and touches several
+ * files) are coalesced into a single notification.
  */
 
 import fs from "node:fs";
 import path from "node:path";
+import { isRecordId } from "../../packages/core/src/marks";
 
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
 const DEBOUNCE_MS = 150;
@@ -60,4 +63,52 @@ export function watchWorkspace(
     watcher?.close();
     watcher = null;
   });
+}
+
+/**
+ * Watch the marks folder (created if missing), calling `onChange`
+ * (debounced) when a record was changed by another process.
+ * `changedOutside` tells the app's own writes apart: the app reports those
+ * itself. Returns a function that stops watching.
+ */
+export function watchMarks(
+  folder: string,
+  changedOutside: (id: string) => Promise<boolean>,
+  onChange: () => void,
+): () => void {
+  let marksWatcher: fs.FSWatcher;
+  let marksTimer: NodeJS.Timeout | undefined;
+  // Records with events since the last check; null: an event without a file name
+  let pending = new Set<string | null>();
+
+  const check = async () => {
+    const ids = [...pending];
+    pending = new Set();
+    for (const id of ids) {
+      if (id === null || (await changedOutside(id).catch(() => true))) {
+        onChange();
+        return;
+      }
+    }
+  };
+
+  try {
+    fs.mkdirSync(folder, { recursive: true });
+    marksWatcher = fs.watch(folder, (_event, filename) => {
+      // A record's file is its id and .json; the temp files of a write are left out
+      const id = filename === null ? null : filename.replace(/\.json$/, "");
+      if (id !== null && (id === filename || !isRecordId(id))) return;
+      pending.add(id);
+      clearTimeout(marksTimer);
+      marksTimer = setTimeout(() => void check(), DEBOUNCE_MS);
+    });
+  } catch {
+    // An unwritable data folder: marks from other processes show on the next refresh
+    return () => {};
+  }
+  marksWatcher.on("error", () => marksWatcher.close());
+  return () => {
+    clearTimeout(marksTimer);
+    marksWatcher.close();
+  };
 }

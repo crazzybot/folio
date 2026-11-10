@@ -1,4 +1,4 @@
-# Lint, type-check and test the frontend and desktop app.
+# Lint, type-check and test the frontend, the desktop app and the shared core.
 name: CI
 
 on:
@@ -17,6 +17,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
+      core: ${{ steps.filter.outputs.core }}
       frontend: ${{ steps.filter.outputs.frontend }}
       desktop: ${{ steps.filter.outputs.desktop }}
       demo: ${{ steps.filter.outputs.demo }}
@@ -28,12 +29,20 @@ jobs:
           filters: |
             ci: &ci
               - .github/workflows/ci.yml
+            core:
+              - *ci
+              - packages/core/**
+              - tests/fixtures/**
             frontend:
               - *ci
               - frontend/**
+              # Compiled into the app from source (sourceMap.ts)
+              - packages/core/src/**
             desktop:
               - *ci
               - desktop/**
+              # Compiled into the app from source
+              - packages/core/src/**
               # Third-party notices (copy-renderer.mjs) and the license check
               - frontend/scripts/**
               - tests/fixtures/**
@@ -44,6 +53,7 @@ jobs:
               - demo/**
               - frontend/**
               - desktop/src/**
+              - packages/core/src/**
               - desktop/scripts/demo-bundle.mjs
               - desktop/package*.json
 
@@ -54,6 +64,27 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: node scripts/release.mjs --check
+
+  # packages/core: the marks store, the scanner and locating quotes in the
+  # source, shared by the desktop app, the frontend and (later) the MCP server
+  core:
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    # macOS, like the desktop job: the marks tests cover case-insensitive paths
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: packages/core
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: packages/core/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
 
   frontend:
     needs: changes

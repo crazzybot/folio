@@ -6,6 +6,11 @@
  * document, named by the SHA-1 of the document's normalised real path — so
  * a file keeps its marks whichever folder is opened as the workspace.
  *
+ * Several processes write there: the desktop app, and the MCP server and the
+ * VS Code extension, each with its own store. Each write replaces a whole
+ * record atomically; a store can tell a record changed by another process
+ * from its own writes (changedOutside).
+ *
  * Tested against tests/fixtures/marks. See docs/design/marks.md.
  */
 
@@ -268,6 +273,8 @@ export class MarksStore {
   readonly folder: string;
   // Changes are read–modify–write of one file: run them one at a time
   private queue: Promise<unknown> = Promise.resolve();
+  // What this store last left in each record it changed: its text, null if removed
+  private readonly written = new Map<string, string | null>();
 
   constructor(dataDir: string) {
     this.folder = path.join(dataDir, "marks");
@@ -314,13 +321,38 @@ export class MarksStore {
   private async write(id: string, record: MarksRecord): Promise<void> {
     const file = this.file(id);
     if (!hasMarks(record)) {
-      await fs.rm(file, { force: true });
+      await this.remove(id);
       return;
     }
     await fs.mkdir(this.folder, { recursive: true });
     const tmp = `${file.slice(0, -".json".length)}.${randomBytes(4).toString("hex")}.tmp`;
-    await fs.writeFile(tmp, JSON.stringify(record, null, 2) + "\n", "utf8");
+    const text = JSON.stringify(record, null, 2) + "\n";
+    await fs.writeFile(tmp, text, "utf8");
     await fs.rename(tmp, file);
+    this.written.set(id, text);
+  }
+
+  private async remove(id: string): Promise<void> {
+    await fs.rm(this.file(id), { force: true });
+    this.written.set(id, null);
+  }
+
+  /**
+   * Whether record `id` isn't as this store last left it: another process
+   * changed or removed it. A record this store never changed counts as
+   * changed. Not serialised with the store's own changes: a watcher asks
+   * after a file event, once the write that caused it has finished.
+   */
+  async changedOutside(id: string): Promise<boolean> {
+    let text: string | null;
+    try {
+      text = await fs.readFile(this.file(id), "utf8");
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") return true;
+      text = null;
+    }
+    // undefined (never changed here) differs from any text or null
+    return this.written.get(id) !== text;
   }
 
   /** Every readable record of this version, with its id (others are left alone). */
@@ -480,7 +512,7 @@ export class MarksStore {
       };
       const note = mergedNote(storedNote(dest.documentNote), storedNote(source.documentNote));
       await this.write(target, await refreshed(withNote(merged, note), file));
-      await fs.rm(this.file(id), { force: true });
+      await this.remove(id);
     });
   }
 
@@ -489,7 +521,7 @@ export class MarksStore {
     checkRecordId(id);
     return this.serially(async () => {
       if ((await this.read(id)) === null) throw new MarkError(404, `Marks '${id}' not found`);
-      await fs.rm(this.file(id), { force: true });
+      await this.remove(id);
     });
   }
 }
@@ -501,9 +533,13 @@ export interface WorkspaceRecord {
   record: MarksRecord;
 }
 
+/** Whether `id` is one recordId makes: record ids name files. */
+export function isRecordId(id: string): boolean {
+  return /^[0-9a-f]{40}$/.test(id);
+}
+
 function checkRecordId(id: string): void {
-  // Record ids name files: only what recordId makes
-  if (!/^[0-9a-f]{40}$/.test(id)) throw new MarkError(404, `Marks '${id}' not found`);
+  if (!isRecordId(id)) throw new MarkError(404, `Marks '${id}' not found`);
 }
 
 function emptyRecord(): MarksRecord {
