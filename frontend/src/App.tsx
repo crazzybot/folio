@@ -30,6 +30,7 @@ import {
 import useTheme from "./theme";
 import { documentsInFolder } from "./documentTree";
 import { useFolderFocus } from "./folderFocus";
+import { recallForWorkspace, rememberForWorkspace } from "./workspaceMemory";
 import { filterByMeta, filterOptions, hasFilters } from "./metaFilter";
 import { requestDone } from "./status";
 import { useMetaFilters } from "./useMetaFilters";
@@ -72,6 +73,9 @@ function loadSidebar(): { width: number; collapsed: boolean } {
 
 // The sidebar's view (Documents | Marks), remembered (storage.ts)
 const SIDEBAR_VIEW_KEY = "folio.sidebarView";
+
+// The document last shown, reopened at the next launch (per workspace)
+const LAST_DOCUMENT_KEY = "folio.lastDocument";
 
 // The macOS desktop app hides the title bar and insets the window buttons
 // into the app's own header rows.
@@ -310,11 +314,14 @@ function AppInner(): React.ReactElement {
         if (cancelled) return;
         setDocuments(docs);
         setListError(null);
-        // Auto-select first document only when no URL param is present: the
-        // focused folder's first, if it has any
-        const first = documentsInFolder(docs, focus)[0] ?? docs[0];
-        if (first !== undefined && docId === undefined) {
-          navigate("/doc/" + encodeURIComponent(first.id), { replace: true });
+        // Auto-select a document only when no URL param is present: the one
+        // last shown in this workspace if it's still there, else the focused
+        // folder's first, if it has any
+        const lastId = recallForWorkspace(LAST_DOCUMENT_KEY);
+        const start =
+          docs.find((doc) => doc.id === lastId) ?? documentsInFolder(docs, focus)[0] ?? docs[0];
+        if (start !== undefined && docId === undefined) {
+          navigate("/doc/" + encodeURIComponent(start.id), { replace: true });
         }
       })
       .catch((err: unknown) => {
@@ -560,6 +567,10 @@ function AppInner(): React.ReactElement {
   const contentValue =
     contentState.status === "success" ? contentState.content : null;
   const contentId = contentState.status === "success" ? contentState.id : null;
+  // Remember the shown document for the next launch (one that loaded, not a missing one)
+  useEffect(() => {
+    if (contentId !== null) rememberForWorkspace(LAST_DOCUMENT_KEY, contentId);
+  }, [contentId]);
   const { add: addMark, recolor, setNote, remove: removeMark, toggleBookmark, removeBookmark } = marks;
   // Changes to the shown document's marks, from the viewer
   const markHandlers = useMemo((): MarkHandlers | undefined => {
