@@ -83,7 +83,7 @@ function byEnd(a: InlineNote, b: InlineNote): number {
 function skipped<K extends keyof HTMLElementTagNameMap>(tag: K, className: string): HTMLElementTagNameMap[K] {
   const el = document.createElement(tag);
   el.setAttribute(SKIP_ATTR, "");
-  el.contentEditable = "false";
+  el.setAttribute("contenteditable", "false");
   el.className = className;
   return el;
 }
@@ -198,9 +198,23 @@ export function placeInlineNotes(article: HTMLElement, notes: readonly InlineNot
     }
   }
 
+  // What's ours, to tell the observer's records apart by walking up from a node
+  const own = new WeakSet<Node>([...inserted, ...splits.map((s) => s.tail)]);
+
   return {
     remove(ranges) {
       for (const el of inserted) el.remove();
+      // The ranges in split-off text, by node, so each split moves only its own
+      const inNode = new Map<Node, Set<Range>>();
+      const tails = new Set<Node>(splits.map((s) => s.tail));
+      for (const range of ranges) {
+        for (const node of [range.startContainer, range.endContainer]) {
+          if (!tails.has(node)) continue;
+          const set = inNode.get(node) ?? new Set();
+          set.add(range);
+          inNode.set(node, set);
+        }
+      }
       // Latest splits first: a text node split twice is merged back from its end
       for (const { head, tail, headText } of [...splits].reverse()) {
         if (tail.parentNode === null) continue;
@@ -209,16 +223,22 @@ export function placeInlineNotes(article: HTMLElement, notes: readonly InlineNot
         const stale = head.data !== headText || head.nextSibling !== tail;
         if (!stale) {
           head.appendData(tail.data);
-          for (const range of ranges) {
+          const moved = inNode.get(tail) ?? new Set<Range>();
+          for (const range of moved) {
             if (range.startContainer === tail) range.setStart(head, at + range.startOffset);
             if (range.endContainer === tail) range.setEnd(head, at + range.endOffset);
           }
+          // The head may itself be split-off text, merged back next
+          const into = inNode.get(head) ?? new Set();
+          for (const range of moved) into.add(range);
+          inNode.set(head, into);
         }
         tail.remove();
       }
     },
     owns(node) {
-      return inserted.some((el) => el === node || el.contains(node)) || splits.some((s) => s.tail === node);
+      for (let n: Node | null = node; n !== null && n !== article; n = n.parentNode) if (own.has(n)) return true;
+      return false;
     },
   };
 }
