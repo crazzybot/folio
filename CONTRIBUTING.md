@@ -38,11 +38,14 @@ npm run lint && npx tsc --noEmit && npm test
 
 # desktop/
 npx tsc --noEmit && npm test
+
+# packages/core/
+npm run typecheck && npm test
 ```
 
 A few things worth knowing:
 
-- **Document IDs are part of links.** The scanner (`desktop/src/scanner.ts`)
+- **Document IDs are part of links.** The scanner (`packages/core/src/scanner.ts`)
   is tested against `tests/fixtures/expected-scan.json`; IDs and titles must
   stay stable, since deep links and marks rely on them. If you change
   scanning rules, update the fixture deliberately.

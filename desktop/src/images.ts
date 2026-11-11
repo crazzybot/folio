@@ -8,19 +8,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
-
-/** Image types a document may embed, with the content type they are served as. */
-export const IMAGE_TYPES: Record<string, string> = {
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".webp": "image/webp",
-  ".avif": "image/avif",
-  ".bmp": "image/bmp",
-  ".ico": "image/x-icon",
-  ".svg": "image/svg+xml",
-};
+import { IMAGE_TYPES } from "../../packages/core/src/imageTypes";
 
 // Images are only ever displayed, never run: an SVG opened directly must not
 // execute scripts (it would share the app's origin) or load anything.

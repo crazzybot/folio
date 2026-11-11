@@ -121,6 +121,8 @@ export default defineConfig(({ mode }) => ({
   server: {
     port: 3000,
     historyApiFallback: true,
+    // The shared core's browser-safe modules (sourceMap.ts) are imported from source
+    fs: { allow: [".", "../packages/core/src"] },
   },
   preview: {
     historyApiFallback: true,

@@ -9,8 +9,8 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { scanWorkspace } from "./scanner";
-import type { ScanOptions } from "./scanner";
+import { scanWorkspace } from "../../packages/core/src/scanner";
+import type { ScanOptions } from "../../packages/core/src/scanner";
 
 export interface SearchMatch {
   /** 1-based line number. */

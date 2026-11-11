@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stableId } from "../src/scanner";
+import { stableId } from "../../packages/core/src/scanner";
 import { searchContent, searchWorkspace } from "../src/search";
 import { SKIP, WORKSPACE } from "./fixtures";
 

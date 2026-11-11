@@ -103,8 +103,9 @@ for the agent to search for.
 
 This works for every document from its source alone, so documents that aren't
 open (copying from the Marks view) need no rendering. It's a pure function
-(`reviewNotes.ts`: `locateInSource`, `formatReviewNotes`) tested on strings,
-like `anchoring.ts`.
+(`locateInSource` in `packages/core/src/sourceMap.ts`, shared with the MCP
+server; `formatReviewNotes` in `reviewNotes.ts`) tested on strings, like
+`anchoring.ts`.
 
 **Out-of-date highlights.** For the open document, the viewer already knows
 which highlights it couldn't place (`located`). Those are left out, and the

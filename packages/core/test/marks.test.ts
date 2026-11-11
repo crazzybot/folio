@@ -189,6 +189,41 @@ describe("MarksStore", () => {
   });
 });
 
+describe("changedOutside", () => {
+  it("tells another process's changes from the store's own", async () => {
+    const id = recordId(PLAIN);
+    // Not changed by this store yet
+    expect(await store.changedOutside(id)).toBe(true);
+
+    const added = await store.addHighlight(PLAIN, highlight());
+    expect(await store.changedOutside(id)).toBe(false);
+
+    // Another store (the MCP server's) writes the same record
+    await new MarksStore(dataDir).updateHighlight(PLAIN, added.id, { note: "From the agent" });
+    expect(await store.changedOutside(id)).toBe(true);
+
+    await store.updateHighlight(PLAIN, added.id, { color: "blue" });
+    expect(await store.changedOutside(id)).toBe(false);
+  });
+
+  it("counts a removed record as the store's own only when it removed it", async () => {
+    const doc = path.join(mkdtempSync(path.join(os.tmpdir(), "folio-outside-")), "doc.md");
+    writeFileSync(doc, "No headings here.");
+    const id = recordId(doc);
+    const own = await store.addHighlight(doc, highlight());
+    await store.deleteHighlight(doc, own.id);
+    expect(existsSync(path.join(dataDir, "marks", `${id}.json`))).toBe(false);
+    expect(await store.changedOutside(id)).toBe(false);
+
+    const other = new MarksStore(dataDir);
+    const added = await other.addHighlight(doc, highlight());
+    expect(await store.changedOutside(id)).toBe(true);
+    await store.updateHighlight(doc, added.id, { color: "green" });
+    await other.deleteHighlight(doc, added.id);
+    expect(await store.changedOutside(id)).toBe(true);
+  });
+});
+
 describe("moved and deleted documents", () => {
   const at = (location: string) => path.join(WORKSPACE, ...location.split("/"));
   const listing = async () => listMarks(store, WORKSPACE, await scanWorkspace(WORKSPACE, SKIP));

@@ -125,8 +125,8 @@ in `frontend/`.
 ## Desktop app (Electron)
 
 The `desktop/` package wraps the React frontend in an Electron app. The
-workspace scanner (`desktop/src/scanner.ts`) runs in the main process,
-reached from the UI over IPC.
+workspace scanner and the marks store (`packages/core/`) run in the main
+process, reached from the UI over IPC.
 
 ```bash
 cd desktop
@@ -274,7 +274,13 @@ folio/
 ├── README.md
 ├── workspace/                    # two sample documents to try the app on
 ├── demo/                         # the live demo's sample repository and seed marks
-├── tests/fixtures/               # workspace, expected scan and marks for the desktop tests
+├── tests/fixtures/               # workspace, expected scan and marks for the tests
+│
+├── packages/core/                # shared by the app and (later) the MCP server and VS Code extension
+│   └── src/
+│       ├── marks.ts              # highlights, notes and bookmarks in ~/.folio
+│       ├── scanner.ts            # workspace scanner, ID generation, title extraction
+│       └── sourceMap.ts          # where a highlighted quote is in the Markdown source
 │
 ├── desktop/
 │   ├── package.json              # Electron + electron-builder config
@@ -287,10 +293,9 @@ folio/
 │       ├── openPaths.ts          # paths from the command line, Open With and drops
 │       ├── preload.ts            # exposes window.markdownApi
 │       ├── recent.ts             # recently opened workspace folders (recent.json)
-│       ├── scanner.ts            # workspace scanner, ID generation, title extraction
 │       ├── search.ts             # full-text search
 │       ├── settings.ts           # settings.json
-│       └── watcher.ts            # watches the workspace for live reload
+│       └── watcher.ts            # watches the workspace and ~/.folio/marks for live reload
 │
 └── frontend/
     ├── package.json              # Vite + React + TypeScript
@@ -330,12 +335,20 @@ npm test             # Vitest: links, wiki links, math dollars, diagram themes
 ```bash
 cd desktop
 
-npm test             # Vitest: scanner, search, images, paths, file watcher
+npm test             # Vitest: search, images, paths, file watchers
+```
+
+### Core
+
+```bash
+cd packages/core
+
+npm test             # Vitest: scanner, marks store, locating quotes in the source
 ```
 
 ### Tests
 
-`tests/fixtures/workspace/` is a small workspace for the desktop tests, and
+`tests/fixtures/workspace/` is a small workspace for the core and desktop tests, and
 `tests/fixtures/expected-scan.json` is what scanning it must produce
 (document IDs, titles, headings, images). Document IDs are part of deep
 links, so change the expected output only deliberately, when the scanning

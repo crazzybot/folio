@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import type { Dirent } from "node:fs";
 import path from "node:path";
-import { IMAGE_TYPES } from "./images";
+import { IMAGE_TYPES } from "./imageTypes";
 
 // ---------------------------------------------------------------------------
 // Data model
