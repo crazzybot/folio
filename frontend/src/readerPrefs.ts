@@ -125,7 +125,7 @@ export function useReadingWidth(): [ReadingWidth, (id: ReadingWidth["id"]) => vo
 
 /** Where notes are shown (display options menu, ⌥⌘N). */
 export function useNotePlace(): [NotePlace, (id: NotePlace["id"]) => void] {
-  return useStoredOption<NotePlace>(NOTE_PLACES, "folio.notePlace", NOTE_PLACES[0]);
+  return useStoredOption<NotePlace>(NOTE_PLACES, "folio.notePlace", NOTE_PLACES[1]);
 }
 
 export function useDocStyle(): [DocStyle, (id: DocStyle["id"]) => void] {

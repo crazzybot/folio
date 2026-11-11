@@ -237,8 +237,8 @@ body {
 ::highlight(folio-mark-blue) { background-color: var(--mark-blue); }
 ::highlight(folio-mark-pink) { background-color: var(--mark-pink); }
 
-/* The passage of the note under the pointer: its passage, inline note,
-   marker or margin icon */
+/* The passage of the note under the pointer: its passage, inline note or
+   margin icon */
 ::highlight(folio-mark-hover) {
   text-decoration: underline 1px;
   text-underline-offset: 3px;
@@ -278,28 +278,14 @@ li > .folio-inline-notes,
   background: var(--color-hover-bg);
 }
 
-.folio-inline-note-number,
-.folio-note-marker {
+.folio-inline-note-number {
+  margin-right: 0.4em;
   font-size: 0.75em;
   font-weight: 600;
   line-height: 0;
   vertical-align: super;
   /* The swatch alone is too light to read on a light background */
   color: color-mix(in srgb, var(--note-color) 65%, var(--color-text));
-}
-
-.folio-inline-note-number {
-  margin-right: 0.4em;
-}
-
-.folio-note-marker {
-  margin-left: 0.1em;
-  cursor: pointer;
-  user-select: none;
-}
-
-.folio-note-marker.folio-hovered {
-  text-decoration: underline;
 }
 
 .folio-inline-notes-row > td {

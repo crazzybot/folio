@@ -28,27 +28,27 @@ function noteOn(root: HTMLElement, quote: string, note = `on ${quote}`): InlineN
 }
 
 const notesText = (root: HTMLElement) => [...root.querySelectorAll(".folio-inline-note")].map((n) => n.textContent);
-const markers = (root: HTMLElement) => [...root.querySelectorAll(".folio-note-marker")].map((m) => m.textContent);
+/** The text before each group of notes: the block it follows. */
+const notesAfter = (root: HTMLElement) =>
+  [...root.querySelectorAll(".folio-inline-notes")].map(
+    (n) => (n.closest(".folio-inline-notes-row") ?? n).previousElementSibling?.textContent,
+  );
 const microtasks = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("placeInlineNotes", () => {
   it("puts a lone note after its paragraph, without a number", () => {
     const root = article("<p>One <em>two</em> three.</p><p>Next.</p>");
     placeInlineNotes(root, [noteOn(root, "two")]);
-    const notes = root.querySelector(".folio-inline-notes");
-    expect(notes?.previousElementSibling?.textContent).toBe("One two three.");
+    expect(notesAfter(root)).toEqual(["One two three."]);
     expect(notesText(root)).toEqual(["on two"]);
-    expect(markers(root)).toEqual([]);
   });
 
-  it("numbers a block's notes by where their passages end, with markers after them", () => {
+  it("numbers a block's notes by where their passages end, leaving the text alone", () => {
     const root = article("<p>Alpha beta gamma delta.</p>");
     // Given out of order
     placeInlineNotes(root, [noteOn(root, "gamma"), noteOn(root, "Alpha")]);
     expect(notesText(root)).toEqual(["1on Alpha", "2on gamma"]);
-    expect(root.querySelector("p")?.innerHTML).toBe(
-      'Alpha<sup data-marks-skip="" contenteditable="false" class="folio-note-marker" data-highlight="Alpha" style="--note-color: yellow;">1</sup> beta gamma<sup data-marks-skip="" contenteditable="false" class="folio-note-marker" data-highlight="gamma" style="--note-color: yellow;">2</sup> delta.',
-    );
+    expect(root.querySelector("p")?.innerHTML).toBe("Alpha beta gamma delta.");
   });
 
   it("puts a list item's note after its own text, before its nested list", () => {
@@ -71,10 +71,9 @@ describe("placeInlineNotes", () => {
         "<tbody><tr><td>Free</td><td>5</td><td>20</td></tr><tr><td>Team</td><td>50</td><td>200</td></tr></tbody></table>",
     );
     placeInlineNotes(root, [noteOn(root, "20")]);
-    const row = root.querySelector(".folio-inline-notes-row");
-    expect(row?.previousElementSibling?.textContent).toBe("Free5201");
-    expect(row?.querySelector("td")?.colSpan).toBe(3);
-    expect(notesText(root)).toEqual(["1Burst: on 20"]);
+    expect(notesAfter(root)).toEqual(["Free520"]);
+    expect(root.querySelector(".folio-inline-notes-row td")?.getAttribute("colspan")).toBe("3");
+    expect(notesText(root)).toEqual(["Burst: on 20"]);
   });
 
   it("names a column by its math as shown", () => {
@@ -83,16 +82,16 @@ describe("placeInlineNotes", () => {
         "<tbody><tr><td>20</td></tr></tbody></table>",
     );
     placeInlineNotes(root, [noteOn(root, "20")]);
-    expect(notesText(root)).toEqual(["1Burst b: on 20"]);
+    expect(notesText(root)).toEqual(["Burst b: on 20"]);
   });
 
   it("puts notes after a table with rowspan, labelled by row and column", () => {
     const root = article(
       '<table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody><tr><td rowspan="2">Merged</td><td>top</td></tr><tr><td>bottom</td></tr></tbody></table><p>After.</p>',
     );
-    placeInlineNotes(root, [noteOn(root, "top")]);
+    placeInlineNotes(root, [noteOn(root, "top"), noteOn(root, "bottom")]);
     expect(root.querySelector(".folio-inline-notes")?.previousElementSibling?.tagName).toBe("TABLE");
-    expect(notesText(root)).toEqual(["1Row Merged, column Value: on top"]);
+    expect(notesText(root)).toEqual(["1Row Merged, column Value: on top", "2Row bottom, column Name: on bottom"]);
   });
 
   it("shows nothing for a passage in a closed <details>", () => {
@@ -104,49 +103,25 @@ describe("placeInlineNotes", () => {
     expect(notesText(root)).toEqual(["on Hidden"]);
   });
 
-  it("leaves the document's text and the highlights' ranges as they were", () => {
-    const root = article("<p>Alpha beta gamma <strong>bold</strong> delta.</p>");
+  it("leaves the document's text, its nodes and the highlights' ranges as they were", () => {
+    const root = article("<p>Alpha beta gamma <strong>bold</strong> delta.</p><ul><li>Item<ul><li>x</li></ul></li></ul>");
     const before = buildTextModel(root).text;
-    const notes = [noteOn(root, "Alpha"), noteOn(root, "beta"), noteOn(root, "bold")];
+    const nodes = [...root.querySelectorAll("p, li")].flatMap((el) => [...el.childNodes]);
+    const notes = [noteOn(root, "Alpha"), noteOn(root, "beta"), noteOn(root, "bold"), noteOn(root, "Item")];
     placeInlineNotes(root, notes);
     expect(buildTextModel(root).text).toBe(before);
-    expect(notes.map((n) => n.range.toString())).toEqual(["Alpha", "beta", "bold"]);
+    expect(notes.map((n) => n.range.toString())).toEqual(["Alpha", "beta", "bold", "Item"]);
+    // Only notes were added: React's own nodes are all still there, unchanged
+    const now = [...root.querySelectorAll("p, li")].flatMap((el) => [...el.childNodes]);
+    expect(now.filter((n) => !(n instanceof Element && n.hasAttribute("data-marks-skip")))).toEqual(nodes);
   });
 
-  it("restores the DOM exactly when removed, keeping the ranges", () => {
+  it("restores the DOM exactly when removed", () => {
     const html = "<p>Alpha beta gamma <strong>bold</strong> delta.</p><ul><li>Item<ul><li>x</li></ul></li></ul>";
     const root = article(html);
-    const notes = [noteOn(root, "Alpha"), noteOn(root, "gamma"), noteOn(root, "bold"), noteOn(root, "Item")];
-    const textNodes = [...root.querySelectorAll("p, li")].flatMap((el) => [...el.childNodes]);
-    const placed = placeInlineNotes(root, notes);
-    placed.remove(notes.map((n) => n.range));
+    const placed = placeInlineNotes(root, [noteOn(root, "Alpha"), noteOn(root, "bold"), noteOn(root, "Item")]);
+    placed.remove();
     expect(root.innerHTML).toBe(html);
-    // The same nodes React made, not copies
-    expect([...root.querySelectorAll("p, li")].flatMap((el) => [...el.childNodes])).toEqual(textNodes);
-    expect(notes.map((n) => n.range.toString())).toEqual(["Alpha", "gamma", "bold", "Item"]);
-  });
-
-  it("merges a text node split three times back, with the ranges in every part", () => {
-    const html = "<p>Alpha beta gamma delta epsilon.</p>";
-    const root = article(html);
-    const notes = ["Alpha", "beta", "gamma", "delta"].map((q) => noteOn(root, q));
-    // Not shown, but painted: a highlight in the last part
-    const other = noteOn(root, "epsilon").range;
-    const placed = placeInlineNotes(root, notes);
-    expect(markers(root)).toEqual(["1", "2", "3", "4"]);
-    placed.remove([...notes.map((n) => n.range), other]);
-    expect(root.innerHTML).toBe(html);
-    expect(root.querySelector("p")?.childNodes).toHaveLength(1);
-    expect([...notes.map((n) => n.range.toString()), other.toString()]).toEqual(["Alpha", "beta", "gamma", "delta", "epsilon"]);
-  });
-
-  it("keeps a range that starts after a marker in the same text node", () => {
-    const root = article("<p>Alpha beta gamma.</p>");
-    const notes = [noteOn(root, "Alpha"), noteOn(root, "gamma")];
-    const placed = placeInlineNotes(root, notes);
-    expect(notes[1]?.range.toString()).toBe("gamma");
-    placed.remove(notes.map((n) => n.range));
-    expect(notes.map((n) => n.range.toString())).toEqual(["Alpha", "gamma"]);
   });
 });
 
@@ -159,51 +134,58 @@ describe("findMatches", () => {
 });
 
 describe("watchInlineNotes with React", () => {
-  function Paragraph({ text }: { text: string }) {
+  function Document({ blocks }: { blocks: string[] }) {
     // Text beside an element: React keeps a text node and writes new text into it
-    return createElement("p", null, text, " ", createElement("strong", null, "bold"), " end.");
+    return createElement(
+      "div",
+      null,
+      blocks.map((text) => createElement("p", { key: text.split(" ")[0] }, text, " ", createElement("strong", null, "bold"))),
+    );
   }
 
-  function setup() {
+  function setup(quotes: string[]) {
     const root = article("");
     const react = createRoot(root);
-    flushSync(() => react.render(createElement(Paragraph, { text: "Alpha beta gamma delta" })));
+    const render = (blocks: string[]) => flushSync(() => react.render(createElement(Document, { blocks })));
+    render(["Alpha beta gamma", "Second paragraph"]);
     // Found again each time, as the viewer finds highlights again after a render
-    let found: InlineNote[] = [];
-    const notes = () => (found = [noteOn(root, "gamma"), noteOn(root, "delta")]);
-    const ranges = () => found.map((n) => n.range);
-    return { root, react, notes, ranges };
+    const notes = () => quotes.flatMap((q) => (buildTextModel(root).text.includes(q) ? [noteOn(root, q)] : []));
+    return { root, react, render, notes };
   }
 
-  it("shows the old text twice when React rewrites a split text node without it", () => {
-    const { root, react, notes } = setup();
-    placeInlineNotes(root, notes());
-    flushSync(() => react.render(createElement(Paragraph, { text: "Alpha BETA gamma delta" })));
-    // The tail split off for the first marker is still there
-    expect(root.querySelector("p")?.textContent).toContain("Alpha BETA gamma delta");
-    expect(buildTextModel(root).text).not.toBe("Alpha BETA gamma delta bold end.");
+  it("leaves the text React rewrites whole", async () => {
+    const { root, react, render, notes } = setup(["gamma"]);
+    const stop = watchInlineNotes(root, notes);
+    render(["Alpha BETA gamma", "Second paragraph"]);
+    await microtasks();
+    expect(buildTextModel(root).text).toBe("Alpha BETA gamma boldSecond paragraph bold");
+    expect(notesAfter(root)).toEqual(["Alpha BETA gamma bold"]);
+    stop();
     react.unmount();
   });
 
-  it("places the notes again once React has rewritten the text", async () => {
-    const { root, react, notes, ranges } = setup();
-    const stop = watchInlineNotes(root, notes, ranges);
-    expect(markers(root)).toEqual(["1", "2"]);
+  it("places the notes again when React adds or removes blocks", async () => {
+    const { root, react, render, notes } = setup(["gamma", "Second"]);
+    const stop = watchInlineNotes(root, notes);
+    expect(notesAfter(root)).toEqual(["Alpha beta gamma bold", "Second paragraph bold"]);
 
-    flushSync(() => react.render(createElement(Paragraph, { text: "Alpha BETA gamma delta" })));
+    render(["New opening", "Alpha beta gamma", "Second paragraph"]);
     await microtasks();
-    expect(buildTextModel(root).text).toBe("Alpha BETA gamma delta bold end.");
-    expect(markers(root)).toEqual(["1", "2"]);
+    expect(notesAfter(root)).toEqual(["Alpha beta gamma bold", "Second paragraph bold"]);
+
+    render(["New opening", "Second paragraph"]);
+    await microtasks();
+    expect(notesAfter(root)).toEqual(["Second paragraph bold"]);
 
     stop();
-    expect(root.innerHTML).toBe("<p>Alpha BETA gamma delta <strong>bold</strong> end.</p>");
+    expect(root.querySelector(".folio-inline-notes")).toBeNull();
     react.unmount();
   });
 
   it("doesn't place them again for its own changes", async () => {
-    const { root, react, notes, ranges } = setup();
+    const { root, react, notes } = setup(["gamma"]);
     let placings = 0;
-    const stop = watchInlineNotes(root, notes, ranges, () => placings++);
+    const stop = watchInlineNotes(root, notes, () => placings++);
     await microtasks();
     expect(placings).toBe(1);
     // A class set on a note (hover) isn't a change to the document
