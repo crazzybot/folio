@@ -200,8 +200,8 @@ export default function MarksLayer({
   // The block the pointer is beside, for the note button in the margin
   const [hoveredBlock, setHoveredBlock] = useState<(Spot & { block: Element }) | null>(null);
   const [layoutVersion, setLayoutVersion] = useState(0);
-  // The highlight with a note under the pointer: its passage, marker, inline
-  // note or margin icon, which are all shown as hovered
+  // The highlight with a note under the pointer: its passage, inline note or
+  // margin icon, which are all shown as hovered
   const [hoveredNote, setHoveredNote] = useState<string | null>(null);
   const notedIds = useRef(new Set<string>());
   // Read by the inline notes' cleanup: whether they're being turned off
@@ -298,7 +298,7 @@ export default function MarksLayer({
       const target = e.target;
       frame = requestAnimationFrame(() => {
         if (article === null) return;
-        // An inline note or marker by its element; a passage by its painted text
+        // An inline note by its element; a passage by its painted text
         const linked = target instanceof Element ? target.closest<HTMLElement>("[data-highlight]") : null;
         let noteId = linked?.dataset.highlight ?? null;
         if (noteId === null) {
@@ -377,11 +377,10 @@ export default function MarksLayer({
           ? []
           : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: h.note }];
       });
-    const ranges = () => [...located.current.values()];
     const relayout = () => setLayoutVersion((v) => v + 1);
     let stop = () => {};
     keepScrollAnchor(container, article, () => {
-      stop = watchInlineNotes(article, notes, ranges, relayout);
+      stop = watchInlineNotes(article, notes, relayout);
     });
     return () => {
       if (inlineOn.current) stop();
@@ -389,7 +388,7 @@ export default function MarksLayer({
     };
   }, [articleRef, containerRef, ready, renderKey, highlights, inlineNotes]);
 
-  // The hovered note's passage, marker and inline note
+  // The hovered note's passage and inline note
   useEffect(() => {
     const article = articleRef.current;
     const range = hoveredNote === null ? undefined : located.current.get(hoveredNote);
@@ -585,7 +584,7 @@ export default function MarksLayer({
       if (window.getSelection()?.isCollapsed === false) return;
       // Links and buttons inside a highlight keep working
       if (e.target instanceof Element && e.target.closest("a, button")) return;
-      // An inline note or its marker: the highlight's popover, by the note
+      // An inline note: the highlight's popover, by the note
       const inline = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-highlight]") : null;
       if (inline?.dataset.highlight !== undefined) {
         openPopover(inline.dataset.highlight, inline.getBoundingClientRect());

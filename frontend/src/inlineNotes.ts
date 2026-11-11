@@ -1,30 +1,26 @@
 /**
  * inlineNotes.ts — Notes shown in the text, under the passage they're about
  * (notes/inline-notes.md): after the smallest block holding the passage's
- * end, numbered like footnotes when a block has several, and in a row of
- * their own under a table row.
+ * end, numbered in the order of their passages when a block has several,
+ * and in a row of their own under a table row. Hovering links a note to its
+ * highlight (MarksLayer); nothing is put inside the text itself.
  *
- * Unlike highlights, this changes the DOM React rendered: note blocks are
- * inserted after blocks, and a marker after a passage splits its text node.
- * Everything inserted has `data-marks-skip`, so the text highlights anchor
- * to (textModel.ts) doesn't change. `placeInlineNotes` records each change
- * and its `remove` undoes it exactly, merging split text back, so the DOM is
- * React's again. Highlight ranges are live: they follow the splits and
- * merges (the DOM moves live ranges on `splitText`; `remove` moves them by
- * hand), so the highlights stay painted.
+ * Unlike highlights, this adds to the DOM React rendered, but only beside
+ * its elements: React's elements and text nodes are never changed, and
+ * React keeps its own nodes in place around extra siblings. Everything
+ * inserted has `data-marks-skip`, so the text highlights anchor to
+ * (textModel.ts) doesn't change, and `remove` takes it all out again.
  *
- * React writes a text node's new text into the node it created, so a split
- * one would keep its old second half. `watchInlineNotes` removes the notes
- * on any change to the document's DOM that isn't theirs and places them
- * again: a MutationObserver runs before the browser paints, so the doubled
- * text is never shown.
+ * When React adds, removes or replaces elements, notes could be left beside
+ * the wrong block: `watchInlineNotes` places them again on any such change
+ * to the document that isn't theirs.
  */
 
 export interface InlineNote {
   id: string;
   /** The highlight's live range in the document. */
   range: Range;
-  /** The highlight's colour, for the marker and the rule. */
+  /** The highlight's colour, for the rule beside the note. */
   color: string;
   note: string;
 }
@@ -58,20 +54,10 @@ export function spotFor(range: Range): Spot | null {
   return { after: block, kind: block.tagName === "LI" ? "item" : "block" };
 }
 
-/** What `placeInlineNotes` changed, to undo. */
-interface Split {
-  /** The text node React made, holding the text before the marker. */
-  head: Text;
-  /** The text after the marker, split off. */
-  tail: Text;
-  /** The head's text once split: if it changes, React wrote new text into it. */
-  headText: string;
-}
-
 export interface PlacedNotes {
-  /** Undo every change; `ranges` are moved off split-off text first. */
-  remove(ranges: readonly Range[]): void;
-  /** The elements inserted, for the observer to tell them apart. */
+  /** Take the notes out of the document. */
+  remove(): void;
+  /** Whether `node` is in the notes, for the observer to tell their changes apart. */
   owns(node: Node): boolean;
 }
 
@@ -110,32 +96,12 @@ function cellLabel(range: Range, withRow: boolean): string {
   return parts.filter((p) => p !== "").join(", ");
 }
 
-/** Insert `marker` at `range`'s end; a split text node is recorded in `splits`. */
-function insertAtEnd(range: Range, marker: Element, splits: Split[]): void {
-  const node = range.endContainer;
-  const offset = range.endOffset;
-  if (node.nodeType === Node.TEXT_NODE) {
-    const text = node as Text;
-    if (offset < text.length) {
-      // Live ranges ending at `offset` stay in `text`; those after it move to the tail
-      const tail = text.splitText(offset);
-      splits.push({ head: text, tail, headText: text.data });
-      tail.before(marker);
-    } else {
-      text.after(marker);
-    }
-    return;
-  }
-  node.insertBefore(marker, node.childNodes[offset] ?? null);
-}
-
 /**
  * Show `notes` in the document under `article`. Notes whose passage has no
  * place (a closed `<details>`) aren't shown; their margin icons stay.
  */
 export function placeInlineNotes(article: HTMLElement, notes: readonly InlineNote[]): PlacedNotes {
   const inserted: Element[] = [];
-  const splits: Split[] = [];
 
   // Grouped by where they go, each group in the order of the passages' ends
   const groups = new Map<Element, { spot: Spot; notes: InlineNote[] }>();
@@ -150,7 +116,7 @@ export function placeInlineNotes(article: HTMLElement, notes: readonly InlineNot
 
   for (const { spot, notes: group } of groups.values()) {
     group.sort(byEnd);
-    const numbered = group.length > 1 || spot.kind === "row" || spot.kind === "table";
+    const numbered = group.length > 1;
 
     const list = skipped("div", "folio-inline-notes");
     group.forEach((note, i) => {
@@ -158,15 +124,8 @@ export function placeInlineNotes(article: HTMLElement, notes: readonly InlineNot
       item.dataset.highlight = note.id;
       item.style.setProperty("--note-color", note.color);
       if (numbered) {
-        const number = String(i + 1);
-        const marker = skipped("sup", "folio-note-marker");
-        marker.dataset.highlight = note.id;
-        marker.style.setProperty("--note-color", note.color);
-        marker.textContent = number;
-        insertAtEnd(note.range, marker, splits);
-        inserted.push(marker);
         const label = skipped("span", "folio-inline-note-number");
-        label.textContent = number;
+        label.textContent = String(i + 1);
         item.append(label);
       }
       const where = spot.kind === "row" ? cellLabel(note.range, false) : spot.kind === "table" ? cellLabel(note.range, true) : "";
@@ -199,42 +158,11 @@ export function placeInlineNotes(article: HTMLElement, notes: readonly InlineNot
   }
 
   // What's ours, to tell the observer's records apart by walking up from a node
-  const own = new WeakSet<Node>([...inserted, ...splits.map((s) => s.tail)]);
+  const own = new WeakSet<Node>(inserted);
 
   return {
-    remove(ranges) {
+    remove() {
       for (const el of inserted) el.remove();
-      // The ranges in split-off text, by node, so each split moves only its own
-      const inNode = new Map<Node, Set<Range>>();
-      const tails = new Set<Node>(splits.map((s) => s.tail));
-      for (const range of ranges) {
-        for (const node of [range.startContainer, range.endContainer]) {
-          if (!tails.has(node)) continue;
-          const set = inNode.get(node) ?? new Set();
-          set.add(range);
-          inNode.set(node, set);
-        }
-      }
-      // Latest splits first: a text node split twice is merged back from its end
-      for (const { head, tail, headText } of [...splits].reverse()) {
-        if (tail.parentNode === null) continue;
-        const at = head.length;
-        // React wrote new text into the head, or moved or removed it: the tail is stale
-        const stale = head.data !== headText || head.nextSibling !== tail;
-        if (!stale) {
-          head.appendData(tail.data);
-          const moved = inNode.get(tail) ?? new Set<Range>();
-          for (const range of moved) {
-            if (range.startContainer === tail) range.setStart(head, at + range.startOffset);
-            if (range.endContainer === tail) range.setEnd(head, at + range.endOffset);
-          }
-          // The head may itself be split-off text, merged back next
-          const into = inNode.get(head) ?? new Set();
-          for (const range of moved) into.add(range);
-          inNode.set(head, into);
-        }
-        tail.remove();
-      }
     },
     owns(node) {
       for (let n: Node | null = node; n !== null && n !== article; n = n.parentNode) if (own.has(n)) return true;
@@ -245,14 +173,13 @@ export function placeInlineNotes(article: HTMLElement, notes: readonly InlineNot
 
 /**
  * Keep `notes()` shown under `article`: placed now, and placed again after
- * any change to the document's DOM that isn't theirs (React re-rendering,
- * a diagram drawn). `ranges()` are the live highlight ranges to keep
- * whole. Returns a function that removes the notes and stops watching.
+ * elements in the document are added or removed by anything but them (React
+ * re-rendering, a diagram drawn). Returns a function that removes the notes
+ * and stops watching.
  */
 export function watchInlineNotes(
   article: HTMLElement,
   notes: () => readonly InlineNote[],
-  ranges: () => readonly Range[],
   onPlaced?: () => void,
 ): () => void {
   let placed: PlacedNotes | null = null;
@@ -261,11 +188,11 @@ export function watchInlineNotes(
   const observer = new MutationObserver((records) => {
     if (records.some((r) => placed === null || !placed.owns(r.target))) place();
   });
-  const watch = () => observer.observe(article, { subtree: true, childList: true, characterData: true });
+  const watch = () => observer.observe(article, { subtree: true, childList: true });
 
   function place() {
     observer.disconnect();
-    placed?.remove(ranges());
+    placed?.remove();
     placed = placeInlineNotes(article, notes());
     observer.takeRecords();
     watch();
@@ -275,7 +202,7 @@ export function watchInlineNotes(
   place();
   return () => {
     observer.disconnect();
-    placed?.remove(ranges());
+    placed?.remove();
     placed = null;
   };
 }
