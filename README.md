@@ -33,6 +33,20 @@ architecture decision records and design proposals that pile up in every
 project, more and more of them written by coding agents. Open a project's docs
 folder, focus on the part you're reviewing, and mark what needs another pass.
 
+Think of a newspaper: coding agents are the reporters, filing specs, plans and
+decisions faster than anyone can read them, and you're the editor, who reads
+each draft, marks it up, sends it back for another pass and decides what runs.
+Folio is the editor's desk, the other end of the agent's loop:
+
+```
+ agent writes / revises ──► Folio: read, mark up, decide
+          ▲                              │
+          └─────── review notes ◄────────┘
+```
+
+The agent edits the files; Folio only reads them, and your notes go back to
+the agent with **Copy review notes**.
+
 **Try it in your browser:** the [live demo](https://crazzybot.github.io/folio/demo/)
 opens a sample repository of specs and ADRs, with nothing to install. Your
 highlights and notes stay in your browser.
