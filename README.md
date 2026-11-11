@@ -289,6 +289,7 @@ folio/
 │       ├── cli.ts                # macOS: installs the `folio` shell command
 │       ├── images.ts             # serves workspace images under app://bundle/@workspace/
 │       ├── main.ts               # window, app:// scheme, IPC, menu, PDF export
+│       ├── marks.ts              # highlights, notes and bookmarks in ~/.folio
 │       ├── openPaths.ts          # paths from the command line, Open With and drops
 │       ├── preload.ts            # exposes window.markdownApi
 │       ├── recent.ts             # recently opened workspace folders (recent.json)
