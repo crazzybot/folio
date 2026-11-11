@@ -82,6 +82,8 @@ interface MarkdownViewerProps {
   searchFocus?: SearchFocus | null;
   /** Show the outline of headings beside the document. */
   showOutline?: boolean;
+  /** Show notes in the text under their passages, not only as margin icons (notes/inline-notes.md). */
+  inlineNotes?: boolean;
   /** In a narrow window, the outline is a drawer over the document instead (whatever `showOutline`). */
   outlineDrawer?: { open: boolean; onClose: () => void };
   /** The shown document's highlights and bookmarks. */
@@ -541,6 +543,7 @@ export default function MarkdownViewer({
   searchQuery = "",
   searchFocus = null,
   showOutline = false,
+  inlineNotes = false,
   outlineDrawer,
   highlights = NO_HIGHLIGHTS,
   bookmarks = NO_BOOKMARKS,
@@ -1158,6 +1161,7 @@ export default function MarkdownViewer({
               containerRef={scrollRef}
               ready={ready}
               renderKey={content}
+              inlineNotes={inlineNotes}
               highlights={highlights}
               bookmarks={bookmarks}
               focus={markFocus !== null && markFocus.docId === contentId ? markFocus : null}

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { describeSpan, locateAnchor } from "../anchoring";
 import { findBookmark, headingIdentities, sameHeading } from "../bookmarks";
 import { getItem, setItem } from "../storage";
+import { watchInlineNotes } from "../inlineNotes";
+import type { InlineNote } from "../inlineNotes";
 import { buildTextModel } from "../textModel";
 import { HIGHLIGHT_COLORS } from "../types";
 import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, TextAnchor } from "../types";
@@ -90,6 +92,22 @@ function blockRange(block: Element): Range {
   return range;
 }
 
+/**
+ * Run `change` keeping the text at the top of `container`'s view where it
+ * is: the first block starting in view stays at the same height.
+ */
+function keepScrollAnchor(container: HTMLElement, article: HTMLElement, change: () => void): void {
+  const top = container.getBoundingClientRect().top;
+  const anchor = [...article.querySelectorAll(BLOCKS)].find(
+    (el) => el.closest("[data-marks-skip]") === null && el.getBoundingClientRect().top >= top,
+  );
+  const before = anchor?.getBoundingClientRect().top;
+  change();
+  if (anchor !== undefined && before !== undefined && anchor.isConnected) {
+    container.scrollTop += anchor.getBoundingClientRect().top - before;
+  }
+}
+
 /** Bring `rect` to the upper third of `container`'s view. */
 function scrollToRect(container: HTMLElement, rect: DOMRect): void {
   container.scrollTop += rect.top - container.getBoundingClientRect().top - container.clientHeight / 3;
@@ -128,6 +146,8 @@ interface MarksLayerProps {
   ready: boolean;
   /** Changes whenever the rendered document does (another document, a reload). */
   renderKey: unknown;
+  /** Show notes in the text under their passages (inlineNotes.ts), besides the margin icons. */
+  inlineNotes?: boolean;
   highlights: readonly Highlight[];
   bookmarks: readonly Bookmark[];
   /** A mark of this document to scroll to. */
@@ -153,6 +173,7 @@ export default function MarksLayer({
   containerRef,
   ready,
   renderKey,
+  inlineNotes = false,
   highlights,
   bookmarks,
   focus,
@@ -179,6 +200,12 @@ export default function MarksLayer({
   // The block the pointer is beside, for the note button in the margin
   const [hoveredBlock, setHoveredBlock] = useState<(Spot & { block: Element }) | null>(null);
   const [layoutVersion, setLayoutVersion] = useState(0);
+  // The highlight with a note under the pointer: its passage, marker, inline
+  // note or margin icon, which are all shown as hovered
+  const [hoveredNote, setHoveredNote] = useState<string | null>(null);
+  const notedIds = useRef(new Set<string>());
+  // Read by the inline notes' cleanup: whether they're being turned off
+  const inlineOn = useRef(inlineNotes);
   const popoverRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const handledFocus = useRef<number | null>(null);
@@ -248,6 +275,7 @@ export default function MarksLayer({
     );
 
     setNotedRanges(highlights.flatMap((h) => (h.note === null ? [] : [located.current.get(h.id) ?? []].flat())));
+    notedIds.current = new Set(highlights.flatMap((h) => (h.note === null ? [] : [h.id])));
 
     const elements = [...article.querySelectorAll<HTMLElement>(HEADINGS)];
     const identities = headingIdentities(elements.map(headingOf));
@@ -267,8 +295,19 @@ export default function MarksLayer({
     function onMouseMove(e: MouseEvent) {
       const { clientX: x, clientY: y } = e;
       cancelAnimationFrame(frame);
+      const target = e.target;
       frame = requestAnimationFrame(() => {
         if (article === null) return;
+        // An inline note or marker by its element; a passage by its painted text
+        const linked = target instanceof Element ? target.closest<HTMLElement>("[data-highlight]") : null;
+        let noteId = linked?.dataset.highlight ?? null;
+        if (noteId === null) {
+          for (const id of notedIds.current) {
+            const rects = located.current.get(id)?.getClientRects() ?? [];
+            if ([...rects].some((r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom)) noteId = id;
+          }
+        }
+        setHoveredNote(noteId);
         const index = [...article.querySelectorAll(HEADINGS)].findIndex((el) => {
           const r = el.getBoundingClientRect();
           return y >= r.top && y <= r.bottom && x >= r.left - HEADING_ICON_OFFSET - HEADING_ROW_SLACK && x <= r.right;
@@ -306,6 +345,7 @@ export default function MarksLayer({
     }
     const onMouseLeave = () => {
       cancelAnimationFrame(frame);
+      setHoveredNote(null);
       setHoveredHeading(null);
       setHoveredBlock(null);
     };
@@ -317,6 +357,51 @@ export default function MarksLayer({
       container.removeEventListener("mouseleave", onMouseLeave);
     };
   }, [articleRef, containerRef, ready, renderKey]);
+
+  // ── Inline notes ───────────────────────────────────────────────────────────
+  // After painting (declared after it), from the ranges it found. Placed
+  // again by the watcher when React changes the document under them; turning
+  // them on or off keeps the text at the top of the view in place.
+  useLayoutEffect(() => {
+    inlineOn.current = inlineNotes;
+  }, [inlineNotes]);
+
+  useEffect(() => {
+    const article = articleRef.current;
+    const container = containerRef.current;
+    if (!ready || !inlineNotes || article === null || container === null) return;
+    const notes = (): InlineNote[] =>
+      highlights.flatMap((h) => {
+        const range = h.note === null ? undefined : located.current.get(h.id);
+        return range === undefined || h.note === null
+          ? []
+          : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: h.note }];
+      });
+    const ranges = () => [...located.current.values()];
+    const relayout = () => setLayoutVersion((v) => v + 1);
+    let stop = () => {};
+    keepScrollAnchor(container, article, () => {
+      stop = watchInlineNotes(article, notes, ranges, relayout);
+    });
+    return () => {
+      if (inlineOn.current) stop();
+      else keepScrollAnchor(container, article, stop);
+    };
+  }, [articleRef, containerRef, ready, renderKey, highlights, inlineNotes]);
+
+  // The hovered note's passage, marker and inline note
+  useEffect(() => {
+    const article = articleRef.current;
+    const range = hoveredNote === null ? undefined : located.current.get(hoveredNote);
+    if (article === null || hoveredNote === null || range === undefined) return;
+    if (supported) CSS.highlights.set("folio-mark-hover", new Highlight(range));
+    const linked = article.querySelectorAll(`[data-highlight="${CSS.escape(hoveredNote)}"]`);
+    for (const el of linked) el.classList.add("folio-hovered");
+    return () => {
+      if (supported) CSS.highlights.delete("folio-mark-hover");
+      for (const el of linked) el.classList.remove("folio-hovered");
+    };
+  }, [articleRef, hoveredNote, layoutVersion]);
 
   // ── Scroll to a mark (Marks view) ──────────────────────────────────────────
   useEffect(() => {
@@ -353,6 +438,7 @@ export default function MarksLayer({
     setDraft(null);
     setHoveredHeading(null);
     setHoveredBlock(null);
+    setHoveredNote(null);
   }
 
   // A removed highlight's popover closes
@@ -499,6 +585,12 @@ export default function MarksLayer({
       if (window.getSelection()?.isCollapsed === false) return;
       // Links and buttons inside a highlight keep working
       if (e.target instanceof Element && e.target.closest("a, button")) return;
+      // An inline note or its marker: the highlight's popover, by the note
+      const inline = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-highlight]") : null;
+      if (inline?.dataset.highlight !== undefined) {
+        openPopover(inline.dataset.highlight, inline.getBoundingClientRect());
+        return;
+      }
       // The most recent highlight wins where they overlap
       for (const [id, range] of [...located.current].reverse()) {
         for (const rect of range.getClientRects()) {
@@ -641,7 +733,7 @@ export default function MarksLayer({
           <button
             key={spot.id}
             type="button"
-            className={styles.noteMarker}
+            className={`${styles.noteMarker} ${spot.id === hoveredNote ? styles.noteMarkerHovered : ""}`}
             style={{ top: spot.top, left: spot.left }}
             onClick={(e) => openPopover(spot.id, e.currentTarget.getBoundingClientRect())}
             aria-label={`Note: ${highlight?.note ?? ""}`}

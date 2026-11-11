@@ -237,6 +237,76 @@ body {
 ::highlight(folio-mark-blue) { background-color: var(--mark-blue); }
 ::highlight(folio-mark-pink) { background-color: var(--mark-pink); }
 
+/* The passage of the note under the pointer: its passage, inline note,
+   marker or margin icon */
+::highlight(folio-mark-hover) {
+  text-decoration: underline 1px;
+  text-underline-offset: 3px;
+}
+
+/* ─── Inline notes ────────────────────────────────────────────────────────── */
+/* Notes shown in the text under their passage (inlineNotes.ts); --note-color
+   is the highlight's swatch colour */
+.folio-inline-notes {
+  margin: -0.4em 0 1em;
+  font-size: 0.85em;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+li > .folio-inline-notes,
+.folio-inline-notes-row .folio-inline-notes {
+  margin: 0.15em 0 0.3em;
+}
+
+.folio-inline-note {
+  padding: 0.15em 0.5em 0.15em 0.75em;
+  border-left: 2px solid var(--note-color);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  white-space: pre-wrap;
+  cursor: pointer;
+}
+
+.folio-inline-note + .folio-inline-note {
+  margin-top: 0.2em;
+}
+
+.folio-inline-note:hover,
+.folio-inline-note.folio-hovered {
+  color: var(--color-text);
+  background: var(--color-hover-bg);
+}
+
+.folio-inline-note-number,
+.folio-note-marker {
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 0;
+  vertical-align: super;
+  /* The swatch alone is too light to read on a light background */
+  color: color-mix(in srgb, var(--note-color) 65%, var(--color-text));
+}
+
+.folio-inline-note-number {
+  margin-right: 0.4em;
+}
+
+.folio-note-marker {
+  margin-left: 0.1em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.folio-note-marker.folio-hovered {
+  text-decoration: underline;
+}
+
+.folio-inline-notes-row > td {
+  padding-top: 0.2em;
+  padding-bottom: 0.2em;
+}
+
 /* ─── Print ───────────────────────────────────────────────────────────────── */
 /* Swap to a light, ink-friendly palette and let the document flow across
    pages instead of being clipped to the viewport. */

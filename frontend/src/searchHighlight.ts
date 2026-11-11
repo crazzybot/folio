@@ -24,7 +24,15 @@ export function findMatches(root: HTMLElement, query: string): Range[] {
   const nodes: Text[] = [];
   const starts: number[] = [];
   let text = "";
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  // Not text shown beside the document's own, such as inline notes (inlineNotes.ts)
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+    acceptNode: (node) =>
+      node.nodeType === Node.TEXT_NODE
+        ? NodeFilter.FILTER_ACCEPT
+        : (node as Element).matches("[data-marks-skip]")
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_SKIP,
+  });
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
     nodes.push(node as Text);
     starts.push(text.length);

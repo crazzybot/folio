@@ -22,6 +22,7 @@ import {
   useDocStyle,
   useFontSize,
   useGroupByFolder,
+  useNotePlace,
   useOutlineVisible,
   useReadingWidth,
   useReviewIntro,
@@ -243,6 +244,7 @@ function AppInner(): React.ReactElement {
   const [docStyle, setDocStyle] = useDocStyle();
   useCustomCss();
   const [showOutline, setShowOutline] = useOutlineVisible();
+  const [notePlace, setNotePlace] = useNotePlace();
   const [groupByFolder, setGroupByFolder] = useGroupByFolder();
   const [searchDocumentText, setSearchDocumentText] = useSearchDocumentText();
   const reviewIntro = useReviewIntro();
@@ -753,6 +755,26 @@ function AppInner(): React.ReactElement {
     };
   }, [copyReviewNotes]);
 
+  // ⌥⌘N / Ctrl+Alt+N (or View → Toggle Inline Notes): notes in the margin or in the text
+  useEffect(() => {
+    const toggle = () => setNotePlace(notePlace.id === "inline" ? "margin" : "inline");
+    function onKeyDown(e: KeyboardEvent) {
+      // By code: on macOS ⌥N types a dead key
+      if ((e.metaKey || e.ctrlKey) && e.altKey && !e.shiftKey && e.code === "KeyN") {
+        e.preventDefault();
+        toggle();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    const unsubscribe = window.markdownApi?.onFindCommand((command) => {
+      if (command === "inline-notes") toggle();
+    });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      unsubscribe?.();
+    };
+  }, [notePlace, setNotePlace]);
+
   // ⌘D / Ctrl+D (or Edit → Bookmark Document): bookmark the shown document, or remove its bookmark
   useEffect(() => {
     const toggle = () => {
@@ -1036,6 +1058,8 @@ function AppInner(): React.ReactElement {
               onFontSizeChange={setFontSize}
               docStyle={docStyle.id}
               onDocStyleChange={setDocStyle}
+              notePlace={notePlace.id}
+              onNotePlaceChange={setNotePlace}
               buttonClassName={styles.iconBtn}
             />
 
@@ -1087,6 +1111,7 @@ function AppInner(): React.ReactElement {
             searchQuery={searchQuery}
             searchFocus={searchFocus}
             showOutline={showOutline}
+            inlineNotes={notePlace.id === "inline"}
             {...(outlineAsDrawer ? { outlineDrawer: { open: drawer === "outline", onClose: closeDrawer } } : {})}
             {...(shownMarks === undefined ? {} : { highlights: shownMarks.highlights, bookmarks: shownMarks.bookmarks })}
             {...(markHandlers === undefined ? {} : { markHandlers })}
