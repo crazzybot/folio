@@ -198,6 +198,7 @@
 }
 
 .noteMarker:hover,
+.noteMarkerHovered,
 .headingBookmark:hover,
 .blockNote:hover {
   color: var(--color-text);

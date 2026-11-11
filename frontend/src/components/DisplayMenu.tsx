@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
-import { DOC_STYLES, FONT_SIZES, READING_WIDTHS } from "../readerPrefs";
-import type { DocStyle, FontSize, ReadingWidth } from "../readerPrefs";
+import { DOC_STYLES, FONT_SIZES, NOTE_PLACES, READING_WIDTHS } from "../readerPrefs";
+import type { DocStyle, FontSize, NotePlace, ReadingWidth } from "../readerPrefs";
 import { THEME_OPTIONS } from "../theme";
 import type { ThemePreference } from "../theme";
 import styles from "./DisplayMenu.module.css";
@@ -14,13 +14,16 @@ interface DisplayMenuProps {
   onFontSizeChange: (id: FontSize["id"]) => void;
   docStyle: DocStyle["id"];
   onDocStyleChange: (id: DocStyle["id"]) => void;
+  notePlace: NotePlace["id"];
+  onNotePlaceChange: (id: NotePlace["id"]) => void;
   /** Class for the trigger button, so it matches the header's other icon buttons. */
   buttonClassName?: string | undefined;
 }
 
 /**
  * Header dropdown for display preferences: appearance (System / Light /
- * Dark), document style, reading width and font size. Follows the WAI-ARIA menu button pattern: arrow
+ * Dark), document style, reading width, font size and where notes are
+ * shown. Follows the WAI-ARIA menu button pattern: arrow
  * keys move between options, Enter/Space picks one, Escape closes.
  */
 export default function DisplayMenu({
@@ -32,6 +35,8 @@ export default function DisplayMenu({
   onFontSizeChange,
   docStyle,
   onDocStyleChange,
+  notePlace,
+  onNotePlaceChange,
   buttonClassName,
 }: DisplayMenuProps): React.ReactElement {
   const [open, setOpen] = useState(false);
@@ -176,6 +181,13 @@ export default function DisplayMenu({
               Font size
             </div>
             {FONT_SIZES.map((f) => option(f.id, f.label, f.id === fontSize, onFontSizeChange))}
+          </div>
+          <div role="separator" className={styles.separator} />
+          <div role="group" aria-labelledby={`${menuId}-notes`}>
+            <div id={`${menuId}-notes`} className={styles.heading}>
+              Notes
+            </div>
+            {NOTE_PLACES.map((n) => option(n.id, n.label, n.id === notePlace, onNotePlaceChange))}
           </div>
         </div>
       )}

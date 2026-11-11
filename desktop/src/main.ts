@@ -994,6 +994,14 @@ function buildMenu(): Menu {
         },
         { label: "Edit Custom CSS…", click: withWindow(editCustomCss) },
         { type: "separator" },
+        // The page keeps the setting and handles the key, as for the Edit menu's commands
+        {
+          label: "Toggle Inline Notes",
+          accelerator: "Alt+CmdOrCtrl+N",
+          registerAccelerator: false,
+          click: withWindow((win) => win.webContents.send("find:command", "inline-notes")),
+        },
+        { type: "separator" },
         // The rest of Electron's default View menu
         { role: "reload" },
         { role: "forceReload" },

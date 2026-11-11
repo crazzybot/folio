@@ -30,9 +30,16 @@ export const DOC_STYLES = [
   { id: "compact", label: "Compact", value: "compact" },
 ] as const;
 
+/** Where notes are shown: as icons in the margin, or in the text under their passage (notes/inline-notes.md). */
+export const NOTE_PLACES = [
+  { id: "margin", label: "In margin" },
+  { id: "inline", label: "Inline" },
+] as const;
+
 export type ReadingWidth = (typeof READING_WIDTHS)[number];
 export type DocStyle = (typeof DOC_STYLES)[number];
 export type FontSize = (typeof FONT_SIZES)[number];
+export type NotePlace = (typeof NOTE_PLACES)[number];
 
 interface Option {
   readonly id: string;
@@ -114,6 +121,11 @@ export function useReviewIntro(): {
 
 export function useReadingWidth(): [ReadingWidth, (id: ReadingWidth["id"]) => void] {
   return useStoredOption<ReadingWidth>(READING_WIDTHS, "folio.readingWidth", READING_WIDTHS[1]);
+}
+
+/** Where notes are shown (display options menu, ⌥⌘N). */
+export function useNotePlace(): [NotePlace, (id: NotePlace["id"]) => void] {
+  return useStoredOption<NotePlace>(NOTE_PLACES, "folio.notePlace", NOTE_PLACES[0]);
 }
 
 export function useDocStyle(): [DocStyle, (id: DocStyle["id"]) => void] {
