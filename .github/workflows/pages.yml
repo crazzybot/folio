@@ -1,5 +1,6 @@
 # Publish the product site (site/) to GitHub Pages, with the live demo
-# (docs/design/live-demo.md) built from main in demo/.
+# (docs/design/live-demo.md) built from main in demo/ and the user docs
+# (docs-site/) in docs/.
 # One-time setup: Settings → Pages → Source: GitHub Actions.
 # The download links read the latest release at view time, so publishing a
 # release doesn't need a site deploy.
@@ -10,6 +11,7 @@ on:
     branches: [main]
     paths:
       - site/**
+      - docs-site/**
       - .github/workflows/pages.yml
       # The demo: its content, the app, and the scanner that bundles it
       - demo/**
@@ -46,6 +48,7 @@ jobs:
           cache-dependency-path: |
             desktop/package-lock.json
             frontend/package-lock.json
+            docs-site/package-lock.json
       - run: npm ci
         working-directory: desktop
       - run: npm ci
@@ -54,11 +57,16 @@ jobs:
         working-directory: desktop
       - run: npm run build:demo
         working-directory: frontend
-      - name: Assemble the site and the demo
+      - run: npm ci
+        working-directory: docs-site
+      - run: npm run build
+        working-directory: docs-site
+      - name: Assemble the site, the demo and the docs
         run: |
           mkdir _site
           cp -R site/. _site/
           cp -R frontend/dist-demo _site/demo
+          cp -R docs-site/.vitepress/dist _site/docs
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

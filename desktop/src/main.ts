@@ -194,6 +194,9 @@ function isRendererUrl(url: string): boolean {
   }
 }
 
+/** The user docs (docs-site/), published with the product site. */
+const DOCS_URL = "https://crazzybot.github.io/folio/docs/";
+
 /** Open http(s)/mailto links in the default browser; ignore anything else. */
 function openExternal(url: string): void {
   if (/^(https?|mailto):/i.test(url)) void shell.openExternal(url);
@@ -1084,6 +1087,8 @@ function buildMenu(): Menu {
               { label: "Check for Updates…", click: () => void checkForUpdatesNow() },
               { type: "separator" },
             ] satisfies MenuItemConstructorOptions[]),
+        { label: "Folio Documentation", click: () => openExternal(DOCS_URL) },
+        { type: "separator" },
         { label: "Third-Party Licenses", click: showThirdPartyLicenses },
       ],
     },

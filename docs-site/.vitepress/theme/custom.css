@@ -1,0 +1,34 @@
+/* The product site's palette and type (site/style.css): the midnight tile,
+   the paper page and the blue bookmark ribbon of the app icon. */
+
+:root {
+  --vp-font-family-base: "Schibsted Grotesk", system-ui, sans-serif;
+
+  --vp-c-brand-1: #1557c7;
+  --vp-c-brand-2: #1f6ff2;
+  --vp-c-brand-3: #1f6ff2;
+  --vp-c-brand-soft: rgba(31, 111, 242, 0.14);
+
+  --vp-c-bg-alt: #f4f5f7;
+}
+
+.dark {
+  --vp-c-brand-1: #7fb0ff;
+  --vp-c-brand-2: #5a97fa;
+  --vp-c-brand-3: #1f6ff2;
+  --vp-c-brand-soft: rgba(127, 176, 255, 0.16);
+
+  --vp-c-bg: #0f141d;
+  --vp-c-bg-alt: #0b0f16;
+  --vp-c-bg-elv: #1a2130;
+  --vp-c-bg-soft: #1a2130;
+}
+
+/* Headings in the site's serif */
+.vp-doc h1,
+.vp-doc h2,
+.VPHero .name,
+.VPHero .text {
+  font-family: "Literata", Georgia, serif;
+  font-weight: 600;
+}
