@@ -19,7 +19,7 @@ import { existsSync, promises as fs, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-// Note states, privacy and rounds (notes/01a-sending-notes.md) are optional
+// Note states, privacy and rounds (docs/design/sending-notes.md) are optional
 // fields a version-1 app keeps as they are, so they don't need a new version:
 // an outdated install still shows and changes these marks
 export const VERSION = 1;

@@ -662,7 +662,7 @@ function AppInner(): React.ReactElement {
   // ── Send review notes: notes as Markdown for a coding agent
   // (docs/design/review-notes.md), picked in the Send dialog; copying records
   // a round and, with Don't send these notes again, makes them sent
-  // (notes/01a-sending-notes.md) ──────────────────────────────────────────────
+  // (docs/design/sending-notes.md) ──────────────────────────────────────────────
   const [sending, setSending] = useState<{ title: string; docs: readonly SendScope[] } | null>(null);
   const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
   useEffect(() => {

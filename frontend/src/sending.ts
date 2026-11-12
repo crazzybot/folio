@@ -1,6 +1,6 @@
 /**
  * sending.ts — Which marks are feedback and where each is in the review
- * loop, and what the Send dialog lists and ticks (notes/01a-sending-notes.md).
+ * loop, and what the Send dialog lists and ticks (docs/design/sending-notes.md).
  *
  * A highlight without a note is private, one with a note is feedback,
  * unless the user chose otherwise (`private`: Only me, or Send to agent).

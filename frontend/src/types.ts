@@ -75,7 +75,7 @@ export interface TextAnchor {
 }
 
 /**
- * Where a note is in the review loop (notes/01a-sending-notes.md): not sent
+ * Where a note is in the review loop (docs/design/sending-notes.md): not sent
  * yet, sent (the agent has it), addressed (the agent says it's done),
  * resolved (the user agrees).
  */

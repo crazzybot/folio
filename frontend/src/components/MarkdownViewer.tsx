@@ -82,7 +82,7 @@ interface MarkdownViewerProps {
   searchFocus?: SearchFocus | null;
   /** Show the outline of headings beside the document. */
   showOutline?: boolean;
-  /** Show notes in the text under their passages, not only as margin icons (notes/inline-notes.md). */
+  /** Show notes in the text under their passages, not only as margin icons (docs/design/inline-notes.md). */
   inlineNotes?: boolean;
   /** In a narrow window, the outline is a drawer over the document instead (whatever `showOutline`). */
   outlineDrawer?: { open: boolean; onClose: () => void };
@@ -102,7 +102,7 @@ export interface MarkHandlers {
   recolor: (id: string, color: HighlightColor) => void;
   setNote: (id: string, note: string | null) => void;
   remove: (id: string) => void;
-  /** A note's place in the review loop (notes/01a-sending-notes.md). */
+  /** A note's place in the review loop (docs/design/sending-notes.md). */
   setLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
   toggleHeadingBookmark: (heading: BookmarkHeading) => void;
   /** The document's latest rounds, for when a note was sent. */
