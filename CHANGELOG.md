@@ -12,6 +12,16 @@ turns them into the next release's section.
 
 ### Added
 
+- **Well-known documents** (`README.md`, `AGENTS.md`, `CLAUDE.md`,
+  `CHANGELOG.md`…, or any name in capitals like `SPEC.md`) show their name
+  before the title in the document list, so an `AGENTS.md` and a `CLAUDE.md`
+  with the same title are told apart. A title that only repeats the name
+  (`# Changelog`) is shown alone.
+
+## [0.5.0] — 2026-11-12
+
+### Added
+
 - **Sending notes.** Copy review notes opens the **Send dialog**: the notes
   as a list to tick, grouped by document, with the exact Markdown in its
   **Text** tab. Notes not sent yet are ticked; with **Don't send these notes
