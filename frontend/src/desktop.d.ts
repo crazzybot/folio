@@ -1,4 +1,15 @@
-import type { Bookmark, DocumentContent, DocumentMeta, DocumentNote, Highlight, MarksListing, NavigationState, SearchResult } from "./types";
+import type {
+  Bookmark,
+  DocumentContent,
+  DocumentMeta,
+  DocumentNote,
+  Highlight,
+  MarksListing,
+  NavigationState,
+  SearchResult,
+  SendDocument,
+  SentRound,
+} from "./types";
 
 /** The desktop settings the in-app panel shows (desktop/src/main.ts settingsView). */
 export interface DesktopSettings {
@@ -82,6 +93,10 @@ interface MarkdownDesktopApi {
     deleteNote(docId: string): Promise<void>;
     relink(recordId: string, docId: string): Promise<void>;
     forget(recordId: string): Promise<void>;
+    /** Record a round of sent notes; with `markSent`, open notes become sent. */
+    send(docs: readonly SendDocument[], markSent: boolean): Promise<SentRound>;
+    /** Undo a round `send` recorded. */
+    unsend(round: SentRound): Promise<void>;
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */
     onChange(callback: () => void): () => void;
   };

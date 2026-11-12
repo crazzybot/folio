@@ -1,8 +1,11 @@
 import React from "react";
 import { documentsInFolder } from "../documentTree";
 import { requestDone, statusText } from "../status";
-import type { DocumentMeta, DocumentNote, Highlight } from "../types";
+import { isPrivate, lastSent, loopSentence, needsYou, sendableNote, stateOf } from "../sending";
+import type { NoteIconKind } from "../noteIcons";
+import type { DocumentMeta, DocumentNote, Highlight, Round } from "../types";
 import NoteRequest from "./NoteRequest";
+import NoteStateIcon from "./NoteStateIcon";
 import StatusIcon from "./StatusIcon";
 import styles from "./HoverCard.module.css";
 
@@ -60,8 +63,27 @@ function NoteSummary({ note, status }: { note: DocumentNote; status: string | nu
   );
 }
 
-/** The note on a document (Marks view): its request and the comment in full. */
-export function DocumentNoteCard({ doc, note }: { doc: DocumentMeta; note: DocumentNote }): React.ReactElement {
+/** Where a note is in the review loop: its icon and a sentence. */
+function LoopLine({ kind, sent }: { kind: NoteIconKind; sent: string | null }): React.ReactElement {
+  return (
+    <div className={`${styles.loop} ${needsYou(kind) ? styles.loopNeedsYou : ""}`}>
+      <NoteStateIcon kind={kind} size={12} />
+      {loopSentence(kind, sent)}
+    </div>
+  );
+}
+
+/** The note on a document (Marks view): its request and the comment in full, and where it is in the review loop. */
+export function DocumentNoteCard({
+  doc,
+  note,
+  rounds,
+}: {
+  doc: DocumentMeta;
+  note: DocumentNote;
+  rounds?: readonly Round[] | undefined;
+}): React.ReactElement {
+  const kind: NoteIconKind = sendableNote(note, doc.meta?.status) === null ? "private" : stateOf(note);
   return (
     <>
       <div className={styles.title}>Note on {doc.title}</div>
@@ -76,6 +98,7 @@ export function DocumentNoteCard({ doc, note }: { doc: DocumentMeta; note: Docum
         </div>
       )}
       {note.text !== null && <div className={styles.note}>{note.text}</div>}
+      <LoopLine kind={kind} sent={kind === "sent" ? lastSent(rounds, null) : null} />
       <div className={styles.path}>{doc.location}</div>
     </>
   );
@@ -124,15 +147,19 @@ export function HighlightCard({
   doc,
   highlight,
   unplaced,
+  rounds,
 }: {
   doc: DocumentMeta;
   highlight: Highlight;
   unplaced: boolean;
+  rounds?: readonly Round[] | undefined;
 }): React.ReactElement {
+  const kind: NoteIconKind = isPrivate(highlight) ? "private" : stateOf(highlight);
   return (
     <>
       <blockquote className={`${styles.quote} ${styles[highlight.color] ?? ""}`}>{highlight.quote.exact}</blockquote>
       {highlight.note !== null && <div className={styles.note}>{highlight.note}</div>}
+      <LoopLine kind={kind} sent={kind === "sent" ? lastSent(rounds, highlight.id) : null} />
       <div className={styles.path}>{doc.location}</div>
       {unplaced && <div className={styles.detail}>Not found in the current text</div>}
     </>

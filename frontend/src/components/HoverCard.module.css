@@ -45,6 +45,20 @@
 }
 
 /* People, tags, counts, marks */
+/* Where a note is in the review loop */
+.loop {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.loopNeedsYou {
+  color: var(--color-text);
+}
+
 .detail {
   margin-top: var(--space-1);
   font-size: var(--text-xs);

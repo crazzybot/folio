@@ -43,7 +43,8 @@
   gap: 2px;
 }
 
-.headerBtn {
+/* Beside the search box: the filter and Group by folder */
+.toolBtn {
   position: relative;
   width: 26px;
   height: 26px;
@@ -59,14 +60,14 @@
   -webkit-app-region: no-drag;
 }
 
-.headerBtn:hover {
+.toolBtn:hover {
   color: var(--color-text);
   background: var(--color-hover-bg);
 }
 
 /* On: tinted, as the search box's text-search toggle (without its border) */
-.headerBtnOn,
-.headerBtnOn:hover {
+.toolBtnOn,
+.toolBtnOn:hover {
   color: var(--color-text-strong);
   background: color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
@@ -88,7 +89,7 @@
   text-align: center;
 }
 
-.headerBtn:focus-visible {
+.toolBtn:focus-visible {
   outline: 1px solid var(--color-accent);
 }
 
@@ -151,8 +152,24 @@
   padding: 0 var(--space-3) var(--space-2);
 }
 
+/* The search box, then the list's buttons */
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.searchTools {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .searchInputWrapper {
   position: relative;
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
 }

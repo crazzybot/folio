@@ -135,6 +135,8 @@ contextBridge.exposeInMainWorld("markdownApi", {
     deleteNote: (docId: string) => ipcRenderer.invoke("marks:note-delete", docId),
     relink: (recordId: string, docId: string) => ipcRenderer.invoke("marks:relink", recordId, docId),
     forget: (recordId: string) => ipcRenderer.invoke("marks:forget", recordId),
+    send: (docs: unknown, markSent: boolean) => ipcRenderer.invoke("marks:send", docs, markSent),
+    unsend: (round: unknown) => ipcRenderer.invoke("marks:unsend", round),
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */
     onChange: (callback: () => void) => {
       const listener = () => callback();

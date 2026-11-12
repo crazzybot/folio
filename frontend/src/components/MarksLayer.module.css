@@ -176,6 +176,57 @@
   outline-offset: 2px;
 }
 
+/* The review loop: the note's state and what can be done, and the lock */
+.loopRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.loopStatus {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.loopBtn,
+.lock {
+  padding: 1px 4px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.loopBtn:hover,
+.lock:hover {
+  background: var(--color-hover-bg);
+}
+
+.lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.lockOn {
+  color: var(--color-text);
+}
+
+.loopBtn:focus-visible,
+.lock:focus-visible {
+  outline: 2px solid var(--color-accent);
+}
+
 /* ─── Markers beside the text ─────────────────────────────────────────────── */
 /* After a highlight that has a note; centred on the line (top is its middle) */
 .noteMarker,

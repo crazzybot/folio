@@ -91,6 +91,14 @@ Books, so there is no third kind.
 - A record with no bookmarks and no highlights left is deleted.
 - `fingerprint` is refreshed on every write and used only for re-linking.
 - Unknown `version` → the record is left alone (read-only) rather than rewritten.
+- **Sending notes** (notes/01a-sending-notes.md) adds optional fields, still
+  version 1: a highlight's and the document note's `state` (`sent`,
+  `addressed`, `resolved`; absent means open) and `private` (set only when
+  the user chose), and the record's `rounds` (the latest five sends: id,
+  time, `via`, the document's SHA-1, the highlight ids). Fields a version
+  doesn't know are kept on every write, so an older install still shows and
+  changes these records; a new version number would have hidden them
+  (`marks:list` skips other versions).
 
 ### Anchoring highlights
 
@@ -258,7 +266,9 @@ MISSING DOCUMENTS (1)
   its own bookmark has no chevron.
 
 - **Filter** matches quote and note text, heading text and document titles;
-  a **Notes only** toggle (✎ in the filter box) is the only other filter.
+  the filter menu (the funnel beside it) picks kinds of marks (bookmarks, or
+  highlights and notes) and note states (notes/01a-sending-notes.md); it
+  replaced the earlier **Notes only** toggle.
 - The open document's marks are tinted, and its highlights that can't be
   found in the current text are shown as such.
 - Clicking an entry opens the document and scrolls to the mark; Back returns.

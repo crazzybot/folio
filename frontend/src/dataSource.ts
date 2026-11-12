@@ -13,15 +13,19 @@ import type {
   Highlight,
   HighlightColor,
   MarksListing,
+  NoteState,
   SearchResult,
+  SendDocument,
+  SentRound,
   TextAnchor,
 } from "./types";
 
 /** A new highlight: where it is, its colour and an optional note. */
 export type NewHighlight = TextAnchor & { color: HighlightColor; note: string | null };
-export type HighlightChanges = { color?: HighlightColor; note?: string | null };
-/** A document's note as set: both null (or blank) removes it. */
-export type NoteChanges = { text: string | null; requestedStatus: string | null };
+/** `private` null: back to the default (private without a note, feedback with one). */
+export type HighlightChanges = { color?: HighlightColor; note?: string | null; state?: NoteState; private?: boolean | null };
+/** A document's note as set: both null (or blank) removes it. State and privacy carry over unless given. */
+export type NoteChanges = { text: string | null; requestedStatus: string | null; state?: NoteState; private?: boolean | null };
 
 export interface DataSource {
   listDocuments(): Promise<DocumentMeta[]>;
@@ -42,5 +46,9 @@ export interface DataSource {
     deleteNote(docId: string): Promise<void>;
     relink(recordId: string, docId: string): Promise<void>;
     forget(recordId: string): Promise<void>;
+    /** Record a round of sent notes; with `markSent`, open notes become sent. */
+    send(docs: readonly SendDocument[], markSent: boolean): Promise<SentRound>;
+    /** Undo a round: it goes, and the notes it made sent are open again. */
+    unsend(round: SentRound): Promise<void>;
   };
 }

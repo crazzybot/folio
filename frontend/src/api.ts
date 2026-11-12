@@ -10,6 +10,8 @@ import type {
   HighlightColor,
   MarksListing,
   SearchResult,
+  SendDocument,
+  SentRound,
   TextAnchor,
 } from "./types";
 
@@ -33,6 +35,8 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
       deleteNote: (docId) => api.marks.deleteNote(docId),
       relink: (recordId, docId) => api.marks.relink(recordId, docId),
       forget: (recordId) => api.marks.forget(recordId),
+      send: (docs, markSent) => api.marks.send(docs, markSent),
+      unsend: (round) => api.marks.unsend(round),
     },
   };
 }
@@ -64,6 +68,8 @@ const unavailableSource: DataSource = {
     deleteNote: unavailable,
     relink: unavailable,
     forget: unavailable,
+    send: unavailable,
+    unsend: unavailable,
   },
 };
 
@@ -148,6 +154,16 @@ export async function relinkMarks(recordId: string, docId: string): Promise<void
 /** Delete a missing document's marks. */
 export async function forgetMarks(recordId: string): Promise<void> {
   return source.marks.forget(recordId);
+}
+
+/** Record that notes were sent (notes/01a-sending-notes.md); with `markSent`, open ones become sent. */
+export async function sendNotes(docs: readonly SendDocument[], markSent: boolean): Promise<SentRound> {
+  return source.marks.send(docs, markSent);
+}
+
+/** Undo a send. */
+export async function unsendNotes(round: SentRound): Promise<void> {
+  return source.marks.unsend(round);
 }
 
 /** Live demo: back to the marks a first visit starts with. Elsewhere, nothing. */

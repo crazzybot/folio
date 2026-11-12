@@ -4,12 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { fingerprint, listMarks, MarkError, MarksStore, realPath, recordId } from "../src/marks";
+import type { Highlight } from "../src/marks";
 import { scanWorkspace, stableId } from "../src/scanner";
 import { FIXTURES, SKIP, WORKSPACE } from "./fixtures";
 
 const MARKS = path.join(FIXTURES, "marks");
 const PLAIN = path.join(WORKSPACE, "docs", "plain.md");
 const README = path.join(WORKSPACE, "README.md");
+const BLANK_DOC = path.join(WORKSPACE, "docs", "blank.md"); // no marks
 
 /** A fixture record's path with {WORKSPACE} replaced by the real workspace path. */
 function fixturePath(p: string): string {
@@ -328,5 +330,80 @@ describe("moved and deleted documents", () => {
     const before = recordOf(NOTED);
     expect(await refusal(() => store.setNote(NOTED, body))).toBe(400);
     expect(recordOf(NOTED)).toEqual(before);
+  });
+});
+
+describe("sending notes", () => {
+  const ROUND = "0123456789abcdef";
+
+  it("sets and clears a highlight's state and privacy", async () => {
+    const added = await store.addHighlight(PLAIN, highlight({ note: "Why?" }));
+    expect(added.state).toBeUndefined();
+    const locked = await store.updateHighlight(PLAIN, added.id, { private: true });
+    expect(locked.private).toBe(true);
+    const resolved = await store.updateHighlight(PLAIN, added.id, { state: "resolved", private: null });
+    expect([resolved.state, "private" in resolved]).toEqual(["resolved", false]);
+    // Open is the default, so it isn't written
+    const reopened = await store.updateHighlight(PLAIN, added.id, { state: "open" });
+    expect("state" in reopened).toBe(false);
+    expect(await refusal(() => store.updateHighlight(PLAIN, added.id, { state: "done" }))).toBe(400);
+    expect(await refusal(() => store.updateHighlight(PLAIN, added.id, { private: "yes" }))).toBe(400);
+  });
+
+  it("records a round and marks open notes sent", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "One" }));
+    const b = await store.addHighlight(PLAIN, highlight({ note: "Two" }));
+    await store.updateHighlight(PLAIN, b.id, { state: "addressed" });
+    const sent = await store.send(PLAIN, { roundId: ROUND, highlightIds: [a.id, b.id, "gone"] });
+    // Only the open note changes; an addressed one stays as it is
+    expect(sent).toEqual({ highlightIds: [a.id], documentNote: false });
+    const record = recordOf(PLAIN) as { highlights: Highlight[]; rounds: { id: string; via: string; notes: string[]; sha1: string }[] };
+    const states = (r: { highlights: Highlight[] }) => [a.id, b.id].map((id) => r.highlights.find((h) => h.id === id)?.state);
+    expect(states(record)).toEqual(["sent", "addressed"]);
+    expect(record.rounds).toHaveLength(1);
+    expect([record.rounds[0]?.id, record.rounds[0]?.via, record.rounds[0]?.notes]).toEqual([ROUND, "copy", [a.id, b.id]]);
+    expect(record.rounds[0]?.sha1).toBe((await fingerprint(PLAIN)).sha1);
+
+    await store.unsend(PLAIN, { roundId: ROUND, ...sent });
+    const undone = recordOf(PLAIN) as { highlights: Highlight[]; rounds?: unknown };
+    expect(states(undone)).toEqual([undefined, "addressed"]);
+    expect(undone.rounds).toBeUndefined();
+  });
+
+  it("records a round without changing states when asked", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "One" }));
+    const sent = await store.send(PLAIN, { roundId: ROUND, highlightIds: [a.id], markSent: false });
+    expect(sent.highlightIds).toEqual([]);
+    expect((recordOf(PLAIN) as { highlights: Highlight[] }).highlights.find((h) => h.id === a.id)?.state).toBeUndefined();
+    expect((recordOf(PLAIN) as { rounds: unknown[] }).rounds).toHaveLength(1);
+  });
+
+  it("keeps the latest five rounds", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "One" }));
+    for (let i = 0; i < 7; i++) {
+      await store.send(PLAIN, { roundId: `${i}`.padStart(16, "0"), highlightIds: [a.id] });
+    }
+    const rounds = (recordOf(PLAIN) as { rounds: { id: string }[] }).rounds;
+    expect(rounds.map((r) => r.id.slice(-1))).toEqual(["2", "3", "4", "5", "6"]);
+  });
+
+  it("sends the document's note and keeps its state over an edit", async () => {
+    await store.setNote(BLANK_DOC, { text: "Overall fine.", requestedStatus: null });
+    const sent = await store.send(BLANK_DOC, { roundId: ROUND, highlightIds: [], documentNote: true });
+    expect(sent.documentNote).toBe(true);
+    const edited = await store.setNote(BLANK_DOC, { text: "Overall fine, mostly.", requestedStatus: null });
+    expect(edited?.state).toBe("sent");
+    const locked = await store.setNote(BLANK_DOC, { text: "Overall fine, mostly.", requestedStatus: null, private: true });
+    expect([locked?.state, locked?.private]).toEqual(["sent", true]);
+    const listing = await listMarks(store, WORKSPACE, await scanWorkspace(WORKSPACE, SKIP));
+    const listed = listing.documents.find((d) => d.docId === stableId("docs/blank.md"));
+    expect([listed?.note?.state, listed?.rounds?.length]).toEqual(["sent", 1]);
+  });
+
+  it("refuses a malformed send", async () => {
+    await store.addHighlight(PLAIN, highlight({ note: "One" }));
+    expect(await refusal(() => store.send(PLAIN, { roundId: "x", highlightIds: [] }))).toBe(400);
+    expect(await refusal(() => store.send(PLAIN, { roundId: ROUND, highlightIds: [1] }))).toBe(400);
+    expect(await refusal(() => store.send(path.join(WORKSPACE, "docs", "blank.md"), { roundId: ROUND }))).toBe(404);
   });
 });

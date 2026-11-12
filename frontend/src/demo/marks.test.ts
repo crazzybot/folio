@@ -143,4 +143,22 @@ describe("DemoMarks", () => {
     expect(marks.list().documents.map((d) => d.docId)).toEqual(["b"]);
     expect(() => marks.deleteNote("a")).toThrow();
   });
+
+  it("records a round, makes open notes sent and undoes it", () => {
+    const marks = new DemoMarks(listed, seed, memoryStorage());
+    const round = marks.send([{ docId: "b", highlightIds: ["s1"], documentNote: false }], true);
+    expect(round.documents).toEqual([{ docId: "b", highlightIds: ["s1"], documentNote: false }]);
+    const sent = marks.list().documents[0];
+    expect([sent?.highlights[0]?.state, sent?.rounds?.[0]?.notes]).toEqual(["sent", ["s1"]]);
+
+    marks.unsend(round);
+    const undone = marks.list().documents[0];
+    expect([undone?.highlights[0]?.state, undone?.rounds]).toEqual([undefined, undefined]);
+  });
+
+  it("locks and unlocks a note", () => {
+    const marks = new DemoMarks(listed, seed, memoryStorage());
+    expect(marks.updateHighlight("b", "s1", { private: true }).private).toBe(true);
+    expect("private" in marks.updateHighlight("b", "s1", { private: null })).toBe(false);
+  });
 });

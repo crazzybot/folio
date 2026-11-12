@@ -1,6 +1,9 @@
 # Copy review notes
 
-Status: implemented (phases 1–4).
+Status: implemented (phases 1–4). Copying is no longer stateless, and the
+preview became the Send dialog: see
+[01a-sending-notes.md](../../notes/01a-sending-notes.md). The output format
+(sections 1–3) is unchanged.
 
 Turns a document's highlights and notes into Markdown that can be pasted
 straight into a coding agent (Claude Code, Cursor, …) as review feedback.
@@ -134,6 +137,10 @@ chat. A setting to choose relative paths can come later if people ask.
 
 ## 4. Stateless by design
 
+*Superseded by sending notes (notes/01a-sending-notes.md): copying records a
+round, and with **Don't send these notes again** the copied notes become
+sent and aren't ticked next time. Kept for the reasoning.*
+
 Questions that come up as soon as notes are sent, and the answer in this
 version:
 
@@ -187,6 +194,9 @@ Each one opens the preview (below) with its notes:
   always works.
 
 ### Preview
+
+*Replaced by the Send dialog (notes/01a-sending-notes.md §3): the notes as a
+list to tick, with this text in its **Text** tab.*
 
 Agents' chat boxes hide what's pasted (Claude Code collapses it to
 `[Pasted text #1 +40 lines]`), so the preview is the only place the user

@@ -119,6 +119,11 @@ export function useReviewIntro(): {
   return { on, setOn, text, setText };
 }
 
+/** Don't send these notes again (the Send dialog, notes/01a-sending-notes.md): on by default, remembered. */
+export function useMarkSent(): [boolean, (on: boolean) => void] {
+  return useStoredFlag("folio.markSent", true);
+}
+
 export function useReadingWidth(): [ReadingWidth, (id: ReadingWidth["id"]) => void] {
   return useStoredOption<ReadingWidth>(READING_WIDTHS, "folio.readingWidth", READING_WIDTHS[1]);
 }

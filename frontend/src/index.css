@@ -237,6 +237,18 @@ body {
 ::highlight(folio-mark-blue) { background-color: var(--mark-blue); }
 ::highlight(folio-mark-pink) { background-color: var(--mark-pink); }
 
+/* Resolved notes: lighter paint. Sent ones, waiting for the agent: a dashed
+   underline over their paint (notes/01a-sending-notes.md §2) */
+::highlight(folio-mark-yellow-resolved) { background-color: color-mix(in srgb, var(--mark-yellow) 40%, transparent); }
+::highlight(folio-mark-green-resolved) { background-color: color-mix(in srgb, var(--mark-green) 40%, transparent); }
+::highlight(folio-mark-blue-resolved) { background-color: color-mix(in srgb, var(--mark-blue) 40%, transparent); }
+::highlight(folio-mark-pink-resolved) { background-color: color-mix(in srgb, var(--mark-pink) 40%, transparent); }
+::highlight(folio-mark-sent) {
+  text-decoration: underline dashed 1px;
+  text-decoration-color: var(--color-text-muted);
+  text-underline-offset: 3px;
+}
+
 /* The passage of the note under the pointer: its passage, inline note or
    margin icon */
 ::highlight(folio-mark-hover) {
@@ -286,6 +298,22 @@ li > .folio-inline-notes,
   vertical-align: super;
   /* The swatch alone is too light to read on a light background */
   color: color-mix(in srgb, var(--note-color) 65%, var(--color-text));
+}
+
+/* The note's place in the review loop, as its margin icon */
+.folio-inline-note-icon {
+  display: inline-flex;
+  margin-right: 0.4em;
+  vertical-align: -0.1em;
+}
+
+.folio-inline-note-open,
+.folio-inline-note-addressed {
+  color: var(--color-accent);
+}
+
+.folio-inline-note-resolved {
+  opacity: 0.5;
 }
 
 .folio-inline-notes-row > td {

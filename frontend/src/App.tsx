@@ -25,6 +25,7 @@ import {
   useNotePlace,
   useOutlineVisible,
   useReadingWidth,
+  useMarkSent,
   useReviewIntro,
   useSearchDocumentText,
 } from "./readerPrefs";
@@ -39,9 +40,10 @@ import useMarks from "./useMarks";
 import DemoBanner from "./components/DemoBanner";
 import DisplayMenu from "./components/DisplayMenu";
 import SettingsPanel from "./components/SettingsPanel";
-import ReviewNotesPanel, { ReviewNotesIcon, copyText } from "./components/ReviewNotesPanel";
+import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
-import type { ReviewNotes } from "./reviewNotes";
+import { defaultSelection, picked, sendDocuments, sendGroups } from "./sending";
+import type { Picked, SendItem, StateFilter } from "./sending";
 import styles from "./App.module.css";
 import type { DocumentMeta, HighlightColor, TextAnchor } from "./types";
 import { getItem, setItem } from "./storage";
@@ -88,6 +90,24 @@ const FORWARD_SHORTCUT = IS_MAC_DESKTOP ? "⌘]" : "Alt+→";
 const REVIEW_SHORTCUT = IS_MAC_DESKTOP || navigator.platform.toUpperCase().includes("MAC") ? "⇧⌘C" : "Ctrl+Shift+C";
 // How long a status-bar message (e.g. "Copied 4 notes") shows
 const STATUS_SHOWN_MS = 4000;
+// A message with an action (Undo) stays longer
+const UNDO_SHOWN_MS = 8000;
+
+/** A message in the status bar, with an optional action (Undo). */
+interface StatusMessage {
+  text: string;
+  action?: { label: string; run: () => void };
+}
+
+/** What the Send dialog is opened on: a document, its source, and which of its notes. */
+interface SendScope {
+  doc: DocumentMeta;
+  source: string;
+  /** The highlights it may list; undefined: all of them. */
+  only?: ReadonlySet<string>;
+  /** Whether the note on the document as a whole is listed. */
+  withNote: boolean;
+}
 
 type LoadState =
   | { status: "idle" }
@@ -573,7 +593,8 @@ function AppInner(): React.ReactElement {
   useEffect(() => {
     if (contentId !== null) rememberForWorkspace(LAST_DOCUMENT_KEY, contentId);
   }, [contentId]);
-  const { add: addMark, recolor, setNote, remove: removeMark, toggleBookmark, removeBookmark } = marks;
+  const { add: addMark, recolor, setNote, remove: removeMark, setLoop, toggleBookmark, removeBookmark } = marks;
+  const shownRounds = contentId === null ? undefined : marks.byDoc.get(contentId)?.rounds;
   // Changes to the shown document's marks, from the viewer
   const markHandlers = useMemo((): MarkHandlers | undefined => {
     if (contentId === null) return undefined;
@@ -582,9 +603,11 @@ function AppInner(): React.ReactElement {
       recolor: (id: string, color: HighlightColor) => void recolor(contentId, id, color),
       setNote: (id: string, note: string | null) => void setNote(contentId, id, note),
       remove: (id: string) => void removeMark(contentId, id),
+      setLoop: (id, changes) => void setLoop(contentId, id, changes),
       toggleHeadingBookmark: (heading) => void toggleBookmark(contentId, heading),
+      rounds: shownRounds,
     };
-  }, [contentId, addMark, recolor, setNote, removeMark, toggleBookmark]);
+  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, toggleBookmark, shownRounds]);
   const shownMarks = contentId === null ? undefined : marks.byDoc.get(contentId);
   const documentBookmarked = shownMarks !== undefined && findBookmark(shownMarks.bookmarks, null) !== undefined;
 
@@ -636,19 +659,23 @@ function AppInner(): React.ReactElement {
 
   const selectedDoc = documents.find((doc) => doc.id === selectedId) ?? null;
 
-  // ── Copy review notes: the open document's highlights and notes as Markdown
-  // for a coding agent (docs/design/review-notes.md). Stateless: copying
-  // changes no marks ─────────────────────────────────────────────────────────
-  const [review, setReview] = useState<{ title: string; notes: ReviewNotes } | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  // ── Send review notes: notes as Markdown for a coding agent
+  // (docs/design/review-notes.md), picked in the Send dialog; copying records
+  // a round and, with Don't send these notes again, makes them sent
+  // (notes/01a-sending-notes.md) ──────────────────────────────────────────────
+  const [sending, setSending] = useState<{ title: string; docs: readonly SendScope[] } | null>(null);
+  const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
   useEffect(() => {
     if (statusMessage === null) return;
-    const timer = setTimeout(() => setStatusMessage(null), STATUS_SHOWN_MS);
+    const timer = setTimeout(() => setStatusMessage(null), statusMessage.action ? UNDO_SHOWN_MS : STATUS_SHOWN_MS);
     return () => clearTimeout(timer);
   }, [statusMessage]);
+  const [markSent, setMarkSent] = useMarkSent();
+  // The Marks view's state filter, set from the Send dialog's counts
+  const [marksFilter, setMarksFilter] = useState<{ filter: readonly StateFilter[]; nonce: number } | null>(null);
 
   const shownHighlights = useMemo(() => shownMarks?.highlights ?? [], [shownMarks]);
-  // Something to copy as review notes: a highlight, or a comment or status change still to make
+  // Something to send: a highlight, or a comment or status change still to make
   const canCopyReview = useMemo(
     () =>
       contentId !== null &&
@@ -660,83 +687,129 @@ function AppInner(): React.ReactElement {
   );
 
   const marksByDoc = marks.byDoc;
-  /** Review notes on documents' highlights, given their sources. */
-  const buildReview = useCallback(
-    (docs: readonly ReviewSelection[], sources: readonly string[]): { title: string; notes: ReviewNotes } => {
-      const notes = formatReviewNotes(
-        docs.map(({ doc, highlights }, i) => {
+  /** The Send dialog's notes for documents, from their current marks (narrowed to what the entry point gave). */
+  const groupsFor = useCallback(
+    (docs: readonly SendScope[]) =>
+      sendGroups(
+        docs.map(({ doc, source, only, withNote }) => {
+          const docMarks = marksByDoc.get(doc.id);
+          const highlights = (docMarks?.highlights ?? []).filter((h) => only === undefined || only.has(h.id));
           // Highlights the viewer couldn't place in the open document's current text are out of date
           const unplaced =
             located !== null && located.docId === doc.id
               ? new Set(highlights.filter((h) => !located.ids.has(h.id)).map((h) => h.id))
               : undefined;
-          return {
-            docId: doc.id,
-            path: reviewPath(doc.location, window.markdownApi?.workspacePath, window.markdownApi?.platform),
-            name: doc.filename,
-            source: sources[i] ?? "",
-            highlights,
-            ...(unplaced === undefined ? {} : { unplaced }),
-            // The note on the document as a whole, and where its status is written (document-notes.md)
-            note: marksByDoc.get(doc.id)?.note,
-            status: doc.meta?.status ?? null,
-            statusLine: doc.meta?.statusLine ?? null,
-          };
+          return { doc, source, highlights, note: withNote ? docMarks?.note : undefined, unplaced };
         }),
+      ),
+    [marksByDoc, located],
+  );
+  const sendingGroups = useMemo(() => (sending === null ? [] : groupsFor(sending.docs)), [sending, groupsFor]);
+
+  /** The text the agent gets for picked notes. */
+  const formatPicks = useCallback(
+    (picks: readonly Picked[]) =>
+      formatReviewNotes(
+        picks.map(({ group: { doc, source }, highlights, note }) => ({
+          docId: doc.id,
+          path: reviewPath(doc.location, window.markdownApi?.workspacePath, window.markdownApi?.platform),
+          name: doc.filename,
+          source,
+          highlights,
+          note,
+          status: doc.meta?.status ?? null,
+          statusLine: doc.meta?.statusLine ?? null,
+        })),
         reviewIntroText,
-      );
-      const title = docs.length === 1 ? (docs[0]?.doc.filename ?? "") : `${docs.length} documents`;
-      return { title, notes };
-    },
-    [located, reviewIntroText, marksByDoc],
+      ),
+    [reviewIntroText],
   );
 
-  const openDocumentNotes = useCallback((): { title: string; notes: ReviewNotes } | null => {
-    if (contentId === null || contentValue === null || selectedDoc === null || selectedDoc.id !== contentId) return null;
-    if (!canCopyReview) return null;
-    return buildReview([{ doc: selectedDoc, highlights: shownHighlights }], [contentValue]);
-  }, [contentId, contentValue, selectedDoc, shownHighlights, canCopyReview, buildReview]);
+  // Recording a send, with Undo in the status bar
+  const { send: recordSend, unsend } = marks;
+  const recordSent = useCallback(
+    (picks: readonly Picked[], sent: boolean) => {
+      const count = picks.reduce((n, p) => n + p.highlights.length + (p.note === undefined ? 0 : 1), 0);
+      const docs = picks.length > 1 ? ` from ${picks.length} documents` : "";
+      void recordSend(sendDocuments(picks), sent).then((round) => {
+        if (round === null) return;
+        setStatusMessage({
+          text: `${sent ? "Sent" : "Copied"} ${count} note${count !== 1 ? "s" : ""}${docs}`,
+          action: { label: "Undo", run: () => void unsend(round) },
+        });
+      });
+    },
+    [recordSend, unsend],
+  );
 
-  // From the Marks view: the documents' sources (the open one is loaded already), then the preview
+  /** The open document, as the Send dialog's scope. */
+  const openScope = useCallback((): SendScope | null => {
+    if (contentId === null || contentValue === null || selectedDoc === null || selectedDoc.id !== contentId) return null;
+    return { doc: selectedDoc, source: contentValue, withNote: true };
+  }, [contentId, contentValue, selectedDoc]);
+
+  const openSendDialog = useCallback(() => {
+    const scope = openScope();
+    if (scope !== null && canCopyReview) setSending({ title: scope.doc.filename, docs: [scope] });
+  }, [openScope, canCopyReview]);
+
+  // From the Marks view: what it shows, with the documents' sources (the open one is loaded already)
   const showReviewNotes = useCallback(
-    (docs: readonly ReviewSelection[]) => {
-      if (docs.length === 0) return;
+    (selection: readonly ReviewSelection[]) => {
+      if (selection.length === 0) return;
       Promise.all(
-        docs.map(({ doc }) =>
+        selection.map(({ doc }) =>
           doc.id === contentId && contentValue !== null
             ? contentValue
             : fetchDocumentContent(doc.id).then((d) => d.content),
         ),
       ).then(
-        (sources) => setReview(buildReview(docs, sources)),
-        () => setStatusMessage("Couldn't read the documents to copy"),
+        (sources) =>
+          setSending({
+            title: selection.length === 1 ? (selection[0]?.doc.filename ?? "") : `${selection.length} documents`,
+            docs: selection.map(({ doc, highlights, note }, i) => ({
+              doc,
+              source: sources[i] ?? "",
+              only: new Set(highlights.map((h) => h.id)),
+              withNote: note,
+            })),
+          }),
+        () => setStatusMessage({ text: "Couldn't read the documents to send" }),
       );
     },
-    [contentId, contentValue, buildReview],
+    [contentId, contentValue],
   );
 
-  // ⇧⌘C / Ctrl+Shift+C (or Edit → Copy Review Notes): copy straight away,
-  // without the preview; where the page has no clipboard, show the preview
+  // ⇧⌘C / Ctrl+Shift+C (or Edit → Copy Review Notes): the open document's
+  // unsent notes, copied straight away; with none (or no clipboard), the dialog
   const copyReviewNotes = useCallback(() => {
-    const review = openDocumentNotes();
-    if (review === null || (review.notes.notes.length === 0 && review.notes.documentNotes === 0)) {
-      setStatusMessage("No highlights or notes to copy");
+    const scope = openScope();
+    if (scope === null || !canCopyReview) {
+      setStatusMessage({ text: "No highlights or notes to send" });
       return;
     }
-    const { notes, title } = review;
-    void copyText(notes.text).then((ok) => {
-      if (!ok) {
-        setReview(review);
-        return;
-      }
-      // Notes on passages, and the note on the document as a whole
-      const count = notes.notes.length + notes.documentNotes;
-      setStatusMessage(
-        `Copied ${count} note${count !== 1 ? "s" : ""} on ${title}` +
-          (notes.leftOut > 0 ? ` · ${notes.leftOut} out of date, left out` : ""),
-      );
+    const groups = groupsFor([scope]);
+    const picks = picked(groups, defaultSelection(groups));
+    if (picks.length === 0) {
+      setSending({ title: scope.doc.filename, docs: [scope] });
+      return;
+    }
+    void copyText(formatPicks(picks).text).then((ok) => {
+      if (ok) recordSent(picks, markSent);
+      else setSending({ title: scope.doc.filename, docs: [scope] });
     });
-  }, [openDocumentNotes]);
+  }, [openScope, canCopyReview, groupsFor, formatPicks, recordSent, markSent]);
+
+  /** Only me, from the Send dialog: the note leaves it. */
+  const { setLoop: setNoteLoop, setDocumentNoteLoop } = marks;
+  const makePrivate = useCallback(
+    (item: SendItem) => {
+      if (item.highlight === null) void setDocumentNoteLoop(item.docId, { private: true });
+      // A bare highlight sent to the agent goes back to private by default
+      else void setNoteLoop(item.docId, item.highlight.id, { private: item.highlight.note === null ? null : true });
+    },
+    [setNoteLoop, setDocumentNoteLoop],
+  );
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -841,6 +914,7 @@ function AppInner(): React.ReactElement {
               onRelink={(recordId, docId) => void marks.relink(recordId, docId)}
               onForget={(recordId) => void marks.forget(recordId)}
               onCopyNotes={showReviewNotes}
+              filterRequest={marksFilter}
             />
           </div>
           {/* Kept mounted while hidden, so its search and folders stay as they were */}
@@ -995,6 +1069,7 @@ function AppInner(): React.ReactElement {
                 workspaceStatuses={workspaceStatuses}
                 onSave={(changes) => void marks.saveDocumentNote(contentId, changes)}
                 onRemove={() => void marks.removeDocumentNote(contentId)}
+                onSetState={(state) => void marks.setDocumentNoteLoop(contentId, { state })}
                 onClose={() => setNoteEditor(null)}
               />
             )}
@@ -1002,13 +1077,13 @@ function AppInner(): React.ReactElement {
             {/* Shown even with nothing to copy (disabled), so it's found and the toolbar keeps its place */}
             <button
               className={styles.iconBtn}
-              onClick={() => setReview(openDocumentNotes())}
+              onClick={openSendDialog}
               disabled={!canCopyReview}
-              aria-label={`Copy review notes (${REVIEW_SHORTCUT})`}
+              aria-label={`Send review notes (${REVIEW_SHORTCUT})`}
               title={
                 canCopyReview
-                  ? `Copy review notes (${REVIEW_SHORTCUT})`
-                  : "Copy review notes: highlight a passage, or add a note on the document, first"
+                  ? `Send review notes: ${REVIEW_SHORTCUT} copies the unsent ones`
+                  : "Send review notes: highlight a passage, or add a note on the document, first"
               }
               type="button"
             >
@@ -1136,17 +1211,28 @@ function AppInner(): React.ReactElement {
         </div>
       )}
 
-      {review !== null && (
-        <ReviewNotesPanel
-          title={review.title}
-          notes={review.notes}
-          onClose={() => setReview(null)}
+      {sending !== null && (
+        <SendNotesDialog
+          title={sending.title}
+          groups={sendingGroups}
+          format={formatPicks}
+          markSent={markSent}
+          onMarkSentChange={setMarkSent}
+          onSent={recordSent}
+          onClose={() => setSending(null)}
           onOpenNote={(docId, highlightId) => {
-            setReview(null);
-            openMark(docId, { highlight: highlightId });
+            setSending(null);
+            openMark(docId, highlightId === null ? null : { highlight: highlightId });
           }}
-          onShowLeftOut={() => {
-            setReview(null);
+          onMakePrivate={makePrivate}
+          onShowPrivate={() => {
+            setSending(null);
+            setMarksFilter({ filter: ["private"], nonce: Date.now() });
+            chooseSidebarView("marks");
+            showSidebar();
+          }}
+          onShowUnplaced={() => {
+            setSending(null);
             chooseSidebarView("marks");
             showSidebar();
           }}
@@ -1197,7 +1283,22 @@ function AppInner(): React.ReactElement {
         </span>
         {statusMessage !== null && (
           <span className={styles.statusItem} role="status">
-            {statusMessage}
+            {statusMessage.text}
+            {statusMessage.action !== undefined && (
+              <>
+                {" · "}
+                <button
+                  type="button"
+                  className={styles.statusAction}
+                  onClick={() => {
+                    statusMessage.action?.run();
+                    setStatusMessage(null);
+                  }}
+                >
+                  {statusMessage.action.label}
+                </button>
+              </>
+            )}
           </span>
         )}
         {marks.error !== null && (

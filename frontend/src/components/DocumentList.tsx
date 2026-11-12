@@ -18,6 +18,8 @@ import StatusIcon from "./StatusIcon";
 import styles from "./DocumentList.module.css";
 import { getItem, setItem } from "../storage";
 
+const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 // Searching document text starts at this many characters, after a pause in typing
 const MIN_CONTENT_QUERY = 2;
 const CONTENT_SEARCH_DELAY_MS = 200;
@@ -469,35 +471,11 @@ export default function DocumentList({
       {/* ── Header ── */}
       <header className={styles.header}>
         {tabs ?? <h1 className={styles.heading}>Documents</h1>}
-        <div className={styles.headerActions}>
-        {onFiltersChange !== undefined &&
-          (filterOptions.statuses.length > 0 || filterOptions.tags.length > 0 || hasFilters(filters)) && (
-            <FilterMenu
-              filters={filters}
-              options={filterOptions}
-              onChange={onFiltersChange}
-              buttonClassName={styles.headerBtn}
-              activeClassName={styles.headerBtnOn}
-              badgeClassName={styles.filterBadge}
-            />
-          )}
-        <button
-          type="button"
-          className={`${styles.headerBtn} ${grouped ? styles.headerBtnOn : ""}`}
-          onClick={() => chooseGrouped(!grouped)}
-          aria-pressed={grouped}
-          aria-label="Group by folder"
-          title={groupLabel}
-        >
-          {/* A folder tree */}
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
-            <path d="M1.5 3.5h4l1 1h4v3h-9z" />
-            <path d="M4 7.5v5h3M4 10h3" strokeLinecap="round" />
-            <path d="M7.5 9h7v2.5h-7zM7.5 11.5h7V14h-7z" />
-          </svg>
-        </button>
-        {onCollapse !== undefined && <DrawerCloseButton direction="left" label="Hide document list" onClick={onCollapse} />}
-        </div>
+        {onCollapse !== undefined && (
+          <div className={styles.headerActions}>
+            <DrawerCloseButton direction="left" label="Hide document list" onClick={onCollapse} />
+          </div>
+        )}
       </header>
 
       {/* ── Focused folder ── */}
@@ -524,72 +502,127 @@ export default function DocumentList({
         </div>
       )}
 
-      {/* ── Search ── */}
+      {/* ── Search, with the list's filter and Group by folder beside it (as the Marks view's) ── */}
       <div className={styles.searchWrapper}>
         <label htmlFor={searchId} className={styles.srOnly}>
           Search documents
         </label>
-        <div className={styles.searchInputWrapper}>
-          <svg
-            className={styles.searchIcon}
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5" fill="none" />
-            <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <input
-            id={searchId}
-            type="search"
-            className={styles.searchInput}
-            ref={inputRef}
-            placeholder={fullText ? "Search document text…" : "Search titles and headings…"}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              // Enter opens the first result; ↓ moves into the list
-              const first = results[0];
-              if (e.key === "Enter" && trimmed !== "" && first !== undefined) {
-                e.preventDefault();
-                openEntry(first);
-              } else if (e.key === "ArrowDown" && tabStop !== undefined) {
-                e.preventDefault();
-                focusRow(tabStop);
-              }
-            }}
-            aria-label={fullText ? "Search document titles, headings and text" : "Search document titles and headings"}
-            aria-describedby={`${searchId}-status`}
-          />
-          <button
-            type="button"
-            className={`${styles.fullTextBtn} ${fullText ? styles.fullTextBtnOn : ""}`}
-            onClick={() => chooseFullText(!fullText)}
-            aria-pressed={fullText}
-            aria-label={`Search document text (${FULL_TEXT_SHORTCUT})`}
-            title={`Search document text (${FULL_TEXT_SHORTCUT})`}
-          >
-            {/* A page with lines of text */}
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
-              <path d="M3.5 1.5h6l3 3v10h-9z" strokeLinejoin="round" />
-              <path d="M5.5 7.5h5M5.5 10h5M5.5 12.5h3" strokeLinecap="round" />
+        <div className={styles.searchRow}>
+          <div className={styles.searchInputWrapper}>
+            <svg
+              className={styles.searchIcon}
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
-          </button>
-          {query && (
+            <input
+              id={searchId}
+              type="search"
+              className={styles.searchInput}
+              ref={inputRef}
+              placeholder={fullText ? "Search text…" : "Search titles…"}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter opens the first result; ↓ moves into the list
+                const first = results[0];
+                if (e.key === "Enter" && trimmed !== "" && first !== undefined) {
+                  e.preventDefault();
+                  openEntry(first);
+                } else if (e.key === "ArrowDown" && tabStop !== undefined) {
+                  e.preventDefault();
+                  focusRow(tabStop);
+                }
+              }}
+              aria-label={fullText ? "Search document titles, headings and text" : "Search document titles and headings"}
+              aria-describedby={`${searchId}-status`}
+            />
             <button
               type="button"
-              className={styles.clearBtn}
-              onClick={() => setQuery("")}
-              aria-label="Clear search"
+              className={`${styles.fullTextBtn} ${fullText ? styles.fullTextBtnOn : ""}`}
+              onClick={() => chooseFullText(!fullText)}
+              aria-pressed={fullText}
+              aria-label={`Search document text (${FULL_TEXT_SHORTCUT})`}
+              title={`Search document text (${FULL_TEXT_SHORTCUT})`}
             >
-              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
-                <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              {/* A page with lines of text */}
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true" focusable="false">
+                <path d="M3.5 1.5h6l3 3v10h-9z" strokeLinejoin="round" />
+                <path d="M5.5 7.5h5M5.5 10h5M5.5 12.5h3" strokeLinecap="round" />
               </svg>
             </button>
-          )}
+            {query && (
+              <button
+                type="button"
+                className={styles.clearBtn}
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+                  <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <div className={styles.searchTools}>
+            {onFiltersChange !== undefined &&
+              (filterOptions.statuses.length > 0 || filterOptions.tags.length > 0 || hasFilters(filters)) && (
+                <FilterMenu
+                  sections={[
+                    {
+                      id: "status",
+                      heading: "Status",
+                      options: filterOptions.statuses.map((o) => ({
+                        value: o.value,
+                        label: capitalise(o.value),
+                        icon: <StatusIcon status={o.value} />,
+                        count: o.count,
+                        checked: filters.statuses.includes(o.value),
+                      })),
+                    },
+                    {
+                      id: "tag",
+                      heading: "Tags",
+                      searchPlaceholder: "Filter tags…",
+                      options: filterOptions.tags.map((o) => ({
+                        value: o.value,
+                        label: `#${o.value}`,
+                        count: o.count,
+                        checked: filters.tags.includes(o.value),
+                      })),
+                    },
+                  ]}
+                  active={filters.statuses.length + filters.tags.length}
+                  onToggle={(section, value) => onFiltersChange(toggleFilter(filters, section === "status" ? "status" : "tag", value))}
+                  onClear={() => onFiltersChange(NO_FILTERS)}
+                  label="Filter by status and tags"
+                  buttonClassName={styles.toolBtn}
+                  activeClassName={styles.toolBtnOn}
+                  badgeClassName={styles.filterBadge}
+                />
+              )}
+            <button
+              type="button"
+              className={`${styles.toolBtn} ${grouped ? styles.toolBtnOn : ""}`}
+              onClick={() => chooseGrouped(!grouped)}
+              aria-pressed={grouped}
+              aria-label="Group by folder"
+              title={groupLabel}
+            >
+              {/* A folder tree */}
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+                <path d="M1.5 3.5h4l1 1h4v3h-9z" />
+                <path d="M4 7.5v5h3M4 10h3" strokeLinecap="round" />
+                <path d="M7.5 9h7v2.5h-7zM7.5 11.5h7V14h-7z" />
+              </svg>
+            </button>
+          </div>
         </div>
         {onFiltersChange !== undefined && hasFilters(filters) && (
           <div className={styles.filterChips} role="group" aria-label="Filters">
