@@ -935,7 +935,7 @@ export default function MarksLayer({
 /**
  * The popover's last row: where the note is in the review loop, what can
  * be done about it, and the lock that keeps it to the user
- * (notes/01a-sending-notes.md §2).
+ * (docs/design/sending-notes.md §2).
  */
 function LoopRow({
   highlight,

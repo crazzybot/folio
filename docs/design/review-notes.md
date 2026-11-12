@@ -2,7 +2,7 @@
 
 Status: implemented (phases 1–4). Copying is no longer stateless, and the
 preview became the Send dialog: see
-[01a-sending-notes.md](../../notes/01a-sending-notes.md). The output format
+[sending-notes.md](sending-notes.md). The output format
 (sections 1–3) is unchanged.
 
 Turns a document's highlights and notes into Markdown that can be pasted
@@ -137,7 +137,7 @@ chat. A setting to choose relative paths can come later if people ask.
 
 ## 4. Stateless by design
 
-*Superseded by sending notes (notes/01a-sending-notes.md): copying records a
+*Superseded by sending notes (sending-notes.md): copying records a
 round, and with **Don't send these notes again** the copied notes become
 sent and aren't ticked next time. Kept for the reasoning.*
 
@@ -159,7 +159,7 @@ version:
   It copies what the user chooses: one document, or what the Marks view
   shows. To send a subset, filter first.
 - **Record when the document was read, or against which commit?** Not here.
-  That's "changed since I last read it" (product-direction.md, gap 1), which
+  That's "changed since I last read it", a separate feature, which
   needs snapshots or commits, and diffs.
 - **Which repository is the path relative to?** None (section 3).
 
@@ -195,7 +195,7 @@ Each one opens the preview (below) with its notes:
 
 ### Preview
 
-*Replaced by the Send dialog (notes/01a-sending-notes.md §3): the notes as a
+*Replaced by the Send dialog (sending-notes.md §3): the notes as a
 list to tick, with this text in its **Text** tab.*
 
 Agents' chat boxes hide what's pasted (Claude Code collapses it to
@@ -292,7 +292,7 @@ every day. Designed together, since each part depends on the others:
 - **Rounds**: what was sent and when, with the document's version (content
   hash, or the commit when the file is in a repository).
 - **Changes since the last round**: a diff of the revised document, together
-  with "changed since I last read it" (product-direction.md, gap 1).
+  with "changed since I last read it".
 - **Note status**: open, sent, addressed, with addressed notes archived
   rather than deleted. Copy only the notes not sent yet.
 - **Shared marks** across a team, later still.

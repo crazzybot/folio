@@ -30,7 +30,7 @@ export const DOC_STYLES = [
   { id: "compact", label: "Compact", value: "compact" },
 ] as const;
 
-/** Where notes are shown: as icons in the margin, or in the text under their passage (notes/inline-notes.md). */
+/** Where notes are shown: as icons in the margin, or in the text under their passage (docs/design/inline-notes.md). */
 export const NOTE_PLACES = [
   { id: "margin", label: "In margin" },
   { id: "inline", label: "Inline" },
@@ -119,7 +119,7 @@ export function useReviewIntro(): {
   return { on, setOn, text, setText };
 }
 
-/** Don't send these notes again (the Send dialog, notes/01a-sending-notes.md): on by default, remembered. */
+/** Don't send these notes again (the Send dialog, docs/design/sending-notes.md): on by default, remembered. */
 export function useMarkSent(): [boolean, (on: boolean) => void] {
   return useStoredFlag("folio.markSent", true);
 }

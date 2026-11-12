@@ -1,6 +1,6 @@
 /**
  * inlineNotes.ts — Notes shown in the text, under the passage they're about
- * (notes/inline-notes.md): after the smallest block holding the passage's
+ * (docs/design/inline-notes.md): after the smallest block holding the passage's
  * end, numbered in the order of their passages when a block has several,
  * and in a row of their own under a table row. Hovering links a note to its
  * highlight (MarksLayer); nothing is put inside the text itself.

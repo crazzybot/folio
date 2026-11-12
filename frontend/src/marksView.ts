@@ -5,7 +5,7 @@
  * text order), after its note on the document as a whole if it has one,
  * narrowed by the filter box and the filter menu: which kinds of marks
  * (bookmarks, or highlights and notes) and which states (where each note is
- * in the review loop, notes/01a-sending-notes.md). A bookmark on
+ * in the review loop, docs/design/sending-notes.md). A bookmark on
  * the document itself is shown on its row. (The open document's marks also
  * show in its outline.)
  */

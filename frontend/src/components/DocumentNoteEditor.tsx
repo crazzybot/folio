@@ -28,7 +28,7 @@ interface DocumentNoteEditorProps {
   workspaceStatuses: readonly string[];
   onSave: (changes: NoteChanges) => void;
   onRemove: () => void;
-  /** Change where the note is in the review loop (notes/01a-sending-notes.md). */
+  /** Change where the note is in the review loop (docs/design/sending-notes.md). */
   onSetState: (state: NoteState) => void;
   onClose: () => void;
 }

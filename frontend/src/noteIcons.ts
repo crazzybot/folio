@@ -1,6 +1,6 @@
 /**
  * noteIcons.ts — The note icon for each place in the review loop
- * (notes/01a-sending-notes.md §2). The highlight's colour belongs to the
+ * (docs/design/sending-notes.md §2). The highlight's colour belongs to the
  * user, so state is told by shape: what needs the user (unsent, addressed)
  * is solid or checked, what's waiting (sent) has an arrow, what's done
  * (resolved) is faded, and a private note keeps the plain outline.
