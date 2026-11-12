@@ -1,7 +1,7 @@
 /**
  * DemoBanner — The strip above the live demo (`vite build --mode demo`):
- * says it's a sample repository, links back to the download, and resets the
- * demo to how a first visit finds it.
+ * says it's a sample repository, links to the docs and back to the download,
+ * and resets the demo to how a first visit finds it.
  */
 
 import { resetDemoMarks } from "../api";
@@ -9,6 +9,8 @@ import styles from "./DemoBanner.module.css";
 
 // The product site, one level up from the demo (…/folio/demo/ → …/folio/)
 const SITE = "../";
+// The user docs (docs-site/), published beside the demo
+const DOCS = "../docs/";
 // The site's own key in the same origin: not the demo's to clear
 const SITE_KEYS = new Set(["folio.latestRelease"]);
 
@@ -38,6 +40,9 @@ export default function DemoBanner(): React.ReactElement {
         <button type="button" className={styles.link} onClick={() => void resetDemo()}>
           Reset demo
         </button>
+        <a className={styles.docs} href={DOCS}>
+          How it works
+        </a>
         <a className={styles.download} href={SITE}>
           Download Folio
         </a>

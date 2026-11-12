@@ -13,3 +13,7 @@ Thumbs.db
 
 # Live demo data, built by `npm run demo:bundle` in desktop/
 demo/build/
+
+# VitePress cache and build output
+docs-site/.vitepress/cache/
+docs-site/.vitepress/dist/
