@@ -89,7 +89,7 @@ as the check.
   serves `demo/build/` as its public folder, so `npm run dev:demo` in
   `frontend/` runs the demo locally and the demo build includes the data.
   `--workspace`, `--seed` and `--out` bundle another folder (the demo
-  recording does, `notes/demo/README.md`), and `FOLIO_DEMO_DATA` points Vite
+  recording can, `scripts/media/README.md`), and `FOLIO_DEMO_DATA` points Vite
   at that bundle.
 - `demo/seed-marks.json`: the first-visit marks, as quotes and headings. The
   script resolves them to `DocumentMarks` and fails the build if a quote is no

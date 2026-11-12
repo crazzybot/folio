@@ -17,3 +17,6 @@ demo/build/
 # VitePress cache and build output
 docs-site/.vitepress/cache/
 docs-site/.vitepress/dist/
+
+# Personal Claude Code instructions
+CLAUDE.local.md

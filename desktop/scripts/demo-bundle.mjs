@@ -10,7 +10,7 @@
 // so titles, headings and ids are what the app would show.
 //
 // Another folder can be bundled instead, e.g. for the demo recording
-// (notes/demo/README.md):
+// (scripts/media/README.md):
 //
 //   npm run demo:bundle -- --workspace <dir> [--seed <file>] [--out <dir>]
 //
