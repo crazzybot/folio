@@ -71,8 +71,9 @@ function demoLinkPreview(): Plugin {
   };
 }
 
-// The live demo's data, made by `npm run demo:bundle` in desktop/
-const DEMO_DATA = "../demo/build";
+// The live demo's data, made by `npm run demo:bundle` in desktop/. Another
+// bundle (e.g. of another workspace) with FOLIO_DEMO_DATA, relative to frontend/
+const DEMO_DATA = process.env.FOLIO_DEMO_DATA ?? "../demo/build";
 
 /**
  * The document the demo opens on: the sample repository's README. Read from

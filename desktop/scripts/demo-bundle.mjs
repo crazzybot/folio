@@ -9,20 +9,37 @@
 // own scanner (run `npm run build:main` first; `npm run demo:bundle` does),
 // so titles, headings and ids are what the app would show.
 //
+// Another folder can be bundled instead, e.g. for the demo recording
+// (notes/demo/README.md):
+//
+//   npm run demo:bundle -- --workspace <dir> [--seed <file>] [--out <dir>]
+//
+// Paths are relative to where npm was run. With --workspace, there are no
+// seed marks unless --seed names a file; --out defaults to demo/build/
+// either way (`npm run dev:demo` serves another one with FOLIO_DEMO_DATA).
+//
 // Fails when a seed mark's quote or heading isn't in its document, so
 // editing the demo documents can't silently drop a seed mark.
 
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 
 const desktop = dirname(dirname(fileURLToPath(import.meta.url)));
 const root = join(desktop, "..");
-const workspace = join(root, "demo", "relay");
-const seedFile = join(root, "demo", "seed-marks.json");
-const out = join(root, "demo", "build");
+
+const { values: args } = parseArgs({
+  options: { workspace: { type: "string" }, seed: { type: "string" }, out: { type: "string" } },
+});
+// npm runs scripts in desktop/; INIT_CWD is where it was run from
+const fromCwd = (path) => resolve(process.env.INIT_CWD ?? process.cwd(), path);
+const workspace = args.workspace === undefined ? join(root, "demo", "relay") : fromCwd(args.workspace);
+const seedFile =
+  args.seed !== undefined ? fromCwd(args.seed) : args.workspace === undefined ? join(root, "demo", "seed-marks.json") : null;
+const out = args.out === undefined ? join(root, "demo", "build") : fromCwd(args.out);
 
 const { scanWorkspace, scanAttachments, findDocument } = createRequire(import.meta.url)(
   join(desktop, "dist", "packages", "core", "src", "scanner.js"),
@@ -39,6 +56,19 @@ const seedId = (...parts) => createHash("sha1").update(parts.join("\0")).digest(
 function fail(message) {
   console.error(`demo-bundle: ${message}`);
   process.exit(1);
+}
+
+/** Whether `path` is `dir` or inside it. */
+function within(path, dir) {
+  const rel = relative(dir, path);
+  return !isAbsolute(rel) && rel.split(sep)[0] !== "..";
+}
+
+// The output folder is replaced: only ever an earlier bundle, never the
+// workspace or a folder that has other things in it
+if (within(out, workspace) || within(workspace, out)) fail(`--out (${out}) and the workspace (${workspace}) overlap`);
+if (existsSync(out) && readdirSync(out).length > 0 && !existsSync(join(out, "bundle.json"))) {
+  fail(`${out} isn't empty and has no bundle.json: not replacing it`);
 }
 
 const documents = await scanWorkspace(workspace);
@@ -86,7 +116,7 @@ function bookmark(location, meta, entry, index) {
   return { id: seedId(location, "bookmark", index, text), heading: { text, level, occurrence }, created: SEED_TIME };
 }
 
-const seed = JSON.parse(readFileSync(seedFile, "utf8"));
+const seed = seedFile === null ? {} : JSON.parse(readFileSync(seedFile, "utf8"));
 const seedMarks = {};
 for (const [location, entry] of Object.entries(seed.documents ?? {})) {
   const meta = documents.find((doc) => doc.location === location);
