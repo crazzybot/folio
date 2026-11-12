@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { searchDocuments } from "../api";
+import { documentName, titleIsName } from "../docName";
 import { documentNumber, titleWithoutNumber } from "../docNumber";
 import { buildDocumentTree, foldersContaining } from "../documentTree";
 import type { TreeNode } from "../documentTree";
@@ -57,8 +58,10 @@ type Row = { key: string; level: number; parent: string | null } & (
   | {
       kind: "document";
       doc: DocumentMeta;
-      /** Its file name's number ("0015"), shown before the title; null when not numbered. */
-      number: string | null;
+      /** Its file name's number ("0015") or well-known name ("AGENTS"), shown before the title; null when neither. */
+      prefix: string | null;
+      /** Its title, without what the prefix already says. */
+      title: string;
       matchCount: number | null;
       onOpen: () => void;
     }
@@ -252,11 +255,17 @@ export default function DocumentList({
   // ── Group by folder (shown while not searching) ────────────────────────────
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(loadExpanded);
   const tree = useMemo(() => buildDocumentTree(documents), [documents]);
-  const numbers = useMemo(() => {
-    const byId = new Map<string, string>();
+  const prefixes = useMemo(() => {
+    const byId = new Map<string, { prefix: string; title: string }>();
     for (const doc of documents) {
       const number = documentNumber(doc.filename);
-      if (number !== null) byId.set(doc.id, number);
+      if (number !== null) {
+        byId.set(doc.id, { prefix: number, title: titleWithoutNumber(doc.title, number) });
+        continue;
+      }
+      // A title that only repeats the name ("Changelog") says it already
+      const name = documentName(doc.filename);
+      if (name !== null && !titleIsName(doc.title, name)) byId.set(doc.id, { prefix: name, title: doc.title });
     }
     return byId;
   }, [documents]);
@@ -317,8 +326,8 @@ export default function DocumentList({
     matchCount: number | null,
     onOpen: () => void,
   ): Row => {
-    const number = numbers.get(doc.id) ?? null;
-    return { kind: "document", key: `d:${doc.id}`, level, parent, doc, number, matchCount, onOpen };
+    const { prefix = null, title = doc.title } = prefixes.get(doc.id) ?? {};
+    return { kind: "document", key: `d:${doc.id}`, level, parent, doc, prefix, title, matchCount, onOpen };
   };
 
   if (showTree) {
@@ -882,7 +891,7 @@ function RowItem({
   }
 
   if (row.kind === "document") {
-    const { doc, number, matchCount } = row;
+    const { doc, prefix, title, matchCount } = row;
     const status = doc.meta?.status ?? null;
     const tags = doc.meta?.tags ?? [];
     const described =
@@ -903,8 +912,8 @@ function RowItem({
         ) : (
           <StatusIcon status={status} className={styles.statusIcon} />
         )}
-        {number !== null && <span className={styles.entryNumber}>{number}</span>}
-        <span className={styles.entryTitle}>{number === null ? doc.title : titleWithoutNumber(doc.title, number)}</span>
+        {prefix !== null && <span className={styles.entryPrefix}>{prefix}</span>}
+        <span className={styles.entryTitle}>{title}</span>
         {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}
         {bookmarked && (
           <svg className={styles.bookmarked} width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">

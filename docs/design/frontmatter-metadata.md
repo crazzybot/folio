@@ -153,6 +153,22 @@ Worked out in the frontend from `filename`; no scanner or API change.
 - Search already matches filenames, so typing `0015` or `15` finds the
   document.
 
+### Well-known names
+
+Files known by their name, not their title (`README.md`, `AGENTS.md`,
+`CLAUDE.md`), show the name in the number's place: often several of them
+share one title (an `AGENTS.md` and a `CLAUDE.md` both titled after the
+project). A name is well-known when its stem is, in any case, one of
+`README`, `CHANGELOG`, `CONTRIBUTING`, `LICENSE`, `SECURITY`,
+`CODE_OF_CONDUCT`, `AGENTS`, `CLAUDE`, `GEMINI`, `SKILL` or
+`copilot-instructions`, or is written in capitals (`SPEC.md`, `PLAN.md`;
+two characters or more). A number wins over a name (`RFC-42.md` → `42`).
+
+- **Name.** The stem as written, styled like the number.
+- **Title dedupe.** When the title only repeats the name, ignoring case and
+  punctuation (`Changelog`, `Code of Conduct`, or the stem itself when the
+  file has no title), the row shows the title alone.
+
 ## 3. The document list
 
 ### Rows

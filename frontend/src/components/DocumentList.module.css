@@ -374,14 +374,14 @@
   color: var(--color-icon-markdown);
 }
 
-/* A numbered document's number ("0015"), the row's usual gap before the title */
-.entryNumber {
+/* A numbered document's number ("0015") or a well-known one's name ("AGENTS"), the row's usual gap before the title */
+.entryPrefix {
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-subtle);
 }
 
-.entrySelected .entryNumber {
+.entrySelected .entryPrefix {
   color: var(--color-text-muted);
 }
 
