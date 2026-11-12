@@ -88,6 +88,9 @@ export default function MarksPanel({
   const [query, setQuery] = useState("");
   // The filter menu: the kinds of marks picked (Show) and the states; none picked shows all but resolved notes
   const [kinds, setKinds] = useState<ReadonlySet<MarkKind>>(new Set());
+  // Only the open document: the list follows it as other documents open, shown as a chip above the filter
+  const [openOnly, setOpenOnly] = useState(false);
+  const scoped = useMemo(() => (openOnly ? (current === null ? [] : [current]) : documents), [openOnly, current, documents]);
   // The states picked in the filter; none picked shows all but resolved notes
   const [picked, setPicked] = useState<ReadonlySet<StateFilter>>(new Set());
   const states = shownStates(picked);
@@ -106,13 +109,13 @@ export default function MarksPanel({
   const [focusKey, setFocusKey] = useState<string | null>(null);
 
   const rows = useMemo(
-    () => buildMarkRows({ documents, byDoc, query, kinds, states, collapsed, located }),
-    [documents, byDoc, query, kinds, states, collapsed, located],
+    () => buildMarkRows({ documents: scoped, byDoc, query, kinds, states, collapsed, located }),
+    [scoped, byDoc, query, kinds, states, collapsed, located],
   );
   // What the view shows, folded documents included: the highlights Copy review notes copies, by document
   const copyable = useMemo(() => {
     const byDocShown = new Map<string, ReviewSelection>();
-    for (const row of buildMarkRows({ documents, byDoc, query, kinds, states, collapsed: NOTHING_FOLDED, located })) {
+    for (const row of buildMarkRows({ documents: scoped, byDoc, query, kinds, states, collapsed: NOTHING_FOLDED, located })) {
       const entry = byDocShown.get(row.doc.id);
       // A note on the document is sent too: its comment, or a status change still to make
       if (row.kind === "note" && (row.note.text !== null || !row.done)) {
@@ -122,13 +125,13 @@ export default function MarksPanel({
       byDocShown.set(row.doc.id, { doc: row.doc, highlights: [...(entry?.highlights ?? []), row.highlight], note: entry?.note ?? false });
     }
     return byDocShown;
-  }, [documents, byDoc, query, kinds, states, located]);
+  }, [scoped, byDoc, query, kinds, states, located]);
   // How many of the listed documents' marks are of each kind and notes in each state, for the filter
   const { kindCounts, stateCounts } = useMemo(() => {
     const counts = new Map<StateFilter, number>();
     const add = (state: StateFilter) => counts.set(state, (counts.get(state) ?? 0) + 1);
     const kindsOf = { bookmarks: 0, highlights: 0 };
-    for (const doc of documents) {
+    for (const doc of scoped) {
       const marks = byDoc.get(doc.id);
       if (marks === undefined) continue;
       kindsOf.bookmarks += marks.bookmarks.length;
@@ -137,7 +140,11 @@ export default function MarksPanel({
       if (marks.note !== undefined) add(noteFilterOf(marks.note, doc.meta?.status));
     }
     return { kindCounts: kindsOf, stateCounts: counts };
-  }, [documents, byDoc]);
+  }, [scoped, byDoc]);
+  // The open document's marks, for the Scope option
+  const openMarks = current === null ? undefined : byDoc.get(current.id);
+  const openCount =
+    openMarks === undefined ? 0 : openMarks.bookmarks.length + openMarks.highlights.length + (openMarks.note === undefined ? 0 : 1);
   const tabStop = (rows.some((r) => r.key === focusKey) ? focusKey : undefined) ?? rows[0]?.key;
 
   // Hover card: a document's title and location, a mark in full (rows cut them short)
@@ -224,8 +231,10 @@ export default function MarksPanel({
   const hasAny = documents.some((doc) => byDoc.has(doc.id)) || missing.length > 0;
   // Missing documents' marks, narrowed by the filter like the rest
   const q = query.trim().toLowerCase();
+  // (none while only the open document is shown: a missing file can't be open)
   const shownMissing = missing.filter(
     (m) =>
+      !openOnly &&
       (kinds.size === 0 ||
         (kinds.has("highlights") && (m.note !== undefined || m.highlights.length > 0)) ||
         (kinds.has("bookmarks") && m.bookmarks.length > 0)) &&
@@ -246,6 +255,33 @@ export default function MarksPanel({
           </div>
         )}
       </header>
+
+      {/* ── Only the open document: what the list is narrowed to, and ✕ ── */}
+      {openOnly && (
+        <div className={listStyles.focusBar}>
+          <svg className={listStyles.focusIcon} width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3.5 1.5h6l3 3v10h-9z" />
+          </svg>
+          <span
+            className={listStyles.focusLabel}
+            title={current === null ? undefined : `Showing only the marks of ${current.location}`}
+          >
+            {current === null ? "No document open" : current.title}
+          </span>
+          <button
+            type="button"
+            className={listStyles.focusClear}
+            onClick={() => setOpenOnly(false)}
+            aria-label="Show every document's marks"
+            title="Show every document's marks"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
+              <line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* ── Filter, and Copy review notes on what it shows ── */}
       <div className={`${listStyles.searchWrapper} ${styles.filterRow}`}>
@@ -284,6 +320,19 @@ export default function MarksPanel({
         <FilterMenu
           sections={[
             {
+              id: "scope",
+              heading: "Scope",
+              options: [
+                {
+                  value: "open",
+                  label: "Only the open document",
+                  icon: <DocumentIcon />,
+                  count: openCount,
+                  checked: openOnly,
+                },
+              ],
+            },
+            {
               id: "kind",
               heading: "Show",
               options: [
@@ -308,8 +357,12 @@ export default function MarksPanel({
                 ]
               : []),
           ]}
-          active={kinds.size + picked.size}
+          active={(openOnly ? 1 : 0) + kinds.size + picked.size}
           onToggle={(section, value) => {
+            if (section === "scope") {
+              setOpenOnly(!openOnly);
+              return;
+            }
             if (section === "kind") {
               const kind = value === "bookmarks" || value === "highlights" ? value : null;
               if (kind === null) return;
@@ -328,6 +381,7 @@ export default function MarksPanel({
             setPicked(next);
           }}
           onClear={() => {
+            setOpenOnly(false);
             setKinds(new Set());
             setPicked(new Set());
           }}
@@ -360,6 +414,10 @@ export default function MarksPanel({
                   Select text to highlight it, or press {IS_MAC ? "⌘D" : "Ctrl+D"} to bookmark the document.
                 </p>
               </>
+            ) : openOnly && query === "" && current === null ? (
+              <p>No document open.</p>
+            ) : openOnly && query === "" && !byDoc.has(current?.id ?? "") ? (
+              <p>No marks in this document.</p>
             ) : query === "" ? (
               <p>No marks match the filters.</p>
             ) : (
@@ -630,6 +688,16 @@ function MarkRowItem({
       </span>
       {removeButton("Remove highlight")}
     </li>
+  );
+}
+
+/** A page: the Scope section's open document. */
+function DocumentIcon(): React.ReactElement {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3.5 1.5h6l3 3v10h-9z" />
+      <path d="M5.5 8h5M5.5 10.5h5" strokeLinecap="round" />
+    </svg>
   );
 }
 

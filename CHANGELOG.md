@@ -30,6 +30,9 @@ turns them into the next release's section.
   which also hid highlights without a note), and notes by state (resolved
   ones hidden unless picked). The document list's filter and Group by folder
   moved beside its search box, as in the Marks view.
+- **Only the open document** in the Marks view's filter menu: the list
+  follows the document you open, named in a bar above the filter with ✕ to
+  show every document's marks again.
 
 ### Removed
 
