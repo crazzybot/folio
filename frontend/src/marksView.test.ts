@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildMarkRows } from "./marksView";
 import type { MarkRowsInput } from "./marksView";
+import type { StateFilter } from "./sending";
 import type { Bookmark, DocumentMeta, Highlight } from "./types";
 
 const doc = (location: string, headings: { level: number; text: string }[] = []): DocumentMeta => ({
@@ -50,7 +51,6 @@ const base: MarkRowsInput = {
   documents: [guide, notes],
   byDoc,
   query: "",
-  notesOnly: false,
   collapsed: new Set(),
   located: null,
 };
@@ -97,8 +97,15 @@ describe("buildMarkRows", () => {
     expect(keys({ query: "notes" })).toEqual(["d:notes.md", "h:notes.md:h3"]);
   });
 
-  it("shows only highlights with a note in Notes only", () => {
-    expect(keys({ notesOnly: true })).toEqual(["d:guide.md", "h:guide.md:h2"]);
+  it("shows only bookmarks, or only highlights and notes", () => {
+    expect(keys({ kinds: new Set(["highlights"]) })).toEqual([
+      "d:guide.md",
+      "h:guide.md:h1",
+      "h:guide.md:h2",
+      "d:notes.md",
+      "h:notes.md:h3",
+    ]);
+    expect(keys({ kinds: new Set(["bookmarks"]) })).toEqual(["d:guide.md", "b:guide.md:b-usage", "b:guide.md:b-gone"]);
   });
 
   it("marks the open document's highlights that aren't in its text", () => {
@@ -137,8 +144,8 @@ describe("buildMarkRows with a note on the document", () => {
     expect(keys(buildMarkRows({ ...input, byDoc: only }))).toEqual(["d:adr.md", "n:adr.md"]);
   });
 
-  it("keeps it with Notes only, and finds it by its comment or status", () => {
-    expect(keys(buildMarkRows({ ...input, notesOnly: true }))).toEqual(["d:adr.md", "n:adr.md"]);
+  it("keeps it with highlights and notes, and finds it by its comment or status", () => {
+    expect(keys(buildMarkRows({ ...input, kinds: new Set(["highlights"]) }))).toEqual(["d:adr.md", "n:adr.md", "h:adr.md:h9", "d:notes.md", "h:notes.md:h3"]);
     expect(keys(buildMarkRows({ ...input, query: "rotation" }))).toEqual(["d:adr.md", "n:adr.md"]);
     expect(keys(buildMarkRows({ ...input, query: "accepted" }))).toEqual(["d:adr.md", "n:adr.md"]);
   });
@@ -147,5 +154,18 @@ describe("buildMarkRows with a note on the document", () => {
     const accepted = { ...adr, meta: { ...adr.meta, status: "accepted" } };
     const rows = buildMarkRows({ ...input, documents: [accepted] });
     expect(rows[1]).toMatchObject({ kind: "note", done: true });
+  });
+});
+
+describe("buildMarkRows by state", () => {
+  it("shows notes by state, private marks among them, and sums up a document's feedback", () => {
+    const states = (...shown: StateFilter[]) =>
+      buildMarkRows({ ...base, states: new Set(shown) }).map((r) => r.key);
+    // h2 has a note (feedback, open); h1 and h3 are bare highlights (private)
+    expect(states("open")).toEqual(["d:guide.md", "b:guide.md:b-usage", "b:guide.md:b-gone", "h:guide.md:h2"]);
+    expect(states("private")).toContain("h:notes.md:h3");
+    expect(states("private")).not.toContain("h:guide.md:h2");
+    const [row] = buildMarkRows(base);
+    expect(row).toMatchObject({ kind: "document", summary: "1 unsent" });
   });
 });

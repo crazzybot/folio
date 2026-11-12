@@ -74,12 +74,23 @@ export interface TextAnchor {
   position: { start: number; end: number };
 }
 
+/**
+ * Where a note is in the review loop (notes/01a-sending-notes.md): not sent
+ * yet, sent (the agent has it), addressed (the agent says it's done),
+ * resolved (the user agrees).
+ */
+export type NoteState = "open" | "sent" | "addressed" | "resolved";
+
 export interface Highlight extends TextAnchor {
   id: string;
   color: HighlightColor;
   note: string | null;
   created: string; // ISO-8601
   updated: string;
+  /** Absent: open. */
+  state?: NoteState;
+  /** Set only when the user chose (Only me, Send to agent); absent: private without a note, feedback with one. */
+  private?: boolean;
 }
 
 /** A bookmarked heading: its text, level and which of the same-text, same-level headings (0 = first). */
@@ -105,6 +116,22 @@ export interface DocumentNote {
   requestedStatus: string | null;
   created: string; // ISO-8601
   updated: string;
+  /** Absent: open. */
+  state?: NoteState;
+  /** true: Only me. A requested status is sent anyway. */
+  private?: boolean;
+}
+
+/** Notes sent together: copied, or (later) fetched by an agent. */
+export interface Round {
+  id: string;
+  at: string; // ISO-8601
+  via: "copy" | "mcp";
+  /** The document's SHA-1 when sent. */
+  sha1: string;
+  /** The highlights sent. */
+  notes: string[];
+  documentNote?: boolean;
 }
 
 export interface DocumentMarks {
@@ -114,6 +141,22 @@ export interface DocumentMarks {
   note?: DocumentNote;
   bookmarks: Bookmark[];
   highlights: Highlight[];
+  /** The latest rounds its notes were sent in, oldest first; absent when none. */
+  rounds?: Round[];
+}
+
+/** One document's notes in a send. */
+export interface SendDocument {
+  docId: string;
+  highlightIds: string[];
+  /** Whether its note on the document as a whole is sent. */
+  documentNote: boolean;
+}
+
+/** A recorded send: per document, the notes it made sent (what Undo sets back to open). */
+export interface SentRound {
+  roundId: string;
+  documents: SendDocument[];
 }
 
 /** The marks of a file in the workspace that no longer exists. */

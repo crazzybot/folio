@@ -20,7 +20,7 @@ import { clearMatches, findMatches, showMatches } from "../searchHighlight";
 import MarksLayer from "./MarksLayer";
 import { findBookmark, headingIdentities } from "../bookmarks";
 import type { MarkFocus } from "./MarksLayer";
-import type { Bookmark, BookmarkHeading, DocumentNote, Highlight, HighlightColor, TextAnchor } from "../types";
+import type { Bookmark, BookmarkHeading, DocumentNote, Highlight, HighlightColor, NoteState, Round, TextAnchor } from "../types";
 import FindBar from "./FindBar";
 import Outline from "./Outline";
 import type { OutlineHeading } from "./Outline";
@@ -102,7 +102,11 @@ export interface MarkHandlers {
   recolor: (id: string, color: HighlightColor) => void;
   setNote: (id: string, note: string | null) => void;
   remove: (id: string) => void;
+  /** A note's place in the review loop (notes/01a-sending-notes.md). */
+  setLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
   toggleHeadingBookmark: (heading: BookmarkHeading) => void;
+  /** The document's latest rounds, for when a note was sent. */
+  rounds?: readonly Round[] | undefined;
 }
 
 /** "Scroll to the `occurrence`-th match in `docId`"; a new `nonce` asks again. */
@@ -1169,6 +1173,8 @@ export default function MarkdownViewer({
               onRecolor={markHandlers.recolor}
               onSetNote={markHandlers.setNote}
               onRemove={markHandlers.remove}
+              onSetLoop={markHandlers.setLoop}
+              rounds={markHandlers.rounds}
               onToggleBookmark={markHandlers.toggleHeadingBookmark}
               onPainted={handlePainted}
             />

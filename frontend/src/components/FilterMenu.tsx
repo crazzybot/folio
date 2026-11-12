@@ -1,49 +1,72 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { hasFilters, NO_FILTERS, toggleFilter } from "../metaFilter";
-import type { FilterOption, MetaFilters } from "../metaFilter";
-import StatusIcon from "./StatusIcon";
 import styles from "./FilterMenu.module.css";
 
-// Past this many tags, the menu gets a box to narrow them
-const TAG_SEARCH_FROM = 10;
+// Past this many options, a section gets a box to narrow them
+const SEARCH_FROM = 10;
 const MENU_WIDTH = 240;
 const WINDOW_MARGIN = 8;
 
+/** An option to pick: its label (and icon), how many it would show, and whether it's picked. */
+export interface MenuOption {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+  count: number;
+  checked: boolean;
+}
+
+/** A group of options under a heading ("Status", "Tags", "State"). */
+export interface MenuSection {
+  id: string;
+  heading: string;
+  options: readonly MenuOption[];
+  /** With many options, the box that narrows them: its placeholder, e.g. "Filter tags…". */
+  searchPlaceholder?: string;
+}
+
 interface FilterMenuProps {
-  filters: MetaFilters;
-  options: { statuses: FilterOption[]; tags: FilterOption[] };
-  onChange: (filters: MetaFilters) => void;
-  /** Class for the trigger button, so it matches the header's other buttons. */
+  sections: readonly MenuSection[];
+  /** How many options are picked: the button's badge. */
+  active: number;
+  onToggle: (sectionId: string, value: string) => void;
+  /** Clear filters: back to no options picked. */
+  onClear: () => void;
+  /** What the button and menu are called, e.g. "Filter by status and tags". */
+  label: string;
+  /** A line under the options, e.g. what's hidden while none is picked. */
+  note?: string | undefined;
+  /** Class for the trigger button, so it matches the buttons beside it. */
   buttonClassName: string | undefined;
   /** Added to the trigger while filters are on. */
   activeClassName: string | undefined;
   badgeClassName: string | undefined;
 }
 
-const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
 /**
- * The document list's filter button and menu: statuses and tags with their
- * counts, as checkboxes (the menu stays open to pick several). WAI-ARIA menu
- * button pattern, as DisplayMenu. In a portal: the sidebar clips what
- * overflows it.
+ * A filter button and its menu: sections of options with their counts, as
+ * checkable items (the menu stays open to pick several). Nothing picked
+ * shows everything; picking narrows. Used by the document list (statuses
+ * and tags) and the Marks view (note states). WAI-ARIA menu button
+ * pattern, as DisplayMenu. In a portal: the sidebar clips what overflows it.
  */
 export default function FilterMenu({
-  filters,
-  options,
-  onChange,
+  sections,
+  active,
+  onToggle,
+  onClear,
+  label,
+  note,
   buttonClassName,
   activeClassName,
   badgeClassName,
 }: FilterMenuProps): React.ReactElement {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
-  const [tagQuery, setTagQuery] = useState("");
+  const [queries, setQueries] = useState<Readonly<Record<string, string>>>({});
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
-  const active = filters.statuses.length + filters.tags.length;
 
   const items = useCallback(
     () => [...(menuRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"], input') ?? [])],
@@ -52,7 +75,7 @@ export default function FilterMenu({
 
   const close = useCallback((returnFocus: boolean) => {
     setOpen(false);
-    setTagQuery("");
+    setQueries({});
     if (returnFocus) buttonRef.current?.focus();
   }, []);
 
@@ -132,36 +155,32 @@ export default function FilterMenu({
     }
   }
 
-  function item(kind: "status" | "tag", option: FilterOption) {
-    const checked = (kind === "status" ? filters.statuses : filters.tags).includes(option.value);
+  function item(sectionId: string, option: MenuOption) {
     return (
       <button
         key={option.value}
         type="button"
         role="menuitemcheckbox"
-        aria-checked={checked}
+        aria-checked={option.checked}
         tabIndex={-1}
         className={styles.item}
-        onClick={() => onChange(toggleFilter(filters, kind, option.value))}
+        onClick={() => onToggle(sectionId, option.value)}
       >
         <span className={styles.check} aria-hidden="true">
-          {checked ? "✓" : ""}
+          {option.checked ? "✓" : ""}
         </span>
-        {kind === "status" ? (
-          <>
-            <StatusIcon status={option.value} className={styles.icon} />
-            <span className={styles.label}>{capitalise(option.value)}</span>
-          </>
-        ) : (
-          <span className={styles.label}>#{option.value}</span>
+        {option.icon !== undefined && (
+          <span className={styles.icon} aria-hidden="true">
+            {option.icon}
+          </span>
         )}
+        <span className={styles.label}>{option.label}</span>
         <span className={styles.count}>{option.count}</span>
       </button>
     );
   }
 
-  const q = tagQuery.trim().toLowerCase().replace(/^#/, "");
-  const shownTags = q === "" ? options.tags : options.tags.filter((t) => t.value.includes(q));
+  const shown = sections.filter((section) => section.options.length > 0);
 
   return (
     <>
@@ -169,8 +188,8 @@ export default function FilterMenu({
         ref={buttonRef}
         type="button"
         className={`${buttonClassName ?? ""} ${active > 0 ? (activeClassName ?? "") : ""}`}
-        aria-label={active > 0 ? `Filter by status and tags (${active} on)` : "Filter by status and tags"}
-        title="Filter by status and tags"
+        aria-label={active > 0 ? `${label} (${active} on)` : label}
+        title={label}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -195,42 +214,42 @@ export default function FilterMenu({
             id={menuId}
             ref={menuRef}
             role="menu"
-            aria-label="Filter by status and tags"
+            aria-label={label}
             className={styles.menu}
             style={{ left: position.left, top: position.top, width: MENU_WIDTH }}
             onKeyDown={onMenuKeyDown}
           >
-            {options.statuses.length > 0 && (
-              <div role="group" aria-labelledby={`${menuId}-status`}>
-                <div id={`${menuId}-status`} className={styles.heading}>
-                  Status
-                </div>
-                {options.statuses.map((option) => item("status", option))}
-              </div>
-            )}
-            {options.statuses.length > 0 && options.tags.length > 0 && <div role="separator" className={styles.separator} />}
-            {options.tags.length > 0 && (
-              <div role="group" aria-labelledby={`${menuId}-tags`}>
-                <div id={`${menuId}-tags`} className={styles.heading}>
-                  Tags
-                </div>
-                {options.tags.length > TAG_SEARCH_FROM && (
-                  <input
-                    type="search"
-                    className={styles.search}
-                    placeholder="Filter tags…"
-                    aria-label="Filter tags"
-                    value={tagQuery}
-                    onChange={(e) => setTagQuery(e.target.value)}
-                  />
-                )}
-                <div className={styles.scroll}>
-                  {shownTags.map((option) => item("tag", option))}
-                  {shownTags.length === 0 && <div className={styles.none}>No tags match</div>}
-                </div>
-              </div>
-            )}
-            {hasFilters(filters) && (
+            {shown.map((section, i) => {
+              const searchable = section.searchPlaceholder !== undefined && section.options.length > SEARCH_FROM;
+              const q = (queries[section.id] ?? "").trim().toLowerCase().replace(/^#/, "");
+              const options = q === "" ? section.options : section.options.filter((o) => o.value.toLowerCase().includes(q));
+              return (
+                <React.Fragment key={section.id}>
+                  {i > 0 && <div role="separator" className={styles.separator} />}
+                  <div role="group" aria-labelledby={`${menuId}-${section.id}`}>
+                    <div id={`${menuId}-${section.id}`} className={styles.heading}>
+                      {section.heading}
+                    </div>
+                    {searchable && (
+                      <input
+                        type="search"
+                        className={styles.search}
+                        placeholder={section.searchPlaceholder}
+                        aria-label={section.searchPlaceholder?.replace(/…$/, "")}
+                        value={queries[section.id] ?? ""}
+                        onChange={(e) => setQueries((prev) => ({ ...prev, [section.id]: e.target.value }))}
+                      />
+                    )}
+                    <div className={searchable ? styles.scroll : undefined}>
+                      {options.map((option) => item(section.id, option))}
+                      {options.length === 0 && <div className={styles.none}>None match</div>}
+                    </div>
+                  </div>
+                </React.Fragment>
+              );
+            })}
+            {note !== undefined && <div className={styles.note}>{note}</div>}
+            {active > 0 && (
               <>
                 <div role="separator" className={styles.separator} />
                 <button
@@ -239,7 +258,7 @@ export default function FilterMenu({
                   tabIndex={-1}
                   className={styles.item}
                   onClick={() => {
-                    onChange(NO_FILTERS);
+                    onClear();
                     close(true);
                   }}
                 >

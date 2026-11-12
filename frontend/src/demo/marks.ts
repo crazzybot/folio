@@ -15,10 +15,22 @@
  */
 
 import type { HighlightChanges, NewHighlight, NoteChanges } from "../dataSource";
-import type { Bookmark, BookmarkHeading, DocumentMarks, DocumentNote, Highlight, MarksListing } from "../types";
+import type {
+  Bookmark,
+  BookmarkHeading,
+  DocumentMarks,
+  DocumentNote,
+  Highlight,
+  MarksListing,
+  NoteState,
+  Round,
+  SendDocument,
+  SentRound,
+} from "../types";
 
 export const STORAGE_KEY = "folio.demo.marks";
 const VERSION = 1;
+const MAX_ROUNDS = 5;
 
 /** One document's marks, as stored. */
 export interface StoredMarks {
@@ -26,6 +38,8 @@ export interface StoredMarks {
   highlights: Highlight[];
   /** The note on the document as a whole; absent when there's none. */
   note?: DocumentNote;
+  /** The latest rounds its notes were sent in; absent when none. */
+  rounds?: Round[];
 }
 
 /** What's kept under STORAGE_KEY. */
@@ -48,6 +62,18 @@ function now(): string {
 
 function note(value: string | null | undefined): string | null {
   return value == null || value.trim() === "" ? null : value;
+}
+
+/** `mark` with a state and privacy change applied: open and null are the defaults, so they're left out. */
+function applyLoop(mark: { state?: NoteState; private?: boolean }, changes: { state?: NoteState; private?: boolean | null }): void {
+  if (changes.state !== undefined) {
+    if (changes.state === "open") delete mark.state;
+    else mark.state = changes.state;
+  }
+  if (changes.private !== undefined) {
+    if (changes.private === null) delete mark.private;
+    else mark.private = changes.private;
+  }
 }
 
 function sameHeading(a: BookmarkHeading | null, b: BookmarkHeading | null): boolean {
@@ -142,6 +168,7 @@ export class DemoMarks {
     const highlight = this.highlight(docId, highlightId);
     if (changes.color !== undefined) highlight.color = changes.color;
     if ("note" in changes) highlight.note = note(changes.note);
+    applyLoop(highlight, changes);
     highlight.updated = now();
     this.changed(docId);
     return structuredClone(highlight);
@@ -185,7 +212,8 @@ export class DemoMarks {
       return null;
     }
     const time = now();
-    marks.note = { text, requestedStatus, created: marks.note?.created ?? time, updated: time };
+    marks.note = { ...marks.note, text, requestedStatus, created: marks.note?.created ?? time, updated: time };
+    applyLoop(marks.note, changes);
     this.changed(docId);
     return structuredClone(marks.note);
   }
@@ -195,6 +223,56 @@ export class DemoMarks {
     if (marks?.note === undefined) throw new Error("The document has no note");
     delete marks.note;
     this.changed(docId);
+  }
+
+  /** Record a round of sent notes, as the desktop store does; the demo has no file to fingerprint. */
+  send(docs: readonly SendDocument[], markSent: boolean): SentRound {
+    const roundId = newId();
+    const sent: SendDocument[] = [];
+    for (const doc of docs) {
+      const marks = this.documents[doc.docId];
+      if (marks === undefined) continue;
+      const wanted = new Set(doc.highlightIds);
+      const done: SendDocument = { docId: doc.docId, highlightIds: [], documentNote: false };
+      for (const h of marks.highlights) {
+        if (markSent && wanted.has(h.id) && (h.state ?? "open") === "open") {
+          h.state = "sent";
+          done.highlightIds.push(h.id);
+        }
+      }
+      const noteSent = doc.documentNote && marks.note !== undefined;
+      if (noteSent && markSent && marks.note !== undefined && (marks.note.state ?? "open") === "open") {
+        marks.note.state = "sent";
+        done.documentNote = true;
+      }
+      const round: Round = {
+        id: roundId,
+        at: now(),
+        via: "copy",
+        sha1: "",
+        notes: marks.highlights.filter((h) => wanted.has(h.id)).map((h) => h.id),
+        ...(noteSent ? { documentNote: true } : {}),
+      };
+      marks.rounds = [...(marks.rounds ?? []), round].slice(-MAX_ROUNDS);
+      sent.push(done);
+      this.changed(doc.docId);
+    }
+    return { roundId, documents: sent };
+  }
+
+  /** Undo a send: its round goes, and what it made sent is open again. */
+  unsend(round: SentRound): void {
+    for (const doc of round.documents) {
+      const marks = this.documents[doc.docId];
+      if (marks === undefined) continue;
+      const reopen = new Set(doc.highlightIds);
+      for (const h of marks.highlights) if (reopen.has(h.id) && h.state === "sent") delete h.state;
+      if (doc.documentNote && marks.note?.state === "sent") delete marks.note.state;
+      const rounds = (marks.rounds ?? []).filter((r) => r.id !== round.roundId);
+      if (rounds.length > 0) marks.rounds = rounds;
+      else delete marks.rounds;
+      this.changed(doc.docId);
+    }
   }
 
   /** Back to the seed marks: the visitor's own are removed. */

@@ -4,9 +4,13 @@ import { findBookmark, headingIdentities, sameHeading } from "../bookmarks";
 import { getItem, setItem } from "../storage";
 import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
+import { NOTE_ICON_LABELS } from "../noteIcons";
+import type { NoteIconKind } from "../noteIcons";
+import { isPrivate, lastSent, stateOf } from "../sending";
 import { buildTextModel } from "../textModel";
 import { HIGHLIGHT_COLORS } from "../types";
-import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, TextAnchor } from "../types";
+import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, NoteState, Round, TextAnchor } from "../types";
+import NoteStateIcon from "./NoteStateIcon";
 import styles from "./MarksLayer.module.css";
 
 // The colour ⌘⇧H and Add note use: the last one picked
@@ -41,19 +45,44 @@ function loadColor(): HighlightColor {
   return HIGHLIGHT_COLORS.find((c) => c === saved) ?? "yellow";
 }
 
-/** Paint highlights by colour (::highlight(folio-mark-<colour>) in index.css), under search and find. */
-function paint(byColor: ReadonlyMap<HighlightColor, Range[]>): void {
+// The paint layers in index.css: each colour, its lighter paint for resolved
+// notes, and the dashed underline of sent ones
+const LAYERS = [
+  ...HIGHLIGHT_COLORS.flatMap((c) => [`folio-mark-${c}`, `folio-mark-${c}-resolved`]),
+  "folio-mark-sent",
+];
+
+/** The layers a highlight is painted in: its colour, lighter once resolved, underlined while sent. */
+function layersOf(h: Highlight): string[] {
+  if (isPrivate(h)) return [`folio-mark-${h.color}`];
+  const state = stateOf(h);
+  if (state === "resolved") return [`folio-mark-${h.color}-resolved`];
+  return state === "sent" ? [`folio-mark-${h.color}`, "folio-mark-sent"] : [`folio-mark-${h.color}`];
+}
+
+/** Paint highlights by layer (::highlight(folio-mark-…) in index.css), under search and find. */
+function paint(byLayer: ReadonlyMap<string, Range[]>): void {
   if (!supported) return;
-  for (const color of HIGHLIGHT_COLORS) {
-    const ranges = byColor.get(color) ?? [];
+  for (const name of LAYERS) {
+    const ranges = byLayer.get(name) ?? [];
     if (ranges.length === 0) {
-      CSS.highlights.delete(`folio-mark-${color}`);
+      CSS.highlights.delete(name);
       continue;
     }
     const highlight = new Highlight(...ranges);
     highlight.priority = -1;
-    CSS.highlights.set(`folio-mark-${color}`, highlight);
+    CSS.highlights.set(name, highlight);
   }
+}
+
+/** Whether a highlight has a marker in the margin: it has a note, or it's sent to the agent without one. */
+function hasMarker(h: Highlight): boolean {
+  return h.note !== null || h.private === false;
+}
+
+/** A highlight's note icon. */
+export function noteIconOf(h: Highlight): NoteIconKind {
+  return isPrivate(h) ? "private" : stateOf(h);
 }
 
 /** Where to show something by `rect`, in the scroll container's content coordinates. */
@@ -156,6 +185,10 @@ interface MarksLayerProps {
   onRecolor: (id: string, color: HighlightColor) => void;
   onSetNote: (id: string, note: string | null) => void;
   onRemove: (id: string) => void;
+  /** A note's place in the review loop: its state, or `private` (null: the default). */
+  onSetLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
+  /** The document's latest rounds, for when a note was sent. */
+  rounds?: readonly Round[] | undefined;
   onToggleBookmark: (heading: BookmarkHeading) => void;
   /** After painting: the highlights found in the text, by id, with their ranges. */
   onPainted?: (located: ReadonlyMap<string, Range>) => void;
@@ -181,6 +214,8 @@ export default function MarksLayer({
   onRecolor,
   onSetNote,
   onRemove,
+  onSetLoop,
+  rounds,
   onToggleBookmark,
   onPainted,
 }: MarksLayerProps): React.ReactElement | null {
@@ -223,16 +258,16 @@ export default function MarksLayer({
       return;
     }
     const model = buildTextModel(article);
-    const byColor = new Map<HighlightColor, Range[]>();
+    const byLayer = new Map<string, Range[]>();
     for (const highlight of highlights) {
       const span = locateAnchor(model.text, highlight);
       if (span === null) continue;
       const range = model.range(span.start, span.end);
       located.current.set(highlight.id, range);
       spans.current.set(highlight.id, span);
-      byColor.set(highlight.color, [...(byColor.get(highlight.color) ?? []), range]);
+      for (const layer of layersOf(highlight)) byLayer.set(layer, [...(byLayer.get(layer) ?? []), range]);
     }
-    paint(byColor);
+    paint(byLayer);
     onPainted?.(located.current);
     return () => paint(new Map());
   }, [articleRef, ready, renderKey, highlights, onPainted]);
@@ -268,7 +303,7 @@ export default function MarksLayer({
     const textRight = article.getBoundingClientRect().right - parseFloat(getComputedStyle(article).paddingRight);
     setNoteSpots(
       highlights.flatMap((h) => {
-        const rects = h.note === null ? undefined : located.current.get(h.id)?.getClientRects();
+        const rects = hasMarker(h) ? located.current.get(h.id)?.getClientRects() : undefined;
         const last = rects?.[rects.length - 1];
         return last === undefined ? [] : [{ id: h.id, ...spot(last, textRight - last.left + NOTE_MARGIN) }];
       }),
@@ -375,7 +410,7 @@ export default function MarksLayer({
         const range = h.note === null ? undefined : located.current.get(h.id);
         return range === undefined || h.note === null
           ? []
-          : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: h.note }];
+          : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: h.note, icon: noteIconOf(h) }];
       });
     const relayout = () => setLayoutVersion((v) => v + 1);
     let stop = () => {};
@@ -728,6 +763,8 @@ export default function MarksLayer({
       {/* ── Highlights with a note ── */}
       {noteSpots.map((spot) => {
         const highlight = highlights.find((h) => h.id === spot.id);
+        const kind = highlight === undefined ? "private" : noteIconOf(highlight);
+        const note = highlight?.note ?? "(no comment)";
         return (
           <button
             key={spot.id}
@@ -735,10 +772,10 @@ export default function MarksLayer({
             className={`${styles.noteMarker} ${spot.id === hoveredNote ? styles.noteMarkerHovered : ""}`}
             style={{ top: spot.top, left: spot.left }}
             onClick={(e) => openPopover(spot.id, e.currentTarget.getBoundingClientRect())}
-            aria-label={`Note: ${highlight?.note ?? ""}`}
-            title={highlight?.note ?? undefined}
+            aria-label={`${NOTE_ICON_LABELS[kind]} note: ${note}`}
+            title={kind === "private" ? note : `${NOTE_ICON_LABELS[kind]} · ${note}`}
           >
-            <NoteIcon />
+            <NoteStateIcon kind={kind} />
           </button>
         );
       })}
@@ -887,9 +924,90 @@ export default function MarksLayer({
               </div>
             </div>
           )}
+
+          {draft === null && <LoopRow highlight={current} rounds={rounds} onSetLoop={(changes) => onSetLoop(current.id, changes)} />}
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * The popover's last row: where the note is in the review loop, what can
+ * be done about it, and the lock that keeps it to the user
+ * (notes/01a-sending-notes.md §2).
+ */
+function LoopRow({
+  highlight,
+  rounds,
+  onSetLoop,
+}: {
+  highlight: Highlight;
+  rounds: readonly Round[] | undefined;
+  onSetLoop: (changes: { state?: NoteState; private?: boolean | null }) => void;
+}): React.ReactElement {
+  const bare = highlight.note === null;
+  const locked = isPrivate(highlight);
+  const state = stateOf(highlight);
+  const when = state === "sent" ? lastSent(rounds, highlight.id) : null;
+  const link = (label: string, changes: { state?: NoteState; private?: boolean | null }, title?: string) => (
+    <button type="button" className={styles.loopBtn} onClick={() => onSetLoop(changes)} title={title}>
+      {label}
+    </button>
+  );
+
+  // A bare highlight is the reader's own until it's sent
+  if (bare && locked) {
+    return (
+      <div className={styles.loopRow}>
+        <span className={styles.loopStatus} />
+        {link("Send to agent", { private: false }, "Send this highlight to the agent without a comment")}
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.loopRow}>
+      <span className={styles.loopStatus}>
+        {!locked && state === "sent" && (
+          <>
+            <NoteStateIcon kind="sent" size={12} /> Sent{when === null ? "" : ` · ${when}`} ·{" "}
+            {link("Mark not sent", { state: "open" }, "It will be sent again next time")} ·{" "}
+            {link("Resolve", { state: "resolved" })}
+          </>
+        )}
+        {!locked && state === "addressed" && (
+          <>
+            <NoteStateIcon kind="addressed" size={12} /> Addressed · {link("Resolve", { state: "resolved" })} ·{" "}
+            {link("Reopen", { state: "open" })}
+          </>
+        )}
+        {!locked && state === "resolved" && (
+          <>
+            <NoteStateIcon kind="resolved" size={12} /> Resolved · {link("Reopen", { state: "open" })}
+          </>
+        )}
+      </span>
+      <button
+        type="button"
+        className={`${styles.lock} ${locked ? styles.lockOn : ""}`}
+        // Unlocking goes back to the default (feedback with a note); a bare highlight sent to the agent goes back to private
+        onClick={() => onSetLoop({ private: locked || bare ? null : true })}
+        aria-pressed={locked}
+        title={locked ? "Only you see this note: click to send it with the others" : "Keep this note to yourself: it's never sent"}
+      >
+        <LockIcon locked={locked} /> Only me
+      </button>
+    </div>
+  );
+}
+
+function LockIcon({ locked }: { locked: boolean }): React.ReactElement {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="7" width="10" height="7" rx="1.5" fill={locked ? "currentColor" : "none"} />
+      <path d={locked ? "M5 7V5a3 3 0 0 1 6 0v2" : "M5 7V5a3 3 0 0 1 5.8-1"} />
+    </svg>
   );
 }
 

@@ -8,6 +8,29 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Added
+
+- **Sending notes.** Copy review notes opens the **Send dialog**: the notes
+  as a list to tick, grouped by document, with the exact Markdown in its
+  **Text** tab. Notes not sent yet are ticked; with **Don't send these notes
+  again** (on by default) copied notes become **sent** and aren't ticked next
+  time, so a second round doesn't repeat the first. Sent notes are offered
+  under **Sent before**; **Undo** in the status bar takes a send back.
+  `⇧⌘C` / `Ctrl+Shift+C` copies the open document's unsent notes.
+- **Private marks.** A highlight without a note stays yours and is never
+  sent; **Only me** keeps a note out too, and **Send to agent** sends a bare
+  highlight. On a document's note, Only me keeps the comment back (a status
+  change is still sent).
+- **Note states** in the popover (**Mark not sent**, **Resolve**, **Reopen**)
+  and in the margin icon's shape: unsent, sent (with a dashed underline on
+  the passage), addressed, resolved (lighter paint), private. The Marks view
+  sums up each document ("2 unsent · 1 sent").
+- **One filter menu in the Marks view**, like the document list's: show
+  bookmarks or highlights and notes (in place of the **Notes only** switch,
+  which also hid highlights without a note), and notes by state (resolved
+  ones hidden unless picked). The document list's filter and Group by folder
+  moved beside its search box, as in the Marks view.
+
 ### Removed
 
 - **The self-hosted browser version** (the Python backend and the Docker

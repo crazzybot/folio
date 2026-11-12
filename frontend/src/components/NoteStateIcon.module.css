@@ -1,0 +1,8 @@
+/* What waits on the user stands out; what's done fades (notes/01a-sending-notes.md §2) */
+.needsYou {
+  color: var(--color-accent);
+}
+
+.done {
+  opacity: 0.5;
+}

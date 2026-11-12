@@ -17,12 +17,26 @@ import {
   fetchMarks,
   forgetMarks,
   relinkMarks,
+  sendNotes,
   setDocumentNote,
+  unsendNotes,
   updateHighlight,
 } from "./api";
 import type { NoteChanges } from "./dataSource";
 import { findBookmark } from "./bookmarks";
-import type { Bookmark, BookmarkHeading, DocumentNote, Highlight, HighlightColor, MissingMarks, TextAnchor } from "./types";
+import type {
+  Bookmark,
+  BookmarkHeading,
+  DocumentNote,
+  Highlight,
+  HighlightColor,
+  MissingMarks,
+  NoteState,
+  Round,
+  SendDocument,
+  SentRound,
+  TextAnchor,
+} from "./types";
 
 // How long a failed change is reported in the status bar
 const ERROR_SHOWN_MS = 6000;
@@ -33,6 +47,8 @@ export interface DocMarks {
   highlights: readonly Highlight[];
   /** The note on the document as a whole (document-notes.md); absent when there's none. */
   note?: DocumentNote;
+  /** The latest rounds its notes were sent in; absent when none. */
+  rounds?: readonly Round[];
 }
 
 export interface Marks {
@@ -44,6 +60,18 @@ export interface Marks {
   /** Set or (with null / blank) remove a highlight's note. */
   setNote(docId: string, highlightId: string, note: string | null): Promise<void>;
   remove(docId: string, highlightId: string): Promise<void>;
+  /**
+   * A highlight's place in the review loop (notes/01a-sending-notes.md):
+   * its state, and `private` (true: Only me, false: sent without a note,
+   * null: the default).
+   */
+  setLoop(docId: string, highlightId: string, changes: { state?: NoteState; private?: boolean | null }): Promise<void>;
+  /** The same for the note on the document as a whole. */
+  setDocumentNoteLoop(docId: string, changes: { state?: NoteState; private?: boolean | null }): Promise<void>;
+  /** Record a round of sent notes; with `markSent`, open ones become sent. Resolves to the round, or null if it failed. */
+  send(docs: readonly SendDocument[], markSent: boolean): Promise<SentRound | null>;
+  /** Undo a round. */
+  unsend(round: SentRound): Promise<void>;
   /** Bookmark the document (`heading` null) or a heading, or remove that bookmark. */
   toggleBookmark(docId: string, heading: BookmarkHeading | null): Promise<void>;
   /** Remove a bookmark by id (e.g. one whose heading is gone). */
@@ -63,6 +91,12 @@ export interface Marks {
 
 const NO_MARKS: DocMarks = { bookmarks: [], highlights: [] };
 
+/** `marks` with `note` as its document note (none for null). */
+function withNote(marks: DocMarks, note: DocumentNote | null): DocMarks {
+  const { note: _old, ...rest } = marks;
+  return note === null ? rest : { ...rest, note };
+}
+
 export default function useMarks(): Marks {
   const [byDoc, setByDoc] = useState<ReadonlyMap<string, DocMarks>>(new Map());
   const [missing, setMissing] = useState<readonly MissingMarks[]>([]);
@@ -79,7 +113,12 @@ export default function useMarks(): Marks {
           new Map(
             listing.documents.map((doc) => [
               doc.docId,
-              { bookmarks: doc.bookmarks, highlights: doc.highlights, ...(doc.note === undefined ? {} : { note: doc.note }) },
+              {
+                bookmarks: doc.bookmarks,
+                highlights: doc.highlights,
+                ...(doc.note === undefined ? {} : { note: doc.note }),
+                ...(doc.rounds === undefined ? {} : { rounds: doc.rounds }),
+              },
             ]),
           ),
         );
@@ -174,6 +213,44 @@ export default function useMarks(): Marks {
     [update, failed],
   );
 
+  const setLoop = useCallback(
+    (docId: string, highlightId: string, changes: { state?: NoteState; private?: boolean | null }) =>
+      updateHighlight(docId, highlightId, changes).then(saved(docId), failed("change the note")),
+    [saved, failed],
+  );
+
+  const setDocumentNoteLoop = useCallback(
+    (docId: string, changes: { state?: NoteState; private?: boolean | null }) => {
+      const note = byDoc.get(docId)?.note;
+      if (note === undefined) return Promise.resolve();
+      return setDocumentNote(docId, { text: note.text, requestedStatus: note.requestedStatus, ...changes }).then(
+        (savedNote) => update(docId, (m) => withNote(m, savedNote)),
+        failed("change the note on the document"),
+      );
+    },
+    [byDoc, update, failed],
+  );
+
+  // A send changes states and rounds across documents: reload them
+  const send = useCallback(
+    (docs: readonly SendDocument[], markSent: boolean) =>
+      sendNotes(docs, markSent).then(
+        async (round) => {
+          await reload();
+          return round;
+        },
+        (err: unknown) => {
+          failed("record the sent notes")(err);
+          return null;
+        },
+      ),
+    [reload, failed],
+  );
+  const unsend = useCallback(
+    (round: SentRound) => unsendNotes(round).then(reload, failed("undo sending")),
+    [reload, failed],
+  );
+
   const removeBookmark = useCallback(
     (docId: string, bookmarkId: string) =>
       deleteBookmark(docId, bookmarkId).then(
@@ -206,12 +283,6 @@ export default function useMarks(): Marks {
     [reload, failed],
   );
 
-  /** `marks` with `note` as its document note (none for null). */
-  const withNote = (marks: DocMarks, note: DocumentNote | null): DocMarks => {
-    const { note: _old, ...rest } = marks;
-    return note === null ? rest : { ...rest, note };
-  };
-
   const saveDocumentNote = useCallback(
     (docId: string, note: NoteChanges) =>
       setDocumentNote(docId, note).then(
@@ -236,6 +307,10 @@ export default function useMarks(): Marks {
     recolor,
     setNote,
     remove,
+    setLoop,
+    setDocumentNoteLoop,
+    send,
+    unsend,
     toggleBookmark,
     removeBookmark,
     saveDocumentNote,

@@ -2,7 +2,7 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { NoteChanges } from "../dataSource";
 import { KNOWN_STATUSES, normaliseStatus } from "../status";
-import type { DocumentNote } from "../types";
+import type { DocumentNote, NoteState } from "../types";
 import StatusIcon from "./StatusIcon";
 import styles from "./DocumentNoteEditor.module.css";
 
@@ -28,6 +28,8 @@ interface DocumentNoteEditorProps {
   workspaceStatuses: readonly string[];
   onSave: (changes: NoteChanges) => void;
   onRemove: () => void;
+  /** Change where the note is in the review loop (notes/01a-sending-notes.md). */
+  onSetState: (state: NoteState) => void;
   onClose: () => void;
 }
 
@@ -43,6 +45,7 @@ export default function DocumentNoteEditor({
   workspaceStatuses,
   onSave,
   onRemove,
+  onSetState,
   onClose,
 }: DocumentNoteEditorProps): React.ReactElement {
   const statuses = [
@@ -55,16 +58,28 @@ export default function DocumentNoteEditor({
   );
   const [other, setOther] = useState(requested !== null && !statuses.includes(requested) ? requested : "");
   const [text, setText] = useState(note?.text ?? "");
+  // Only me: the comment stays out of the loop; a status change is still sent
+  const [locked, setLocked] = useState(note?.private === true);
   const rootRef = useRef<HTMLDivElement>(null);
   const id = useId();
 
   const changes = (): NoteChanges => ({
     requestedStatus: choice === NO_CHANGE ? null : choice === OTHER ? other.trim() || null : choice,
     text: text.trim() === "" ? null : text,
+    private: locked ? true : null,
   });
   const dirty = () => {
     const next = changes();
-    return next.requestedStatus !== (note?.requestedStatus ?? null) || next.text !== (note?.text ?? null);
+    return (
+      next.requestedStatus !== (note?.requestedStatus ?? null) ||
+      next.text !== (note?.text ?? null) ||
+      locked !== (note?.private === true)
+    );
+  };
+  const state = note?.state ?? "open";
+  const setState = (next: NoteState) => {
+    onSetState(next);
+    onClose();
   };
   const save = () => {
     if (dirty()) onSave(changes());
@@ -166,6 +181,48 @@ export default function DocumentNoteEditor({
         rows={4}
         maxLength={10_000}
       />
+
+      <label className={styles.lock} title="The comment is never sent; a status change still is">
+        <input type="checkbox" checked={locked} onChange={(e) => setLocked(e.target.checked)} />
+        Only me
+      </label>
+
+      {state !== "open" && !locked && (
+        <div className={styles.loop}>
+          {state === "sent" && (
+            <>
+              Sent ·{" "}
+              <button type="button" className={styles.loopBtn} onClick={() => setState("open")}>
+                Mark not sent
+              </button>{" "}
+              ·{" "}
+              <button type="button" className={styles.loopBtn} onClick={() => setState("resolved")}>
+                Resolve
+              </button>
+            </>
+          )}
+          {state === "addressed" && (
+            <>
+              Addressed ·{" "}
+              <button type="button" className={styles.loopBtn} onClick={() => setState("resolved")}>
+                Resolve
+              </button>{" "}
+              ·{" "}
+              <button type="button" className={styles.loopBtn} onClick={() => setState("open")}>
+                Reopen
+              </button>
+            </>
+          )}
+          {state === "resolved" && (
+            <>
+              Resolved ·{" "}
+              <button type="button" className={styles.loopBtn} onClick={() => setState("open")}>
+                Reopen
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       <div className={styles.actions}>
         <span className={styles.hint}>{SAVE_SHORTCUT} to save · Esc to cancel</span>

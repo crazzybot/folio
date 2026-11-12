@@ -48,6 +48,7 @@
 
 .icon {
   flex-shrink: 0;
+  display: flex;
 }
 
 .label {
@@ -94,6 +95,13 @@
 
 .none {
   padding: var(--space-1) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+/* What's hidden while nothing is picked */
+.note {
+  padding: var(--space-1) var(--space-3) var(--space-1) 34px;
   font-size: var(--text-xs);
   color: var(--color-text-subtle);
 }

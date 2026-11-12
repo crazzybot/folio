@@ -155,6 +155,22 @@
   text-overflow: ellipsis;
 }
 
+/* The document's feedback by state: "3 unsent · 2 sent" */
+.summary {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+  white-space: nowrap;
+}
+
+.summary ~ .copyNotes,
+.summary ~ .docBookmark,
+.summary ~ .count {
+  margin-left: 0;
+}
+
 .count {
   margin-left: auto;
   padding-left: var(--space-2);

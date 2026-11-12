@@ -1,16 +1,21 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { buildMarkRows } from "../marksView";
-import type { MarkRow } from "../marksView";
+import type { MarkKind, MarkRow } from "../marksView";
+import { filterOf, noteFilterOf, shownStates, STATE_FILTERS } from "../sending";
+import type { StateFilter } from "../sending";
+import { noteIconOf } from "./MarksLayer";
+import NoteStateIcon from "./NoteStateIcon";
 import type { BookmarkHeading, DocumentMeta, Highlight, MissingMarks } from "../types";
 import type { DocMarks } from "../useMarks";
 import { useRowHoverCard } from "../useRowHoverCard";
 import DocumentNoteIcon from "./DocumentNoteIcon";
 import DrawerCloseButton from "./DrawerCloseButton";
+import FilterMenu from "./FilterMenu";
 import HoverCard from "./HoverCard";
 import { BookmarkCard, DocumentCard, DocumentNoteCard, HighlightCard } from "./HoverCardContent";
 import NoteRequest, { noteRequestText } from "./NoteRequest";
 import { BookmarkIcon } from "./MarksLayer";
-import { ReviewNotesIcon } from "./ReviewNotesPanel";
+import { ReviewNotesIcon } from "./SendNotesDialog";
 import listStyles from "./DocumentList.module.css";
 import styles from "./MarksPanel.module.css";
 
@@ -19,10 +24,11 @@ const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 /** What opening a mark should scroll to: a highlight, a heading, or (null) the document's top. */
 export type MarkTarget = { highlight: string } | { heading: BookmarkHeading } | null;
 
-/** A document's highlights to copy as review notes. */
+/** A document's notes to send: the highlights shown, and whether its note on the whole is. */
 export interface ReviewSelection {
   doc: DocumentMeta;
   highlights: readonly Highlight[];
+  note: boolean;
 }
 
 const NOTHING_FOLDED: ReadonlySet<string> = new Set();
@@ -50,8 +56,10 @@ interface MarksPanelProps {
   allDocuments: readonly DocumentMeta[];
   onRelink: (recordId: string, docId: string) => void;
   onForget: (recordId: string) => void;
-  /** Copy review notes on these highlights (shows the preview). */
+  /** Send review notes on these highlights (opens the Send dialog). */
   onCopyNotes: (selection: ReviewSelection[]) => void;
+  /** Show only these states, e.g. the private marks the Send dialog counted; a new nonce asks again. */
+  filterRequest?: { filter: readonly StateFilter[]; nonce: number } | null;
 }
 
 /**
@@ -75,9 +83,22 @@ export default function MarksPanel({
   onRelink,
   onForget,
   onCopyNotes,
+  filterRequest = null,
 }: MarksPanelProps): React.ReactElement {
   const [query, setQuery] = useState("");
-  const [notesOnly, setNotesOnly] = useState(false);
+  // The filter menu: the kinds of marks picked (Show) and the states; none picked shows all but resolved notes
+  const [kinds, setKinds] = useState<ReadonlySet<MarkKind>>(new Set());
+  // The states picked in the filter; none picked shows all but resolved notes
+  const [picked, setPicked] = useState<ReadonlySet<StateFilter>>(new Set());
+  const states = shownStates(picked);
+  // States are about highlights and notes: with only bookmarks shown, they don't apply
+  const statesApply = (k: ReadonlySet<MarkKind>) => k.size === 0 || k.has("highlights");
+  // A new request sets the filter (while rendering, as React suggests for state that follows a prop)
+  const [seenRequest, setSeenRequest] = useState(filterRequest);
+  if (filterRequest !== seenRequest) {
+    setSeenRequest(filterRequest);
+    if (filterRequest !== null) setPicked(new Set(filterRequest.filter));
+  }
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const filterId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -85,28 +106,43 @@ export default function MarksPanel({
   const [focusKey, setFocusKey] = useState<string | null>(null);
 
   const rows = useMemo(
-    () => buildMarkRows({ documents, byDoc, query, notesOnly, collapsed, located }),
-    [documents, byDoc, query, notesOnly, collapsed, located],
+    () => buildMarkRows({ documents, byDoc, query, kinds, states, collapsed, located }),
+    [documents, byDoc, query, kinds, states, collapsed, located],
   );
   // What the view shows, folded documents included: the highlights Copy review notes copies, by document
   const copyable = useMemo(() => {
     const byDocShown = new Map<string, ReviewSelection>();
-    for (const row of buildMarkRows({ documents, byDoc, query, notesOnly, collapsed: NOTHING_FOLDED, located })) {
+    for (const row of buildMarkRows({ documents, byDoc, query, kinds, states, collapsed: NOTHING_FOLDED, located })) {
       const entry = byDocShown.get(row.doc.id);
-      // A note on the document is copied too: its comment, or a status change still to make
+      // A note on the document is sent too: its comment, or a status change still to make
       if (row.kind === "note" && (row.note.text !== null || !row.done)) {
-        byDocShown.set(row.doc.id, { doc: row.doc, highlights: entry?.highlights ?? [] });
+        byDocShown.set(row.doc.id, { doc: row.doc, highlights: entry?.highlights ?? [], note: true });
       }
       if (row.kind !== "highlight") continue;
-      byDocShown.set(row.doc.id, { doc: row.doc, highlights: [...(entry?.highlights ?? []), row.highlight] });
+      byDocShown.set(row.doc.id, { doc: row.doc, highlights: [...(entry?.highlights ?? []), row.highlight], note: entry?.note ?? false });
     }
     return byDocShown;
-  }, [documents, byDoc, query, notesOnly, located]);
+  }, [documents, byDoc, query, kinds, states, located]);
+  // How many of the listed documents' marks are of each kind and notes in each state, for the filter
+  const { kindCounts, stateCounts } = useMemo(() => {
+    const counts = new Map<StateFilter, number>();
+    const add = (state: StateFilter) => counts.set(state, (counts.get(state) ?? 0) + 1);
+    const kindsOf = { bookmarks: 0, highlights: 0 };
+    for (const doc of documents) {
+      const marks = byDoc.get(doc.id);
+      if (marks === undefined) continue;
+      kindsOf.bookmarks += marks.bookmarks.length;
+      kindsOf.highlights += marks.highlights.length + (marks.note === undefined ? 0 : 1);
+      for (const h of marks.highlights) add(filterOf(h));
+      if (marks.note !== undefined) add(noteFilterOf(marks.note, doc.meta?.status));
+    }
+    return { kindCounts: kindsOf, stateCounts: counts };
+  }, [documents, byDoc]);
   const tabStop = (rows.some((r) => r.key === focusKey) ? focusKey : undefined) ?? rows[0]?.key;
 
   // Hover card: a document's title and location, a mark in full (rows cut them short)
   const { card, listProps: hoverProps, dismiss: dismissCard } = useRowHoverCard(() => true);
-  useEffect(() => dismissCard(), [dismissCard, query, notesOnly]);
+  useEffect(() => dismissCard(), [dismissCard, query, kinds, states]);
   const cardRow = card === null ? undefined : rows.find((r) => r.key === card.key);
 
   const toggleCollapsed = useCallback((docId: string, open?: boolean) => {
@@ -190,7 +226,9 @@ export default function MarksPanel({
   const q = query.trim().toLowerCase();
   const shownMissing = missing.filter(
     (m) =>
-      (!notesOnly || m.note !== undefined || m.highlights.some((h) => h.note !== null)) &&
+      (kinds.size === 0 ||
+        (kinds.has("highlights") && (m.note !== undefined || m.highlights.length > 0)) ||
+        (kinds.has("bookmarks") && m.bookmarks.length > 0)) &&
       (q === "" ||
         m.location.toLowerCase().includes(q) ||
         `${m.note?.requestedStatus ?? ""}\n${m.note?.text ?? ""}`.toLowerCase().includes(q) ||
@@ -234,16 +272,6 @@ export default function MarksPanel({
               }
             }}
           />
-          <button
-            type="button"
-            className={`${listStyles.fullTextBtn} ${notesOnly ? listStyles.fullTextBtnOn : ""}`}
-            onClick={() => setNotesOnly(!notesOnly)}
-            aria-pressed={notesOnly}
-            aria-label="Notes only"
-            title="Notes only"
-          >
-            <NoteIcon />
-          </button>
           {query && (
             <button type="button" className={listStyles.clearBtn} onClick={() => setQuery("")} aria-label="Clear filter">
               <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
@@ -253,13 +281,69 @@ export default function MarksPanel({
             </button>
           )}
         </div>
+        <FilterMenu
+          sections={[
+            {
+              id: "kind",
+              heading: "Show",
+              options: [
+                { value: "bookmarks", label: "Bookmarks", icon: <BookmarkIcon filled />, count: kindCounts.bookmarks },
+                { value: "highlights", label: "Highlights and notes", icon: <HighlightIcon />, count: kindCounts.highlights },
+              ].map((o) => ({ ...o, checked: kinds.has(o.value === "bookmarks" ? "bookmarks" : "highlights") })),
+            },
+            // Only while highlights and notes show: states don't apply to bookmarks
+            ...(statesApply(kinds)
+              ? [
+                  {
+                    id: "state",
+                    heading: "State",
+                    options: STATE_FILTERS.map(({ value, label }) => ({
+                      value,
+                      label,
+                      icon: <NoteStateIcon kind={value} />,
+                      count: stateCounts.get(value) ?? 0,
+                      checked: picked.has(value),
+                    })),
+                  },
+                ]
+              : []),
+          ]}
+          active={kinds.size + picked.size}
+          onToggle={(section, value) => {
+            if (section === "kind") {
+              const kind = value === "bookmarks" || value === "highlights" ? value : null;
+              if (kind === null) return;
+              const next = new Set(kinds);
+              if (next.has(kind)) next.delete(kind);
+              else next.add(kind);
+              setKinds(next);
+              if (!statesApply(next)) setPicked(new Set());
+              return;
+            }
+            const state = STATE_FILTERS.find((s) => s.value === value)?.value;
+            if (state === undefined) return;
+            const next = new Set(picked);
+            if (next.has(state)) next.delete(state);
+            else next.add(state);
+            setPicked(next);
+          }}
+          onClear={() => {
+            setKinds(new Set());
+            setPicked(new Set());
+          }}
+          label="Filter marks"
+          note={picked.size === 0 && statesApply(kinds) ? "Resolved: hidden unless picked" : undefined}
+          buttonClassName={listStyles.toolBtn}
+          activeClassName={listStyles.toolBtnOn}
+          badgeClassName={listStyles.filterBadge}
+        />
         <button
           type="button"
           className={styles.copyAll}
           onClick={() => onCopyNotes([...copyable.values()])}
           disabled={copyable.size === 0}
-          aria-label="Copy review notes on the highlights shown"
-          title="Copy review notes on the highlights shown"
+          aria-label="Send review notes on the notes shown"
+          title="Send review notes on the notes shown"
         >
           <ReviewNotesIcon size={14} />
         </button>
@@ -276,8 +360,8 @@ export default function MarksPanel({
                   Select text to highlight it, or press {IS_MAC ? "⌘D" : "Ctrl+D"} to bookmark the document.
                 </p>
               </>
-            ) : notesOnly && query === "" ? (
-              <p>No notes yet. Click a highlight to add one.</p>
+            ) : query === "" ? (
+              <p>No marks match the filters.</p>
             ) : (
               <p>No marks match "<strong>{query}</strong>".</p>
             )}
@@ -325,11 +409,16 @@ export default function MarksPanel({
                 note={byDoc.get(cardRow.doc.id)?.note}
               />
             ) : cardRow.kind === "note" ? (
-              <DocumentNoteCard doc={cardRow.doc} note={cardRow.note} />
+              <DocumentNoteCard doc={cardRow.doc} note={cardRow.note} rounds={byDoc.get(cardRow.doc.id)?.rounds} />
             ) : cardRow.kind === "bookmark" ? (
               <BookmarkCard doc={cardRow.doc} heading={cardRow.bookmark.heading.text} missing={cardRow.missing} />
             ) : (
-              <HighlightCard doc={cardRow.doc} highlight={cardRow.highlight} unplaced={cardRow.unplaced} />
+              <HighlightCard
+                doc={cardRow.doc}
+                highlight={cardRow.highlight}
+                unplaced={cardRow.unplaced}
+                rounds={byDoc.get(cardRow.doc.id)?.rounds}
+              />
             )}
           </HoverCard>
         )}
@@ -436,6 +525,7 @@ function MarkRowItem({
           <span className={styles.chevronSpace} aria-hidden="true" />
         )}
         <span className={styles.docTitle}>{row.doc.title}</span>
+        {row.summary !== "" && <span className={styles.summary}>{row.summary}</span>}
         {copyable && (
           <button
             type="button"
@@ -445,8 +535,8 @@ function MarkRowItem({
               e.stopPropagation();
               onCopyNotes();
             }}
-            aria-label={`Copy review notes on ${row.doc.title}`}
-            title="Copy review notes"
+            aria-label={`Send review notes on ${row.doc.title}`}
+            title="Send review notes"
           >
             <ReviewNotesIcon size={12} />
           </button>
@@ -487,7 +577,12 @@ function MarkRowItem({
           {note.requestedStatus !== null && (
             <NoteRequest requested={note.requestedStatus} done={done} className={styles.request} iconClassName={styles.requestIcon} />
           )}
-          {note.text !== null && <span className={styles.docNoteText}>{note.text}</span>}
+          {note.text !== null && (
+            <span className={styles.note}>
+              <NoteStateIcon kind={noteFilterOf(note, row.doc.meta?.status)} size={12} />
+              <span className={styles.docNoteText}>{note.text}</span>
+            </span>
+          )}
         </span>
         {removeButton("Remove the note on the document")}
       </li>
@@ -524,10 +619,11 @@ function MarkRowItem({
       <span className={`${styles.colorBar} ${styles[highlight.color]}`} aria-hidden="true" />
       <span className={styles.highlightBody}>
         <span className={`${styles.quote} ${unplaced ? styles.missing : ""}`}>{highlight.quote.exact}</span>
-        {highlight.note !== null && (
+        {/* A note, or a bare highlight sent to the agent as "(no comment)" */}
+        {(highlight.note !== null || highlight.private === false) && (
           <span className={styles.note}>
-            <NoteIcon />
-            <span className={styles.noteText}>{highlight.note}</span>
+            <NoteStateIcon kind={noteIconOf(highlight)} size={12} />
+            <span className={styles.noteText}>{highlight.note ?? "(no comment)"}</span>
           </span>
         )}
         {unplaced && <span className={styles.notFound}>Not found in the current text</span>}
@@ -537,10 +633,12 @@ function MarkRowItem({
   );
 }
 
-function NoteIcon(): React.ReactElement {
+/** A highlighted line: the Show section's highlights and notes. */
+function HighlightIcon(): React.ReactElement {
   return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
-      <path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" />
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinecap="round" aria-hidden="true">
+      <rect x="1.5" y="5" width="13" height="6" rx="1" fill="var(--mark-yellow)" stroke="none" />
+      <path d="M3 8h10" />
     </svg>
   );
 }

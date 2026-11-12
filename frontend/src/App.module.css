@@ -196,6 +196,20 @@
   text-overflow: ellipsis;
 }
 
+/* An action on the status message: Undo after sending notes */
+.statusAction {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-link);
+  font: inherit;
+  cursor: pointer;
+}
+
+.statusAction:hover {
+  text-decoration: underline;
+}
+
 /* The path takes the space between the settings gear and the count */
 .statusItem:first-of-type {
   flex: 1;

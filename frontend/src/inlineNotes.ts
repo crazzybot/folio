@@ -16,6 +16,9 @@
  * to the document that isn't theirs.
  */
 
+import { NOTE_ICON_LABELS, noteIconMarkup } from "./noteIcons";
+import type { NoteIconKind } from "./noteIcons";
+
 export interface InlineNote {
   id: string;
   /** The highlight's live range in the document. */
@@ -23,6 +26,8 @@ export interface InlineNote {
   /** The highlight's colour, for the rule beside the note. */
   color: string;
   note: string;
+  /** Its place in the review loop, shown as the margin icon is (noteIcons.ts). */
+  icon?: NoteIconKind;
 }
 
 /** Blocks a note goes after; where they nest, the innermost one holding the passage's end. */
@@ -127,6 +132,12 @@ export function placeInlineNotes(article: HTMLElement, notes: readonly InlineNot
         const label = skipped("span", "folio-inline-note-number");
         label.textContent = String(i + 1);
         item.append(label);
+      }
+      if (note.icon !== undefined) {
+        const icon = skipped("span", `folio-inline-note-icon folio-inline-note-${note.icon}`);
+        icon.title = NOTE_ICON_LABELS[note.icon];
+        icon.innerHTML = noteIconMarkup(note.icon);
+        item.append(icon);
       }
       const where = spot.kind === "row" ? cellLabel(note.range, false) : spot.kind === "table" ? cellLabel(note.range, true) : "";
       if (where !== "") {

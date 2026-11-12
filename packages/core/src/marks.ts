@@ -19,8 +19,12 @@ import { existsSync, promises as fs, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+// Note states, privacy and rounds (notes/01a-sending-notes.md) are optional
+// fields a version-1 app keeps as they are, so they don't need a new version:
+// an outdated install still shows and changes these marks
 export const VERSION = 1;
 export const COLORS = ["yellow", "green", "blue", "pink"] as const;
+export const NOTE_STATES = ["open", "sent", "addressed", "resolved"] as const;
 const MAX_EXACT = 20_000; // characters of highlighted text
 const MAX_CONTEXT = 64; // characters of prefix / suffix
 const MAX_NOTE = 10_000;
@@ -28,11 +32,19 @@ const MAX_HIGHLIGHTS = 1_000; // per document
 const MAX_BOOKMARKS = 1_000; // per document
 const MAX_HEADING_TEXT = 1_000;
 const MAX_REQUESTED_STATUS = 40;
+const MAX_ROUNDS = 5; // per document, the latest kept
 
 // Paths differ only by case on these platforms' default file systems
 const CASE_INSENSITIVE = process.platform === "darwin" || process.platform === "win32";
 
 export type Color = (typeof COLORS)[number];
+
+/**
+ * Where a note is in the review loop: not sent yet, sent (the agent has it,
+ * no answer), addressed (the agent says it's done), resolved (the user
+ * agrees). Absent means open.
+ */
+export type NoteState = (typeof NOTE_STATES)[number];
 
 export interface Highlight {
   id: string;
@@ -42,6 +54,14 @@ export interface Highlight {
   position: { start: number; end: number };
   created: string;
   updated: string;
+  /** Absent: open. */
+  state?: NoteState;
+  /**
+   * Set only when the user chose: true keeps the mark out of the loop, false
+   * sends a highlight without a note. Absent: private without a note,
+   * feedback with one.
+   */
+  private?: boolean;
 }
 
 /** A bookmarked heading: its text, level and which of the same-text, same-level headings. */
@@ -64,6 +84,23 @@ export interface DocumentNote {
   requestedStatus: string | null;
   created: string;
   updated: string;
+  /** Absent: open. */
+  state?: NoteState;
+  /** true: kept out of the loop (a requested status is sent anyway). Absent: feedback. */
+  private?: boolean;
+}
+
+/** Notes sent together: copied, or (later) fetched by an agent. */
+export interface Round {
+  id: string;
+  at: string;
+  via: "copy" | "mcp";
+  /** The version sent: the document's SHA-1 then. */
+  sha1: string;
+  /** The highlights sent. */
+  notes: string[];
+  /** Whether the note on the document as a whole was sent. */
+  documentNote?: boolean;
 }
 
 export interface MarksRecord {
@@ -74,6 +111,8 @@ export interface MarksRecord {
   highlights: Highlight[];
   /** Absent when there's none. */
   documentNote?: DocumentNote;
+  /** The latest rounds this document's notes were sent in, oldest first; absent when none. */
+  rounds?: Round[];
 }
 
 /** A request the store refuses; `status` is the matching HTTP status (404, 409…). */
@@ -166,6 +205,35 @@ function note(value: unknown): string | null {
   return text.trim() === "" ? null : text;
 }
 
+function noteState(value: unknown): NoteState {
+  const found = NOTE_STATES.find((s) => s === value);
+  if (found === undefined) throw new MarkError(400, `state must be one of ${NOTE_STATES.join(", ")}`);
+  return found;
+}
+
+/** A `private` change: true or false as chosen, null to go back to the default. */
+function privacy(value: unknown): boolean | null {
+  if (value === null || typeof value === "boolean") return value;
+  throw new MarkError(400, "private must be true, false or null");
+}
+
+/** `mark` with `state` and `private` as given (open and null are left out: they're the defaults). */
+function withLoop<T extends { state?: NoteState; private?: boolean }>(
+  mark: T,
+  changes: { state?: NoteState; private?: boolean | null },
+): T {
+  const next = { ...mark };
+  if (changes.state !== undefined) {
+    if (changes.state === "open") delete next.state;
+    else next.state = changes.state;
+  }
+  if (changes.private !== undefined) {
+    if (changes.private === null) delete next.private;
+    else next.private = changes.private;
+  }
+  return next;
+}
+
 function requestedStatus(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   const text = string(value, "requestedStatus", MAX_REQUESTED_STATUS).trim();
@@ -173,20 +241,34 @@ function requestedStatus(value: unknown): string | null {
   return text === "" ? null : text;
 }
 
-/** A PUT body's note: `{text, requestedStatus}`, each null (or blank) for none. */
-function documentNoteBody(body: unknown): Pick<DocumentNote, "text" | "requestedStatus"> {
+/**
+ * A PUT body's note: `{text, requestedStatus}`, each null (or blank) for
+ * none, and optionally `state` and `private` (null: back to the default).
+ */
+function documentNoteBody(
+  body: unknown,
+): Pick<DocumentNote, "text" | "requestedStatus"> & { state?: NoteState; private?: boolean | null } {
   if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
-  return { text: note(body["text"]), requestedStatus: requestedStatus(body["requestedStatus"]) };
+  return {
+    text: note(body["text"]),
+    requestedStatus: requestedStatus(body["requestedStatus"]),
+    ...("state" in body ? { state: noteState(body["state"]) } : {}),
+    ...("private" in body ? { private: privacy(body["private"]) } : {}),
+  };
 }
 
 /** A record's saved note, or null when it has none (or one this version can't read). */
 export function storedNote(value: unknown): DocumentNote | null {
   if (!isObject(value)) return null;
-  const { text, requestedStatus: status, created, updated } = value;
+  const { text, requestedStatus: status, created, updated, state, private: locked } = value;
   const textOrNull = (v: unknown) => (typeof v === "string" && v.trim() !== "" ? v : null);
   if (typeof created !== "string" || typeof updated !== "string") return null;
-  const found = { text: textOrNull(text), requestedStatus: textOrNull(status), created, updated };
-  return found.text === null && found.requestedStatus === null ? null : found;
+  const found: DocumentNote = { text: textOrNull(text), requestedStatus: textOrNull(status), created, updated };
+  if (found.text === null && found.requestedStatus === null) return null;
+  const known = NOTE_STATES.find((s) => s === state);
+  if (known !== undefined && known !== "open") found.state = known;
+  if (typeof locked === "boolean") found.private = locked;
+  return found;
 }
 
 /** Whether a record still holds anything: a record without marks is removed. */
@@ -198,9 +280,9 @@ function hasMarks(record: MarksRecord): boolean {
 function mergedNote(dest: DocumentNote | null, moved: DocumentNote | null): DocumentNote | null {
   if (dest === null || moved === null) return dest ?? moved;
   return {
+    ...dest,
     text: [dest.text, moved.text].filter((t): t is string => t !== null).join("\n\n") || null,
     requestedStatus: dest.requestedStatus ?? moved.requestedStatus,
-    created: dest.created,
     updated: now(),
   };
 }
@@ -414,12 +496,16 @@ export class MarksStore {
     const changes: Partial<Pick<Highlight, "color" | "note">> = {};
     if ("color" in body) changes.color = color(body["color"]);
     if ("note" in body) changes.note = note(body["note"]);
+    const loop: { state?: NoteState; private?: boolean | null } = {};
+    if ("state" in body) loop.state = noteState(body["state"]);
+    if ("private" in body) loop.private = privacy(body["private"]);
     const id = recordId(file);
     return this.serially(async () => {
       const record = await this.writable(id);
-      const highlight = find(record, highlightId);
-      Object.assign(highlight, changes, { updated: now() });
-      await this.write(id, await refreshed(record as MarksRecord, file));
+      const old = find(record, highlightId);
+      const highlight = { ...withLoop(old, loop), ...changes, updated: now() };
+      const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? highlight : h));
+      await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
       return highlight;
     });
   }
@@ -468,14 +554,17 @@ export class MarksStore {
 
   /** Set the document's note (`{text, requestedStatus}`); both null removes it. Returns it, or null. */
   setNote(file: string, body: unknown): Promise<DocumentNote | null> {
-    const { text, requestedStatus: status } = documentNoteBody(body);
+    const { text, requestedStatus: status, ...loop } = documentNoteBody(body);
     const id = recordId(file);
     return this.serially(async () => {
       const record = (await this.writable(id)) ?? emptyRecord();
       const old = storedNote(record.documentNote);
       const time = now();
+      // The state and privacy carry over an edit
       const saved =
-        text === null && status === null ? null : { text, requestedStatus: status, created: old?.created ?? time, updated: time };
+        text === null && status === null
+          ? null
+          : withLoop({ ...old, text, requestedStatus: status, created: old?.created ?? time, updated: time }, loop);
       await this.write(id, await refreshed(withNote(record, saved), file));
       return saved;
     });
@@ -487,6 +576,65 @@ export class MarksStore {
       const record = await this.writable(id);
       if (record === null || storedNote(record.documentNote) === null) throw new MarkError(404, "The document has no note");
       await this.write(id, await refreshed(withNote(record, null), file));
+    });
+  }
+
+  // ── Sending notes ────────────────────────────────────────────────────────
+
+  /**
+   * Record that the document's notes `highlightIds` (and its note on the
+   * whole, with `documentNote`) were sent in round `roundId`; with
+   * `markSent`, open ones become sent. Notes no longer there are left out.
+   * Resolves to what became sent, for undoing it.
+   */
+  send(file: string, body: unknown): Promise<SentNotes> {
+    const { roundId, highlightIds, documentNote, markSent } = sendBody(body);
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = await this.writable(id);
+      if (record === null) throw new MarkError(404, "The document has no notes");
+      const wanted = new Set(highlightIds);
+      const sent: SentNotes = { highlightIds: [], documentNote: false };
+      const highlights = record.highlights.map((h) => {
+        if (!wanted.has(h.id) || !markSent || (h.state ?? "open") !== "open") return h;
+        sent.highlightIds.push(h.id);
+        return withLoop(h, { state: "sent" });
+      });
+      let note = storedNote(record.documentNote);
+      const noteSent = documentNote && note !== null;
+      if (noteSent && markSent && (note?.state ?? "open") === "open") {
+        note = withLoop(note as DocumentNote, { state: "sent" });
+        sent.documentNote = true;
+      }
+      const round: Round = {
+        id: roundId,
+        at: now(),
+        via: "copy",
+        sha1: (await fingerprint(file)).sha1,
+        notes: record.highlights.filter((h) => wanted.has(h.id)).map((h) => h.id),
+        ...(noteSent ? { documentNote: true } : {}),
+      };
+      const rounds = [...(record.rounds ?? []).filter((r) => r.id !== roundId), round].slice(-MAX_ROUNDS);
+      await this.write(id, await refreshed(withNote({ ...record, highlights, rounds }, note), file));
+      return sent;
+    });
+  }
+
+  /** Undo `send`: the round goes, and the notes it made sent are open again (unless they changed since). */
+  unsend(file: string, body: unknown): Promise<void> {
+    const { roundId, highlightIds, documentNote } = sendBody(body);
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = await this.writable(id);
+      if (record === null) return;
+      const reopen = new Set(highlightIds);
+      const highlights = record.highlights.map((h) => (reopen.has(h.id) && h.state === "sent" ? withLoop(h, { state: "open" }) : h));
+      let note = storedNote(record.documentNote);
+      if (documentNote && note?.state === "sent") note = withLoop(note, { state: "open" });
+      const { rounds: _old, ...rest } = record;
+      const rounds = (record.rounds ?? []).filter((r) => r.id !== roundId);
+      const next = rounds.length > 0 ? { ...rest, rounds } : rest;
+      await this.write(id, await refreshed(withNote({ ...next, highlights }, note), file));
     });
   }
 
@@ -510,6 +658,8 @@ export class MarksStore {
         ],
         highlights: [...dest.highlights, ...source.highlights.filter((h) => !ids.has(h.id))],
       };
+      const rounds = [...(dest.rounds ?? []), ...(source.rounds ?? [])].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+      if (rounds.length > 0) merged.rounds = rounds.slice(-MAX_ROUNDS);
       const note = mergedNote(storedNote(dest.documentNote), storedNote(source.documentNote));
       await this.write(target, await refreshed(withNote(merged, note), file));
       await this.remove(id);
@@ -524,6 +674,33 @@ export class MarksStore {
       await this.remove(id);
     });
   }
+}
+
+/** What a send changed: the highlights (and the document's note) it made sent. */
+export interface SentNotes {
+  highlightIds: string[];
+  documentNote: boolean;
+}
+
+/** A new round's id. */
+export function newRoundId(): string {
+  return randomBytes(8).toString("hex");
+}
+
+function sendBody(body: unknown): { roundId: string; highlightIds: string[]; documentNote: boolean; markSent: boolean } {
+  if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
+  const roundId = body["roundId"];
+  if (typeof roundId !== "string" || !/^[0-9a-f]{16}$/.test(roundId)) throw new MarkError(400, "roundId must be 16 hex digits");
+  const ids = body["highlightIds"] ?? [];
+  if (!Array.isArray(ids) || ids.length > MAX_HIGHLIGHTS || !ids.every((h) => typeof h === "string")) {
+    throw new MarkError(400, "highlightIds must be a list of highlight ids");
+  }
+  return {
+    roundId,
+    highlightIds: ids as string[],
+    documentNote: body["documentNote"] === true,
+    markSent: body["markSent"] !== false,
+  };
 }
 
 /** A record of a file in the workspace, with its id and location. */
@@ -584,6 +761,8 @@ export interface DocumentMarks {
   highlights: Highlight[];
   /** Absent when there's none. */
   note?: DocumentNote;
+  /** The latest rounds its notes were sent in; absent when none. */
+  rounds?: Round[];
 }
 
 export interface MissingMarks {
@@ -661,6 +840,7 @@ export async function listMarks(
         bookmarks: record.bookmarks,
         highlights: record.highlights,
         ...(note === null ? {} : { note }),
+        ...(record.rounds !== undefined && record.rounds.length > 0 ? { rounds: record.rounds } : {}),
       });
     }
   }

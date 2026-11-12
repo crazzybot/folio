@@ -89,6 +89,8 @@ export function createDemoSource(base: string, storage: MarksStorage | null = br
       // The demo's documents never move or disappear, so no marks are ever missing
       relink: async () => undefined,
       forget: async () => undefined,
+      send: async (docs, markSent) => (await marks()).send(docs, markSent),
+      unsend: async (round) => (await marks()).unsend(round),
     },
     resetMarks: async () => (await marks()).reset(),
   };

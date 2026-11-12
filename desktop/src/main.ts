@@ -41,7 +41,7 @@ import { ensureCustomCss, readCustomCss, watchCustomCss } from "./customCss";
 import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
 import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } from "./openPaths";
-import { defaultDataDir, listMarks, MarksStore } from "../../packages/core/src/marks";
+import { defaultDataDir, listMarks, MarkError, MarksStore, newRoundId } from "../../packages/core/src/marks";
 import type { Bookmark, DocumentMarks, DocumentNote, Highlight, MissingMarks } from "../../packages/core/src/marks";
 import { findDocument, scanAttachments, scanWorkspace, stableId } from "../../packages/core/src/scanner";
 import { searchWorkspace } from "./search";
@@ -227,6 +227,24 @@ async function assertMissingRecord(recordId: unknown): Promise<void> {
   }
 }
 
+/** A round sent from this window: per document, the notes it made sent. */
+interface SentRound {
+  roundId: string;
+  documents: { docId: string; highlightIds: string[]; documentNote: boolean }[];
+}
+
+/** The documents of a send or unsend; each one's fields are checked by the store. */
+function sendList(value: unknown): { docId: string; highlightIds: unknown; documentNote: unknown }[] {
+  if (!Array.isArray(value) || value.length > 1_000) throw new MarkError(400, "Expected a list of documents");
+  return value.map((doc: unknown) => {
+    if (typeof doc !== "object" || doc === null || typeof (doc as { docId?: unknown }).docId !== "string") {
+      throw new MarkError(400, "Each document needs a docId");
+    }
+    const { docId, highlightIds, documentNote } = doc as { docId: string; highlightIds?: unknown; documentNote?: unknown };
+    return { docId, highlightIds, documentNote };
+  });
+}
+
 /** Tell every window that marks changed, so lists and documents repaint. */
 function notifyMarksChanged(): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -313,6 +331,28 @@ function registerIpcHandlers(): void {
   ipcMain.handle("marks:note-delete", async (event, docId: unknown): Promise<void> => {
     assertTrustedSender(event);
     await marks.deleteNote(await markedDocument(docId));
+    notifyMarksChanged();
+  });
+  // Sending notes (notes/01a-sending-notes.md): one round across the
+  // documents copied, and undoing it
+  ipcMain.handle("marks:send", async (event, docs: unknown, markSent: unknown): Promise<SentRound> => {
+    assertTrustedSender(event);
+    const roundId = newRoundId();
+    const sent: SentRound["documents"] = [];
+    for (const doc of sendList(docs)) {
+      const done = await marks.send(await markedDocument(doc.docId), { ...doc, roundId, markSent: markSent !== false });
+      sent.push({ docId: doc.docId, ...done });
+    }
+    notifyMarksChanged();
+    return { roundId, documents: sent };
+  });
+  ipcMain.handle("marks:unsend", async (event, round: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    if (typeof round !== "object" || round === null) throw new Error("Expected a round");
+    const { roundId, documents } = round as Partial<SentRound>;
+    for (const doc of sendList(documents)) {
+      await marks.unsend(await markedDocument(doc.docId), { ...doc, roundId });
+    }
     notifyMarksChanged();
   });
   // A missing document's marks: moved to a document, or deleted
