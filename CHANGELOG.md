@@ -8,6 +8,8 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-11-12
+
 ### Added
 
 - **Well-known documents** (`README.md`, `AGENTS.md`, `CLAUDE.md`,
