@@ -336,7 +336,7 @@ function registerIpcHandlers(): void {
     await marks.deleteNote(await markedDocument(docId));
     notifyMarksChanged();
   });
-  // Sending notes (notes/01a-sending-notes.md): one round across the
+  // Sending notes (docs/design/sending-notes.md): one round across the
   // documents copied, and undoing it
   ipcMain.handle("marks:send", async (event, docs: unknown, markSent: unknown): Promise<SentRound> => {
     assertTrustedSender(event);

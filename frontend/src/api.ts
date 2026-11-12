@@ -156,7 +156,7 @@ export async function forgetMarks(recordId: string): Promise<void> {
   return source.marks.forget(recordId);
 }
 
-/** Record that notes were sent (notes/01a-sending-notes.md); with `markSent`, open ones become sent. */
+/** Record that notes were sent (docs/design/sending-notes.md); with `markSent`, open ones become sent. */
 export async function sendNotes(docs: readonly SendDocument[], markSent: boolean): Promise<SentRound> {
   return source.marks.send(docs, markSent);
 }

@@ -58,7 +58,7 @@ interface SendNotesDialogProps {
 const COPIED_MS = 600;
 
 /**
- * Send review notes (notes/01a-sending-notes.md §3): the notes from where
+ * Send review notes (docs/design/sending-notes.md §3): the notes from where
  * it was opened, as a list to tick, and the exact Markdown the agent gets
  * in the Text tab. Notes not sent yet are ticked; sent ones with no answer
  * are offered apart; private and out-of-date ones are only counted. Copy

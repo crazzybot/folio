@@ -238,7 +238,7 @@ body {
 ::highlight(folio-mark-pink) { background-color: var(--mark-pink); }
 
 /* Resolved notes: lighter paint. Sent ones, waiting for the agent: a dashed
-   underline over their paint (notes/01a-sending-notes.md §2) */
+   underline over their paint (docs/design/sending-notes.md §2) */
 ::highlight(folio-mark-yellow-resolved) { background-color: color-mix(in srgb, var(--mark-yellow) 40%, transparent); }
 ::highlight(folio-mark-green-resolved) { background-color: color-mix(in srgb, var(--mark-green) 40%, transparent); }
 ::highlight(folio-mark-blue-resolved) { background-color: color-mix(in srgb, var(--mark-blue) 40%, transparent); }

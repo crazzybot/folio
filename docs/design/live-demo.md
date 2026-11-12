@@ -78,8 +78,7 @@ as the check.
 
 ## 3. Demo content and bundle
 
-- `demo/relay/`: the Relay repository from the site video, moved from
-  `notes/demo/`. Extended so each feature has something to show: a few
+- `demo/relay/`: the Relay repository from the site video. Extended so each feature has something to show: a few
   longer ADRs, an image, a formula, an Obsidian-style `[[link]]`, and enough
   text that full-text search finds several documents.
 - `desktop/scripts/demo-bundle.mjs` (`npm run demo:bundle` in `desktop/`):

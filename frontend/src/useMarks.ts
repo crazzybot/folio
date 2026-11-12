@@ -61,7 +61,7 @@ export interface Marks {
   setNote(docId: string, highlightId: string, note: string | null): Promise<void>;
   remove(docId: string, highlightId: string): Promise<void>;
   /**
-   * A highlight's place in the review loop (notes/01a-sending-notes.md):
+   * A highlight's place in the review loop (docs/design/sending-notes.md):
    * its state, and `private` (true: Only me, false: sent without a note,
    * null: the default).
    */
