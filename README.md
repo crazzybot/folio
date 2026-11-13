@@ -279,6 +279,35 @@ Connect API key's `.p8` text), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`.
 `.github/workflows/ci.yml` lints, type-checks and tests every push to `main`
 and every pull request.
 
+## Releasing the MCP server
+
+The MCP server (`packages/mcp`) is published to npm as
+`@crazzybot/folio-mcp`, by hand. It has its own version, separate from the
+app's; `scripts/release.mjs` doesn't change it.
+
+Once: own the `@crazzybot` scope on npm (the user or a free organisation of
+that name), turn on two-factor authentication, and run `npm login`.
+
+1. Set the new version in a pull request and merge it to `main`:
+   ```bash
+   cd packages/mcp
+   npm version patch --no-git-tag-version   # or minor, major
+   ```
+2. From a clean, up-to-date `main`:
+   ```bash
+   cd packages/mcp
+   npm ci
+   npm publish --dry-run   # the files: LICENSE, README.md, package.json, dist/
+   npm publish
+   ```
+   `prepublishOnly` type-checks, tests and builds `dist/`; `prepack` copies
+   the repository's `LICENSE` into the package. `publishConfig` makes the
+   scoped package public.
+3. Check it starts from npm:
+   ```bash
+   npx -y @crazzybot/folio-mcp --help
+   ```
+
 ---
 
 ## Project structure
