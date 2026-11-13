@@ -1,7 +1,7 @@
 # Agent integration: the MCP server
 
-Status: in progress (2026-11-12). The server (`packages/mcp`), the
-threads in the app and the Claude Code plugin are implemented. Builds on
+Status: implemented (2026-11-12): the server (`packages/mcp`), the threads
+in the app, the Claude Code plugin and Settings → Coding agents. Builds on
 [review-notes.md](review-notes.md) and [sending-notes.md](sending-notes.md).
 
 With Copy review notes, the user pastes notes into the agent, and nothing
@@ -46,6 +46,9 @@ next round.
 - **Status bar**: "Claude Code replied to 3 notes" while any note in the
   workspace has new replies; each click goes to the next of them.
 - The live demo keeps replies in the page, as its other marks.
+- **Settings → Coding agents** (desktop only: the demo's marks are in the
+  page, out of an agent's reach): the plugin's two install lines and the
+  `mcpServers` JSON for other clients, each with a **Copy** button.
 
 ## Tools
 

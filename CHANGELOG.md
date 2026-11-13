@@ -25,6 +25,9 @@ turns them into the next release's section.
   `/plugin install folio@folio`, sets up Folio's MCP server in Claude Code
   and adds **/folio:review**: the agent gets your review notes, revises the
   documents, and answers each note in Folio.
+- **Settings → Coding agents** in the desktop app: the two lines that
+  install the Claude Code plugin, and the MCP settings for Cursor, Codex and
+  other agents, each with a **Copy** button.
 
 ## [0.5.0] — 2026-11-12
 
