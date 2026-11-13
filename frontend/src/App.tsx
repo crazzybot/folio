@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route, useNavigate, useNavigationType, useParams, useLocation } from "react-router-dom";
-import { fetchAttachments, fetchDocumentContent, fetchDocuments } from "./api";
+import { fetchAttachments, fetchDocumentContent, fetchDocuments, fetchLastRead } from "./api";
 import { savedScrollPosition } from "./scrollHistory";
 import DocumentList from "./components/DocumentList";
 import DocumentNoteEditor from "./components/DocumentNoteEditor";
@@ -41,6 +41,9 @@ import { unreadCount } from "./reads";
 import { useMarkReadWhenShown, useReads } from "./useReads";
 import DemoBanner from "./components/DemoBanner";
 import DisplayMenu from "./components/DisplayMenu";
+import ChangesBanner from "./components/ChangesBanner";
+import { sectionChanges } from "../../packages/core/src/sections";
+import { slugify } from "./slug";
 import { BranchIcon, WorktreeIcon } from "./components/GitIcons";
 import { branchLabel, branchSentence, folderName, repositoryOf, useGitState } from "./git";
 import SettingsPanel from "./components/SettingsPanel";
@@ -50,7 +53,7 @@ import { defaultSelection, picked, sendDocuments, sendGroups } from "./sending";
 import { repliedNotes, repliesSummary } from "./threads";
 import type { Picked, SendItem, StateFilter } from "./sending";
 import styles from "./App.module.css";
-import type { DocumentMeta, HighlightColor, TextAnchor } from "./types";
+import type { DocumentMeta, HighlightColor, ReadVersion, TextAnchor } from "./types";
 import { getItem, setItem } from "./storage";
 import { OUTLINE_DRAWER_QUERY, SIDEBAR_DRAWER_QUERY, useDrawerFocus, useMediaQuery } from "./drawer";
 
@@ -119,6 +122,17 @@ type LoadState =
   | { status: "loading" }
   | { status: "success"; id: string; content: string; sha1: string | null }
   | { status: "error"; message: string };
+
+/** The version a changed document is compared with, while it's open. */
+interface ChangeBase {
+  docId: string;
+  read: ReadVersion;
+  baseline: boolean;
+  /** That version's text; null without a snapshot of it. */
+  text: string | null;
+  /** The banner was closed. */
+  closed: boolean;
+}
 
 /** The latest fetch result for a document. */
 type LoadedContent = { id: string } & (
@@ -609,6 +623,37 @@ function AppInner(): React.ReactElement {
   // Shown for a few seconds with the window focused: read, at the version shown
   const contentSha1 = contentState.status === "success" ? contentState.sha1 : null;
   useMarkReadWhenShown(contentId, contentSha1, contentId !== null && reads.unreadIds.has(contentId), reads.markRead);
+
+  // ── What changed since the version last read: captured when a changed
+  // document is shown, and kept (with that version's text) until another
+  // one is opened, so the banner doesn't vanish once the document is read
+  const [changeBase, setChangeBase] = useState<ChangeBase | null>(null);
+  if (changeBase !== null && changeBase.docId !== selectedId) setChangeBase(null);
+  const contentRead = contentId === null ? undefined : reads.byDoc.get(contentId);
+  const needsChangeBase =
+    contentId !== null &&
+    contentId === selectedId &&
+    changeBase === null &&
+    contentRead?.read != null &&
+    contentRead.read.sha1 !== contentRead.sha1;
+  useEffect(() => {
+    if (!needsChangeBase || contentId === null || contentRead?.read == null) return;
+    let cancelled = false;
+    const { read, baseline } = contentRead;
+    fetchLastRead(contentId)
+      .catch(() => null)
+      .then((text) => {
+        if (!cancelled) setChangeBase({ docId: contentId, read, baseline, text, closed: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsChangeBase, contentId, contentRead]);
+  const shownChangeBase = changeBase !== null && changeBase.docId === contentId && !changeBase.closed ? changeBase : null;
+  const changes = useMemo(
+    () => (shownChangeBase?.text == null || contentValue === null ? null : sectionChanges(shownChangeBase.text, contentValue)),
+    [shownChangeBase, contentValue],
+  );
   // Remember the shown document for the next launch (one that loaded, not a missing one)
   useEffect(() => {
     if (contentId !== null) rememberForWorkspace(LAST_DOCUMENT_KEY, contentId);
@@ -1227,6 +1272,22 @@ function AppInner(): React.ReactElement {
             attachments={attachments}
             currentLocation={selectedDoc?.location ?? null}
             onOpenDocument={handleOpenDocument}
+            banner={
+              shownChangeBase !== null && contentId !== null ? (
+                <ChangesBanner
+                  readAt={shownChangeBase.read.at}
+                  baseline={shownChangeBase.baseline}
+                  changes={changes}
+                  unread={reads.unreadIds.has(contentId)}
+                  onOpenSection={(heading) => handleOpenDocument(contentId, slugify(heading.text))}
+                  onMarkRead={() => {
+                    if (contentSha1 !== null) reads.markRead(contentId, contentSha1);
+                    setChangeBase({ ...shownChangeBase, closed: true });
+                  }}
+                  onClose={() => setChangeBase({ ...shownChangeBase, closed: true })}
+                />
+              ) : undefined
+            }
             documentNote={documentNote}
             onEditDocumentNote={openNoteEditor}
             onClearNoteRequest={() => {

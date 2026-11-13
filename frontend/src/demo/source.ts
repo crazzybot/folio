@@ -86,6 +86,7 @@ export function createDemoSource(base: string, storage: MarksStorage | null = br
       list: async () => (await reads()).list(),
       mark: async (docId, sha1) => (await reads()).mark(docId, sha1),
       unmark: async (docId) => (await reads()).unmark(docId),
+      snapshot: async (docId) => (await reads()).snapshot(docId),
       markFolder: async (folder) => (await reads()).markFolder(folder),
     },
     marks: {

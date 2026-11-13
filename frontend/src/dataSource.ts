@@ -40,6 +40,8 @@ export interface DataSource {
     list(): Promise<DocumentRead[]>;
     /** Record that the version with `sha1` was read; refused when the document has changed since. */
     mark(docId: string, sha1: string): Promise<void>;
+    /** The text of the version last read; null without a record or a snapshot of it. */
+    snapshot(docId: string): Promise<string | null>;
     /** Go back one read: changed again, or new when there was none before. */
     unmark(docId: string): Promise<void>;
     /** Mark every document under `folder` ("" for all) read at its current version. */

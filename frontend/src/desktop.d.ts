@@ -117,6 +117,7 @@ interface MarkdownDesktopApi {
     list(): Promise<DocumentRead[]>;
     mark(docId: string, sha1: string): Promise<void>;
     unmark(docId: string): Promise<void>;
+    snapshot(docId: string): Promise<string | null>;
     markFolder(folder: string): Promise<void>;
     /** Subscribe to changes from any window; returns an unsubscribe function. */
     onChange(callback: () => void): () => void;
