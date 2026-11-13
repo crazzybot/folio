@@ -434,6 +434,16 @@
   color: var(--color-text-subtle);
 }
 
+/* A missing document's branch, before its actions */
+.onBranch {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+}
+
 .missingMarks {
   list-style: none;
   padding: 2px 0;

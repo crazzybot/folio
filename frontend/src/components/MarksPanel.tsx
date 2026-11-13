@@ -481,8 +481,22 @@ export default function MarksPanel({
             )}
           </HoverCard>
         )}
-        {shownMissing.length > 0 && (
-          <MissingSection missing={shownMissing} documents={allDocuments} onRelink={onRelink} onForget={onForget} />
+        {shownMissing.some((m) => m.branch === undefined) && (
+          <MissingSection
+            missing={shownMissing.filter((m) => m.branch === undefined)}
+            documents={allDocuments}
+            onRelink={onRelink}
+            onForget={onForget}
+          />
+        )}
+        {shownMissing.some((m) => m.branch !== undefined) && (
+          <MissingSection
+            onOtherBranches
+            missing={shownMissing.filter((m) => m.branch !== undefined)}
+            documents={allDocuments}
+            onRelink={onRelink}
+            onForget={onForget}
+          />
         )}
       </div>
     </div>
@@ -724,6 +738,8 @@ function HighlightIcon(): React.ReactElement {
 
 interface MissingSectionProps {
   missing: readonly MissingMarks[];
+  /** The files are on other git branches, not gone: switching back shows them with their marks. */
+  onOtherBranches?: boolean;
   documents: readonly DocumentMeta[];
   onRelink: (recordId: string, docId: string) => void;
   onForget: (recordId: string) => void;
@@ -732,15 +748,21 @@ interface MissingSectionProps {
 /**
  * Marks of files that no longer exist (deleted, or moved and edited): moved
  * to the suggested document or one picked, or deleted. Nothing is deleted
- * without asking.
+ * without asking. Files on another branch are listed apart, with no
+ * suggestion: their marks are fine where they are.
  */
-function MissingSection({ missing, documents, onRelink, onForget }: MissingSectionProps): React.ReactElement {
+function MissingSection({ missing, onOtherBranches = false, documents, onRelink, onForget }: MissingSectionProps): React.ReactElement {
+  const headingId = onOtherBranches ? "folio-other-branches-heading" : "folio-missing-heading";
   return (
-    <section className={styles.missingSection} aria-labelledby="folio-missing-heading">
-      <h2 id="folio-missing-heading" className={styles.missingHeading}>
-        Missing documents ({missing.length})
+    <section className={styles.missingSection} aria-labelledby={headingId}>
+      <h2 id={headingId} className={styles.missingHeading}>
+        {onOtherBranches ? "On other branches" : "Missing documents"} ({missing.length})
       </h2>
-      <p className={styles.missingHint}>Their files were moved or deleted. Move the marks to a document, or delete them.</p>
+      <p className={styles.missingHint}>
+        {onOtherBranches
+          ? "Their files are on another branch. Switch to it and they show again, with their marks."
+          : "Their files were moved or deleted. Move the marks to a document, or delete them."}
+      </p>
       <ul className={styles.list}>
         {missing.map((m) => (
           <MissingItem key={m.recordId} marks={m} documents={documents} onRelink={onRelink} onForget={onForget} />
@@ -835,6 +857,7 @@ function MissingItem({ marks, documents, onRelink, onForget }: MissingItemProps)
 
       {mode === "idle" && (
         <div className={styles.missingActions}>
+          {marks.branch !== undefined && <span className={styles.onBranch}>On branch {marks.branch}</span>}
           {marks.suggestion !== null && (
             <button
               type="button"

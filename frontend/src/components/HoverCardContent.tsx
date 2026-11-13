@@ -1,9 +1,10 @@
 import React from "react";
 import { documentsInFolder } from "../documentTree";
+import { branchSentence, folderName } from "../git";
 import { requestDone, statusText } from "../status";
 import { isPrivate, lastSent, loopSentence, needsYou, sendableNote, stateOf } from "../sending";
 import type { NoteIconKind } from "../noteIcons";
-import type { DocumentMeta, DocumentNote, Highlight, Round } from "../types";
+import type { DocumentMeta, DocumentNote, GitRepository, Highlight, Round } from "../types";
 import NoteRequest from "./NoteRequest";
 import NoteStateIcon from "./NoteStateIcon";
 import StatusIcon from "./StatusIcon";
@@ -104,17 +105,22 @@ export function DocumentNoteCard({
   );
 }
 
-/** A folder: its path, how many documents it holds and how many have highlights. */
+/**
+ * A folder: its path, how many documents it holds and how many have
+ * highlights, and the branch of the git repository it's in (desktop).
+ */
 export function FolderCard({
   folder,
   label,
   documents,
   highlightCounts,
+  repository = null,
 }: {
   folder: string;
   label: string;
   documents: DocumentMeta[];
   highlightCounts: ReadonlyMap<string, number>;
+  repository?: GitRepository | null;
 }): React.ReactElement {
   const inside = documentsInFolder(documents, folder);
   const highlighted = inside.filter((doc) => (highlightCounts.get(doc.id) ?? 0) > 0).length;
@@ -126,6 +132,12 @@ export function FolderCard({
         {plural(inside.length, "document", "documents")}
         {highlighted > 0 && ` · ${highlighted} with highlights`}
       </div>
+      {repository !== null && (
+        <div className={styles.detail}>
+          {branchSentence(repository)}
+          {repository.mainCheckout !== null && ` · worktree of ${folderName(repository.mainCheckout)}`}
+        </div>
+      )}
     </>
   );
 }

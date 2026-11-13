@@ -238,6 +238,21 @@ describe("moved and deleted documents", () => {
     expect(existsSync(path.join(dataDir, "marks", `${recordId(at("docs/archive/html-title.md"))}.json`))).toBe(false);
   });
 
+  it("keeps the marks of a file that's on another branch where they are", async () => {
+    const moved = realPath(at("docs/archive/html-title.md"));
+    const renamed = realPath(at("docs/old/front-matter-untitled.md"));
+    const onOtherBranches = async (files: readonly string[]) =>
+      new Map(files.filter((file) => file === moved || file === renamed).map((file) => [file, "feature/x"]));
+    const after = await listMarks(store, WORKSPACE, await scanWorkspace(WORKSPACE, SKIP), { onOtherBranches });
+    // Not moved by itself, nor suggested a document
+    expect(recordOf(at("docs/html-title.md"))).toBeNull();
+    expect(after.missing.map((m) => [m.location, m.branch, m.suggestion])).toEqual([
+      ["docs/archive/html-title.md", "feature/x", null],
+      ["docs/gone.md", undefined, null],
+      ["docs/old/front-matter-untitled.md", "feature/x", null],
+    ]);
+  });
+
   it("moves marks to a chosen document", async () => {
     await store.relink(recordId(at("docs/old/front-matter-untitled.md")), at("docs/front-matter-untitled.md"));
     const after = await listing();

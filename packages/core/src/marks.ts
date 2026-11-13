@@ -817,6 +817,17 @@ export interface MissingMarks {
   note?: DocumentNote;
   /** The document the marks probably belong to now, if there's one. */
   suggestion: { docId: string; location: string } | null;
+  /** The other branch the file is on (switching to it finds the marks again); absent when on none. */
+  branch?: string;
+}
+
+export interface ListMarksOptions {
+  /**
+   * Of the given missing files (absolute paths), those on another branch of
+   * their repository, with the branch. Their marks are kept as they are:
+   * never moved by themselves, and no document is suggested.
+   */
+  onOtherBranches?: (files: readonly string[]) => Promise<ReadonlyMap<string, string>>;
 }
 
 /** A listed document (a workspace scan's). */
@@ -855,12 +866,14 @@ const filenameOf = (location: string) => location.slice(location.lastIndexOf("/"
  * A missing file's marks move by themselves to the one unmarked document
  * with the same content (a file moved or renamed without edits). Failing
  * that, the one unmarked document with the same file name is suggested when
- * most of the marks are found in it.
+ * most of the marks are found in it. Neither happens to a file that's on
+ * another branch (`options.onOtherBranches`).
  */
 export async function listMarks(
   store: MarksStore,
   workspace: string,
   documents: readonly ListedDocument[],
+  options: ListMarksOptions = {},
 ): Promise<{ documents: DocumentMarks[]; missing: MissingMarks[] }> {
   const state = async () => {
     const found = await store.inWorkspace(workspace);
@@ -869,7 +882,12 @@ export async function listMarks(
     return { found, missing, unmarked };
   };
   let { found, missing, unmarked } = await state();
-  if (missing.length > 0 && (await relinkUnedited(store, workspace, missing, unmarked))) {
+  const elsewhere: ReadonlyMap<string, string> =
+    missing.length > 0 && options.onOtherBranches !== undefined
+      ? await options.onOtherBranches(missing.map((entry) => entry.record.path)).catch(() => new Map())
+      : new Map();
+  const relinkable = missing.filter((entry) => !elsewhere.has(entry.record.path));
+  if (relinkable.length > 0 && (await relinkUnedited(store, workspace, relinkable, unmarked))) {
     ({ found, missing, unmarked } = await state());
   }
 
@@ -891,10 +909,11 @@ export async function listMarks(
 
   const listedMissing: MissingMarks[] = [];
   for (const { id, location, record } of missing.sort((a, b) => (a.location < b.location ? -1 : a.location > b.location ? 1 : 0))) {
+    const branch = elsewhere.get(record.path);
     const filename = filenameOf(location).toLowerCase();
     const namesakes = unmarked.filter((doc) => filenameOf(doc.location).toLowerCase() === filename);
     let suggestion: MissingMarks["suggestion"] = null;
-    const doc = namesakes.length === 1 ? namesakes[0] : undefined;
+    const doc = namesakes.length === 1 && branch === undefined ? namesakes[0] : undefined;
     if (doc !== undefined) {
       const content = await fs.readFile(path.join(workspace, ...doc.location.split("/")), "utf8").catch(() => null);
       if (content !== null && evidence(record, content, new Set(doc.headings.map((h) => h.text)))) {
@@ -909,6 +928,7 @@ export async function listMarks(
       highlights: record.highlights,
       ...(note === null ? {} : { note }),
       suggestion,
+      ...(branch === undefined ? {} : { branch }),
     });
   }
   return { documents: listed, missing: listedMissing };

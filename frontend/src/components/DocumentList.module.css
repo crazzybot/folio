@@ -616,6 +616,14 @@
   background: var(--mark-yellow-swatch);
 }
 
+/* A nested repository's folder off its base branch, or a linked worktree (desktop) */
+.folderBranch {
+  flex-shrink: 0;
+  display: flex;
+  margin-left: 6px;
+  color: var(--color-text-muted);
+}
+
 /* A collapsed folder with highlights inside: one dim dot */
 .folderMarks {
   flex-shrink: 0;
