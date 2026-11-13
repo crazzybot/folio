@@ -46,6 +46,9 @@ Other agents (Cursor, Codex and any other MCP client) run the server with
 Node 20.19 or later. The server reads your documents and never writes to
 them; the agent edits them with its own tools.
 
+**Settings → Coding agents** (`⌘,` / `Ctrl+,`) has both setups, each with
+a **Copy** button.
+
 ## What the agent receives
 
 The copied text is Markdown. Each note has the document's file path and line
