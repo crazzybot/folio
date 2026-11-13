@@ -8,6 +8,13 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Changed
+
+- **Settings → Review notes** is kept in `settings.json` in the desktop app
+  (`reviewIntroOn`, `reviewIntro`), so Folio's MCP server starts the notes
+  it gives an agent the same way. What you set in an earlier version is
+  moved there.
+
 ## [0.6.0] — 2026-11-13
 
 ### Added
@@ -30,13 +37,6 @@ turns them into the next release's section.
 - **Settings → Coding agents** in the desktop app: the two lines that
   install the Claude Code plugin, and the MCP settings for Cursor, Codex and
   other agents, each with a **Copy** button.
-
-### Changed
-
-- **Settings → Review notes** is kept in `settings.json` in the desktop app
-  (`reviewIntroOn`, `reviewIntro`), so Folio's MCP server starts the notes
-  it gives an agent the same way. What you set in an earlier version is
-  moved there.
 
 ## [0.5.0] — 2026-11-12
 
