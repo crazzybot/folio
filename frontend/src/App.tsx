@@ -43,6 +43,7 @@ import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
 import { defaultSelection, picked, sendDocuments, sendGroups } from "./sending";
+import { repliedNotes, repliesSummary } from "./threads";
 import type { Picked, SendItem, StateFilter } from "./sending";
 import styles from "./App.module.css";
 import type { DocumentMeta, HighlightColor, TextAnchor } from "./types";
@@ -593,7 +594,7 @@ function AppInner(): React.ReactElement {
   useEffect(() => {
     if (contentId !== null) rememberForWorkspace(LAST_DOCUMENT_KEY, contentId);
   }, [contentId]);
-  const { add: addMark, recolor, setNote, remove: removeMark, setLoop, toggleBookmark, removeBookmark } = marks;
+  const { add: addMark, recolor, setNote, remove: removeMark, setLoop, reply, markSeen, toggleBookmark, removeBookmark } = marks;
   const shownRounds = contentId === null ? undefined : marks.byDoc.get(contentId)?.rounds;
   // Changes to the shown document's marks, from the viewer
   const markHandlers = useMemo((): MarkHandlers | undefined => {
@@ -604,15 +605,20 @@ function AppInner(): React.ReactElement {
       setNote: (id: string, note: string | null) => void setNote(contentId, id, note),
       remove: (id: string) => void removeMark(contentId, id),
       setLoop: (id, changes) => void setLoop(contentId, id, changes),
+      reply: (id, text) => void reply(contentId, id, text),
+      markSeen: (id) => void markSeen(contentId, id),
       toggleHeadingBookmark: (heading) => void toggleBookmark(contentId, heading),
       rounds: shownRounds,
     };
-  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, toggleBookmark, shownRounds]);
+  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, reply, markSeen, toggleBookmark, shownRounds]);
   const shownMarks = contentId === null ? undefined : marks.byDoc.get(contentId);
   const documentBookmarked = shownMarks !== undefined && findBookmark(shownMarks.bookmarks, null) !== undefined;
 
   // ── The note on the document as a whole (document-notes.md) ────────────────
   const documentNote = shownMarks?.note;
+  const seeDocumentNote = useCallback(() => {
+    if (contentId !== null) void markSeen(contentId, null);
+  }, [contentId, markSeen]);
   const noteButtonRef = useRef<HTMLButtonElement>(null);
   // Pressing the button while the editor is open saves and closes it (as any
   // click outside it does); the click that follows mustn't open it again
@@ -658,6 +664,16 @@ function AppInner(): React.ReactElement {
     contentState.status === "error" ? contentState.message : null;
 
   const selectedDoc = documents.find((doc) => doc.id === selectedId) ?? null;
+
+  // ── Agents' new replies (docs/design/agent-integration.md): the status bar
+  // says who replied to how many notes; each click goes to the next one
+  const replied = useMemo(() => repliedNotes(marks.byDoc), [marks.byDoc]);
+  const repliedText = repliesSummary(replied);
+  const nextReplied = useRef(0);
+  const showNextReplied = useCallback(() => {
+    const note = replied[nextReplied.current++ % replied.length];
+    if (note !== undefined) openMark(note.docId, note.highlightId === null ? null : { highlight: note.highlightId });
+  }, [replied, openMark]);
 
   // ── Send review notes: notes as Markdown for a coding agent
   // (docs/design/review-notes.md), picked in the Send dialog; copying records
@@ -1070,6 +1086,8 @@ function AppInner(): React.ReactElement {
                 onSave={(changes) => void marks.saveDocumentNote(contentId, changes)}
                 onRemove={() => void marks.removeDocumentNote(contentId)}
                 onSetState={(state) => void marks.setDocumentNoteLoop(contentId, { state })}
+                onReply={(text) => void marks.reply(contentId, null, text)}
+                onSeen={seeDocumentNote}
                 onClose={() => setNoteEditor(null)}
               />
             )}
@@ -1299,6 +1317,18 @@ function AppInner(): React.ReactElement {
                 </button>
               </>
             )}
+          </span>
+        )}
+        {repliedText !== null && (
+          <span className={styles.statusItem} aria-live="polite">
+            <button
+              type="button"
+              className={styles.statusAction}
+              onClick={showNextReplied}
+              title={replied.length === 1 ? "Show the note" : "Show the next note with new replies"}
+            >
+              {repliedText}
+            </button>
           </span>
         )}
         {marks.error !== null && (

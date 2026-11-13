@@ -1,7 +1,7 @@
 # Agent integration: the MCP server
 
-Status: in progress (2026-11-12). The server (`packages/mcp`) is
-implemented; the app doesn't show replies yet. Builds on
+Status: in progress (2026-11-12). The server (`packages/mcp`) and the
+threads in the app are implemented. Builds on
 [review-notes.md](review-notes.md) and [sending-notes.md](sending-notes.md).
 
 With Copy review notes, the user pastes notes into the agent, and nothing
@@ -31,6 +31,21 @@ the MCP client's name ("claude-code" → "Claude Code"). A reply marked
 addressed sets the note to `addressed`; any other reply, the agent's
 question or the user's answer, sets it back to open so it goes with the
 next round.
+
+## In the app
+
+- **Highlight popover and the note on a document**: the note, then its
+  replies, each with its author and time (plain text, never rendered).
+  **Reply** opens a box under them (`⌘↩` / `Ctrl+Enter` sends); the reply is
+  the user's, and the note is open again. Only the MCP server writes an
+  agent's replies: the app's IPC always signs them as the user.
+- **New replies**: an agent's or imported reply after the thread's `seen`
+  time. Opening the note's popover (or the note on the document) sets
+  `seen`. Until then, its margin icon has a dot and its Marks view row a
+  **New reply** label.
+- **Status bar**: "Claude Code replied to 3 notes" while any note in the
+  workspace has new replies; each click goes to the next of them.
+- The live demo keeps replies in the page, as its other marks.
 
 ## Tools
 

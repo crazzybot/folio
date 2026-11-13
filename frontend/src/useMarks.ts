@@ -16,7 +16,9 @@ import {
   deleteHighlight,
   fetchMarks,
   forgetMarks,
+  markNoteSeen,
   relinkMarks,
+  replyToNote,
   sendNotes,
   setDocumentNote,
   unsendNotes,
@@ -72,6 +74,13 @@ export interface Marks {
   send(docs: readonly SendDocument[], markSent: boolean): Promise<SentRound | null>;
   /** Undo a round. */
   unsend(round: SentRound): Promise<void>;
+  /**
+   * Reply to a highlight's note (null: the document's note) as the user. The
+   * note is open again, to go with the next round.
+   */
+  reply(docId: string, highlightId: string | null, text: string): Promise<void>;
+  /** Record that the user saw a note's thread: its new replies are no longer new. */
+  markSeen(docId: string, highlightId: string | null): Promise<void>;
   /** Bookmark the document (`heading` null) or a heading, or remove that bookmark. */
   toggleBookmark(docId: string, heading: BookmarkHeading | null): Promise<void>;
   /** Remove a bookmark by id (e.g. one whose heading is gone). */
@@ -231,6 +240,31 @@ export default function useMarks(): Marks {
     [byDoc, update, failed],
   );
 
+  const reply = useCallback(
+    (docId: string, highlightId: string | null, text: string) =>
+      replyToNote(docId, highlightId, text).then((note) => {
+        if (highlightId === null) update(docId, (m) => withNote(m, note as DocumentNote));
+        else saved(docId)(note as Highlight);
+      }, failed("send the reply")),
+    [update, saved, failed],
+  );
+
+  // Seen is shown at once (the new-reply dots go), then saved
+  const markSeen = useCallback(
+    (docId: string, highlightId: string | null) => {
+      const seen = new Date().toISOString();
+      update(docId, (m) =>
+        highlightId === null
+          ? m.note === undefined
+            ? m
+            : { ...m, note: { ...m.note, seen } }
+          : { ...m, highlights: m.highlights.map((h) => (h.id === highlightId ? { ...h, seen } : h)) },
+      );
+      return markNoteSeen(docId, highlightId).catch(failed("mark the replies as read"));
+    },
+    [update, failed],
+  );
+
   // A send changes states and rounds across documents: reload them
   const send = useCallback(
     (docs: readonly SendDocument[], markSent: boolean) =>
@@ -311,6 +345,8 @@ export default function useMarks(): Marks {
     setDocumentNoteLoop,
     send,
     unsend,
+    reply,
+    markSeen,
     toggleBookmark,
     removeBookmark,
     saveDocumentNote,

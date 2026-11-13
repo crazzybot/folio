@@ -527,3 +527,14 @@
 .picker:focus {
   border-color: var(--color-accent);
 }
+
+/* A note with replies the user hasn't seen */
+.newReplies {
+  align-self: flex-start;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: #fff;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}

@@ -91,6 +91,8 @@ export function createDemoSource(base: string, storage: MarksStorage | null = br
       forget: async () => undefined,
       send: async (docs, markSent) => (await marks()).send(docs, markSent),
       unsend: async (round) => (await marks()).unsend(round),
+      reply: async (docId, highlightId, text) => (await marks()).reply(docId, highlightId, text),
+      markSeen: async (docId, highlightId) => (await marks()).markSeen(docId, highlightId),
     },
     resetMarks: async () => (await marks()).reset(),
   };

@@ -281,3 +281,16 @@
     transform: none;
   }
 }
+
+/* A note with replies the user hasn't seen: a dot on its marker */
+.noteMarkerNew::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 1.5px var(--color-bg);
+}

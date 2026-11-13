@@ -104,6 +104,9 @@ export interface MarkHandlers {
   remove: (id: string) => void;
   /** A note's place in the review loop (docs/design/sending-notes.md). */
   setLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
+  /** The user's reply to a note, and that they saw its thread (docs/design/agent-integration.md). */
+  reply: (id: string, text: string) => void;
+  markSeen: (id: string) => void;
   toggleHeadingBookmark: (heading: BookmarkHeading) => void;
   /** The document's latest rounds, for when a note was sent. */
   rounds?: readonly Round[] | undefined;
@@ -1175,6 +1178,8 @@ export default function MarkdownViewer({
               onRemove={markHandlers.remove}
               onSetLoop={markHandlers.setLoop}
               rounds={markHandlers.rounds}
+              onReply={markHandlers.reply}
+              onSeen={markHandlers.markSeen}
               onToggleBookmark={markHandlers.toggleHeadingBookmark}
               onPainted={handlePainted}
             />

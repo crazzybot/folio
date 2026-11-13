@@ -358,6 +358,22 @@ function registerIpcHandlers(): void {
     }
     notifyMarksChanged();
   });
+  // Threads (docs/design/agent-integration.md): the user's replies, and
+  // that they saw a thread. Replies from here are always the user's: only
+  // the MCP server writes an agent's
+  ipcMain.handle("marks:reply", async (event, docId: unknown, highlightId: unknown, text: unknown): Promise<Highlight | DocumentNote> => {
+    assertTrustedSender(event);
+    if (highlightId !== null && typeof highlightId !== "string") throw new Error("Highlight id must be a string or null");
+    const note = await marks.reply(await markedDocument(docId), highlightId, { author: { kind: "user" }, text });
+    notifyMarksChanged();
+    return note;
+  });
+  ipcMain.handle("marks:seen", async (event, docId: unknown, highlightId: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    if (highlightId !== null && typeof highlightId !== "string") throw new Error("Highlight id must be a string or null");
+    await marks.markSeen(await markedDocument(docId), highlightId);
+    notifyMarksChanged();
+  });
   // A missing document's marks: moved to a document, or deleted
   ipcMain.handle("marks:relink", async (event, recordId: unknown, docId: unknown): Promise<void> => {
     assertTrustedSender(event);
