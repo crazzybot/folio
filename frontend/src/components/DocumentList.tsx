@@ -9,8 +9,10 @@ import { hasFilters, NO_FILTERS, toggleFilter } from "../metaFilter";
 import type { FilterOption, MetaFilters } from "../metaFilter";
 import { isRetired, statusText } from "../status";
 import { branchSentence, isOnBase, repositoryAtFolder, repositoryOf } from "../git";
+import { readSentence, readStateOf } from "../reads";
+import type { ReadState } from "../reads";
 import { useRowHoverCard } from "../useRowHoverCard";
-import type { DocumentMeta, DocumentNote, GitRepository, GitState, Heading, SearchMatch, SearchResult } from "../types";
+import type { DocumentMeta, DocumentNote, DocumentRead, GitRepository, GitState, Heading, SearchMatch, SearchResult } from "../types";
 import DrawerCloseButton from "./DrawerCloseButton";
 import FilterMenu from "./FilterMenu";
 import { BranchIcon, WorktreeIcon } from "./GitIcons";
@@ -117,6 +119,16 @@ interface DocumentListProps {
   bookmarkedIds?: ReadonlySet<string>;
   /** The workspace's git repositories (desktop): folder icons and hover cards. */
   git?: GitState | null;
+  /** Each document's read record, by id: new and changed markers, hover cards. */
+  reads?: ReadonlyMap<string, DocumentRead>;
+  /** Documents that are new or changed. */
+  unreadIds?: ReadonlySet<string>;
+  /** Unread documents in the focused folder: the filter menu's Unread count. */
+  unreadCount?: number;
+  onMarkRead?: (docId: string) => void;
+  onMarkUnread?: (docId: string) => void;
+  /** Mark every document under a folder read. */
+  onMarkFolderRead?: (folder: string) => void;
   /** The sidebar's Documents | Marks switch, shown in place of the title. */
   tabs?: React.ReactNode;
   /** In a narrow window, where the sidebar is a drawer: closes it. */
@@ -154,6 +166,12 @@ export default function DocumentList({
   highlightCounts = NO_COUNTS,
   bookmarkedIds = NO_IDS,
   git = null,
+  reads = NO_READS,
+  unreadIds = NO_IDS,
+  unreadCount = 0,
+  onMarkRead,
+  onMarkUnread,
+  onMarkFolderRead,
   tabs,
   onCollapse,
 }: DocumentListProps): React.ReactElement {
@@ -321,6 +339,20 @@ export default function DocumentList({
     }
     return folders;
   }, [documents, highlightCounts]);
+
+  // How many unread documents each folder holds, at any depth
+  const unreadByFolder = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const doc of documents) {
+      if (!unreadIds.has(doc.id)) continue;
+      const parts = doc.location.split("/");
+      for (let i = 1; i < parts.length; i++) {
+        const folder = parts.slice(0, i).join("/");
+        counts.set(folder, (counts.get(folder) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [documents, unreadIds]);
 
   // ── Rows ───────────────────────────────────────────────────────────────────
   const rows: Row[] = [];
@@ -586,9 +618,17 @@ export default function DocumentList({
           </div>
           <div className={styles.searchTools}>
             {onFiltersChange !== undefined &&
-              (filterOptions.statuses.length > 0 || filterOptions.tags.length > 0 || hasFilters(filters)) && (
+              (filterOptions.statuses.length > 0 || filterOptions.tags.length > 0 || unreadCount > 0 || hasFilters(filters)) && (
                 <FilterMenu
                   sections={[
+                    {
+                      id: "read",
+                      heading: "Read",
+                      options:
+                        unreadCount > 0 || filters.unread
+                          ? [{ value: "unread", label: "Unread", count: unreadCount, checked: filters.unread }]
+                          : [],
+                    },
                     {
                       id: "status",
                       heading: "Status",
@@ -612,8 +652,14 @@ export default function DocumentList({
                       })),
                     },
                   ]}
-                  active={filters.statuses.length + filters.tags.length}
-                  onToggle={(section, value) => onFiltersChange(toggleFilter(filters, section === "status" ? "status" : "tag", value))}
+                  active={filters.statuses.length + filters.tags.length + (filters.unread ? 1 : 0)}
+                  onToggle={(section, value) =>
+                    onFiltersChange(
+                      section === "read"
+                        ? { ...filters, unread: !filters.unread }
+                        : toggleFilter(filters, section === "status" ? "status" : "tag", value),
+                    )
+                  }
                   onClear={() => onFiltersChange(NO_FILTERS)}
                   label="Filter by status and tags"
                   buttonClassName={styles.toolBtn}
@@ -640,6 +686,20 @@ export default function DocumentList({
         </div>
         {onFiltersChange !== undefined && hasFilters(filters) && (
           <div className={styles.filterChips} role="group" aria-label="Filters">
+            {filters.unread && (
+              <button
+                type="button"
+                className={styles.chip}
+                onClick={() => onFiltersChange({ ...filters, unread: false })}
+                aria-label="Remove filter: Unread"
+                title="Remove filter"
+              >
+                Unread
+                <span className={styles.chipRemove} aria-hidden="true">
+                  ×
+                </span>
+              </button>
+            )}
             {filters.statuses.map((status) => (
               <button
                 key={`s:${status}`}
@@ -757,6 +817,11 @@ export default function DocumentList({
                 repository={
                   row.kind === "folder" ? repositoryAtFolder(git, row.folderKey, row.label.split(FOLDER_SEPARATOR).length) : null
                 }
+                readState={row.kind === "document" ? readStateOf(reads.get(row.doc.id)) : "read"}
+                unread={row.kind === "folder" ? (unreadByFolder.get(row.folderKey) ?? 0) : 0}
+                onMarkRead={onMarkRead}
+                onMarkUnread={onMarkUnread}
+                onMarkFolderRead={onMarkFolderRead}
                 bookmarked={row.kind === "document" && bookmarkedIds.has(row.doc.id)}
                 highlightCount={
                   row.kind === "document"
@@ -778,6 +843,7 @@ export default function DocumentList({
               bookmarked={bookmarkedIds.has(cardRow.doc.id)}
               highlightCount={highlightCounts.get(cardRow.doc.id) ?? 0}
               note={documentNotes.get(cardRow.doc.id)}
+              read={readSentence(reads.get(cardRow.doc.id))}
             />
           ) : (
             <FolderCard
@@ -786,6 +852,7 @@ export default function DocumentList({
               documents={documents}
               highlightCounts={highlightCounts}
               repository={repositoryOf(git, cardRow.folderKey)}
+              unread={unreadByFolder.get(cardRow.folderKey) ?? 0}
             />
           )}
         </HoverCard>
@@ -836,6 +903,13 @@ interface RowItemProps {
   bookmarked: boolean;
   /** For a folder: the nested git repository whose root it is, if any. */
   repository: GitRepository | null;
+  /** For a document: new, changed or read. */
+  readState: ReadState;
+  /** For a folder: how many documents under it are unread. */
+  unread: number;
+  onMarkRead: ((docId: string) => void) | undefined;
+  onMarkUnread: ((docId: string) => void) | undefined;
+  onMarkFolderRead: ((folder: string) => void) | undefined;
 }
 
 function RowItem({
@@ -850,6 +924,11 @@ function RowItem({
   highlightCount,
   bookmarked,
   repository,
+  readState,
+  unread,
+  onMarkRead,
+  onMarkUnread,
+  onMarkFolderRead,
 }: RowItemProps): React.ReactElement {
   if (row.kind === "more") {
     return (
@@ -883,8 +962,9 @@ function RowItem({
           if (!api) return;
           e.preventDefault();
           const folder = row.folderKey;
-          void api.showFolderMenu(folder).then((choice) => {
+          void api.showFolderMenu(folder, unread > 0).then((choice) => {
             if (choice === "focus") onFocusFolder(folder);
+            if (choice === "mark-read") onMarkFolderRead?.(folder);
           });
         }}
       >
@@ -901,6 +981,11 @@ function RowItem({
         </svg>
         <span className={styles.entryTitle}>{row.label}</span>
         {repository !== null && <RepositoryIcon repository={repository} />}
+        {unread > 0 && (
+          <span className={styles.folderUnread} aria-label={`${unread} unread`}>
+            {unread}
+          </span>
+        )}
         {!row.expanded && highlightCount > 0 && (
           <span className={styles.folderMarks} aria-label="Has highlights" />
         )}
@@ -941,7 +1026,17 @@ function RowItem({
         className={`${styles.entry} ${selected ? styles.entrySelected : ""} ${status !== null && isRetired(status) ? styles.entryRetired : ""}`}
         style={tree ? { paddingLeft: TREE_PADDING + row.level * INDENT + CHEVRON } : undefined}
         aria-selected={selected}
-        aria-label={`${doc.title} — ${doc.location}${described}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
+        aria-label={`${doc.title} — ${doc.location}${described}${readState === "read" ? "" : ` — ${readState}`}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
+        onContextMenu={(e) => {
+          // Desktop: a native menu (Mark as Read, Mark as Unread); the browser keeps its own
+          const api = window.markdownApi;
+          if (!api) return;
+          e.preventDefault();
+          void api.showDocumentMenu(readState !== "read").then((choice) => {
+            if (choice === "read") onMarkRead?.(doc.id);
+            if (choice === "unread") onMarkUnread?.(doc.id);
+          });
+        }}
       >
         {status === null ? (
           <MarkdownIcon className={styles.entryIcon} />
@@ -950,6 +1045,13 @@ function RowItem({
         )}
         {prefix !== null && <span className={styles.entryPrefix}>{prefix}</span>}
         <span className={styles.entryTitle}>{title}</span>
+        {readState !== "read" && (
+          <span
+            className={`${styles.unreadDot} ${readState === "new" ? styles.unreadNew : ""}`}
+            title={readState === "new" ? "New" : "Changed since you read it"}
+            aria-hidden="true"
+          />
+        )}
         {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}
         {bookmarked && (
           <svg className={styles.bookmarked} width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
@@ -1004,5 +1106,6 @@ function RowItem({
 const LEAD_CHARS = 12;
 const NO_COUNTS: ReadonlyMap<string, number> = new Map();
 const NO_NOTES: ReadonlyMap<string, DocumentNote> = new Map();
+const NO_READS: ReadonlyMap<string, DocumentRead> = new Map();
 const NO_OPTIONS: { statuses: FilterOption[]; tags: FilterOption[] } = { statuses: [], tags: [] };
 const NO_IDS: ReadonlySet<string> = new Set();

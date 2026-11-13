@@ -163,6 +163,23 @@ contextBridge.exposeInMainWorld("markdownApi", {
       };
     },
   },
-  /** A folder's context menu in the document list; resolves "focus" or null. */
-  showFolderMenu: (location: string) => ipcRenderer.invoke("folder:context-menu", location),
+  /** Which version of each document was last read (see reads.ts). */
+  reads: {
+    list: () => ipcRenderer.invoke("reads:list"),
+    mark: (docId: string, sha1: string) => ipcRenderer.invoke("reads:mark", docId, sha1),
+    unmark: (docId: string) => ipcRenderer.invoke("reads:unmark", docId),
+    markFolder: (folder: string) => ipcRenderer.invoke("reads:mark-folder", folder),
+    /** Subscribe to changes from any window; returns an unsubscribe function. */
+    onChange: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on("reads:changed", listener);
+      return () => {
+        ipcRenderer.removeListener("reads:changed", listener);
+      };
+    },
+  },
+  /** A folder's context menu in the document list; resolves "focus", "mark-read" or null. */
+  showFolderMenu: (location: string, hasUnread: boolean) => ipcRenderer.invoke("folder:context-menu", location, hasUnread),
+  /** A document's context menu in the document list; resolves "read", "unread" or null. */
+  showDocumentMenu: (unread: boolean) => ipcRenderer.invoke("document:context-menu", unread),
 });

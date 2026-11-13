@@ -11,6 +11,7 @@
 import type { DataSource } from "../dataSource";
 import type { DocumentContent, DocumentMeta } from "../types";
 import { DemoMarks, type MarksStorage, type StoredMarks } from "./marks";
+import { DemoReads, sha1Of } from "./reads";
 import { searchDocuments } from "./search";
 
 export interface DemoBundle {
@@ -43,15 +44,19 @@ function browserStorage(): MarksStorage | null {
  * @param storage where marks are kept; null keeps them in memory
  */
 export function createDemoSource(base: string, storage: MarksStorage | null = browserStorage()): DemoSource {
-  let loaded: Promise<{ bundle: DemoBundle; marks: DemoMarks }> | null = null;
+  let loaded: Promise<{ bundle: DemoBundle; marks: DemoMarks; reads: DemoReads }> | null = null;
 
   // Fetched on first use; a failed fetch is retried on the next call
-  function load(): Promise<{ bundle: DemoBundle; marks: DemoMarks }> {
+  function load(): Promise<{ bundle: DemoBundle; marks: DemoMarks; reads: DemoReads }> {
     loaded ??= fetch(`${base}bundle.json`)
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         const bundle = (await res.json()) as DemoBundle;
-        return { bundle, marks: new DemoMarks(bundle.documents, bundle.seedMarks, storage) };
+        return {
+          bundle,
+          marks: new DemoMarks(bundle.documents, bundle.seedMarks, storage),
+          reads: new DemoReads(bundle.documents, bundle.contents, storage),
+        };
       })
       .catch((err: unknown) => {
         loaded = null;
@@ -62,6 +67,7 @@ export function createDemoSource(base: string, storage: MarksStorage | null = br
 
   const bundle = async () => (await load()).bundle;
   const marks = async () => (await load()).marks;
+  const reads = async () => (await load()).reads;
 
   return {
     listDocuments: async () => structuredClone((await bundle()).documents),
@@ -74,7 +80,13 @@ export function createDemoSource(base: string, storage: MarksStorage | null = br
     getDocumentContent: async (id): Promise<DocumentContent> => {
       const content = (await bundle()).contents[id];
       if (content === undefined) throw new Error(`Document '${id}' not found`);
-      return { id, content };
+      return { id, content, sha1: await sha1Of(content) };
+    },
+    reads: {
+      list: async () => (await reads()).list(),
+      mark: async (docId, sha1) => (await reads()).mark(docId, sha1),
+      unmark: async (docId) => (await reads()).unmark(docId),
+      markFolder: async (folder) => (await reads()).markFolder(folder),
     },
     marks: {
       list: async () => (await marks()).list(),

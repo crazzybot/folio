@@ -6,6 +6,7 @@ import type {
   DocumentContent,
   DocumentMeta,
   DocumentNote,
+  DocumentRead,
   Highlight,
   HighlightColor,
   MarksListing,
@@ -24,6 +25,12 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
     searchDocuments: (query) => api.searchDocuments(query),
     workspaceFileUrl: (encoded) => api.workspaceFileBaseUrl + encoded,
     getDocumentContent: (id) => api.getDocumentContent(id),
+    reads: {
+      list: () => api.reads.list(),
+      mark: (docId, sha1) => api.reads.mark(docId, sha1),
+      unmark: (docId) => api.reads.unmark(docId),
+      markFolder: (folder) => api.reads.markFolder(folder),
+    },
     marks: {
       list: () => api.marks.list(),
       addHighlight: (docId, body) => api.marks.addHighlight(docId, body),
@@ -59,6 +66,12 @@ const unavailableSource: DataSource = {
   searchDocuments: unavailable,
   workspaceFileUrl: () => "",
   getDocumentContent: unavailable,
+  reads: {
+    list: unavailable,
+    mark: unavailable,
+    unmark: unavailable,
+    markFolder: unavailable,
+  },
   marks: {
     list: unavailable,
     addHighlight: unavailable,
@@ -92,6 +105,25 @@ export async function fetchDocuments(): Promise<DocumentMeta[]> {
 /** Workspace-relative paths of the image files, for ![[image.png]] embeds. */
 export async function fetchAttachments(): Promise<string[]> {
   return source.listAttachments();
+}
+
+// ─── Read records ─────────────────────────────────────────────────────────────
+
+export async function fetchReads(): Promise<DocumentRead[]> {
+  return source.reads.list();
+}
+
+export async function markRead(docId: string, sha1: string): Promise<void> {
+  return source.reads.mark(docId, sha1);
+}
+
+export async function markUnread(docId: string): Promise<void> {
+  return source.reads.unmark(docId);
+}
+
+/** Mark every document under `folder` ("" for all) read. */
+export async function markFolderRead(folder: string): Promise<void> {
+  return source.reads.markFolder(folder);
 }
 
 /** Documents whose text contains `query` (case-insensitive; at least 2 characters). */

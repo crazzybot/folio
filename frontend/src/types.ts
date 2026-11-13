@@ -33,6 +33,25 @@ export interface DocumentMeta {
 export interface DocumentContent {
   id: string;
   content: string;
+  /** The SHA-1 of the version shown, which Mark as read records; absent when it couldn't be read. */
+  sha1?: string;
+}
+
+/** A version of a document that was read (packages/core/src/reads.ts). */
+export interface ReadVersion {
+  sha1: string;
+  /** ISO-8601. */
+  at: string;
+}
+
+/** A document's current version and what was last read of it. */
+export interface DocumentRead {
+  docId: string;
+  sha1: string;
+  /** Null when it was never read: it appeared after Folio first saw the workspace. */
+  read: ReadVersion | null;
+  /** Recorded when Folio first saw the workspace, not actually read. */
+  baseline: boolean;
 }
 
 /** A matching line in a document (full-text search). */

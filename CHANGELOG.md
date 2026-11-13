@@ -10,6 +10,14 @@ turns them into the next release's section.
 
 ### Added
 
+- **New and changed documents.** A dot after a document's title shows it
+  changed since you read it, and a ring shows it's new. Folders show how
+  many unread documents they hold, and the **Documents** tab shows the
+  total. **Unread** in the filter menu lists only those. A document counts
+  as read once it has been on screen for 3 seconds. In the desktop app,
+  right-click a document for **Mark as Read** or **Mark as Unread**, or a
+  folder for **Mark All as Read**. The first time you open a workspace,
+  everything in it counts as read.
 - **Git branches and worktrees** (desktop). The status bar shows the branch
   of the open document's repository, or the commit when it's detached, and
   a worktree icon in a linked worktree. Click it for the repository's

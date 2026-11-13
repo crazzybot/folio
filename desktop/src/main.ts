@@ -60,6 +60,8 @@ import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } f
 import { filesOnOtherBranches } from "../../packages/core/src/git";
 import { defaultDataDir, listMarks, MarkError, MarksStore, newRoundId } from "../../packages/core/src/marks";
 import type { Bookmark, DocumentMarks, DocumentNote, Highlight, MissingMarks } from "../../packages/core/src/marks";
+import { hashFile, ReadsStore } from "../../packages/core/src/reads";
+import type { DocumentRead } from "../../packages/core/src/reads";
 import { findDocument, scanAttachments, scanWorkspace, stableId } from "../../packages/core/src/scanner";
 import { searchWorkspace } from "./search";
 import type { SearchResult } from "./search";
@@ -265,6 +267,16 @@ function sendList(value: unknown): { docId: string; highlightIds: unknown; docum
   });
 }
 
+// Which version of each document was last read, in ~/.folio/reads; see reads.ts
+const reads = new ReadsStore(defaultDataDir());
+
+/** Tell every window that read records changed, so markers repaint. */
+function notifyReadsChanged(): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send("reads:changed");
+  }
+}
+
 /** Tell every window that marks changed, so lists and documents repaint. */
 function notifyMarksChanged(): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -279,13 +291,15 @@ function registerIpcHandlers(): void {
     return scanWorkspace(settings.workspace, scanOptions());
   });
 
-  ipcMain.handle("documents:content", async (event, docId: unknown): Promise<DocumentContent> => {
+  // With the SHA-1 of the version shown, which Mark as read records
+  ipcMain.handle("documents:content", async (event, docId: unknown): Promise<DocumentContent & { sha1?: string }> => {
     assertTrustedSender(event);
     if (typeof docId !== "string") throw new Error("Document id must be a string");
-    const result =
-      settings.workspace === null ? null : await findDocument(settings.workspace, docId, scanOptions());
-    if (result === null) throw new Error(`Document '${docId}' not found in workspace`);
-    return { id: result.meta.id, content: result.content };
+    const { workspace } = settings;
+    const result = workspace === null ? null : await findDocument(workspace, docId, scanOptions());
+    if (result === null || workspace === null) throw new Error(`Document '${docId}' not found in workspace`);
+    const sha1 = await hashFile(path.join(workspace, ...result.meta.location.split("/")));
+    return { id: result.meta.id, content: result.content, ...(sha1 === null ? {} : { sha1 }) };
   });
 
   ipcMain.handle("attachments:list", async (event): Promise<string[]> => {
@@ -299,6 +313,34 @@ function registerIpcHandlers(): void {
     if (typeof query !== "string") throw new Error("Search query must be a string");
     if (settings.workspace === null) return [];
     return searchWorkspace(settings.workspace, query, scanOptions());
+  });
+
+  // Read records: new and changed documents, Mark as read and as unread
+  ipcMain.handle("reads:list", async (event): Promise<DocumentRead[]> => {
+    assertTrustedSender(event);
+    if (settings.workspace === null) return [];
+    return reads.list(settings.workspace, await scanWorkspace(settings.workspace, scanOptions()));
+  });
+  ipcMain.handle("reads:mark", async (event, docId: unknown, sha1: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    await reads.mark(await markedDocument(docId), sha1);
+    notifyReadsChanged();
+  });
+  ipcMain.handle("reads:unmark", async (event, docId: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    await reads.unmark(await markedDocument(docId));
+    notifyReadsChanged();
+  });
+  // Every document under a folder ("" for the whole workspace), at its current version
+  ipcMain.handle("reads:mark-folder", async (event, folder: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    const { workspace } = settings;
+    if (typeof folder !== "string" || workspace === null) throw new Error("Folder must be a string");
+    const inside = (await scanWorkspace(workspace, scanOptions())).filter(
+      (doc) => folder === "" || doc.location.startsWith(`${folder}/`),
+    );
+    await reads.markAll(inside.map((doc) => path.join(workspace, ...doc.location.split("/"))));
+    notifyReadsChanged();
   });
 
   // Marks: listing, highlights, bookmarks, the document's note, and missing
@@ -468,28 +510,35 @@ function registerIpcHandlers(): void {
     event.returnValue = isRendererUrl(event.senderFrame?.url ?? "") ? settings.workspace : null;
   });
 
-  // A folder's context menu in the document list: Focus on Folder is the
-  // page's to apply; Open Folder as Workspace is done here
-  ipcMain.handle("folder:context-menu", async (event, location: unknown): Promise<"focus" | null> => {
+  // A folder's context menu in the document list: Focus on Folder and Mark
+  // All as Read are the page's to apply; Open Folder as Workspace is done here
+  ipcMain.handle(
+    "folder:context-menu",
+    async (event, location: unknown, hasUnread: unknown): Promise<"focus" | "mark-read" | null> => {
+      assertTrustedSender(event);
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const folder =
+        settings.workspace === null || typeof location !== "string" ? null : await folderInWorkspace(settings.workspace, location);
+      if (win === null || folder === null) return null;
+      const choice = await popupChoice<"focus" | "mark-read" | "open">(win, [
+        { label: "Focus on Folder", choice: "focus" },
+        { label: "Mark All as Read", choice: "mark-read", enabled: hasUnread === true },
+        null,
+        { label: "Open Folder as Workspace", choice: "open" },
+      ]);
+      if (choice === "open") await openWorkspace(win, folder);
+      return choice === "open" ? null : choice;
+    },
+  );
+
+  // A document's context menu in the document list: the page applies the choice
+  ipcMain.handle("document:context-menu", async (event, unread: unknown): Promise<"read" | "unread" | null> => {
     assertTrustedSender(event);
     const win = BrowserWindow.fromWebContents(event.sender);
-    const folder =
-      settings.workspace === null || typeof location !== "string" ? null : await folderInWorkspace(settings.workspace, location);
-    if (win === null || folder === null) return null;
-    const choice = await new Promise<"focus" | "open" | null>((resolve) => {
-      Menu.buildFromTemplate([
-        { label: "Focus on Folder", click: () => resolve("focus") },
-        { type: "separator" },
-        { label: "Open Folder as Workspace", click: () => resolve("open") },
-      ]).popup({
-        window: win,
-        // Called when the menu closes, which can come before the item's
-        // click: give the click a moment to resolve first
-        callback: () => setTimeout(() => resolve(null), 100),
-      });
-    });
-    if (choice === "open") await openWorkspace(win, folder);
-    return choice === "focus" ? "focus" : null;
+    if (win === null) return null;
+    return popupChoice<"read" | "unread">(win, [
+      unread === true ? { label: "Mark as Read", choice: "read" } : { label: "Mark as Unread", choice: "unread" },
+    ]);
   });
 
   // A file or folder dropped on the window (the renderer resolves its path)
@@ -541,6 +590,30 @@ function registerIpcHandlers(): void {
   ipcMain.handle("navigation:state", (event): NavigationState => {
     assertTrustedSender(event);
     return navigationState(event.sender);
+  });
+}
+
+/**
+ * Show a context menu of `items` (null: a separator) and resolve the choice
+ * of the one clicked, or null when the menu closes without one.
+ */
+function popupChoice<T>(
+  win: BrowserWindow,
+  items: readonly ({ label: string; choice: T; enabled?: boolean } | null)[],
+): Promise<T | null> {
+  return new Promise((resolve) => {
+    Menu.buildFromTemplate(
+      items.map((item): MenuItemConstructorOptions =>
+        item === null
+          ? { type: "separator" }
+          : { label: item.label, enabled: item.enabled ?? true, click: () => resolve(item.choice) },
+      ),
+    ).popup({
+      window: win,
+      // Called when the menu closes, which can come before the item's
+      // click: give the click a moment to resolve first
+      callback: () => setTimeout(() => resolve(null), 100),
+    });
   });
 }
 

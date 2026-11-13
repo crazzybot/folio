@@ -624,6 +624,29 @@
   color: var(--color-text-muted);
 }
 
+/* After a document's title: changed since it was read (filled) or new (a ring) */
+.unreadDot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.unreadNew {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--color-accent);
+}
+
+/* How many documents under a folder are unread */
+.folderUnread {
+  flex-shrink: 0;
+  margin-left: 6px;
+  font-size: var(--text-xs);
+  color: var(--color-accent);
+}
+
 /* A collapsed folder with highlights inside: one dim dot */
 .folderMarks {
   flex-shrink: 0;

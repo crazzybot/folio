@@ -126,3 +126,9 @@
 .title + .note {
   margin-top: var(--space-2);
 }
+
+/* New or changed since it was read */
+.unread {
+  margin-top: 2px;
+  color: var(--color-accent);
+}

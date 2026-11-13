@@ -11,10 +11,12 @@ const TABS: { view: SidebarView; label: string }[] = [
 interface SidebarTabsProps {
   view: SidebarView;
   onChange: (view: SidebarView) => void;
+  /** New and changed documents, shown after Documents ("Documents · 4"); none when 0. */
+  unread?: number;
 }
 
 /** Documents | Marks: the switch at the top of the sidebar, in place of its title. */
-export default function SidebarTabs({ view, onChange }: SidebarTabsProps): React.ReactElement {
+export default function SidebarTabs({ view, onChange, unread = 0 }: SidebarTabsProps): React.ReactElement {
   return (
     <div className={styles.tabs} role="tablist" aria-label="Sidebar">
       {TABS.map((tab) => (
@@ -38,6 +40,13 @@ export default function SidebarTabs({ view, onChange }: SidebarTabsProps): React
           tabIndex={tab.view === view ? 0 : -1}
         >
           {tab.label}
+          {tab.view === "documents" && unread > 0 && (
+            <span className={styles.unread}>
+              {" · "}
+              {unread}
+              <span className={styles.srOnly}> unread</span>
+            </span>
+          )}
         </button>
       ))}
     </div>
