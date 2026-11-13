@@ -1,0 +1,40 @@
+{
+  "name": "@crazzybot/folio-mcp",
+  "version": "0.1.0",
+  "description": "Folio's MCP server: gives a coding agent the review notes you left in Folio, and keeps its replies",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/crazzybot/folio.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://crazzybot.github.io/folio/docs/",
+  "bin": {
+    "folio-mcp": "dist/folio-mcp.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "prepack": "node -e \"require('node:fs').copyFileSync('../../LICENSE', 'LICENSE')\""
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
+    "@types/node": "^26.6.6",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0",
+    "zod": "^4.6.7"
+  }
+}

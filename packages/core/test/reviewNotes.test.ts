@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { formatReviewNotes, reviewPath, statusRequest } from "./reviewNotes";
-import type { ReviewDocument } from "./reviewNotes";
-import type { DocumentNote, Highlight } from "./types";
+import type { DocumentNote, Highlight } from "../src/marks";
+import { formatReviewNotes, reviewPath, statusRequest } from "../src/reviewNotes";
+import type { ReviewDocument } from "../src/reviewNotes";
 
 const SOURCE = `---
 title: Event store
@@ -232,5 +232,52 @@ describe("formatReviewNotes with a note on the document", () => {
     ]);
     expect(lines[8]).toBe("## docs/b.md");
     expect(lines[10]?.startsWith("1. docs/b.md:")).toBe(true);
+  });
+});
+
+describe("formatReviewNotes for an agent", () => {
+  it("gives each note's id and its replies", () => {
+    const h = highlight("one table per aggregate", {
+      id: "a1b2c3d4e5f60718",
+      note: "Why not a single table?",
+      replies: [
+        { id: "r1", author: { kind: "agent", name: "Claude Code" }, text: "Which table?", at: "2026-11-10T10:02:00Z" },
+        { id: "r2", author: { kind: "user" }, text: "The events table.\n\nOne for all.", at: "2026-11-10T10:05:00Z" },
+      ],
+    });
+    const { text } = formatReviewNotes([doc([h])], null, { threads: true });
+    expect(text).toBe(
+      [
+        `1. docs/adr.md:${lineOf("one table per")} · Event store › Decision · note a1b2c3d4`,
+        "   > one table per aggregate",
+        "",
+        "   Why not a single table?",
+        "",
+        "   Reply from Claude Code: Which table?",
+        "",
+        "   My reply: The events table.",
+        "",
+        "   One for all.",
+      ].join("\n"),
+    );
+    // Copied by hand: neither
+    expect(formatReviewNotes([doc([h])], null).text).not.toContain("a1b2c3d4");
+  });
+
+  it("names an imported comment's author", () => {
+    const h = highlight("one table per aggregate", { note: "Nit.", author: { kind: "github", login: "octocat" } });
+    expect(formatReviewNotes([doc([h])], null).text.split("\n").slice(-2)).toEqual(["   Nit.", "   — @octocat"]);
+  });
+
+  it("gives the replies to the document's note", () => {
+    const n: DocumentNote = {
+      text: "Ship it.",
+      requestedStatus: null,
+      created: "2026-11-08T10:00:00Z",
+      updated: "2026-11-08T10:00:00Z",
+      replies: [{ id: "r1", author: { kind: "agent" as const, name: "Codex" }, text: "Done.", at: "2026-11-10T10:02:00Z" }],
+    };
+    const { text } = formatReviewNotes([doc([], { note: n })], null, { threads: true });
+    expect(text).toBe(["Document: docs/adr.md", "Overall: Ship it.", "", "Reply from Codex: Done."].join("\n"));
   });
 });

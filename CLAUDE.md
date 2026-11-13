@@ -12,7 +12,8 @@ developer reference; CONTRIBUTING.md has the checks and commit conventions.
 |---|---|
 | `frontend/` | React + Vite + TypeScript UI. Built twice: for the desktop app, and as the live demo (`--mode demo`) |
 | `desktop/` | Electron main process (`src/main.ts`: window, `app://` scheme, IPC, menus), preload, updater, packaging |
-| `packages/core/` | Scanner, marks store, source mapping. Compiled from source into both the app and the demo; no build step of its own |
+| `packages/core/` | Scanner, marks store, source mapping, review notes formatting. Compiled from source into the app, the demo and the MCP server; no build step of its own |
+| `packages/mcp/` | The MCP server (`@crazzybot/folio-mcp` on npm): review notes and replies for coding agents. Bundled by esbuild; its own version |
 | `demo/` | The live demo's sample repository (`relay/`) and seed marks. `demo/build/` is generated |
 | `site/` | Product site (plain HTML/CSS/JS), on GitHub Pages at `crazzybot.github.io/folio/` |
 | `docs-site/` | User docs (VitePress), published at `/folio/docs/`. Linked from Help → Folio Documentation and the demo banner |
@@ -51,12 +52,13 @@ Run these for every package you touched before committing:
 cd frontend      && npm run lint && npx tsc --noEmit && npm test
 cd desktop       && npx tsc --noEmit && npm test
 cd packages/core && npm run typecheck && npm test
+cd packages/mcp  && npm run typecheck && npm test && npm run build
 cd docs-site     && npm run build
 node scripts/release.mjs --check          # versions agree everywhere
 ```
 
-A change to the core is compiled into the frontend and desktop too, so run
-their checks as well. Pages that change the site or the demo: look at them at
+A change to the core is compiled into the frontend, desktop and MCP server
+too, so run their checks as well. Pages that change the site or the demo: look at them at
 phone width (375px and 320px), with no horizontal scroll.
 
 ## Rules that are easy to break

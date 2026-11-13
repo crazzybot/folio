@@ -15,15 +15,8 @@ export function statusKind(status: string): StatusKind {
   return (KNOWN_STATUSES as readonly string[]).includes(status) ? (status as StatusKind) : "other";
 }
 
-/** A status as the scanners read it: its first word, lowercased, without trailing punctuation ("Accepted." → "accepted"). */
-export function normaliseStatus(text: string): string {
-  return (/^\S+/.exec(text.replace(/[*`]/g, "").trim())?.[0] ?? "").replace(/[.,;:!]+$/, "").toLowerCase();
-}
-
-/** Whether a document note's requested status is already the document's status. */
-export function requestDone(currentStatus: string | null | undefined, requested: string | null | undefined): boolean {
-  return currentStatus != null && requested != null && normaliseStatus(requested) === currentStatus;
-}
+// Shared with the MCP server, which asks for status changes the same way
+export { normaliseStatus, requestDone } from "../../packages/core/src/reviewNotes";
 
 /** Rejected, deprecated and superseded documents no longer apply: their titles are dimmed. */
 export function isRetired(status: string): boolean {

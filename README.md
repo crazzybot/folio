@@ -279,6 +279,35 @@ Connect API key's `.p8` text), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`.
 `.github/workflows/ci.yml` lints, type-checks and tests every push to `main`
 and every pull request.
 
+## Releasing the MCP server
+
+The MCP server (`packages/mcp`) is published to npm as
+`@crazzybot/folio-mcp`, by hand. It has its own version, separate from the
+app's; `scripts/release.mjs` doesn't change it.
+
+Once: own the `@crazzybot` scope on npm (the user or a free organisation of
+that name), turn on two-factor authentication, and run `npm login`.
+
+1. Set the new version in a pull request and merge it to `main`:
+   ```bash
+   cd packages/mcp
+   npm version patch --no-git-tag-version   # or minor, major
+   ```
+2. From a clean, up-to-date `main`:
+   ```bash
+   cd packages/mcp
+   npm ci
+   npm publish --dry-run   # the files: LICENSE, README.md, package.json, dist/
+   npm publish
+   ```
+   `prepublishOnly` type-checks, tests and builds `dist/`; `prepack` copies
+   the repository's `LICENSE` into the package. `publishConfig` makes the
+   scoped package public.
+3. Check it starts from npm:
+   ```bash
+   npx -y @crazzybot/folio-mcp --help
+   ```
+
 ---
 
 ## Project structure
@@ -290,11 +319,21 @@ folio/
 ├── demo/                         # the live demo's sample repository and seed marks
 ├── tests/fixtures/               # workspace, expected scan and marks for the tests
 │
-├── packages/core/                # shared by the app and (later) the MCP server and VS Code extension
+├── packages/core/                # shared by the app and the MCP server
 │   └── src/
 │       ├── marks.ts              # highlights, notes and bookmarks in ~/.folio
+│       ├── markTypes.ts          # the marks' data types, for the browser too
+│       ├── reviewNotes.ts        # notes as Markdown for an agent (Copy review notes)
 │       ├── scanner.ts            # workspace scanner, ID generation, title extraction
+│       ├── settings.ts           # the scan settings other processes read from settings.json
 │       └── sourceMap.ts          # where a highlighted quote is in the Markdown source
+│
+├── packages/mcp/                 # the MCP server (@crazzybot/folio-mcp): review notes for coding agents
+│   ├── build.mjs                 # bundles it with the core into dist/folio-mcp.mjs
+│   └── src/
+│       ├── folio.ts              # what the tools do: documents, notes, replies
+│       ├── server.ts             # the three MCP tools and their descriptions
+│       └── index.ts              # the folio-mcp command, over stdio
 │
 ├── desktop/
 │   ├── package.json              # Electron + electron-builder config
@@ -358,6 +397,16 @@ npm test             # Vitest: search, images, paths, file watchers
 cd packages/core
 
 npm test             # Vitest: scanner, marks store, locating quotes in the source
+```
+
+### MCP server
+
+```bash
+cd packages/mcp
+
+npm test             # Vitest: the tools, over a temporary workspace and data folder
+npm run build        # bundle → dist/folio-mcp.mjs
+node dist/folio-mcp.mjs --root ../../workspace   # serve over stdio, as an agent starts it
 ```
 
 ### Tests

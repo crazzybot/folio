@@ -1,4 +1,4 @@
-# Lint, type-check and test the frontend, the desktop app and the shared core.
+# Lint, type-check and test the frontend, the desktop app, the shared core and the MCP server.
 name: CI
 
 on:
@@ -20,6 +20,7 @@ jobs:
       core: ${{ steps.filter.outputs.core }}
       frontend: ${{ steps.filter.outputs.frontend }}
       desktop: ${{ steps.filter.outputs.desktop }}
+      mcp: ${{ steps.filter.outputs.mcp }}
       demo: ${{ steps.filter.outputs.demo }}
     steps:
       - uses: actions/checkout@v7
@@ -48,6 +49,11 @@ jobs:
               - tests/fixtures/**
               # test/demoSearch.test.ts checks it against desktop/src/search.ts
               - frontend/src/demo/search.ts
+            mcp:
+              - *ci
+              - packages/mcp/**
+              # Bundled into the server from source
+              - packages/core/src/**
             demo:
               - *ci
               - demo/**
@@ -66,7 +72,7 @@ jobs:
       - run: node scripts/release.mjs --check
 
   # packages/core: the marks store, the scanner and locating quotes in the
-  # source, shared by the desktop app, the frontend and (later) the MCP server
+  # source, shared by the desktop app, the frontend and the MCP server
   core:
     needs: changes
     if: needs.changes.outputs.core == 'true'
@@ -85,6 +91,27 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+
+  # packages/mcp: the MCP server, and that it still bundles
+  mcp:
+    needs: changes
+    if: needs.changes.outputs.mcp == 'true'
+    # macOS, like the core: the marks store's paths are case-insensitive there
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: packages/mcp
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: packages/mcp/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
 
   frontend:
     needs: changes
