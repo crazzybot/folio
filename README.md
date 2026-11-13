@@ -73,6 +73,7 @@ The app checks for updates at launch (**Folio → Check for Updates…**).
 - Highlights and notes: select text and pick one of four colours from the toolbar above it (or `⇧⌘H` / `Ctrl+Shift+H` for the last colour), or **Add note** to highlight it and write a note. Click a highlight to change its colour, write or edit its note, or remove it; highlights with a note show an icon in the margin. Hovering a section (heading, paragraph, list item, table, code block) shows a note button in the margin that highlights the whole section and opens its note. Highlights don't overlap: selecting text that is already highlighted opens that highlight instead. Documents with highlights show a count in the list, and the outline shows how many each section has
 - Send review notes: the header's clipboard button opens the Send dialog, a list of the open document's notes to tick (the ones not sent yet are ticked), with the exact text in its Text tab. Copying with **Don't send these notes again** (on by default) marks the copied notes as sent, so the next copy doesn't repeat them; **Undo** in the status bar takes it back. Highlights without a note, and notes locked with **Only me**, are private and never sent. The text has the open document's note on the document as a whole (its status change, with the line the status is on, and overall comment — a change the document already has is left out) and its highlights and notes as Markdown for a coding agent (Claude Code, Cursor, …) — each with its file path and line (`/path/to/spec.md:42`), section, quote and note, or `(no comment)` — and copies it. `⇧⌘C` / `Ctrl+Shift+C` (**Edit → Copy Review Notes**) copies the unsent notes without the dialog. Highlights no longer found in the document are left out. In the Marks view, the button on a document's row copies its notes, and the one beside the filter sends the notes the view shows (the focused folder, the filter box and the filter menu apply). Paths are absolute in the desktop app and workspace-relative in the live demo. **Settings → Review notes** changes or turns off the opening instructions for the agent
 - Replies on notes: a note's popover and the note on a document show its replies — a coding agent's, through Folio's MCP server (`packages/mcp`), and your own — each with its author and time. **Reply** answers a note, which opens it again for the next round. Replies you haven't read put a dot on the note's margin icon and a **New reply** label in the Marks view; the status bar says "Claude Code replied to 3 notes", and clicking it goes to each in turn
+- Claude Code plugin: `/plugin marketplace add crazzybot/folio`, then `/plugin install folio@folio`. It sets up Folio's MCP server and adds `/folio:review [paths…]`, which has the agent get your review notes, revise the documents and answer each note in Folio. Other agents (Cursor, Codex…) use the MCP server directly: see [packages/mcp](packages/mcp/README.md)
 - Notes on a document as a whole: the header's note button (beside the bookmark) opens an editor for an overall comment and a status to ask for (`accepted`, `rejected`, or any word). The note shows above the document — with "✓ Now accepted · Clear request" once the document has that status — first under the document in the Marks view, and in the hover cards
 - Bookmarks: bookmark the document with the header's bookmark button (`⌘D` / `Ctrl+D`), or a section with the button that appears beside a heading on hover
 - Marks view (the sidebar's **Marks** tab): the marks of every document in the workspace (or the focused folder), grouped by document — its bookmarked sections by heading, then its highlights and notes — with a filter box and a filter menu (the funnel): show only bookmarks, or only highlights and notes, and notes by state (Open, Sent, Addressed, Resolved, Private; resolved ones are hidden unless picked). **Only the open document** narrows the list to the document you're reading and follows you to the next one; a bar above the filter names it, with ✕ to show every document again. A ★ on a document's row means the document itself is bookmarked. Click one to go to it; Back returns. Highlights whose text was since deleted from the document are shown as not found, and can be removed there. The open document's bookmarked sections show a bookmark icon in its outline
@@ -309,6 +310,26 @@ that name), turn on two-factor authentication, and run `npm login`.
    npx -y @crazzybot/folio-mcp --help
    ```
 
+## Releasing the Claude Code plugin
+
+The plugin (`plugins/folio`) is served from this repository, which is also
+its marketplace (`.claude-plugin/marketplace.json`): users get what's on
+`main`. It runs the MCP server with `npx -y @crazzybot/folio-mcp`, so a new
+server release needs no plugin release.
+
+1. Change the plugin in a pull request, and raise `version` in
+   `plugins/folio/.claude-plugin/plugin.json`: installed copies update only
+   when it changes. Check both manifests:
+   ```bash
+   claude plugin validate .
+   claude plugin validate plugins/folio
+   ```
+2. Try it in a project before merging:
+   ```bash
+   claude --plugin-dir path/to/folio/plugins/folio
+   ```
+3. Merge it to `main`. Users get it with `/plugin marketplace update folio`.
+
 ---
 
 ## Project structure
@@ -335,6 +356,11 @@ folio/
 │       ├── folio.ts              # what the tools do: documents, notes, replies
 │       ├── server.ts             # the three MCP tools and their descriptions
 │       └── index.ts              # the folio-mcp command, over stdio
+│
+├── .claude-plugin/marketplace.json  # this repository as a Claude Code plugin marketplace
+├── plugins/folio/                # the Claude Code plugin: the MCP server and /folio:review
+│   ├── .mcp.json                 # runs npx -y @crazzybot/folio-mcp
+│   └── skills/review/SKILL.md    # /folio:review: address the notes, answer each one
 │
 ├── desktop/
 │   ├── package.json              # Electron + electron-builder config

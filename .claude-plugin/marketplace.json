@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "folio",
+  "description": "Folio's plugins for Claude Code",
+  "owner": {
+    "name": "crazzybot"
+  },
+  "plugins": [
+    {
+      "name": "folio",
+      "description": "Address the review notes you left in Folio on your project's Markdown documents, and answer each one in Folio",
+      "category": "productivity",
+      "homepage": "https://crazzybot.github.io/folio/",
+      "source": "./plugins/folio"
+    }
+  ]
+}

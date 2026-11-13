@@ -21,6 +21,10 @@ turns them into the next release's section.
   Replies you haven't read put a dot on the note's margin icon and a
   **New reply** label in the Marks view, and the status bar says "Claude
   Code replied to 3 notes"; click it to go to each in turn.
+- **Claude Code plugin.** `/plugin marketplace add crazzybot/folio`, then
+  `/plugin install folio@folio`, sets up Folio's MCP server in Claude Code
+  and adds **/folio:review**: the agent gets your review notes, revises the
+  documents, and answers each note in Folio.
 
 ## [0.5.0] — 2026-11-12
 
