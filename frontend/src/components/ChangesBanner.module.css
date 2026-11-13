@@ -1,0 +1,128 @@
+/* Same column as the article's text (MarkdownViewer.module.css .article), above the document's properties */
+.wrap {
+  width: 100%;
+  max-width: var(--reading-width, 880px);
+  margin: var(--space-4) auto 0;
+  padding: 0 var(--space-8);
+}
+
+.banner {
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+/* A changed document's dot, as in the document list */
+.dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.since {
+  color: var(--color-text);
+}
+
+.sections {
+  overflow-wrap: anywhere;
+}
+
+.section {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--color-link);
+  cursor: pointer;
+}
+
+.section:hover {
+  text-decoration: underline;
+}
+
+.addedMark {
+  color: var(--color-text-subtle);
+}
+
+.removed {
+  text-decoration: line-through;
+  color: var(--color-text-subtle);
+}
+
+.actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.action {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  color: var(--color-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.action:hover,
+.close:hover {
+  background: var(--color-hover-bg);
+}
+
+.close {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.action:focus-visible,
+.close:focus-visible,
+.section:focus-visible {
+  outline: 1px solid var(--color-accent);
+}
+
+/* At phone width the actions go under the text */
+@media (max-width: 480px) {
+  .banner {
+    flex-wrap: wrap;
+  }
+
+  .actions {
+    margin-left: auto;
+  }
+}
+
+@media print {
+  .wrap {
+    display: none;
+  }
+}

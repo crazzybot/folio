@@ -10,6 +10,13 @@ turns them into the next release's section.
 
 ### Added
 
+- **What changed since you read it.** A changed document opens with a
+  banner above it: since when, and which sections changed, were added or
+  were removed, each a link to its section. **Mark as Read** is there while
+  it's unread, and the banner stays until you open another document. Folio
+  keeps the version you last read (in `~/.folio/snapshots`, compressed) to
+  compare with, and deletes versions nothing points at any more when it
+  starts.
 - **New and changed documents.** A dot after a document's title shows it
   changed since you read it, and a ring shows it's new. Folders show how
   many unread documents they hold, and the **Documents** tab shows the

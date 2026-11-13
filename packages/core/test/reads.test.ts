@@ -99,6 +99,31 @@ describe("ReadsStore", () => {
   });
 });
 
+describe("snapshots", () => {
+  it("keeps the version read, so a changed document can be compared with it", async () => {
+    await store.list(workspace, docs("docs/a.md"));
+    edit("docs/a.md", "# A, revised\n");
+    expect(await store.lastRead(at("docs/a.md"))).toBe("# A\n");
+    await store.mark(at("docs/a.md"), sha1("# A, revised\n"));
+    expect(await store.lastRead(at("docs/a.md"))).toBe("# A, revised\n");
+    expect(await store.lastRead(at("docs/none.md"))).toBeNull();
+  });
+
+  it("collects snapshots no record points at", async () => {
+    await store.list(workspace, docs("docs/a.md", "docs/b.md"));
+    edit("docs/a.md", "# A2\n");
+    await store.mark(at("docs/a.md"), sha1("# A2\n"));
+    edit("docs/a.md", "# A3\n");
+    await store.mark(at("docs/a.md"), sha1("# A3\n"));
+    // a.md's last read and the one before, and b.md's
+    const keep = await store.versions();
+    expect([...keep].sort()).toEqual([sha1("# A2\n"), sha1("# A3\n"), sha1("# B\n")].sort());
+    expect(await store.snapshots.collect(keep)).toBe(1);
+    expect(await store.snapshots.read(sha1("# A\n"))).toBeNull();
+    expect(await store.snapshots.read(sha1("# A2\n"))).toBe("# A2\n");
+  });
+});
+
 describe("hashFile", () => {
   it("hashes the bytes, and is null for a missing file", async () => {
     writeFileSync(at("docs/crlf.md"), "one\r\ntwo\r\n");

@@ -111,6 +111,15 @@ export class DemoReads {
     this.save();
   }
 
+  /**
+   * The text of the version last read. The demo's documents never change,
+   * so that's the current text when the record is of it, else none.
+   */
+  async snapshot(docId: string): Promise<string | null> {
+    const read = this.documents?.[docId]?.read;
+    return read !== undefined && (await this.current()).get(docId) === read.sha1 ? (this.contents[docId] ?? null) : null;
+  }
+
   async markFolder(folder: string): Promise<void> {
     const hashes = await this.current();
     for (const doc of this.listed) {

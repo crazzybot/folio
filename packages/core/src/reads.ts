@@ -12,12 +12,16 @@
  * record is recorded as read at its current version (a baseline), so the
  * list isn't all "new" on day one. The workspaces seen are kept in
  * reads/workspaces.json, so this happens once per workspace.
+ *
+ * Each version recorded as read is also kept as a snapshot (snapshots.ts),
+ * so a changed document can be compared with it.
  */
 
 import { createHash, randomBytes } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { MarkError, realPath, recordId } from "./marks";
+import { sha1Of, SnapshotStore } from "./snapshots";
 
 const VERSION = 1;
 const SHA1 = /^[0-9a-f]{40}$/;
@@ -99,11 +103,13 @@ function isReadRecord(value: unknown): value is ReadRecord {
 
 export class ReadsStore {
   readonly folder: string;
+  readonly snapshots: SnapshotStore;
   // Changes are read–modify–write of one file: run them one at a time
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(dataDir: string) {
     this.folder = path.join(dataDir, "reads");
+    this.snapshots = new SnapshotStore(dataDir);
   }
 
   private file(id: string): string {
@@ -175,6 +181,7 @@ export class ReadsStore {
           doc.read = { sha1: doc.sha1, at };
           doc.baseline = true;
           await this.write(recordId(doc.file), { version: VERSION, path: realPath(doc.file), read: doc.read, baseline: true });
+          await this.keepSnapshot(doc.file, doc.sha1);
         }
         await this.writeJson(this.workspacesFile, { ...seen, [root]: at });
       }
@@ -189,7 +196,9 @@ export class ReadsStore {
   async mark(file: string, sha1: unknown): Promise<ReadVersion> {
     if (typeof sha1 !== "string" || !SHA1.test(sha1)) throw new MarkError(400, "sha1 must be a SHA-1 in hex");
     return this.serially(async () => {
-      if ((await hashFile(file)) !== sha1) throw new MarkError(409, "The document changed since it was shown");
+      const bytes = await fs.readFile(file).catch(() => null);
+      if (bytes === null || sha1Of(bytes) !== sha1) throw new MarkError(409, "The document changed since it was shown");
+      await this.snapshots.save(bytes);
       const id = recordId(file);
       const old = await this.read(id);
       const read = { sha1, at: new Date().toISOString() };
@@ -198,6 +207,36 @@ export class ReadsStore {
       await this.write(id, { version: VERSION, path: realPath(file), read, ...(previous ? { previous } : {}), baseline: false });
       return read;
     });
+  }
+
+  /** Snapshot `file` when its bytes are still the version `sha1`. */
+  private async keepSnapshot(file: string, sha1: string): Promise<void> {
+    const bytes = await fs.readFile(file).catch(() => null);
+    if (bytes !== null && sha1Of(bytes) === sha1) await this.snapshots.save(bytes).catch(() => {});
+  }
+
+  /** The text of the version of `file` last read, or null without a record or a snapshot of it. */
+  async lastRead(file: string): Promise<string | null> {
+    const record = await this.read(recordId(file));
+    return record === null ? null : this.snapshots.read(record.read.sha1);
+  }
+
+  /** Every version a record points at (last read and the one before), for collecting snapshots. */
+  async versions(): Promise<Set<string>> {
+    const versions = new Set<string>();
+    let names: string[];
+    try {
+      names = (await fs.readdir(this.folder)).filter((name) => name.endsWith(".json") && name !== "workspaces.json");
+    } catch {
+      return versions;
+    }
+    for (const name of names) {
+      const record = await this.read(name.slice(0, -".json".length));
+      if (record === null) continue;
+      versions.add(record.read.sha1);
+      if (record.previous !== undefined) versions.add(record.previous.sha1);
+    }
+    return versions;
   }
 
   /** Mark each of `files` read at its current version. */

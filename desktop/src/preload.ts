@@ -168,6 +168,8 @@ contextBridge.exposeInMainWorld("markdownApi", {
     list: () => ipcRenderer.invoke("reads:list"),
     mark: (docId: string, sha1: string) => ipcRenderer.invoke("reads:mark", docId, sha1),
     unmark: (docId: string) => ipcRenderer.invoke("reads:unmark", docId),
+    /** The text of the version last read; null without one. */
+    snapshot: (docId: string) => ipcRenderer.invoke("reads:snapshot", docId),
     markFolder: (folder: string) => ipcRenderer.invoke("reads:mark-folder", folder),
     /** Subscribe to changes from any window; returns an unsubscribe function. */
     onChange: (callback: () => void) => {

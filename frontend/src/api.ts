@@ -29,6 +29,7 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
       list: () => api.reads.list(),
       mark: (docId, sha1) => api.reads.mark(docId, sha1),
       unmark: (docId) => api.reads.unmark(docId),
+      snapshot: (docId) => api.reads.snapshot(docId),
       markFolder: (folder) => api.reads.markFolder(folder),
     },
     marks: {
@@ -70,6 +71,7 @@ const unavailableSource: DataSource = {
     list: unavailable,
     mark: unavailable,
     unmark: unavailable,
+    snapshot: unavailable,
     markFolder: unavailable,
   },
   marks: {
@@ -119,6 +121,11 @@ export async function markRead(docId: string, sha1: string): Promise<void> {
 
 export async function markUnread(docId: string): Promise<void> {
   return source.reads.unmark(docId);
+}
+
+/** The text of the version of a document last read; null without one. */
+export async function fetchLastRead(docId: string): Promise<string | null> {
+  return source.reads.snapshot(docId);
 }
 
 /** Mark every document under `folder` ("" for all) read. */

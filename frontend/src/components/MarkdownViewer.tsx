@@ -79,6 +79,8 @@ interface MarkdownViewerProps {
   onEditDocumentNote?: (from: HTMLElement) => void;
   /** Remove the note's requested status once the document has it. */
   onClearNoteRequest?: () => void;
+  /** Shown above the document's properties: what changed since it was read. */
+  banner?: React.ReactNode;
   /** Search text to highlight in the document ("" for none). */
   searchQuery?: string;
   /** A search match to scroll to once its document is shown. */
@@ -590,6 +592,7 @@ export default function MarkdownViewer({
   documentNote,
   onEditDocumentNote,
   onClearNoteRequest,
+  banner,
   searchQuery = "",
   searchFocus = null,
   showOutline = false,
@@ -1181,6 +1184,7 @@ export default function MarkdownViewer({
           {/* ── Rendered markdown ── */}
           {!loading && error === null && content !== null && (
             <>
+            {banner}
             {currentDoc !== undefined && (currentDoc.meta !== undefined || documentNote !== undefined) && (
               <DocumentProperties
                 doc={currentDoc}

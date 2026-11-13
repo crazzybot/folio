@@ -4,8 +4,8 @@ Status: implemented (2026-11-13).
 
 Agents regenerate specs and ADRs often, and a reviewer can't re-read a
 whole folder to find what changed. Folio remembers which version of each
-document the user last read, and shows which documents are new or changed
-since.
+document the user last read, shows which documents are new or changed
+since, and which sections of a changed document changed.
 
 ## Decisions
 
@@ -15,6 +15,8 @@ since.
 | When a document counts as read | Shown for 3 seconds with the window focused and visible. Also **Mark as Read** in the document's context menu (desktop) |
 | First run | The first time a workspace is listed, every document in it without a record is recorded as read at its current version (a baseline), so the list isn't all "new" on day one. The workspaces seen are kept, so this happens once per workspace |
 | Where it's kept | `~/.folio/reads/`, beside `marks/`: it's the user's state, like marks. Not in the marks record, which is deleted once empty and drives re-linking |
+| Old versions | The text of each version recorded as read, in `~/.folio/snapshots/`, gzipped and named by SHA-1, so shared versions are kept once. Not over 2 MB (the search limit). No git needed |
+| What "changed" means for sections | A section is a heading and its lines up to the next heading of any level; it changed when its text differs, whitespace aside. Text before the first heading and the front matter count on their own |
 | Live demo | The same rules, with records kept in the browser like the demo's marks |
 
 ## Model
@@ -24,6 +26,8 @@ since.
   reads/
     <record-id>.json        same id as marks: SHA-1 of the normalised real path
     workspaces.json         workspaces seen (real path → first seen), for the baseline
+  snapshots/
+    <sha1>.md.gz            a version some read record or review round points at
 ```
 
 ```json
@@ -46,6 +50,12 @@ since.
   again keeps `previous` as it was.
 - Records are written atomically (temp file, then rename), and changes run
   one at a time, as for marks (marks.md).
+- A snapshot is written whenever a version is recorded as read: at the
+  baseline and on Mark as Read. At launch the desktop app deletes snapshots
+  that no read record (its last read or the one before) or review round
+  (the version sent, agent-integration.md) points at. Records made before
+  snapshots existed have none; their banner says since when, not which
+  sections.
 
 ### The current version
 
@@ -73,6 +83,15 @@ a version that wasn't shown is never recorded as read.
   an **Unread** chip while it's on. Remembered per workspace with the status
   and tag filters. The open document stays listed once it's read, so it
   doesn't vanish while being read.
+- **The banner** above a changed document: "Changed since you read it on 3
+  Nov · 4 sections", then the sections that changed or were added (links
+  to them; added ones marked "(new)") and removed ones (struck through),
+  five named and "and N more", then "the front matter" and "the opening"
+  when those changed. **Mark as Read** while the document is unread; ×
+  closes it. The version compared with is the one last read when the
+  document was opened, and the banner stays until another document is
+  opened: reading it for 3 seconds marks it read but doesn't hide what
+  changed.
 - **Context menus** (desktop): **Mark as Read** or **Mark as Unread** on a
   document, **Mark All as Read** on a folder with unread documents.
 
@@ -83,6 +102,7 @@ a version that wasn't shown is never recorded as read.
 | Each document's current SHA-1 and record | `reads:list` |
 | Mark read (the SHA-1 of the version shown) | `reads:mark` |
 | Go back one read | `reads:unmark` |
+| The text of the version last read | `reads:snapshot` |
 | Mark every document under a folder read | `reads:mark-folder` |
 
 Every window is told with `reads:changed`. The demo's data source has the
@@ -91,6 +111,11 @@ same calls (`frontend/src/demo/reads.ts`).
 ## Implementation
 
 - `packages/core/src/reads.ts`: `ReadsStore` and `hashFile`.
+- `packages/core/src/snapshots.ts`: `SnapshotStore` (save, read, collect).
+- `packages/core/src/sections.ts`: `sectionChanges`, on headings found by
+  `headings.ts` (the scanner's heading parsing, without Node, so the
+  frontend compiles it too).
+- `frontend/src/components/ChangesBanner.tsx`: the banner.
 - `frontend/src/reads.ts`: a document's state and the words for it;
   `frontend/src/useReads.ts`: the records, kept up to date, and marking the
   shown document read.

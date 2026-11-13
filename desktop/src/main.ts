@@ -270,6 +270,18 @@ function sendList(value: unknown): { docId: string; highlightIds: unknown; docum
 // Which version of each document was last read, in ~/.folio/reads; see reads.ts
 const reads = new ReadsStore(defaultDataDir());
 
+/**
+ * Delete snapshots nothing points at any more: not a read record (its last
+ * read or the one before), nor a review round (the version sent).
+ */
+async function collectSnapshots(): Promise<void> {
+  const keep = await reads.versions();
+  for (const [, record] of await marks.records()) {
+    for (const round of record.rounds ?? []) keep.add(round.sha1);
+  }
+  await reads.snapshots.collect(keep);
+}
+
 /** Tell every window that read records changed, so markers repaint. */
 function notifyReadsChanged(): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -325,6 +337,11 @@ function registerIpcHandlers(): void {
     assertTrustedSender(event);
     await reads.mark(await markedDocument(docId), sha1);
     notifyReadsChanged();
+  });
+  // The text of the version last read, to show what changed since; null without one
+  ipcMain.handle("reads:snapshot", async (event, docId: unknown): Promise<string | null> => {
+    assertTrustedSender(event);
+    return reads.lastRead(await markedDocument(docId));
   });
   ipcMain.handle("reads:unmark", async (event, docId: unknown): Promise<void> => {
     assertTrustedSender(event);
@@ -1453,6 +1470,7 @@ void app.whenReady().then(() => {
   });
   restartWatcher();
   watchMarks(marks.folder, (id) => marks.changedOutside(id), notifyMarksChanged);
+  void collectSnapshots().catch(() => {});
   // Coming back to the window: a branch made or checked out elsewhere shows
   app.on("browser-window-focus", () => void refreshGit());
   Menu.setApplicationMenu(buildMenu());
