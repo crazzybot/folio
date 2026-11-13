@@ -4,8 +4,12 @@
 
 Documents are grouped by folder; the toggle in the sidebar header switches
 grouping on and off. Numbered documents such as `0015-hmac.md` show their
-number before the title. Hover a document to see its full title, location,
-status, tags and marks.
+number before the title. Well-known documents (`README.md`, `AGENTS.md`,
+`CLAUDE.md`, `CHANGELOG.md` and the like, or any name in capitals such as
+`SPEC.md`) show their name before the title, so an `AGENTS.md` and a
+`CLAUDE.md` with the same title are told apart. A title that only repeats the
+name, such as `# Changelog`, is shown alone. Hover a document to see its full
+title, location, status, tags and marks.
 
 ## Statuses and tags
 
