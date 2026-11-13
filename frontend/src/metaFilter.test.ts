@@ -28,15 +28,22 @@ describe("filterByMeta", () => {
   });
 
   it("matches any chosen status", () => {
-    expect(names(filterByMeta(docs, { statuses: ["accepted", "draft"], tags: [] }))).toEqual(["a.md", "d.md"]);
+    expect(names(filterByMeta(docs, { statuses: ["accepted", "draft"], tags: [], unread: false }))).toEqual(["a.md", "d.md"]);
   });
 
   it("matches any chosen tag", () => {
-    expect(names(filterByMeta(docs, { statuses: [], tags: ["auth", "retries"] }))).toEqual(["b.md", "c.md", "e.md"]);
+    expect(names(filterByMeta(docs, { statuses: [], tags: ["auth", "retries"], unread: false }))).toEqual(["b.md", "c.md", "e.md"]);
+  });
+
+  it("keeps unread documents, and the open one, when Unread is on", () => {
+    const unread = { ...NO_FILTERS, unread: true };
+    expect(names(filterByMeta(docs, unread, new Set(["b.md", "d.md"])))).toEqual(["b.md", "d.md"]);
+    expect(names(filterByMeta(docs, unread, new Set(["b.md"]), "a.md"))).toEqual(["a.md", "b.md"]);
+    expect(names(filterByMeta(docs, { ...unread, tags: ["auth"] }, new Set(["b.md", "d.md"])))).toEqual(["b.md"]);
   });
 
   it("needs both a chosen status and a chosen tag when both are set", () => {
-    expect(names(filterByMeta(docs, { statuses: ["accepted", "proposed"], tags: ["auth"] }))).toEqual(["b.md"]);
+    expect(names(filterByMeta(docs, { statuses: ["accepted", "proposed"], tags: ["auth"], unread: false }))).toEqual(["b.md"]);
   });
 });
 
@@ -58,7 +65,7 @@ describe("filterOptions", () => {
   });
 
   it("offers chosen values no document has", () => {
-    const options = filterOptions([doc("a.md", "accepted")], { statuses: ["rejected"], tags: ["gone"] });
+    const options = filterOptions([doc("a.md", "accepted")], { statuses: ["rejected"], tags: ["gone"], unread: false });
     expect(options.statuses).toEqual([
       { value: "accepted", count: 1 },
       { value: "rejected", count: 0 },
@@ -70,21 +77,26 @@ describe("filterOptions", () => {
 describe("toggleFilter", () => {
   it("adds and removes values", () => {
     const one = toggleFilter(NO_FILTERS, "status", "accepted");
-    expect(one).toEqual({ statuses: ["accepted"], tags: [] });
+    expect(one).toEqual({ statuses: ["accepted"], tags: [], unread: false });
     expect(toggleFilter(one, "status", "accepted")).toEqual(NO_FILTERS);
-    expect(toggleFilter(one, "tag", "queue")).toEqual({ statuses: ["accepted"], tags: ["queue"] });
+    expect(toggleFilter(one, "tag", "queue")).toEqual({ statuses: ["accepted"], tags: ["queue"], unread: false });
   });
 });
 
 describe("parseSavedFilters", () => {
   it("reads filters per workspace", () => {
     const saved = parseSavedFilters(JSON.stringify({ "/w": { statuses: ["accepted"], tags: ["queue"] } }));
-    expect(saved.get("/w")).toEqual({ statuses: ["accepted"], tags: ["queue"] });
+    expect(saved.get("/w")).toEqual({ statuses: ["accepted"], tags: ["queue"], unread: false });
+  });
+
+  it("remembers Unread", () => {
+    const saved = parseSavedFilters(JSON.stringify({ "/w": { unread: true } }));
+    expect(saved.get("/w")).toEqual({ statuses: [], tags: [], unread: true });
   });
 
   it("drops malformed entries and storage", () => {
     const saved = parseSavedFilters(JSON.stringify({ a: { statuses: [1, ""], tags: "x" }, b: null, c: { tags: ["ok", 2] } }));
-    expect([...saved]).toEqual([["c", { statuses: [], tags: ["ok"] }]]);
+    expect([...saved]).toEqual([["c", { statuses: [], tags: ["ok"], unread: false }]]);
     expect(parseSavedFilters("not json").size).toBe(0);
     expect(parseSavedFilters("[1]").size).toBe(0);
     expect(parseSavedFilters(null).size).toBe(0);

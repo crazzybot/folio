@@ -28,12 +28,43 @@ describe("createDemoSource", () => {
     const source = createDemoSource("./", null);
     expect((await source.listDocuments()).map((d) => d.title)).toEqual(["Alpha", "Beta"]);
     expect(await source.listAttachments()).toEqual(["img/diagram.png"]);
-    expect(await source.getDocumentContent("b")).toEqual({ id: "b", content: bundle.contents["b"] });
+    expect(await source.getDocumentContent("b")).toEqual({
+      id: "b",
+      content: bundle.contents["b"],
+      // What the desktop app records for the file's bytes
+      sha1: "f0aa02246186c9cfc40644d403f862dab2010936",
+    });
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0]?.[0]).toBe("./bundle.json");
   });
 
-  it("refuses a document that isn't in the bundle", async () => {
+  it("keeps read records in the browser: a baseline, then read and unread", async () => {
+    const saved = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => saved.get(key) ?? null,
+      setItem: (key: string, value: string) => void saved.set(key, value),
+      removeItem: (key: string) => void saved.delete(key),
+    };
+    const source = createDemoSource("./", storage);
+    const first = await source.reads.list();
+    expect(first.map((d) => [d.docId, d.read?.sha1 === d.sha1, d.baseline])).toEqual([
+      ["a", true, true],
+      ["b", true, true],
+    ]);
+    await source.reads.unmark("a");
+    await expect(source.reads.mark("b", "0".repeat(40))).rejects.toThrow("changed");
+    // A new visit starts from what was kept
+    const again = await createDemoSource("./", storage).reads.list();
+    expect(again.map((d) => [d.docId, d.read === null])).toEqual([
+      ["a", true],
+      ["b", false],
+    ]);
+    const { sha1 } = await source.getDocumentContent("a");
+    await source.reads.mark("a", sha1 ?? "");
+    expect((await source.reads.list())[0]?.read?.sha1).toBe(sha1);
+  });
+
+    it("refuses a document that isn't in the bundle", async () => {
     await expect(createDemoSource("./", null).getDocumentContent("zzz")).rejects.toThrow("not found");
   });
 

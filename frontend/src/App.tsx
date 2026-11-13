@@ -37,6 +37,8 @@ import { filterByMeta, filterOptions, hasFilters } from "./metaFilter";
 import { requestDone } from "./status";
 import { useMetaFilters } from "./useMetaFilters";
 import useMarks from "./useMarks";
+import { unreadCount } from "./reads";
+import { useMarkReadWhenShown, useReads } from "./useReads";
 import DemoBanner from "./components/DemoBanner";
 import DisplayMenu from "./components/DisplayMenu";
 import { BranchIcon, WorktreeIcon } from "./components/GitIcons";
@@ -115,12 +117,12 @@ interface SendScope {
 type LoadState =
   | { status: "idle" }
   | { status: "loading" }
-  | { status: "success"; id: string; content: string }
+  | { status: "success"; id: string; content: string; sha1: string | null }
   | { status: "error"; message: string };
 
 /** The latest fetch result for a document. */
 type LoadedContent = { id: string } & (
-  | { status: "success"; content: string }
+  | { status: "success"; content: string; sha1: string | null }
   | { status: "error"; message: string }
 );
 
@@ -168,10 +170,20 @@ function AppInner(): React.ReactElement {
   // ── Focus on Folder: the list, search and count narrow to one folder ───────
   const [focus, setFocus] = useFolderFocus();
   const focusedDocuments = useMemo(() => documentsInFolder(documents, focus), [documents, focus]);
-  // ── Status and tag filters: the list, search and count narrow further ──────
-  // (not the Marks view, which has nowhere to show them)
+  // ── New and changed documents (see reads.ts) ──────────────────────────────
+  const reads = useReads();
+  // ── Status, tag and Unread filters: the list, search and count narrow further ─
+  // (not the Marks view, which has nowhere to show them). The open document
+  // stays listed under Unread once it's read
   const [metaFilters, setMetaFilters] = useMetaFilters();
-  const listedDocuments = useMemo(() => filterByMeta(focusedDocuments, metaFilters), [focusedDocuments, metaFilters]);
+  const listedDocuments = useMemo(
+    () => filterByMeta(focusedDocuments, metaFilters, reads.unreadIds, selectedId),
+    [focusedDocuments, metaFilters, reads.unreadIds, selectedId],
+  );
+  const unreadInFocus = useMemo(
+    () => unreadCount(focusedDocuments.map((doc) => doc.id), reads.unreadIds),
+    [focusedDocuments, reads.unreadIds],
+  );
   // Counted within the focused folder, so no choice leads to an empty list
   const metaOptions = useMemo(() => filterOptions(focusedDocuments, metaFilters), [focusedDocuments, metaFilters]);
 
@@ -373,7 +385,7 @@ function AppInner(): React.ReactElement {
     fetchDocumentContent(selectedId)
       .then((doc) => {
         if (cancelled) return;
-        setLoaded({ status: "success", id: selectedId, content: doc.content });
+        setLoaded({ status: "success", id: selectedId, content: doc.content, sha1: doc.sha1 ?? null });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -425,9 +437,9 @@ function AppInner(): React.ReactElement {
         .then((doc) => {
           if (current !== generation || selectedIdRef.current !== id) return;
           setLoaded((prev) =>
-            prev !== null && prev.status === "success" && prev.id === id && prev.content === doc.content
+            prev !== null && prev.status === "success" && prev.id === id && prev.sha1 === (doc.sha1 ?? null) && prev.content === doc.content
               ? prev
-              : { status: "success", id, content: doc.content },
+              : { status: "success", id, content: doc.content, sha1: doc.sha1 ?? null },
           );
         })
         .catch(() => {
@@ -594,6 +606,9 @@ function AppInner(): React.ReactElement {
   const contentValue =
     contentState.status === "success" ? contentState.content : null;
   const contentId = contentState.status === "success" ? contentState.id : null;
+  // Shown for a few seconds with the window focused: read, at the version shown
+  const contentSha1 = contentState.status === "success" ? contentState.sha1 : null;
+  useMarkReadWhenShown(contentId, contentSha1, contentId !== null && reads.unreadIds.has(contentId), reads.markRead);
   // Remember the shown document for the next launch (one that loaded, not a missing one)
   useEffect(() => {
     if (contentId !== null) rememberForWorkspace(LAST_DOCUMENT_KEY, contentId);
@@ -920,7 +935,7 @@ function AppInner(): React.ReactElement {
         >
           <div className={styles.sidebarView} hidden={sidebarView !== "marks"}>
             <MarksPanel
-              tabs={<SidebarTabs view={sidebarView} onChange={chooseSidebarView} />}
+              tabs={<SidebarTabs view={sidebarView} onChange={chooseSidebarView} unread={unreadInFocus} />}
               {...(sidebarAsDrawer ? { onCollapse: closeDrawer } : {})}
               documents={focusedDocuments}
               current={selectedDoc}
@@ -944,9 +959,18 @@ function AppInner(): React.ReactElement {
           {/* Kept mounted while hidden, so its search and folders stay as they were */}
           <div className={styles.sidebarView} hidden={sidebarView !== "documents"}>
           <DocumentList
-            tabs={<SidebarTabs view={sidebarView} onChange={chooseSidebarView} />}
+            tabs={<SidebarTabs view={sidebarView} onChange={chooseSidebarView} unread={unreadInFocus} />}
             {...(sidebarAsDrawer ? { onCollapse: closeDrawer } : {})}
             bookmarkedIds={bookmarkedIds}
+            reads={reads.byDoc}
+            unreadIds={reads.unreadIds}
+            unreadCount={unreadInFocus}
+            onMarkRead={(id) => {
+              const entry = reads.byDoc.get(id);
+              if (entry !== undefined) reads.markRead(id, entry.sha1);
+            }}
+            onMarkUnread={reads.markUnread}
+            onMarkFolderRead={reads.markFolderRead}
             documentNotes={documentNotes}
             documents={listedDocuments}
             selectedId={selectedId}

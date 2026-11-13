@@ -10,6 +10,7 @@ import type {
   DocumentContent,
   DocumentNote,
   DocumentMeta,
+  DocumentRead,
   Highlight,
   HighlightColor,
   MarksListing,
@@ -34,6 +35,16 @@ export interface DataSource {
   /** `encoded`: the location with each segment URI-encoded. */
   workspaceFileUrl(encoded: string): string;
   getDocumentContent(id: string): Promise<DocumentContent>;
+  /** Which version of each document was last read. */
+  reads: {
+    list(): Promise<DocumentRead[]>;
+    /** Record that the version with `sha1` was read; refused when the document has changed since. */
+    mark(docId: string, sha1: string): Promise<void>;
+    /** Go back one read: changed again, or new when there was none before. */
+    unmark(docId: string): Promise<void>;
+    /** Mark every document under `folder` ("" for all) read at its current version. */
+    markFolder(folder: string): Promise<void>;
+  };
   marks: {
     list(): Promise<MarksListing>;
     addHighlight(docId: string, body: NewHighlight): Promise<Highlight>;

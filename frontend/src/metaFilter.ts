@@ -1,6 +1,7 @@
 /**
  * metaFilter.ts — Filtering the document list by status and tags
- * (docs/design/frontmatter-metadata.md). Applied right after Focus on
+ * (docs/design/frontmatter-metadata.md), and to unread documents
+ * (docs/design/reads.md). Applied right after Focus on
  * Folder, so the list, search, the Marks view and the status bar count all
  * follow it.
  *
@@ -13,23 +14,36 @@ import type { DocumentMeta } from "./types";
 export interface MetaFilters {
   statuses: readonly string[];
   tags: readonly string[];
+  /** Only documents that are new or changed since they were read. */
+  unread: boolean;
 }
 
-export const NO_FILTERS: MetaFilters = { statuses: [], tags: [] };
+export const NO_FILTERS: MetaFilters = { statuses: [], tags: [], unread: false };
 
 export function hasFilters(filters: MetaFilters): boolean {
-  return filters.statuses.length > 0 || filters.tags.length > 0;
+  return filters.statuses.length > 0 || filters.tags.length > 0 || filters.unread;
 }
 
-/** Documents with any of the statuses (if any are chosen) and any of the tags (if any are chosen). */
-export function filterByMeta(documents: DocumentMeta[], filters: MetaFilters): DocumentMeta[] {
+/**
+ * Documents with any of the statuses (if any are chosen) and any of the
+ * tags (if any are chosen), and unread (`unreadIds`) when that's chosen.
+ * `keep` stays listed whatever its state: the open document doesn't vanish
+ * from an Unread list once it's read.
+ */
+export function filterByMeta(
+  documents: DocumentMeta[],
+  filters: MetaFilters,
+  unreadIds: ReadonlySet<string> = new Set(),
+  keep: string | null = null,
+): DocumentMeta[] {
   if (!hasFilters(filters)) return documents;
   const statuses = new Set(filters.statuses);
   const tags = new Set(filters.tags);
   return documents.filter(
     (doc) =>
       (statuses.size === 0 || (doc.meta?.status != null && statuses.has(doc.meta.status))) &&
-      (tags.size === 0 || (doc.meta?.tags ?? []).some((tag) => tags.has(tag))),
+      (tags.size === 0 || (doc.meta?.tags ?? []).some((tag) => tags.has(tag))) &&
+      (!filters.unread || unreadIds.has(doc.id) || doc.id === keep),
   );
 }
 
@@ -89,8 +103,8 @@ export function parseSavedFilters(raw: string | null): Map<string, MetaFilters> 
     const map = new Map<string, MetaFilters>();
     for (const [workspace, value] of Object.entries(saved as Record<string, unknown>)) {
       if (value === null || typeof value !== "object") continue;
-      const { statuses, tags } = value as Record<string, unknown>;
-      const filters = { statuses: strings(statuses), tags: strings(tags) };
+      const { statuses, tags, unread } = value as Record<string, unknown>;
+      const filters = { statuses: strings(statuses), tags: strings(tags), unread: unread === true };
       if (hasFilters(filters)) map.set(workspace, filters);
     }
     return map;

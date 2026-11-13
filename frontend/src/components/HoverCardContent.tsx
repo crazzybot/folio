@@ -18,12 +18,15 @@ export function DocumentCard({
   bookmarked,
   highlightCount,
   note,
+  read = null,
 }: {
   doc: DocumentMeta;
   bookmarked: boolean;
   highlightCount: number;
   /** The user's note on the document: its request and the comment's first line. */
   note?: DocumentNote | undefined;
+  /** "Changed since you read it on 3 Nov", "New since you last looked"; null when read. */
+  read?: string | null;
 }): React.ReactElement {
   const marks = [bookmarked && "Bookmarked", highlightCount > 0 && plural(highlightCount, "highlight", "highlights")].filter(Boolean);
   const { status = null, statusDetail = null, date = null, people = [], tags = [] } = doc.meta ?? {};
@@ -31,6 +34,7 @@ export function DocumentCard({
     <>
       <div className={styles.title}>{doc.title}</div>
       <div className={styles.path}>{doc.location}</div>
+      {read !== null && <div className={styles.unread}>{read}</div>}
       {(status !== null || date !== null) && (
         <div className={styles.status}>
           {status !== null && <StatusIcon status={status} className={styles.statusIcon} />}
@@ -115,12 +119,15 @@ export function FolderCard({
   documents,
   highlightCounts,
   repository = null,
+  unread = 0,
 }: {
   folder: string;
   label: string;
   documents: DocumentMeta[];
   highlightCounts: ReadonlyMap<string, number>;
   repository?: GitRepository | null;
+  /** Documents under it that are new or changed. */
+  unread?: number;
 }): React.ReactElement {
   const inside = documentsInFolder(documents, folder);
   const highlighted = inside.filter((doc) => (highlightCounts.get(doc.id) ?? 0) > 0).length;
@@ -130,6 +137,7 @@ export function FolderCard({
       <div className={styles.path}>{folder}</div>
       <div className={styles.detail}>
         {plural(inside.length, "document", "documents")}
+        {unread > 0 && ` · ${unread} unread`}
         {highlighted > 0 && ` · ${highlighted} with highlights`}
       </div>
       {repository !== null && (

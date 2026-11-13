@@ -3,6 +3,7 @@ import type {
   DocumentContent,
   DocumentMeta,
   DocumentNote,
+  DocumentRead,
   GitState,
   Highlight,
   MarksListing,
@@ -111,6 +112,15 @@ interface MarkdownDesktopApi {
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */
     onChange(callback: () => void): () => void;
   };
+  /** Which version of each document was last read (packages/core/src/reads.ts). */
+  reads: {
+    list(): Promise<DocumentRead[]>;
+    mark(docId: string, sha1: string): Promise<void>;
+    unmark(docId: string): Promise<void>;
+    markFolder(folder: string): Promise<void>;
+    /** Subscribe to changes from any window; returns an unsubscribe function. */
+    onChange(callback: () => void): () => void;
+  };
   /** The workspace's git repositories (desktop/src/git.ts); null without git or a repository. */
   git: {
     state(): Promise<GitState | null>;
@@ -120,10 +130,13 @@ interface MarkdownDesktopApi {
   };
   /**
    * The context menu of a folder in the document list (workspace location).
-   * Resolves "focus" when Focus on Folder was chosen, else null; Open Folder
-   * as Workspace is handled by the main process.
+   * Resolves "focus" for Focus on Folder, "mark-read" for Mark All as Read
+   * (offered when `hasUnread`), else null; Open Folder as Workspace is
+   * handled by the main process.
    */
-  showFolderMenu(location: string): Promise<"focus" | null>;
+  showFolderMenu(location: string, hasUnread: boolean): Promise<"focus" | "mark-read" | null>;
+  /** The context menu of a document in the list: Mark as Read when `unread`, else Mark as Unread. */
+  showDocumentMenu(unread: boolean): Promise<"read" | "unread" | null>;
 }
 
 declare global {
