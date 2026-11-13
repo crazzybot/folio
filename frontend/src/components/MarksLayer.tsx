@@ -8,9 +8,11 @@ import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
 import { isPrivate, lastSent, stateOf } from "../sending";
 import { buildTextModel } from "../textModel";
+import { newReplies } from "../threads";
 import { HIGHLIGHT_COLORS } from "../types";
 import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, NoteState, Round, TextAnchor } from "../types";
 import NoteStateIcon from "./NoteStateIcon";
+import NoteThread from "./NoteThread";
 import styles from "./MarksLayer.module.css";
 
 // The colour ⌘⇧H and Add note use: the last one picked
@@ -189,6 +191,10 @@ interface MarksLayerProps {
   onSetLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
   /** The document's latest rounds, for when a note was sent. */
   rounds?: readonly Round[] | undefined;
+  /** The user's reply to a highlight's note. */
+  onReply: (id: string, text: string) => void;
+  /** The user saw a highlight's thread (its popover opened with new replies). */
+  onSeen: (id: string) => void;
   onToggleBookmark: (heading: BookmarkHeading) => void;
   /** After painting: the highlights found in the text, by id, with their ranges. */
   onPainted?: (located: ReadonlyMap<string, Range>) => void;
@@ -216,6 +222,8 @@ export default function MarksLayer({
   onRemove,
   onSetLoop,
   rounds,
+  onReply,
+  onSeen,
   onToggleBookmark,
   onPainted,
 }: MarksLayerProps): React.ReactElement | null {
@@ -226,6 +234,8 @@ export default function MarksLayer({
   const [popover, setPopover] = useState<(Placement & { id: string }) | null>(null);
   // The note being written in the popover (null: not editing)
   const [draft, setDraft] = useState<string | null>(null);
+  // A reply being written in the popover's thread
+  const [replying, setReplying] = useState(false);
   const [lastColor, setLastColor] = useState<HighlightColor>(loadColor);
   const [noteSpots, setNoteSpots] = useState<(Spot & { id: string })[]>([]);
   // The text of highlights that have a note: a block with some has no note button
@@ -648,13 +658,14 @@ export default function MarksLayer({
     }
     setPopover(null);
     setDraft(null);
+    setReplying(false);
   }, [current, draft, onSetNote]);
 
   // Escape (unless writing a note) or a click elsewhere closes the popover
   useEffect(() => {
     if (popover === null) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && draft === null) closePopover();
+      if (e.key === "Escape" && draft === null && !replying) closePopover();
     }
     function onPointerDown(e: PointerEvent) {
       if (!(e.target instanceof Node && popoverRef.current?.contains(e.target))) closePopover();
@@ -665,7 +676,13 @@ export default function MarksLayer({
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [popover, draft, closePopover]);
+  }, [popover, draft, replying, closePopover]);
+
+  // Opening a note's thread shows its new replies: they're seen from then on
+  const currentNew = current === undefined ? 0 : newReplies(current).length;
+  useEffect(() => {
+    if (popover !== null && currentNew > 0) onSeen(popover.id);
+  }, [popover, currentNew, onSeen]);
 
   // The popover takes keyboard focus, so its buttons are reachable
   useEffect(() => {
@@ -691,9 +708,10 @@ export default function MarksLayer({
 
   // The popover goes below its highlight, or above it when there's no room
   // in the view below, else as low as fits: it never opens out of sight.
-  // Placed again only when it opens or its note editor does, not as it's
+  // Placed again only when it opens or its note editor or reply box does, not as it's
   // written (nor moved when the view has been scrolled since).
-  const popoverEditing = draft !== null;
+  const editingNote = draft !== null;
+  const popoverEditing = editingNote || replying;
   useLayoutEffect(() => {
     const container = containerRef.current;
     const el = popoverRef.current;
@@ -706,8 +724,8 @@ export default function MarksLayer({
     const top = below + height <= viewBottom ? below : above >= viewTop ? above : Math.max(viewTop, viewBottom - height);
     el.style.top = `${top}px`;
     // Once placed, so focusing it doesn't scroll the view (as autoFocus would)
-    if (popoverEditing) el.querySelector("textarea")?.focus({ preventScroll: true });
-  }, [containerRef, popover, popoverEditing]);
+    if (editingNote) el.querySelector("textarea")?.focus({ preventScroll: true });
+  }, [containerRef, popover, popoverEditing, editingNote]);
 
   if (!ready) return null;
 
@@ -765,15 +783,17 @@ export default function MarksLayer({
         const highlight = highlights.find((h) => h.id === spot.id);
         const kind = highlight === undefined ? "private" : noteIconOf(highlight);
         const note = highlight?.note ?? "(no comment)";
+        const fresh = highlight === undefined ? 0 : newReplies(highlight).length;
+        const news = fresh === 0 ? "" : ` · ${fresh === 1 ? "a new reply" : `${fresh} new replies`}`;
         return (
           <button
             key={spot.id}
             type="button"
-            className={`${styles.noteMarker} ${spot.id === hoveredNote ? styles.noteMarkerHovered : ""}`}
+            className={`${styles.noteMarker} ${spot.id === hoveredNote ? styles.noteMarkerHovered : ""} ${fresh > 0 ? styles.noteMarkerNew : ""}`}
             style={{ top: spot.top, left: spot.left }}
             onClick={(e) => openPopover(spot.id, e.currentTarget.getBoundingClientRect())}
-            aria-label={`${NOTE_ICON_LABELS[kind]} note: ${note}`}
-            title={kind === "private" ? note : `${NOTE_ICON_LABELS[kind]} · ${note}`}
+            aria-label={`${NOTE_ICON_LABELS[kind]} note: ${note}${news}`}
+            title={(kind === "private" ? note : `${NOTE_ICON_LABELS[kind]} · ${note}`) + news}
           >
             <NoteStateIcon kind={kind} />
           </button>
@@ -839,7 +859,7 @@ export default function MarksLayer({
       {popover !== null && current !== undefined && (
         <div
           ref={popoverRef}
-          className={`${styles.bubble} ${styles.popover} ${draft !== null || current.note !== null ? styles.popoverWide : ""}`}
+          className={`${styles.bubble} ${styles.popover} ${draft !== null || current.note !== null || (current.replies?.length ?? 0) > 0 ? styles.popoverWide : ""}`}
           // Its top is set once its height is known (see the layout effect)
           style={{ left: popover.left }}
           role="dialog"
@@ -923,6 +943,11 @@ export default function MarksLayer({
                 </button>
               </div>
             </div>
+          )}
+
+          {/* The thread: a note in the loop, or one that has replies */}
+          {draft === null && (!isPrivate(current) || (current.replies?.length ?? 0) > 0) && (
+            <NoteThread key={current.id} thread={current} onReply={(text) => onReply(current.id, text)} onWritingChange={setReplying} />
           )}
 
           {draft === null && <LoopRow highlight={current} rounds={rounds} onSetLoop={(changes) => onSetLoop(current.id, changes)} />}

@@ -2,7 +2,9 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { NoteChanges } from "../dataSource";
 import { KNOWN_STATUSES, normaliseStatus } from "../status";
+import { newReplies } from "../threads";
 import type { DocumentNote, NoteState } from "../types";
+import NoteThread from "./NoteThread";
 import StatusIcon from "./StatusIcon";
 import styles from "./DocumentNoteEditor.module.css";
 
@@ -30,6 +32,9 @@ interface DocumentNoteEditorProps {
   onRemove: () => void;
   /** Change where the note is in the review loop (docs/design/sending-notes.md). */
   onSetState: (state: NoteState) => void;
+  /** The user's reply to the note, and that they saw its thread (docs/design/agent-integration.md). */
+  onReply: (text: string) => void;
+  onSeen: () => void;
   onClose: () => void;
 }
 
@@ -46,6 +51,8 @@ export default function DocumentNoteEditor({
   onSave,
   onRemove,
   onSetState,
+  onReply,
+  onSeen,
   onClose,
 }: DocumentNoteEditorProps): React.ReactElement {
   const statuses = [
@@ -100,6 +107,12 @@ export default function DocumentNoteEditor({
   }, []);
 
   const shownStatus = choice === OTHER ? normaliseStatus(other) : choice;
+
+  // Opening the note shows its new replies: they're seen from then on
+  const fresh = note === undefined ? 0 : newReplies(note).length;
+  useEffect(() => {
+    if (fresh > 0) onSeen();
+  }, [fresh, onSeen]);
 
   return createPortal(
     <div
@@ -186,6 +199,13 @@ export default function DocumentNoteEditor({
         <input type="checkbox" checked={locked} onChange={(e) => setLocked(e.target.checked)} />
         Only me
       </label>
+
+      {/* The thread: the saved note's, while it's sent to the agent or has replies */}
+      {note !== undefined && (!locked || (note.replies?.length ?? 0) > 0) && (
+        <div className={styles.thread}>
+          <NoteThread thread={note} onReply={onReply} />
+        </div>
+      )}
 
       {state !== "open" && !locked && (
         <div className={styles.loop}>

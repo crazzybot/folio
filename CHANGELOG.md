@@ -15,6 +15,12 @@ turns them into the next release's section.
   before the title in the document list, so an `AGENTS.md` and a `CLAUDE.md`
   with the same title are told apart. A title that only repeats the name
   (`# Changelog`) is shown alone.
+- **Replies on notes.** A note's popover, and the note on a document, show
+  its replies: a coding agent's, through Folio's MCP server, and your own.
+  **Reply** answers it; the note is open again, to go with the next round.
+  Replies you haven't read put a dot on the note's margin icon and a
+  **New reply** label in the Marks view, and the status bar says "Claude
+  Code replied to 3 notes"; click it to go to each in turn.
 
 ## [0.5.0] — 2026-11-12
 

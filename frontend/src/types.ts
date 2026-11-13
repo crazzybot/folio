@@ -81,7 +81,28 @@ export interface TextAnchor {
  */
 export type NoteState = "open" | "sent" | "addressed" | "resolved";
 
-export interface Highlight extends TextAnchor {
+/** Who wrote a note or reply: the user, a coding agent (over MCP), or an imported pull request comment. */
+export type Author = { kind: "user" } | { kind: "agent"; name: string } | { kind: "github"; login: string };
+
+/** An answer in a note's thread (docs/design/agent-integration.md). */
+export interface Reply {
+  id: string;
+  author: Author;
+  text: string;
+  at: string; // ISO-8601
+}
+
+/** A note's thread; absent fields mean none yet. */
+export interface Thread {
+  /** Absent: the user. */
+  author?: Author;
+  /** Oldest first. */
+  replies?: Reply[];
+  /** When the user last saw the thread: replies after it are new. */
+  seen?: string;
+}
+
+export interface Highlight extends TextAnchor, Thread {
   id: string;
   color: HighlightColor;
   note: string | null;
@@ -109,7 +130,7 @@ export interface Bookmark {
 
 /** A document that has marks. */
 /** A note on the document as a whole: a comment and / or a status to ask for (document-notes.md). */
-export interface DocumentNote {
+export interface DocumentNote extends Thread {
   /** Markdown, or null. */
   text: string | null;
   /** The status to ask the document's author to change it to, or null. */
@@ -122,11 +143,13 @@ export interface DocumentNote {
   private?: boolean;
 }
 
-/** Notes sent together: copied, or (later) fetched by an agent. */
+/** Notes sent together: copied, or fetched by an agent. */
 export interface Round {
   id: string;
   at: string; // ISO-8601
   via: "copy" | "mcp";
+  /** The agent that fetched them (via mcp): "Claude Code". */
+  client?: string;
   /** The document's SHA-1 when sent. */
   sha1: string;
   /** The highlights sent. */

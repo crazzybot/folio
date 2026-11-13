@@ -37,6 +37,8 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
       forget: (recordId) => api.marks.forget(recordId),
       send: (docs, markSent) => api.marks.send(docs, markSent),
       unsend: (round) => api.marks.unsend(round),
+      reply: (docId, highlightId, text) => api.marks.reply(docId, highlightId, text),
+      markSeen: (docId, highlightId) => api.marks.markSeen(docId, highlightId),
     },
   };
 }
@@ -70,6 +72,8 @@ const unavailableSource: DataSource = {
     forget: unavailable,
     send: unavailable,
     unsend: unavailable,
+    reply: unavailable,
+    markSeen: unavailable,
   },
 };
 
@@ -164,6 +168,16 @@ export async function sendNotes(docs: readonly SendDocument[], markSent: boolean
 /** Undo a send. */
 export async function unsendNotes(round: SentRound): Promise<void> {
   return source.marks.unsend(round);
+}
+
+/** Reply to a highlight's note (null: the document's note), as the user. */
+export async function replyToNote(docId: string, highlightId: string | null, text: string): Promise<Highlight | DocumentNote> {
+  return source.marks.reply(docId, highlightId, text);
+}
+
+/** Record that the user saw a note's thread. */
+export async function markNoteSeen(docId: string, highlightId: string | null): Promise<void> {
+  return source.marks.markSeen(docId, highlightId);
 }
 
 /** Live demo: back to the marks a first visit starts with. Elsewhere, nothing. */

@@ -275,6 +275,26 @@ export class DemoMarks {
     }
   }
 
+  /** The visitor's reply to a note (highlightId null: the document's), as the desktop store makes it: the note is open again. */
+  reply(docId: string, highlightId: string | null, text: string): Highlight | DocumentNote {
+    if (text.trim() === "") throw new Error("A reply needs some text");
+    const target = highlightId === null ? this.documents[docId]?.note : this.highlight(docId, highlightId);
+    if (target === undefined) throw new Error("The document has no note");
+    const at = now();
+    target.replies = [...(target.replies ?? []), { id: newId(), author: { kind: "user" }, text, at }];
+    delete target.state;
+    target.updated = at;
+    this.changed(docId);
+    return structuredClone(target);
+  }
+
+  markSeen(docId: string, highlightId: string | null): void {
+    const target = highlightId === null ? this.documents[docId]?.note : this.highlight(docId, highlightId);
+    if (target === undefined) throw new Error("The document has no note");
+    target.seen = now();
+    this.changed(docId);
+  }
+
   /** Back to the seed marks: the visitor's own are removed. */
   reset(): void {
     this.documents = structuredClone(this.seed);

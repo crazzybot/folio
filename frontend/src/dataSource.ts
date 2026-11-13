@@ -50,5 +50,9 @@ export interface DataSource {
     send(docs: readonly SendDocument[], markSent: boolean): Promise<SentRound>;
     /** Undo a round: it goes, and the notes it made sent are open again. */
     unsend(round: SentRound): Promise<void>;
+    /** The user's reply to a highlight's note (highlightId null: the document's note); resolves to the note. */
+    reply(docId: string, highlightId: string | null, text: string): Promise<Highlight | DocumentNote>;
+    /** Record that the user saw a note's thread. */
+    markSeen(docId: string, highlightId: string | null): Promise<void>;
   };
 }

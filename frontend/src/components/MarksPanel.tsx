@@ -3,6 +3,7 @@ import { buildMarkRows } from "../marksView";
 import type { MarkKind, MarkRow } from "../marksView";
 import { filterOf, noteFilterOf, shownStates, STATE_FILTERS } from "../sending";
 import type { StateFilter } from "../sending";
+import { newReplies } from "../threads";
 import { noteIconOf } from "./MarksLayer";
 import NoteStateIcon from "./NoteStateIcon";
 import type { BookmarkHeading, DocumentMeta, Highlight, MissingMarks } from "../types";
@@ -641,6 +642,7 @@ function MarkRowItem({
               <span className={styles.docNoteText}>{note.text}</span>
             </span>
           )}
+          <NewReplies count={newReplies(note).length} />
         </span>
         {removeButton("Remove the note on the document")}
       </li>
@@ -684,11 +686,18 @@ function MarkRowItem({
             <span className={styles.noteText}>{highlight.note ?? "(no comment)"}</span>
           </span>
         )}
+        <NewReplies count={newReplies(highlight).length} />
         {unplaced && <span className={styles.notFound}>Not found in the current text</span>}
       </span>
       {removeButton("Remove highlight")}
     </li>
   );
+}
+
+/** Replies to a note the user hasn't seen (docs/design/agent-integration.md): open the note to read them. */
+function NewReplies({ count }: { count: number }): React.ReactElement | null {
+  if (count === 0) return null;
+  return <span className={styles.newReplies}>{count === 1 ? "New reply" : `${count} new replies`}</span>;
 }
 
 /** A page: the Scope section's open document. */

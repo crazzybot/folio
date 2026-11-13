@@ -161,4 +161,15 @@ describe("DemoMarks", () => {
     expect(marks.updateHighlight("b", "s1", { private: true }).private).toBe(true);
     expect("private" in marks.updateHighlight("b", "s1", { private: null })).toBe(false);
   });
+
+  it("adds the visitor's replies, reopening the note, and records that a thread was seen", () => {
+    const marks = new DemoMarks(listed, seed, memoryStorage());
+    marks.updateHighlight("b", "s1", { state: "addressed" });
+    const replied = marks.reply("b", "s1", "Not quite.");
+    expect([replied.state, replied.replies?.map((r) => [r.author, r.text])]).toEqual([undefined, [[{ kind: "user" }, "Not quite."]]]);
+    marks.markSeen("b", "s1");
+    expect(typeof marks.list().documents[0]?.highlights[0]?.seen).toBe("string");
+    expect(() => marks.reply("b", "s1", "  ")).toThrow();
+    expect(() => marks.reply("a", null, "Hi")).toThrow();
+  });
 });
