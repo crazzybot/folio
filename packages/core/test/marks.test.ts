@@ -407,3 +407,71 @@ describe("sending notes", () => {
     expect(await refusal(() => store.send(path.join(WORKSPACE, "docs", "blank.md"), { roundId: ROUND }))).toBe(404);
   });
 });
+
+describe("threads", () => {
+  const ROUND = "0123456789abcdef";
+  const CLAUDE = { kind: "agent", name: "Claude Code" };
+
+  it("records a round fetched by an agent", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "One" }));
+    await store.send(PLAIN, { roundId: ROUND, highlightIds: [a.id], via: "mcp", client: "Claude Code" });
+    const round = (recordOf(PLAIN) as { rounds: Record<string, unknown>[] }).rounds[0];
+    expect([round?.["via"], round?.["client"]]).toEqual(["mcp", "Claude Code"]);
+    expect(await refusal(() => store.send(PLAIN, { roundId: ROUND, via: "email" }))).toBe(400);
+  });
+
+  it("adds replies and moves the note through its states", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "Why?" }));
+    await store.send(PLAIN, { roundId: ROUND, highlightIds: [a.id] });
+
+    const done = await store.reply(PLAIN, a.id, { author: CLAUDE, text: "Reworded.", addressed: true });
+    expect(done.state).toBe("addressed");
+    expect(done.replies?.map((r) => [r.author, r.text])).toEqual([[CLAUDE, "Reworded."]]);
+    expect(done.replies?.[0]?.id).toHaveLength(16);
+
+    // The user disagrees: open again, to go with the next round
+    await store.updateHighlight(PLAIN, a.id, { state: "resolved" });
+    const answered = await store.reply(PLAIN, a.id, { author: { kind: "user" }, text: "Not quite." });
+    expect(["state" in answered, answered.replies?.length]).toEqual([false, 2]);
+
+    // A question from the agent leaves a sent note open
+    await store.send(PLAIN, { roundId: "fedcba9876543210", highlightIds: [a.id] });
+    const asked = await store.reply(PLAIN, a.id, { author: CLAUDE, text: "Which section?" });
+    expect("state" in asked).toBe(false);
+    expect((recordOf(PLAIN) as { highlights: Highlight[] }).highlights.find((h) => h.id === a.id)?.replies).toHaveLength(3);
+  });
+
+  it("replies to the document's note", async () => {
+    await store.setNote(BLANK_DOC, { text: "Overall fine.", requestedStatus: "accepted" });
+    const note = await store.reply(BLANK_DOC, null, { author: CLAUDE, text: "Status changed.", addressed: true });
+    expect([note.state, note.replies?.length]).toEqual(["addressed", 1]);
+    // An edit keeps the thread
+    const edited = await store.setNote(BLANK_DOC, { text: "Overall fine, mostly.", requestedStatus: "accepted" });
+    expect(edited?.replies?.[0]?.text).toBe("Status changed.");
+    expect(await refusal(() => store.reply(PLAIN, null, { author: CLAUDE, text: "Hi" }))).toBe(404);
+  });
+
+  it("marks a thread seen without changing the note", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "Why?" }));
+    await store.markSeen(PLAIN, a.id);
+    const saved = (recordOf(PLAIN) as { highlights: Highlight[] }).highlights.find((h) => h.id === a.id);
+    expect(typeof saved?.seen).toBe("string");
+    expect(saved?.updated).toBe(a.updated);
+    expect(await refusal(() => store.markSeen(PLAIN, "gone"))).toBe(404);
+  });
+
+  it("refuses a malformed reply", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "Why?" }));
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: CLAUDE, text: "  " }))).toBe(400);
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: { kind: "agent" }, text: "Hi" }))).toBe(400);
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: { kind: "bot" }, text: "Hi" }))).toBe(400);
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: CLAUDE, text: "x".repeat(10_001) }))).toBe(400);
+    expect(await refusal(() => store.reply(PLAIN, "gone", { author: CLAUDE, text: "Hi" }))).toBe(404);
+  });
+
+  it("allows at most 100 replies to a note", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "Why?" }));
+    for (let i = 0; i < 100; i++) await store.reply(PLAIN, a.id, { author: CLAUDE, text: `${i}` });
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: CLAUDE, text: "One more" }))).toBe(409);
+  });
+});
