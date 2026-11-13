@@ -99,6 +99,14 @@ Books, so there is no third kind.
   doesn't know are kept on every write, so an older install still shows and
   changes these records; a new version number would have hidden them
   (`marks:list` skips other versions).
+- **Threads** add more optional fields, still version 1: a note's
+  `author` (absent: the user; `agent` with a name, or `github` with a login),
+  `replies` (oldest first, at most 100 of 10 000 characters, each with an
+  id, author, text and time) and `seen` (when the user last saw the
+  thread). A reply marked addressed sets the note to `addressed`; any other
+  reply sets it back to open, so it goes with the next round. A round
+  fetched by an agent has `via: "mcp"` and the agent's name in `client`.
+  The document note keeps fields it doesn't know too.
 
 ### Anchoring highlights
 

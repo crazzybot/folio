@@ -33,6 +33,9 @@ const MAX_BOOKMARKS = 1_000; // per document
 const MAX_HEADING_TEXT = 1_000;
 const MAX_REQUESTED_STATUS = 40;
 const MAX_ROUNDS = 5; // per document, the latest kept
+const MAX_REPLIES = 100; // per note
+const MAX_REPLY = 10_000; // characters
+const MAX_NAME = 100; // an author's name or login
 
 // Paths differ only by case on these platforms' default file systems
 const CASE_INSENSITIVE = process.platform === "darwin" || process.platform === "win32";
@@ -46,7 +49,33 @@ export type Color = (typeof COLORS)[number];
  */
 export type NoteState = (typeof NOTE_STATES)[number];
 
-export interface Highlight {
+/** Who wrote a note or reply. Absent on a note: the user. */
+export type Author =
+  | { kind: "user" }
+  /** A coding agent, named after its MCP client ("Claude Code"). */
+  | { kind: "agent"; name: string }
+  /** A pull request comment the user imported. */
+  | { kind: "github"; login: string };
+
+/** An answer in a note's thread. */
+export interface Reply {
+  id: string;
+  author: Author;
+  text: string;
+  at: string;
+}
+
+/** A note's thread (agent-integration): absent fields mean none yet. */
+interface Thread {
+  /** Absent: the user. */
+  author?: Author;
+  /** Oldest first; absent when none. */
+  replies?: Reply[];
+  /** When the user last saw the thread: replies after it are unseen. */
+  seen?: string;
+}
+
+export interface Highlight extends Thread {
   id: string;
   color: Color;
   note: string | null;
@@ -79,7 +108,7 @@ export interface Bookmark {
 }
 
 /** A note on the document as a whole: a comment and / or a status to change it to (document-notes.md). */
-export interface DocumentNote {
+export interface DocumentNote extends Thread {
   text: string | null;
   requestedStatus: string | null;
   created: string;
@@ -95,6 +124,8 @@ export interface Round {
   id: string;
   at: string;
   via: "copy" | "mcp";
+  /** The agent that fetched them (via mcp): "Claude Code". */
+  client?: string;
   /** The version sent: the document's SHA-1 then. */
   sha1: string;
   /** The highlights sent. */
@@ -234,6 +265,43 @@ function withLoop<T extends { state?: NoteState; private?: boolean }>(
   return next;
 }
 
+function author(value: unknown): Author {
+  if (!isObject(value)) throw new MarkError(400, "author must be an object");
+  switch (value["kind"]) {
+    case "user":
+      return { kind: "user" };
+    case "agent":
+      return { kind: "agent", name: string(value["name"], "author.name", MAX_NAME, 1) };
+    case "github":
+      return { kind: "github", login: string(value["login"], "author.login", MAX_NAME, 1) };
+    default:
+      throw new MarkError(400, "author.kind must be user, agent or github");
+  }
+}
+
+/** A reply body: `{author, text, addressed?}`. */
+function replyBody(body: unknown): { author: Author; text: string; addressed: boolean } {
+  if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
+  const text = string(body["text"], "text", MAX_REPLY, 1);
+  if (text.trim() === "") throw new MarkError(400, "text must not be blank");
+  return { author: author(body["author"]), text, addressed: body["addressed"] === true };
+}
+
+/**
+ * `mark` with `reply` added. Addressed: the author says it's done. Otherwise
+ * the reply is a question, an objection or the user's answer, so the note is
+ * open again, to go with the next round (a resolved one is reopened).
+ */
+function withReply<T extends Thread & { state?: NoteState; private?: boolean }>(
+  mark: T,
+  reply: Reply,
+  addressed: boolean,
+): T {
+  const replies = mark.replies ?? [];
+  if (replies.length >= MAX_REPLIES) throw new MarkError(409, `A note can have at most ${MAX_REPLIES} replies`);
+  return { ...withLoop(mark, { state: addressed ? "addressed" : "open" }), replies: [...replies, reply] };
+}
+
 function requestedStatus(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   const text = string(value, "requestedStatus", MAX_REQUESTED_STATUS).trim();
@@ -260,10 +328,11 @@ function documentNoteBody(
 /** A record's saved note, or null when it has none (or one this version can't read). */
 export function storedNote(value: unknown): DocumentNote | null {
   if (!isObject(value)) return null;
-  const { text, requestedStatus: status, created, updated, state, private: locked } = value;
+  const { text, requestedStatus: status, created, updated, state, private: locked, ...unknown } = value;
   const textOrNull = (v: unknown) => (typeof v === "string" && v.trim() !== "" ? v : null);
   if (typeof created !== "string" || typeof updated !== "string") return null;
-  const found: DocumentNote = { text: textOrNull(text), requestedStatus: textOrNull(status), created, updated };
+  // Fields this version doesn't know are kept, as on a highlight
+  const found: DocumentNote = { ...unknown, text: textOrNull(text), requestedStatus: textOrNull(status), created, updated };
   if (found.text === null && found.requestedStatus === null) return null;
   const known = NOTE_STATES.find((s) => s === state);
   if (known !== undefined && known !== "open") found.state = known;
@@ -283,8 +352,14 @@ function mergedNote(dest: DocumentNote | null, moved: DocumentNote | null): Docu
     ...dest,
     text: [dest.text, moved.text].filter((t): t is string => t !== null).join("\n\n") || null,
     requestedStatus: dest.requestedStatus ?? moved.requestedStatus,
+    ...(dest.replies || moved.replies ? { replies: mergedReplies(dest.replies, moved.replies) } : {}),
     updated: now(),
   };
+}
+
+/** Two threads as one, in time order, at most MAX_REPLIES (the latest). */
+function mergedReplies(a: readonly Reply[] = [], b: readonly Reply[] = []): Reply[] {
+  return [...a, ...b].sort((x, y) => (x.at < y.at ? -1 : x.at > y.at ? 1 : 0)).slice(-MAX_REPLIES);
 }
 
 /** `record` with `note` as its document note (none for null). */
@@ -579,16 +654,64 @@ export class MarksStore {
     });
   }
 
+  // ── Threads ──────────────────────────────────────────────────────────────
+
+  /**
+   * Add a reply (`{author, text, addressed?}`) to highlight `highlightId`'s
+   * note, or with null to the note on the document as a whole. Resolves to
+   * the note with its replies.
+   */
+  reply(file: string, highlightId: string | null, body: unknown): Promise<Highlight | DocumentNote> {
+    const { author: by, text, addressed } = replyBody(body);
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = await this.writable(id);
+      const reply: Reply = { id: randomBytes(8).toString("hex"), author: by, text, at: now() };
+      if (highlightId === null) {
+        const old = storedNote(record?.documentNote);
+        if (record === null || old === null) throw new MarkError(404, "The document has no note");
+        const note = { ...withReply(old, reply, addressed), updated: reply.at };
+        await this.write(id, await refreshed(withNote(record, note), file));
+        return note;
+      }
+      const old = find(record, highlightId);
+      const highlight = { ...withReply(old, reply, addressed), updated: reply.at };
+      const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? highlight : h));
+      await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
+      return highlight;
+    });
+  }
+
+  /** Record that the user saw the thread of `highlightId` (null: the document's note) now. */
+  markSeen(file: string, highlightId: string | null): Promise<void> {
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = await this.writable(id);
+      const seen = now();
+      // Not an edit: `updated` stays as it is
+      if (highlightId === null) {
+        const old = storedNote(record?.documentNote);
+        if (record === null || old === null) throw new MarkError(404, "The document has no note");
+        await this.write(id, await refreshed(withNote(record, { ...old, seen }), file));
+        return;
+      }
+      const old = find(record, highlightId);
+      const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? { ...h, seen } : h));
+      await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
+    });
+  }
+
   // ── Sending notes ────────────────────────────────────────────────────────
 
   /**
    * Record that the document's notes `highlightIds` (and its note on the
-   * whole, with `documentNote`) were sent in round `roundId`; with
-   * `markSent`, open ones become sent. Notes no longer there are left out.
+   * whole, with `documentNote`) were sent in round `roundId`, copied or
+   * (`via: "mcp"`) fetched by agent `client`; with `markSent`, open ones
+   * become sent. Notes no longer there are left out.
    * Resolves to what became sent, for undoing it.
    */
   send(file: string, body: unknown): Promise<SentNotes> {
-    const { roundId, highlightIds, documentNote, markSent } = sendBody(body);
+    const { roundId, highlightIds, documentNote, markSent, via, client } = sendBody(body);
     const id = recordId(file);
     return this.serially(async () => {
       const record = await this.writable(id);
@@ -609,7 +732,8 @@ export class MarksStore {
       const round: Round = {
         id: roundId,
         at: now(),
-        via: "copy",
+        via,
+        ...(client === undefined ? {} : { client }),
         sha1: (await fingerprint(file)).sha1,
         notes: record.highlights.filter((h) => wanted.has(h.id)).map((h) => h.id),
         ...(noteSent ? { documentNote: true } : {}),
@@ -687,7 +811,14 @@ export function newRoundId(): string {
   return randomBytes(8).toString("hex");
 }
 
-function sendBody(body: unknown): { roundId: string; highlightIds: string[]; documentNote: boolean; markSent: boolean } {
+function sendBody(body: unknown): {
+  roundId: string;
+  highlightIds: string[];
+  documentNote: boolean;
+  markSent: boolean;
+  via: Round["via"];
+  client?: string;
+} {
   if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
   const roundId = body["roundId"];
   if (typeof roundId !== "string" || !/^[0-9a-f]{16}$/.test(roundId)) throw new MarkError(400, "roundId must be 16 hex digits");
@@ -695,11 +826,15 @@ function sendBody(body: unknown): { roundId: string; highlightIds: string[]; doc
   if (!Array.isArray(ids) || ids.length > MAX_HIGHLIGHTS || !ids.every((h) => typeof h === "string")) {
     throw new MarkError(400, "highlightIds must be a list of highlight ids");
   }
+  const via = body["via"] ?? "copy";
+  if (via !== "copy" && via !== "mcp") throw new MarkError(400, "via must be copy or mcp");
   return {
     roundId,
     highlightIds: ids as string[],
     documentNote: body["documentNote"] === true,
     markSent: body["markSent"] !== false,
+    via,
+    ...(body["client"] === undefined ? {} : { client: string(body["client"], "client", MAX_NAME, 1) }),
   };
 }
 
