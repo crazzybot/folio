@@ -17,7 +17,7 @@ import { formatReviewNotes, isPrivate, reviewPath, sendableNote, shortNoteId } f
 import type { ReviewDocument } from "../../core/src/reviewNotes";
 import { scanWorkspace } from "../../core/src/scanner";
 import type { DocumentMeta, ScanOptions } from "../../core/src/scanner";
-import { maxDepthSetting, readAppSettings, skipDirsSetting } from "../../core/src/settings";
+import { maxDepthSetting, readAppSettings, reviewIntroSetting, skipDirsSetting } from "../../core/src/settings";
 
 // Paths differ only by case on these platforms' default file systems
 const CASE_INSENSITIVE = process.platform === "darwin" || process.platform === "win32";
@@ -222,10 +222,9 @@ export class Folio {
     }
     if (picked.length === 0) return null;
 
-    const intro = this.settings()["reviewIntro"];
     const formatted = formatReviewNotes(
       picked.map((p) => p.review),
-      typeof intro === "string" || intro === null ? intro : undefined,
+      reviewIntroSetting(this.settings()),
       { threads: true },
     );
     const roundId = newRoundId();

@@ -208,7 +208,9 @@ soon as you save it:
   "skipDirs": [".git", "node_modules", ".venv", "venv", "__pycache__", ".cache", ".local", "…"],
   "maxDepth": null,
   "theme": "system",
-  "editor": null
+  "editor": null,
+  "reviewIntroOn": true,
+  "reviewIntro": ""
 }
 ```
 
@@ -227,7 +229,11 @@ Code"`, `"Cursor"`, `"Typora"`…), elsewhere a command on the `PATH`
 (`"code"`, `"subl"`…). Left `null`, macOS uses the first of VS Code, Cursor,
 Zed, Windsurf, Sublime Text, BBEdit, Nova, Typora, iA Writer and MarkText
 that's installed (else the default text editor), and Windows / Linux use the
-default app for Markdown files. In the live demo
+default app for Markdown files. `reviewIntroOn` and `reviewIntro` are
+**Settings → Review notes**: whether review notes start with instructions for
+the agent, and their wording (`""` for the default; `{documents}` is the file
+name or "3 documents"). Folio's MCP server reads them too, so the notes an
+agent fetches start the same way. In the live demo
 the appearance, reading width and font size chosen in the display options
 menu are remembered in `localStorage`; in the desktop app the reading width
 and font size are too.

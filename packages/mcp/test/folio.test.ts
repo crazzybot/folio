@@ -122,6 +122,12 @@ describe("reviewNotes", () => {
     expect((await folio.reviewNotes({}, "Claude Code"))?.text.split("\n")[0]).toBe("Notes on adr.md:");
   });
 
+  it("starts without an opening line when it's turned off", async () => {
+    await note("Why?");
+    settings = { reviewIntroOn: false, reviewIntro: "Notes on {documents}:" };
+    expect((await folio.reviewNotes({}, "Claude Code"))?.text.startsWith("1. ")).toBe(true);
+  });
+
   it("refuses paths it doesn't list", async () => {
     await expect(folio.reviewNotes({ paths: ["docs/missing.md"] }, "Claude Code")).rejects.toThrow("missing.md");
     await expect(folio.reviewNotes({ paths: ["/etc/hosts"] }, "Claude Code")).rejects.toBeInstanceOf(FolioError);

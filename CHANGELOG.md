@@ -22,6 +22,13 @@ turns them into the next release's section.
   **New reply** label in the Marks view, and the status bar says "Claude
   Code replied to 3 notes"; click it to go to each in turn.
 
+### Changed
+
+- **Settings → Review notes** is kept in `settings.json` in the desktop app
+  (`reviewIntroOn`, `reviewIntro`), so Folio's MCP server starts the notes
+  it gives an agent the same way. What you set in an earlier version is
+  moved there.
+
 ## [0.5.0] — 2026-11-12
 
 ### Added
