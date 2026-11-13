@@ -66,6 +66,12 @@ passage:
 - Hovering a note underlines its passage; hovering a passage lights up its
   note.
 - Clicking a note opens the highlight's popover (state, resolve, lock).
+- **Replies** ([agent-integration.md](agent-integration.md)): one line
+  under the note, "↳ 3 replies · latest from Claude Code, 10:02", with a
+  **New** label while some are unread. Not the thread itself: agents'
+  replies run to paragraphs, and a few turns would push the text apart;
+  the thread is in the popover. The time is the clock's, not "5 min ago",
+  as the line isn't redrawn while it's shown.
 - Private notes are shown too, without a state icon: inline notes are for
   the reader, not only the agent loop.
 

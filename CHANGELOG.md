@@ -10,6 +10,10 @@ turns them into the next release's section.
 
 ### Added
 
+- **Replies under inline notes.** With notes shown in the text (`⌥⌘N` /
+  `Ctrl+Alt+N`), a note with replies has a line under it: how many, and
+  who wrote the latest and when, with a **New** label when there are
+  replies you haven't read. Click it to read the thread.
 - **Images open in the whole window**, like Mermaid diagrams: hover an
   image and click its expand button, or double-click it, to zoom and pan.
   The title bar shows the document's title and the image's alt text.

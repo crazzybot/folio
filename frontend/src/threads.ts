@@ -68,5 +68,37 @@ export function replyTime(at: string, now: Date = new Date()): string {
   const minutes = Math.floor((now.getTime() - then.getTime()) / 60_000);
   if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes} min ago`;
+  return clockTime(then, now);
+}
+
+/** "10:02" today, else "Nov 11". */
+function clockTime(then: Date, now: Date): string {
   return then.toDateString() === now.toDateString() ? TIME.format(then) : DAY.format(then);
+}
+
+/** A thread in one line, for the note in the text: what's there and whether any of it is new. */
+export interface ThreadSummary {
+  /** "3 replies · latest from Claude Code, 10:02", or "1 reply from Claude Code, 10:02". */
+  text: string;
+  /** When the latest reply was written, in full: the line's tooltip. */
+  title: string;
+  /** Replies the user hasn't seen. */
+  fresh: number;
+}
+
+/**
+ * The summary line for a thread with replies, else null. The time is the
+ * clock's, never "5 min ago": the line isn't redrawn as time passes.
+ */
+export function threadSummary(thread: Thread, now: Date = new Date()): ThreadSummary | null {
+  const replies = thread.replies ?? [];
+  const latest = replies[replies.length - 1];
+  if (latest === undefined) return null;
+  const then = new Date(latest.at);
+  const by = `${authorName(latest.author)}, ${clockTime(then, now)}`;
+  return {
+    text: replies.length === 1 ? `1 reply from ${by}` : `${replies.length} replies · latest from ${by}`,
+    title: then.toLocaleString(),
+    fresh: newReplies(thread).length,
+  };
 }

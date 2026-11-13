@@ -43,6 +43,15 @@ describe("placeInlineNotes", () => {
     expect(notesText(root)).toEqual(["on two"]);
   });
 
+  it("adds a line for the note's replies, marked new when some are, outside the text", () => {
+    const root = article("<p>One two.</p><p>Three four.</p>");
+    const summary = (fresh: number) => ({ text: "2 replies · latest from Claude Code, 10:02", title: "", fresh });
+    placeInlineNotes(root, [{ ...noteOn(root, "two"), replies: summary(1) }, { ...noteOn(root, "four"), replies: summary(0) }]);
+    const lines = [...root.querySelectorAll(".folio-inline-note-replies")];
+    expect(lines.map((l) => l.textContent)).toEqual(["↳ 2 replies · latest from Claude Code, 10:02 New", "↳ 2 replies · latest from Claude Code, 10:02"]);
+    expect(buildTextModel(root).text).toBe(buildTextModel(article("<p>One two.</p><p>Three four.</p>")).text);
+  });
+
   it("numbers a block's notes by where their passages end, leaving the text alone", () => {
     const root = article("<p>Alpha beta gamma delta.</p>");
     // Given out of order

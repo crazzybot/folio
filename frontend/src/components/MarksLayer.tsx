@@ -8,7 +8,7 @@ import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
 import { isPrivate, lastSent, stateOf } from "../sending";
 import { buildTextModel } from "../textModel";
-import { newReplies } from "../threads";
+import { newReplies, threadSummary } from "../threads";
 import { HIGHLIGHT_COLORS } from "../types";
 import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, NoteState, Round, TextAnchor } from "../types";
 import NoteStateIcon from "./NoteStateIcon";
@@ -420,7 +420,7 @@ export default function MarksLayer({
         const range = h.note === null ? undefined : located.current.get(h.id);
         return range === undefined || h.note === null
           ? []
-          : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: h.note, icon: noteIconOf(h) }];
+          : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: h.note, icon: noteIconOf(h), replies: threadSummary(h) }];
       });
     const relayout = () => setLayoutVersion((v) => v + 1);
     let stop = () => {};

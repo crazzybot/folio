@@ -316,6 +316,23 @@ li > .folio-inline-notes,
   opacity: 0.5;
 }
 
+/* "↳ 3 replies · latest from Claude Code, 10:02": the thread is in the popover */
+.folio-inline-note-replies {
+  margin-top: 0.1em;
+  font-size: 0.9em;
+  color: var(--color-text-subtle);
+}
+
+/* Replies the user hasn't seen, as in the thread (NoteThread.module.css) */
+.folio-inline-note-new {
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: #fff;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
 .folio-inline-notes-row > td {
   padding-top: 0.2em;
   padding-bottom: 0.2em;

@@ -59,6 +59,9 @@ when it was written.
   margin icon, and a **New reply** label in the **Marks** view. The status
   bar says who replied, such as "Claude Code replied to 3 notes"; click it to
   go to each note in turn. Opening a note marks its replies as read.
+- **Inline notes.** With notes shown in the text (`⌥⌘N` / `Ctrl+Alt+N`),
+  a note with replies has one line under it: how many, who wrote the latest
+  and when, and **New** if some are unread. Click it to read the thread.
 - **Addressed or open.** When the agent changed the document for a note, its
   reply marks the note **Addressed**. A question, or an explanation of why
   it didn't change anything, leaves the note open, to go with the next round.
