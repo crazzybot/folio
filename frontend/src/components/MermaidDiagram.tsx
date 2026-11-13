@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { authoredTheme } from "../mermaidTheme";
+import { fullWindowCaption } from "../fullWindowCaption";
 import { useAppliedTheme } from "../theme";
 import DiagramViewer from "./DiagramViewer";
+import ExpandButton from "./ExpandButton";
 import styles from "./MermaidDiagram.module.css";
 
 /**
@@ -61,20 +63,6 @@ function diagramTitle(code: string): string | null {
   return match?.[1] ?? null;
 }
 
-/**
- * The caption for the full-window view: the document's title, then the
- * diagram's own title or else the nearest heading above it.
- */
-function diagramCaption(figure: HTMLElement, code: string): string {
-  const article = figure.closest("article");
-  const headings = article === null ? [] : [...article.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")];
-  const documentTitle = headings[0]?.textContent?.trim() ?? "";
-  const above = headings.filter((h) => h.compareDocumentPosition(figure) & Node.DOCUMENT_POSITION_FOLLOWING).pop();
-  const own = diagramTitle(code) ?? above?.textContent?.trim() ?? "";
-  const parts = [documentTitle, own].filter((part, i, all) => part !== "" && all.indexOf(part) === i);
-  return parts.length > 0 ? parts.join(" — ") : "Diagram";
-}
-
 type State = { status: "rendering" } | { status: "done"; svg: string } | { status: "error"; message: string };
 
 export default function MermaidDiagram({ code }: { code: string }): React.ReactElement {
@@ -86,10 +74,10 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
   const [state, setState] = useState<State>({ status: "rendering" });
   // The full-window view's caption while it's open, else null. Read from the
   // page when it opens: refs can't be read while rendering
-  const [fullWindowCaption, setFullWindowCaption] = useState<string | null>(null);
+  const [viewerCaption, setViewerCaption] = useState<string | null>(null);
   const figureRef = useRef<HTMLDivElement>(null);
   const openFullWindow = () =>
-    setFullWindowCaption(figureRef.current === null ? "Diagram" : diagramCaption(figureRef.current, code));
+    setViewerCaption(figureRef.current === null ? "Diagram" : fullWindowCaption(figureRef.current, diagramTitle(code), "Diagram"));
 
   useEffect(() => {
     let cancelled = false;
@@ -133,25 +121,14 @@ export default function MermaidDiagram({ code }: { code: string }): React.ReactE
         // Mermaid's output, sanitized by Mermaid in strict mode
         dangerouslySetInnerHTML={{ __html: state.svg }}
       />
-      <button
-        type="button"
-        className={styles.expandBtn}
-        onClick={openFullWindow}
-        aria-label="Open diagram in full window"
-        title="Open in full window (or double-click the diagram)"
-      >
-        {/* Arrows to the corners */}
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true">
-          <path d="M9.5 2.5h4v4M13.5 2.5L9 7M6.5 13.5h-4v-4M2.5 13.5L7 9" />
-        </svg>
-      </button>
-      {fullWindowCaption !== null && (
+      <ExpandButton label="Open diagram in full window" onClick={openFullWindow} />
+      {viewerCaption !== null && (
         <DiagramViewer
-          svg={state.svg}
-          caption={fullWindowCaption}
+          content={{ kind: "svg", svg: state.svg }}
+          caption={viewerCaption}
           // The card's colour for a diagram drawn for the other theme
           background={card === "" ? "var(--color-bg)" : theme === "dark" ? "#1f1f1f" : "#ffffff"}
-          onClose={() => setFullWindowCaption(null)}
+          onClose={() => setViewerCaption(null)}
         />
       )}
     </div>

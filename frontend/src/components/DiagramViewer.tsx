@@ -6,12 +6,17 @@ import styles from "./DiagramViewer.module.css";
 // top-left of the header row, which doubles as the window's drag area
 const IS_MAC_DESKTOP = window.markdownApi?.platform === "darwin";
 
+/**
+ * What the viewer shows: a diagram's SVG markup (Mermaid's output, already
+ * sanitized), or an image from the document.
+ */
+export type ViewerContent = { kind: "svg"; svg: string } | { kind: "image"; src: string; alt: string };
+
 interface DiagramViewerProps {
-  /** The diagram's SVG markup (Mermaid's output, already sanitized). */
-  svg: string;
-  /** What the diagram is, shown in the title bar: its title or nearest heading. */
+  content: ViewerContent;
+  /** What it is, shown in the title bar: its title or nearest heading. */
   caption: string;
-  /** Background behind the diagram: its card colour, or the app's. */
+  /** Background behind it: a diagram's card colour, or the app's. */
   background: string;
   onClose: () => void;
 }
@@ -39,15 +44,15 @@ function clampScale(scale: number): number {
 }
 
 /**
- * A diagram in the whole window, over the sidebar, header and outline. Its
+ * A diagram or image in the whole window, over the sidebar, header and outline. Its
  * own title bar (caption and controls) takes the header's place, so the
  * window can still be dragged by it:
  * zoom (buttons, ⌘/Ctrl + scroll or pinch, + / -), pan (drag, scroll,
  * arrow keys), fit and recentre (0), actual size (1); Escape closes.
  *
- * The SVG is scaled with a CSS transform, so it stays sharp at any zoom.
+ * It is scaled with a CSS transform, so an SVG stays sharp at any zoom.
  */
-export default function DiagramViewer({ svg, caption, background, onClose }: DiagramViewerProps): React.ReactElement {
+export default function DiagramViewer({ content, caption, background, onClose }: DiagramViewerProps): React.ReactElement {
   const overlayRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -84,8 +89,21 @@ export default function DiagramViewer({ svg, caption, background, onClose }: Dia
     });
   }, []);
 
-  // Size the SVG at its natural size (from its viewBox), then fit it
+  /** Size an image at its natural size, once it has loaded, then fit it. */
+  const measureImage = useCallback(() => {
+    const img = contentRef.current?.querySelector("img");
+    if (!img || img.naturalWidth === 0) return;
+    sizeRef.current = { width: img.naturalWidth, height: img.naturalHeight || 1 };
+    fit();
+  }, [fit]);
+
+  // Size the SVG at its natural size (from its viewBox), then fit it. An
+  // image already in the cache has loaded before this runs.
   useLayoutEffect(() => {
+    if (content.kind === "image") {
+      measureImage();
+      return;
+    }
     const el = contentRef.current?.querySelector("svg");
     if (!el) return;
     const box = el.viewBox.baseVal;
@@ -98,7 +116,7 @@ export default function DiagramViewer({ svg, caption, background, onClose }: Dia
     el.style.height = `${height}px`;
     el.style.maxWidth = "none";
     fit();
-  }, [svg, fit]);
+  }, [content, fit, measureImage]);
 
   // Focus the dialog; give focus back to what opened it on close
   useEffect(() => {
@@ -189,7 +207,7 @@ export default function DiagramViewer({ svg, caption, background, onClose }: Dia
         <h2 className={styles.caption} title={caption}>
           {caption}
         </h2>
-        <div className={styles.toolbar} role="toolbar" aria-label="Diagram view">
+        <div className={styles.toolbar} role="toolbar" aria-label={content.kind === "svg" ? "Diagram view" : "Image view"}>
           <button type="button" className={styles.btn} onClick={() => zoom((scale) => scale / STEP)} title="Zoom out (−)" aria-label="Zoom out">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
               <path d="M3.5 8h9" strokeWidth="1.3" />
@@ -236,12 +254,23 @@ export default function DiagramViewer({ svg, caption, background, onClose }: Dia
           zoom((scale) => scale * 2, e.clientX - rect.left, e.clientY - rect.top);
         }}
       >
-        <div
-          ref={contentRef}
-          className={styles.content}
-          style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
-          dangerouslySetInnerHTML={{ __html: svg }}
-        />
+        {content.kind === "svg" ? (
+          <div
+            ref={contentRef}
+            className={styles.content}
+            style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
+            dangerouslySetInnerHTML={{ __html: content.svg }}
+          />
+        ) : (
+          <div
+            ref={contentRef}
+            className={styles.content}
+            style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
+          >
+            {/* Not draggable: a drag pans, it doesn't drag the image out */}
+            <img src={content.src} alt={content.alt} draggable={false} onLoad={measureImage} />
+          </div>
+        )}
       </div>
 
       <p className={styles.hint} aria-hidden="true">

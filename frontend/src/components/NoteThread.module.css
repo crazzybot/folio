@@ -32,9 +32,11 @@
   color: var(--color-text-subtle);
 }
 
+/* Stands out from the reply text below it, so a long thread reads as turns */
 .author {
-  font-weight: 600;
-  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-text-strong);
 }
 
 /* Not yet seen when the thread was opened */

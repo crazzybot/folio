@@ -37,5 +37,8 @@ whole window with zoom and pan.
 ## Images and links
 
 - Images from the workspace, relative to the document, and from the web.
+  Hover an image and click its expand button, or double-click it, to view
+  it in the whole window with zoom and pan, as for a diagram. Small images,
+  such as badges, and images inside links don't open.
 - Links to other files, such as `[data](report.pdf)`, open in their app.
   Links to scripts, executables and HTML are shown as unavailable.
