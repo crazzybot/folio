@@ -17,6 +17,10 @@ export interface DesktopSettings {
   skipDirs: string[];
   maxDepth: number | null;
   editor: string | null;
+  /** Whether review notes start with instructions for the agent. */
+  reviewIntroOn: boolean;
+  /** Their wording; "" for the default. */
+  reviewIntro: string;
   defaultSkipDirs: string[];
   /** The editor used when `editor` is null, if one is installed (macOS). */
   detectedEditor: string | null;
@@ -51,7 +55,9 @@ interface MarkdownDesktopApi {
   /** Settings for the in-app panel; changes are validated like settings.json. */
   settings: {
     get(): Promise<DesktopSettings>;
-    set(patch: Partial<Pick<DesktopSettings, "skipDirs" | "maxDepth" | "editor">>): Promise<DesktopSettings>;
+    set(
+      patch: Partial<Pick<DesktopSettings, "skipDirs" | "maxDepth" | "editor" | "reviewIntroOn" | "reviewIntro">>,
+    ): Promise<DesktopSettings>;
     chooseWorkspace(): Promise<void>;
     openFile(): Promise<void>;
     editCustomCss(): Promise<void>;

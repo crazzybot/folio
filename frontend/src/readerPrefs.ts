@@ -1,5 +1,11 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getItem, setItem } from "./storage";
+
+// The opening line of review notes, in the browser; and, in the desktop app,
+// that an earlier version's was moved to settings.json
+const INTRO_ON_KEY = "folio.reviewIntroOn";
+const INTRO_KEY = "folio.reviewIntro";
+const INTRO_MOVED_KEY = "folio.reviewIntroInSettings";
 
 /**
  * Reading preferences chosen in the header's display options menu, each
@@ -100,9 +106,13 @@ export function useSearchDocumentText(): [boolean, (on: boolean) => void] {
 }
 
 /**
- * The opening line of copied review notes (Settings): whether there is one,
- * and its wording ("" for the default; {documents} is replaced with the file
- * name or "3 documents").
+ * The opening line of review notes (Settings): whether there is one, and its
+ * wording ("" for the default; {documents} is replaced with the file name or
+ * "3 documents").
+ *
+ * The desktop app keeps it in settings.json, where the MCP server reads it
+ * too, so an agent's notes start as copied ones do. The browser (the live
+ * demo) keeps it with the view preferences.
  */
 export function useReviewIntro(): {
   on: boolean;
@@ -110,12 +120,50 @@ export function useReviewIntro(): {
   text: string;
   setText: (text: string) => void;
 } {
-  const [on, setOn] = useStoredFlag("folio.reviewIntroOn", true);
-  const [text, setTextState] = useState(() => getItem("folio.reviewIntro") ?? "");
-  const setText = useCallback((next: string) => {
-    setTextState(next);
-    setItem("folio.reviewIntro", next);
-  }, []);
+  const settings = window.markdownApi?.settings;
+  const [on, setOnState] = useState(() => getItem(INTRO_ON_KEY) !== "false");
+  const [text, setTextState] = useState(() => getItem(INTRO_KEY) ?? "");
+
+  useEffect(() => {
+    if (settings === undefined) return;
+    const show = (s: { reviewIntroOn: boolean; reviewIntro: string }) => {
+      setOnState(s.reviewIntroOn);
+      setTextState(s.reviewIntro);
+    };
+    void settings.get().then((saved) => {
+      // Saved by an earlier version with the view preferences: moved to settings.json once
+      if (getItem(INTRO_MOVED_KEY) === null) {
+        setItem(INTRO_MOVED_KEY, "1");
+        const oldOn = getItem(INTRO_ON_KEY);
+        const oldText = getItem(INTRO_KEY);
+        if (oldOn !== null || oldText !== null) {
+          void settings
+            .set({ reviewIntroOn: oldOn !== "false", reviewIntro: oldText ?? "" })
+            .then(show);
+          return;
+        }
+      }
+      show(saved);
+    });
+    return settings.onChange(show);
+  }, [settings]);
+
+  const setOn = useCallback(
+    (next: boolean) => {
+      setOnState(next);
+      if (settings) void settings.set({ reviewIntroOn: next });
+      else setItem(INTRO_ON_KEY, String(next));
+    },
+    [settings],
+  );
+  const setText = useCallback(
+    (next: string) => {
+      setTextState(next);
+      if (settings) void settings.set({ reviewIntro: next });
+      else setItem(INTRO_KEY, next);
+    },
+    [settings],
+  );
   return { on, setOn, text, setText };
 }
 

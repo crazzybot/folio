@@ -1,7 +1,8 @@
 /**
  * settings.ts — The parts of the desktop app's settings.json that other
- * processes read too: which folders a scan skips and how deep it goes. The
- * MCP server reads them so an agent sees the documents the app lists.
+ * processes read too: which folders a scan skips and how deep it goes, and
+ * the opening line of review notes. The MCP server reads them so an agent
+ * sees the documents the app lists, introduced as Copy review notes does.
  *
  * The app owns the file (desktop/src/settings.ts); this reads it without
  * Electron, from where Electron keeps it.
@@ -60,6 +61,29 @@ export function skipDirsSetting(raw: unknown): string[] {
 /** A saved `maxDepth`: a positive integer, else null (unlimited). */
 export function maxDepthSetting(raw: unknown): number | null {
   return typeof raw === "number" && Number.isInteger(raw) && raw > 0 ? raw : null;
+}
+
+const MAX_REVIEW_INTRO = 2_000;
+
+/** A saved `reviewIntroOn`: whether review notes start with instructions for the agent (default: yes). */
+export function reviewIntroOnSetting(raw: unknown): boolean {
+  return raw !== false;
+}
+
+/** A saved `reviewIntro`: its wording, or "" for the default. */
+export function reviewIntroTextSetting(raw: unknown): string {
+  return typeof raw === "string" ? raw.slice(0, MAX_REVIEW_INTRO) : "";
+}
+
+/**
+ * The opening line review notes start with, as the formatter takes it
+ * (reviewNotes.ts): the wording, null when turned off, undefined for the
+ * default.
+ */
+export function reviewIntroSetting(settings: Record<string, unknown>): string | null | undefined {
+  if (!reviewIntroOnSetting(settings["reviewIntroOn"])) return null;
+  const text = reviewIntroTextSetting(settings["reviewIntro"]);
+  return text.trim() === "" ? undefined : text;
 }
 
 /**

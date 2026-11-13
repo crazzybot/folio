@@ -7,7 +7,13 @@
 import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
-import { DEFAULT_SKIP_DIRS, maxDepthSetting, skipDirsSetting } from "../../packages/core/src/settings";
+import {
+  DEFAULT_SKIP_DIRS,
+  maxDepthSetting,
+  reviewIntroOnSetting,
+  reviewIntroTextSetting,
+  skipDirsSetting,
+} from "../../packages/core/src/settings";
 
 export type Theme = "system" | "light" | "dark";
 
@@ -31,6 +37,10 @@ export interface Settings {
    * command elsewhere ("code"); null picks one (see editor.ts).
    */
   editor: string | null;
+  /** Whether review notes start with instructions for the agent: copied, and fetched by the MCP server. */
+  reviewIntroOn: boolean;
+  /** Their wording; "" for the default. {documents} is the file name or "3 documents". */
+  reviewIntro: string;
 }
 
 // Shared with the MCP server, which scans the same folders
@@ -42,6 +52,8 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   maxDepth: null,
   theme: "system",
   editor: null,
+  reviewIntroOn: true,
+  reviewIntro: "",
 };
 
 export function settingsPath(): string {
@@ -62,6 +74,8 @@ export function normalizeSettings(raw: Partial<Record<keyof Settings, unknown>>)
     maxDepth,
     theme,
     editor,
+    reviewIntroOn: reviewIntroOnSetting(raw.reviewIntroOn),
+    reviewIntro: reviewIntroTextSetting(raw.reviewIntro),
   };
 }
 

@@ -89,8 +89,9 @@ next round.
 - `packages/mcp`, bundled by esbuild with the core and the MCP SDK into one
   file, so `npx` installs nothing else.
 - Reads the app's `settings.json` (in Electron's data folder for Folio) for
-  skipped folders, scan depth and `reviewIntro`, the opening line; defaults
-  when the app was never run.
+  skipped folders, scan depth and the opening line (`reviewIntroOn`,
+  `reviewIntro`: **Settings → Review notes**, which the desktop app keeps
+  there); defaults when the app was never run.
 - Writes go through the core's store: read–modify–write with atomic rename,
   as the app does, so the app and the server can write at the same time.
 - The agent starts the server once per session. The scan is cached and

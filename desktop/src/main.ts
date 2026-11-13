@@ -749,6 +749,8 @@ interface SettingsView {
   skipDirs: string[];
   maxDepth: number | null;
   editor: string | null;
+  reviewIntroOn: boolean;
+  reviewIntro: string;
   defaultSkipDirs: readonly string[];
   /** The editor used when `editor` is null, if one is installed (macOS). */
   detectedEditor: string | null;
@@ -760,6 +762,8 @@ function settingsView(): SettingsView {
     skipDirs: settings.skipDirs,
     maxDepth: settings.maxDepth,
     editor: settings.editor,
+    reviewIntroOn: settings.reviewIntroOn,
+    reviewIntro: settings.reviewIntro,
     defaultSkipDirs: DEFAULT_SKIP_DIRS,
     detectedEditor: editorName(null),
   };
@@ -780,7 +784,8 @@ function applySettings(next: Settings): void {
     next.maxDepth !== settings.maxDepth || next.skipDirs.join("\0") !== settings.skipDirs.join("\0");
   const themeChanged = next.theme !== settings.theme;
   const editorChanged = next.editor !== settings.editor;
-  if (!workspaceChanged && !scanChanged && !themeChanged && !editorChanged) return;
+  const introChanged = next.reviewIntroOn !== settings.reviewIntroOn || next.reviewIntro !== settings.reviewIntro;
+  if (!workspaceChanged && !scanChanged && !themeChanged && !editorChanged && !introChanged) return;
 
   settings = next;
   if (themeChanged) applyTheme();
@@ -809,7 +814,7 @@ function applySettings(next: Settings): void {
 function updateSettings(patch: unknown): SettingsView {
   if (patch === null || typeof patch !== "object") return settingsView();
   const changes = patch as Record<string, unknown>;
-  const editable = ["skipDirs", "maxDepth", "editor"].filter((key) => key in changes);
+  const editable = ["skipDirs", "maxDepth", "editor", "reviewIntroOn", "reviewIntro"].filter((key) => key in changes);
   const next = normalizeSettings({ ...settings, ...Object.fromEntries(editable.map((key) => [key, changes[key]])) });
   saveSettings(next);
   applySettings(next);

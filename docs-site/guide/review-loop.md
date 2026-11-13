@@ -73,7 +73,9 @@ The copied text is Markdown. Each note has the document's file path and line
 Highlights without a note, and notes marked **Only me**, are never sent.
 
 `⇧⌘C` / `Ctrl+Shift+C` copies the unsent notes without opening the dialog.
-**Settings → Review notes** changes the instructions at the top of the text.
+**Settings → Review notes** changes the instructions at the top of the text,
+or turns them off. In the desktop app they're kept in `settings.json`, so an
+agent that fetches your notes through Folio's MCP server gets the same ones.
 
 ## Sent notes
 
