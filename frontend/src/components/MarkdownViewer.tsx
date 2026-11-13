@@ -10,6 +10,7 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import type { Options as RehypeHighlightOptions } from "rehype-highlight";
 import type { Components, ExtraProps, Options as MarkdownOptions } from "react-markdown";
 import { workspaceFileUrl } from "../api";
+import { fullWindowCaption } from "../fullWindowCaption";
 
 const desktopApi = window.markdownApi;
 import { resolveImageSrc, resolveLink } from "../links";
@@ -43,6 +44,8 @@ import type { RehypeKatex } from "../katexLoader";
 import remarkObsidian from "../obsidian";
 import DocumentProperties from "./DocumentProperties";
 import MermaidDiagram from "./MermaidDiagram";
+import DiagramViewer from "./DiagramViewer";
+import ExpandButton from "./ExpandButton";
 import styles from "./MarkdownViewer.module.css";
 // After the module CSS: document styles override the base rules by order
 import "../documentStyles.css";
@@ -333,8 +336,13 @@ function ExternalLinkIcon({ label = "(opens in browser)" }: { label?: string }):
 // Images
 // Relative paths resolve against the document's folder, like links, and are
 // loaded from the workspace. Images that can't be shown leave a labelled
-// placeholder instead of a broken-image icon.
+// placeholder instead of a broken-image icon. An image opens in the whole
+// window, like a diagram: double-click it, or hover it and click the expand
+// button.
 // ---------------------------------------------------------------------------
+
+// Smaller images (icons, badges) don't get the expand button: it would cover them
+const EXPANDABLE_MIN_SIZE = 48;
 
 function MarkdownImage({
   src,
@@ -346,6 +354,17 @@ function MarkdownImage({
   const source = src !== undefined && handlers ? handlers.resolveImage(src) : null;
   const url = source === null ? null : source.kind === "url" ? source.src : workspaceFileUrl(source.location);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const frameRef = useRef<HTMLSpanElement>(null);
+  // Big enough for the expand button, and not inside a link (clicking it follows the link)
+  const [expandable, setExpandable] = useState(false);
+  // The full-window view's caption while it's open, else null
+  const [viewerCaption, setViewerCaption] = useState<string | null>(null);
+
+  const inLink = () => frameRef.current?.closest("a") != null;
+  const openFullWindow = () => {
+    if (frameRef.current === null || inLink()) return;
+    setViewerCaption(fullWindowCaption(frameRef.current, alt ?? null, "Image"));
+  };
 
   if (url === null || failedUrl === url) {
     const where = source?.kind === "workspace" ? source.location : src;
@@ -355,7 +374,31 @@ function MarkdownImage({
       </span>
     );
   }
-  return <img {...rest} src={url} alt={alt ?? ""} loading="lazy" onError={() => setFailedUrl(url)} />;
+  return (
+    <span ref={frameRef} className={styles.image}>
+      <img
+        {...rest}
+        src={url}
+        alt={alt ?? ""}
+        loading="lazy"
+        onError={() => setFailedUrl(url)}
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          setExpandable(img.naturalWidth >= EXPANDABLE_MIN_SIZE && img.naturalHeight >= EXPANDABLE_MIN_SIZE && !inLink());
+        }}
+        onDoubleClick={openFullWindow}
+      />
+      {expandable && <ExpandButton label="Open image in full window" onClick={openFullWindow} />}
+      {viewerCaption !== null && (
+        <DiagramViewer
+          content={{ kind: "image", src: url, alt: alt ?? "" }}
+          caption={viewerCaption}
+          background="var(--color-bg)"
+          onClose={() => setViewerCaption(null)}
+        />
+      )}
+    </span>
+  );
 }
 
 // Build the components map once — stable reference, no re-creation on render.

@@ -1,4 +1,4 @@
-/* ─── Diagram in the whole window ─────────────────────────────────────────── */
+/* ─── Diagram or image in the whole window ────────────────────────────────── */
 /* Covers the sidebar, header, outline and status bar */
 .overlay {
   position: fixed;
@@ -61,8 +61,14 @@
   transform-origin: 0 0;
 }
 
-.content :global(svg) {
+.content :global(svg),
+.content :global(img) {
   display: block;
+}
+
+/* Drawn at its natural size; the transform zooms it */
+.content :global(img) {
+  max-width: none;
 }
 
 /* Controls at the right of the title bar; clickable, not a drag area */

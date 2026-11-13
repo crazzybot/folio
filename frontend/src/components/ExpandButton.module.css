@@ -1,0 +1,39 @@
+/* ─── "Open in full window" button (diagrams and images) ──────────────────── */
+/* Shown while its parent is hovered, or when the button has focus */
+.expandBtn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+:hover > .expandBtn,
+.expandBtn:focus-visible {
+  opacity: 1;
+}
+
+.expandBtn:hover {
+  background: var(--color-surface-hover);
+}
+
+.expandBtn:focus-visible {
+  outline: 1px solid var(--color-accent);
+}
+
+@media print {
+  .expandBtn {
+    display: none;
+  }
+}

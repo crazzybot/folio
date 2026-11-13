@@ -336,6 +336,13 @@
   height: auto;
 }
 
+/* Holds an image and its "open in full window" button (ExpandButton) */
+.image {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
 /* ─── Definition list (GFM extras) ───────────────────────────────────────── */
 .article :global(dl) { margin-bottom: 1em; }
 .article :global(dt) { font-weight: 600; color: var(--color-text-strong); margin-top: 0.5em; }

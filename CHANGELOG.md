@@ -8,7 +8,17 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Added
+
+- **Images open in the whole window**, like Mermaid diagrams: hover an
+  image and click its expand button, or double-click it, to zoom and pan.
+  The title bar shows the document's title and the image's alt text.
+  Small images, such as badges, and images inside links don't open.
+
 ### Changed
+
+- In a note's replies, the author's name (**You**, **Claude Code**) is
+  bold, so each turn of the conversation stands out.
 
 - **Settings → Review notes** is kept in `settings.json` in the desktop app
   (`reviewIntroOn`, `reviewIntro`), so Folio's MCP server starts the notes
