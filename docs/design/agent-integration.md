@@ -1,7 +1,7 @@
 # Agent integration: the MCP server
 
-Status: in progress (2026-11-12). The server (`packages/mcp`) and the
-threads in the app are implemented. Builds on
+Status: in progress (2026-11-12). The server (`packages/mcp`), the
+threads in the app and the Claude Code plugin are implemented. Builds on
 [review-notes.md](review-notes.md) and [sending-notes.md](sending-notes.md).
 
 With Copy review notes, the user pastes notes into the agent, and nothing
@@ -93,3 +93,32 @@ next round.
 - The agent starts the server once per session. The scan is cached and
   dropped when a Markdown file or folder under the root changes (recursive
   `fs.watch`); where that isn't available, every call scans.
+
+## Claude Code plugin
+
+This repository is a Claude Code plugin marketplace with one plugin, so it
+installs with two commands and needs no listing elsewhere:
+
+```
+/plugin marketplace add crazzybot/folio
+/plugin install folio@folio
+```
+
+```
+.claude-plugin/marketplace.json   the folio marketplace: one plugin, ./plugins/folio
+plugins/folio/
+  .claude-plugin/plugin.json      name, version
+  .mcp.json                       runs: npx -y @crazzybot/folio-mcp
+  skills/review/SKILL.md          /folio:review [paths…]
+```
+
+- The server is the npm package, not a copy in the plugin: `npx -y` runs the
+  latest release, so a server release needs no plugin release. The plugin's
+  own version changes when its files do.
+- No `--root`: Claude Code starts the server in the project folder, which is
+  the root it should see.
+- `/folio:review` tells the agent to get the notes (for the given paths, or
+  every document with notes to send), revise the documents in their own
+  structure and language, answer every note with `folio_reply`, and end
+  with a summary that points the user to Folio to resolve them. The tools'
+  descriptions say the same; the skill makes it one command.

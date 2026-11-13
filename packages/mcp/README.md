@@ -11,7 +11,14 @@ the app does. It works whether or not Folio is open.
 
 ## Setup
 
-Claude Code:
+Claude Code, with Folio's plugin, which adds a `/folio:review` command:
+
+```
+/plugin marketplace add crazzybot/folio
+/plugin install folio@folio
+```
+
+Or the server alone:
 
 ```bash
 claude mcp add folio -- npx -y @crazzybot/folio-mcp
