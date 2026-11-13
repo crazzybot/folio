@@ -10,6 +10,19 @@ turns them into the next release's section.
 
 ### Added
 
+- **Git branches and worktrees** (desktop). The status bar shows the branch
+  of the open document's repository, or the commit when it's detached, and
+  a worktree icon in a linked worktree. Click it for the repository's
+  worktrees, to open one as the workspace, and **Copy Branch Name**. In a
+  workspace of several repositories, a folder that holds one shows a branch
+  icon when that repository is off its main branch, and a folder's hover
+  card names the branch it's on. Folio only reads git; it never changes
+  anything.
+- **Marks of documents on another branch** are kept apart. After switching
+  branches, a document that exists only on another branch is listed under
+  **On other branches** in the Marks view, not **Missing documents**: its
+  marks aren't moved or matched to another document, and they're back when
+  you switch back. Folio's MCP server leaves them alone too.
 - **Replies under inline notes.** With notes shown in the text (`⌥⌘N` /
   `Ctrl+Alt+N`), a note with replies has a line under it: how many, and
   who wrote the latest and when, with a **New** label when there are

@@ -11,6 +11,7 @@ import { watch } from "node:fs";
 import type { FSWatcher } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { filesOnOtherBranches } from "../../core/src/git";
 import { listMarks, MarkError, MarksStore, newRoundId, realPath } from "../../core/src/marks";
 import type { DocumentMarks, DocumentNote, Highlight, NoteState } from "../../core/src/marks";
 import { formatReviewNotes, isPrivate, reviewPath, sendableNote, shortNoteId } from "../../core/src/reviewNotes";
@@ -22,6 +23,10 @@ import { maxDepthSetting, readAppSettings, reviewIntroSetting, skipDirsSetting }
 // Paths differ only by case on these platforms' default file systems
 const CASE_INSENSITIVE = process.platform === "darwin" || process.platform === "win32";
 const MARKDOWN = /\.(md|markdown)$/i;
+
+// A document only on another git branch keeps its marks where they are, as
+// in the desktop app: not moved to a namesake with the same content
+const MARKS_OPTIONS = { onOtherBranches: filesOnOtherBranches };
 
 /** A refusal the agent is told about: a bad path or note id. */
 export class FolioError extends Error {}
@@ -158,7 +163,7 @@ export class Folio {
         (status === undefined || doc.meta?.status === status) &&
         (tag === undefined || (doc.meta?.tags ?? []).includes(tag)),
     );
-    const { documents: marked } = await listMarks(this.store, this.root, shown);
+    const { documents: marked } = await listMarks(this.store, this.root, shown, MARKS_OPTIONS);
     const open = new Map(marked.map((m) => [m.docId, waiting(m, shown.find((d) => d.id === m.docId)?.meta?.status)]));
     return shown
       .map((doc) => ({
@@ -194,7 +199,7 @@ export class Folio {
     if (request.includeSent === true) sendable.add("sent");
     if (request.includeAddressed === true) sendable.add("addressed");
 
-    const { documents: marked } = await listMarks(this.store, this.root, documents);
+    const { documents: marked } = await listMarks(this.store, this.root, documents, MARKS_OPTIONS);
     const picked: { review: ReviewDocument; highlightIds: string[]; documentNote: boolean }[] = [];
     for (const marks of marked) {
       const doc = documents.find((d) => d.id === marks.docId);

@@ -39,6 +39,8 @@ import { useMetaFilters } from "./useMetaFilters";
 import useMarks from "./useMarks";
 import DemoBanner from "./components/DemoBanner";
 import DisplayMenu from "./components/DisplayMenu";
+import { BranchIcon, WorktreeIcon } from "./components/GitIcons";
+import { branchLabel, branchSentence, folderName, repositoryOf, useGitState } from "./git";
 import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
@@ -190,6 +192,8 @@ function AppInner(): React.ReactElement {
 
   // ── Bookmarks and highlights (kept outside the workspace; see useMarks.ts) ─
   const marks = useMarks();
+  // The workspace's git repositories (desktop): the status bar's branch, folder icons
+  const git = useGitState();
   const highlightCounts = useMemo(
     () =>
       new Map(
@@ -887,6 +891,10 @@ function AppInner(): React.ReactElement {
   const toggleLabel = sidebarShown ? "Hide document list (⌘B)" : "Show document list (⌘B)";
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  // The status bar shows the branch of the open document's repository: the
+  // workspace's, unless the document is in a nested one
+  const gitRepo = repositoryOf(git, selectedDoc?.location ?? "");
+
   return (
     <div
       className={styles.appRoot}
@@ -961,6 +969,7 @@ function AppInner(): React.ReactElement {
             filterOptions={metaOptions}
             onFiltersChange={setMetaFilters}
             highlightCounts={highlightCounts}
+            git={git}
             loading={listLoading}
             error={listError}
           />
@@ -1296,6 +1305,27 @@ function AppInner(): React.ReactElement {
             <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4M12.6 12.6l-1.4-1.4M4.8 4.8L3.4 3.4" strokeLinecap="round" />
           </svg>
         </button>
+        {gitRepo !== null && (
+          <button
+            type="button"
+            className={styles.statusBranch}
+            onClick={(e) => {
+              const box = e.currentTarget.getBoundingClientRect();
+              void window.markdownApi?.git.showMenu(gitRepo.location, box.left, box.top);
+            }}
+            aria-label={`Branch: ${branchLabel(gitRepo)}${gitRepo.mainCheckout !== null ? ", in a worktree" : ""}`}
+            title={[
+              `${folderName(gitRepo.mainCheckout ?? gitRepo.root)}: ${branchSentence(gitRepo).toLowerCase()}`,
+              gitRepo.mainCheckout !== null ? `Worktree of ${gitRepo.mainCheckout}` : null,
+            ]
+              .filter(Boolean)
+              .join("\n")}
+          >
+            <BranchIcon size={12} />
+            <span className={styles.statusBranchName}>{branchLabel(gitRepo)}</span>
+            {gitRepo.mainCheckout !== null && <WorktreeIcon size={12} />}
+          </button>
+        )}
         <span className={styles.statusItem} title={selectedDoc?.location}>
           {selectedDoc ? selectedDoc.location : ""}
         </span>

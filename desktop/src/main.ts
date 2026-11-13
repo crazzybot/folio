@@ -15,6 +15,8 @@
  * The workspace is watched for markdown changes (see watcher.ts), which the
  * renderer is told about so it can refresh without a reload; so are marks
  * written by other processes (the MCP server, the VS Code extension).
+ * The branches and worktrees of the workspace's git repositories are read
+ * with git (see git.ts) and pushed to the renderer when they change.
  *
  * Environment variables
  * ---------------------
@@ -24,7 +26,19 @@
  *     arbitrary page.
  */
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, protocol, session, shell, systemPreferences } from "electron";
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeTheme,
+  protocol,
+  session,
+  shell,
+  systemPreferences,
+} from "electron";
 import type { IpcMainInvokeEvent, MenuItemConstructorOptions, WebContents } from "electron";
 import { existsSync, promises as fs, statSync } from "node:fs";
 import os from "node:os";
@@ -40,7 +54,10 @@ import { canInstallCommand, installCommand } from "./cli";
 import { ensureCustomCss, readCustomCss, watchCustomCss } from "./customCss";
 import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
+import { GitTracker } from "./git";
+import type { GitState, Repository } from "./git";
 import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } from "./openPaths";
+import { filesOnOtherBranches } from "../../packages/core/src/git";
 import { defaultDataDir, listMarks, MarkError, MarksStore, newRoundId } from "../../packages/core/src/marks";
 import type { Bookmark, DocumentMarks, DocumentNote, Highlight, MissingMarks } from "../../packages/core/src/marks";
 import { findDocument, scanAttachments, scanWorkspace, stableId } from "../../packages/core/src/scanner";
@@ -289,7 +306,9 @@ function registerIpcHandlers(): void {
   ipcMain.handle("marks:list", async (event): Promise<{ documents: DocumentMarks[]; missing: MissingMarks[] }> => {
     assertTrustedSender(event);
     if (settings.workspace === null) return { documents: [], missing: [] };
-    return listMarks(marks, settings.workspace, await scanWorkspace(settings.workspace, scanOptions()));
+    return listMarks(marks, settings.workspace, await scanWorkspace(settings.workspace, scanOptions()), {
+      onOtherBranches: filesOnOtherBranches,
+    });
   });
   ipcMain.handle("marks:highlight-add", async (event, docId: unknown, body: unknown): Promise<Highlight> => {
     assertTrustedSender(event);
@@ -491,6 +510,20 @@ function registerIpcHandlers(): void {
     if (win !== null) await openCurrentInEditor(win);
   });
 
+  // The workspace's repositories; later changes are pushed (see refreshGit)
+  ipcMain.handle("git:state", (event): Promise<GitState | null> => {
+    assertTrustedSender(event);
+    return git.current();
+  });
+  // The status bar's branch menu, for the repository at `location`, below the point (x, y)
+  ipcMain.handle("git:menu", async (event, location: unknown, x: unknown, y: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const repository = (await git.current())?.repositories.find((repo) => repo.location === location);
+    if (win === null || repository === undefined || typeof x !== "number" || typeof y !== "number") return;
+    Menu.buildFromTemplate(branchMenu(win, repository)).popup({ window: win, x: Math.round(x), y: Math.round(y) });
+  });
+
   // The renderer asks once on load; later changes are pushed (see applyTheme)
   ipcMain.handle("theme:get", (event): Theme => {
     assertTrustedSender(event);
@@ -559,7 +592,74 @@ function notifyWorkspaceChanged(): void {
 
 /** (Re)start watching the current workspace with the current skipped folders. */
 function restartWatcher(): void {
-  watchWorkspace(settings.workspace, new Set(settings.skipDirs), notifyWorkspaceChanged);
+  watchWorkspace(settings.workspace, new Set(settings.skipDirs), () => {
+    notifyWorkspaceChanged();
+    void refreshGit();
+  });
+  void refreshGit();
+}
+
+// ---------------------------------------------------------------------------
+// Git: branches and worktrees (see git.ts)
+// ---------------------------------------------------------------------------
+
+const git = new GitTracker((state) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send("git:changed", state);
+  }
+});
+
+/** Read the workspace's git state again; its documents tell where nested repositories are. */
+async function refreshGit(): Promise<void> {
+  const { workspace } = settings;
+  const documents = workspace === null ? [] : await scanWorkspace(workspace, scanOptions()).catch(() => []);
+  // Another workspace was opened during the scan: its own refresh is the one that counts
+  if (settings.workspace !== workspace) return;
+  await git.refresh(workspace, documents.map((doc) => doc.location));
+}
+
+/** `folder` with the home folder as ~, for menus. */
+function tildify(folder: string): string {
+  const home = os.homedir();
+  return folder === home || folder.startsWith(home + path.sep) ? "~" + folder.slice(home.length) : folder;
+}
+
+/**
+ * Open another worktree of `repository` as the workspace: the same folder
+ * inside it when the workspace is a folder of the repository, else its root.
+ */
+async function openWorktree(win: BrowserWindow, repository: Repository, worktree: string): Promise<void> {
+  const { workspace } = settings;
+  const inside = workspace === null ? "" : path.relative(repository.root, await fs.realpath(workspace).catch(() => workspace));
+  const sameFolder = inside !== "" && !inside.startsWith("..") && !path.isAbsolute(inside) ? path.join(worktree, inside) : worktree;
+  await openWorkspace(win, existsSync(sameFolder) ? sameFolder : worktree);
+}
+
+/** The status bar's branch menu: the repository, its worktrees, Copy Branch Name. */
+function branchMenu(win: BrowserWindow, repository: Repository): MenuItemConstructorOptions[] {
+  const { branch, base, worktrees } = repository;
+  const items: MenuItemConstructorOptions[] = [
+    { label: path.basename(repository.mainCheckout ?? repository.root), enabled: false },
+    ...(base === null ? [] : [{ label: `Compared with ${base}`, enabled: false }]),
+  ];
+  if (worktrees.length > 1) {
+    items.push({ type: "separator" }, { label: "Worktrees", enabled: false });
+    for (const worktree of worktrees) {
+      items.push({
+        label: `${worktree.branch ?? "detached"} — ${tildify(worktree.path)}`,
+        type: "checkbox",
+        checked: worktree.current,
+        click: () => {
+          if (!worktree.current) void openWorktree(win, repository, worktree.path);
+        },
+      });
+    }
+  }
+  items.push(
+    { type: "separator" },
+    { label: "Copy Branch Name", enabled: branch !== null, click: () => branch !== null && clipboard.writeText(branch) },
+  );
+  return items;
 }
 
 // ---------------------------------------------------------------------------
@@ -1280,6 +1380,8 @@ void app.whenReady().then(() => {
   });
   restartWatcher();
   watchMarks(marks.folder, (id) => marks.changedOutside(id), notifyMarksChanged);
+  // Coming back to the window: a branch made or checked out elsewhere shows
+  app.on("browser-window-focus", () => void refreshGit());
   Menu.setApplicationMenu(buildMenu());
   mainWindow = createWindow();
   initUpdater();

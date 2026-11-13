@@ -8,10 +8,12 @@ import { slugify } from "../slug";
 import { hasFilters, NO_FILTERS, toggleFilter } from "../metaFilter";
 import type { FilterOption, MetaFilters } from "../metaFilter";
 import { isRetired, statusText } from "../status";
+import { branchSentence, isOnBase, repositoryAtFolder, repositoryOf } from "../git";
 import { useRowHoverCard } from "../useRowHoverCard";
-import type { DocumentMeta, DocumentNote, Heading, SearchMatch, SearchResult } from "../types";
+import type { DocumentMeta, DocumentNote, GitRepository, GitState, Heading, SearchMatch, SearchResult } from "../types";
 import DrawerCloseButton from "./DrawerCloseButton";
 import FilterMenu from "./FilterMenu";
+import { BranchIcon, WorktreeIcon } from "./GitIcons";
 import HoverCard from "./HoverCard";
 import { DocumentCard, FolderCard } from "./HoverCardContent";
 import MarkdownIcon from "./MarkdownIcon";
@@ -113,6 +115,8 @@ interface DocumentListProps {
   highlightCounts?: ReadonlyMap<string, number>;
   /** Documents bookmarked as a whole. */
   bookmarkedIds?: ReadonlySet<string>;
+  /** The workspace's git repositories (desktop): folder icons and hover cards. */
+  git?: GitState | null;
   /** The sidebar's Documents | Marks switch, shown in place of the title. */
   tabs?: React.ReactNode;
   /** In a narrow window, where the sidebar is a drawer: closes it. */
@@ -149,6 +153,7 @@ export default function DocumentList({
   onFiltersChange,
   highlightCounts = NO_COUNTS,
   bookmarkedIds = NO_IDS,
+  git = null,
   tabs,
   onCollapse,
 }: DocumentListProps): React.ReactElement {
@@ -749,6 +754,9 @@ export default function DocumentList({
                 onFocus={() => setFocusKey(row.key)}
                 onActivate={() => activate(row)}
                 onFocusFolder={onFocusChange}
+                repository={
+                  row.kind === "folder" ? repositoryAtFolder(git, row.folderKey, row.label.split(FOLDER_SEPARATOR).length) : null
+                }
                 bookmarked={row.kind === "document" && bookmarkedIds.has(row.doc.id)}
                 highlightCount={
                   row.kind === "document"
@@ -772,7 +780,13 @@ export default function DocumentList({
               note={documentNotes.get(cardRow.doc.id)}
             />
           ) : (
-            <FolderCard folder={cardRow.folderKey} label={cardRow.label} documents={documents} highlightCounts={highlightCounts} />
+            <FolderCard
+              folder={cardRow.folderKey}
+              label={cardRow.label}
+              documents={documents}
+              highlightCounts={highlightCounts}
+              repository={repositoryOf(git, cardRow.folderKey)}
+            />
           )}
         </HoverCard>
       )}
@@ -781,6 +795,24 @@ export default function DocumentList({
 }
 
 // ─── Rows ────────────────────────────────────────────────────────────────────
+
+// Between the folders of a merged chain in a row's label (documentTree.ts)
+const FOLDER_SEPARATOR = " / ";
+
+/**
+ * After a nested repository's folder: a worktree icon for a linked worktree,
+ * a branch icon when it's off its base branch. Nothing on the base branch.
+ */
+function RepositoryIcon({ repository }: { repository: GitRepository }): React.ReactElement | null {
+  const worktree = repository.mainCheckout !== null;
+  if (!worktree && isOnBase(repository)) return null;
+  const label = `${worktree ? "Worktree, " : ""}${branchSentence(repository).toLowerCase()}`;
+  return (
+    <span className={styles.folderBranch} role="img" aria-label={label}>
+      {worktree ? <WorktreeIcon size={12} /> : <BranchIcon size={12} />}
+    </span>
+  );
+}
 
 // Tree indentation: per level, plus the chevron's width before documents
 const INDENT = 12;
@@ -802,6 +834,8 @@ interface RowItemProps {
   highlightCount: number;
   /** A document bookmarked as a whole. */
   bookmarked: boolean;
+  /** For a folder: the nested git repository whose root it is, if any. */
+  repository: GitRepository | null;
 }
 
 function RowItem({
@@ -815,6 +849,7 @@ function RowItem({
   onFocusFolder,
   highlightCount,
   bookmarked,
+  repository,
 }: RowItemProps): React.ReactElement {
   if (row.kind === "more") {
     return (
@@ -865,6 +900,7 @@ function RowItem({
           <path d="M6 4l4 4-4 4" strokeWidth="1.2" />
         </svg>
         <span className={styles.entryTitle}>{row.label}</span>
+        {repository !== null && <RepositoryIcon repository={repository} />}
         {!row.expanded && highlightCount > 0 && (
           <span className={styles.folderMarks} aria-label="Has highlights" />
         )}

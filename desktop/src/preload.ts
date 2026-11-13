@@ -149,6 +149,20 @@ contextBridge.exposeInMainWorld("markdownApi", {
       };
     },
   },
+  /** The workspace's git repositories: branches and worktrees (see git.ts). */
+  git: {
+    state: () => ipcRenderer.invoke("git:state"),
+    /** The branch menu of the repository at `location`, at the point (x, y). */
+    showMenu: (location: string, x: number, y: number) => ipcRenderer.invoke("git:menu", location, x, y),
+    /** Subscribe to changes (a checkout, a new worktree); returns an unsubscribe function. */
+    onChange: (callback: (state: unknown) => void) => {
+      const listener = (_event: IpcRendererEvent, state: unknown) => callback(state);
+      ipcRenderer.on("git:changed", listener);
+      return () => {
+        ipcRenderer.removeListener("git:changed", listener);
+      };
+    },
+  },
   /** A folder's context menu in the document list; resolves "focus" or null. */
   showFolderMenu: (location: string) => ipcRenderer.invoke("folder:context-menu", location),
 });

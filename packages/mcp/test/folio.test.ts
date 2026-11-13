@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -170,6 +171,28 @@ describe("reply", () => {
     await refused({ text: "Hi" });
     await refused({ path: path.join(root, "README.md"), text: "Hi" }); // no note on it
     await refused({ path: os.tmpdir(), text: "Hi" });
+  });
+});
+
+describe("documents on another branch", () => {
+  it("keeps the marks of a document that's only on another branch where they are", async () => {
+    const env = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: root, env });
+    // feature/x renames docs/old/spec.md to docs/spec.md without edits
+    mkdirSync(path.join(root, "docs", "old"));
+    writeFileSync(path.join(root, "docs", "old", "spec.md"), "# Spec\n\nShip it.\n");
+    git("init", "-q", "-b", "main");
+    git("add", "docs/old/spec.md");
+    git("commit", "-q", "-m", "spec");
+    git("checkout", "-q", "-b", "feature/x");
+    git("mv", "docs/old/spec.md", "docs/spec.md");
+    git("commit", "-q", "-m", "move");
+    await store.addBookmark(path.join(root, "docs", "spec.md"), { heading: null });
+    // Back on main, the marked file is gone and an identical one is there
+    git("checkout", "-q", "main");
+
+    await folio.listDocuments();
+    expect((await records()).map((record) => record.path)).toEqual([file("docs/spec.md")]);
   });
 });
 

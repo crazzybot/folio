@@ -3,6 +3,7 @@ import type {
   DocumentContent,
   DocumentMeta,
   DocumentNote,
+  GitState,
   Highlight,
   MarksListing,
   NavigationState,
@@ -109,6 +110,13 @@ interface MarkdownDesktopApi {
     markSeen(docId: string, highlightId: string | null): Promise<void>;
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */
     onChange(callback: () => void): () => void;
+  };
+  /** The workspace's git repositories (desktop/src/git.ts); null without git or a repository. */
+  git: {
+    state(): Promise<GitState | null>;
+    /** The native branch menu of the repository at `location`, at the point (x, y) in the window. */
+    showMenu(location: string, x: number, y: number): Promise<void>;
+    onChange(callback: (state: GitState | null) => void): () => void;
   };
   /**
    * The context menu of a folder in the document list (workspace location).

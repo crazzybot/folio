@@ -193,6 +193,38 @@ export interface MissingMarks {
   highlights: Highlight[];
   /** The document they probably belong to now: same name, and most marks found in it. */
   suggestion: { docId: string; location: string } | null;
+  /** The other git branch the file is on; absent when it's on none. */
+  branch?: string;
+}
+
+/** A worktree of a git repository (desktop/src/git.ts). */
+export interface GitWorktree {
+  path: string;
+  /** Null when its HEAD is detached. */
+  branch: string | null;
+  /** The worktree the workspace is in. */
+  current: boolean;
+}
+
+/** A git repository of the workspace (desktop/src/git.ts). */
+export interface GitRepository {
+  /** Its root's workspace location ("projects/api"); "" for the repository the workspace is in. */
+  location: string;
+  /** Its root's absolute path. */
+  root: string;
+  /** Null when HEAD is detached. */
+  branch: string | null;
+  /** The short commit of HEAD; null before the first commit. */
+  head: string | null;
+  /** "origin/main", "main" or "master"; null when there's none of those. */
+  base: string | null;
+  /** For a linked worktree, the path of the main checkout; else null. */
+  mainCheckout: string | null;
+  worktrees: GitWorktree[];
+}
+
+export interface GitState {
+  repositories: GitRepository[];
 }
 
 export interface MarksListing {
