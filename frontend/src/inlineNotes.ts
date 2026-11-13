@@ -2,7 +2,9 @@
  * inlineNotes.ts — Notes shown in the text, under the passage they're about
  * (docs/design/inline-notes.md): after the smallest block holding the passage's
  * end, numbered in the order of their passages when a block has several,
- * and in a row of their own under a table row. Hovering links a note to its
+ * and in a row of their own under a table row. A note with replies has a
+ * line under it saying how many and the latest's author and time; the
+ * thread itself is in the popover. Hovering links a note to its
  * highlight (MarksLayer); nothing is put inside the text itself.
  *
  * Unlike highlights, this adds to the DOM React rendered, but only beside
@@ -18,6 +20,7 @@
 
 import { NOTE_ICON_LABELS, noteIconMarkup } from "./noteIcons";
 import type { NoteIconKind } from "./noteIcons";
+import type { ThreadSummary } from "./threads";
 
 export interface InlineNote {
   id: string;
@@ -28,6 +31,8 @@ export interface InlineNote {
   note: string;
   /** Its place in the review loop, shown as the margin icon is (noteIcons.ts). */
   icon?: NoteIconKind;
+  /** Its replies in one line, under the note; the whole thread is in the popover. */
+  replies?: ThreadSummary | null;
 }
 
 /** Blocks a note goes after; where they nest, the innermost one holding the passage's end. */
@@ -146,6 +151,17 @@ export function placeInlineNotes(article: HTMLElement, notes: readonly InlineNot
         item.append(label);
       }
       item.append(note.note);
+      if (note.replies) {
+        const replies = skipped("div", "folio-inline-note-replies");
+        replies.title = note.replies.title;
+        replies.append(`↳ ${note.replies.text}`);
+        if (note.replies.fresh > 0) {
+          const fresh = skipped("span", "folio-inline-note-new");
+          fresh.textContent = "New";
+          replies.append(" ", fresh);
+        }
+        item.append(replies);
+      }
       list.append(item);
     });
 
