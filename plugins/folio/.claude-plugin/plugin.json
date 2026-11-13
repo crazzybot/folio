@@ -1,0 +1,12 @@
+{
+  "name": "folio",
+  "version": "0.1.0",
+  "description": "Address the review notes you left in Folio on your project's Markdown documents, and answer each one in Folio",
+  "author": {
+    "name": "crazzybot"
+  },
+  "homepage": "https://crazzybot.github.io/folio/",
+  "repository": "https://github.com/crazzybot/folio",
+  "license": "MIT",
+  "keywords": ["markdown", "review", "notes", "documentation"]
+}

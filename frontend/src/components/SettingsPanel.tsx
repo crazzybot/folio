@@ -3,6 +3,7 @@ import type { DesktopSettings } from "../desktop";
 import { DOC_STYLES, FONT_SIZES, READING_WIDTHS } from "../readerPrefs";
 import type { DocStyle, FontSize, ReadingWidth } from "../readerPrefs";
 import { defaultIntro } from "../reviewNotes";
+import { copyText } from "./SendNotesDialog";
 import { THEME_OPTIONS } from "../theme";
 import type { ThemePreference } from "../theme";
 import styles from "./SettingsPanel.module.css";
@@ -132,6 +133,8 @@ export default function SettingsPanel(props: SettingsPanelProps): React.ReactEle
             )}
           </Section>
 
+          {/* The demo keeps its marks in the page, where an agent can't reach them */}
+          {desktop && <AgentsSection />}
           {desktop && <DesktopSettingsSections />}
           {/* The desktop app has them under Help → Third-Party Licenses */}
           {!desktop && (
@@ -148,6 +151,65 @@ export default function SettingsPanel(props: SettingsPanelProps): React.ReactEle
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Desktop: coding agents ──────────────────────────────────────────────────
+
+const CLAUDE_CODE_SETUP = `/plugin marketplace add crazzybot/folio
+/plugin install folio@folio`;
+
+// Written out rather than JSON.stringify'd: one line per server reads better
+const MCP_SERVERS_SETUP = `{
+  "mcpServers": {
+    "folio": { "command": "npx", "args": ["-y", "@crazzybot/folio-mcp"] }
+  }
+}`;
+
+/** How to connect an agent to Folio's MCP server, to copy into the agent. */
+function AgentsSection(): React.ReactElement {
+  return (
+    <Section title="Coding agents">
+      <Snippet
+        label="Claude Code"
+        hint="Run in Claude Code. Then /folio:review has it address your notes and answer each one"
+        text={CLAUDE_CODE_SETUP}
+      />
+      <Snippet
+        label="Other agents"
+        hint="Cursor, Codex and other MCP clients: add to their MCP settings. Needs Node 20.19 or later"
+        text={MCP_SERVERS_SETUP}
+      />
+    </Section>
+  );
+}
+
+/** Setup text to paste elsewhere, with a Copy button. */
+function Snippet({ label, hint, text }: { label: string; hint: string; text: string }): React.ReactElement {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+  return (
+    <div className={styles.block}>
+      <div className={styles.blockHeader}>
+        <span className={styles.label}>
+          {label}
+          <span className={styles.hint}>{hint}</span>
+        </span>
+        <button
+          type="button"
+          className={styles.button}
+          onClick={() => void copyText(text).then(setCopied)}
+          aria-label={`Copy ${label} setup`}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre className={styles.snippet}>{text}</pre>
     </div>
   );
 }

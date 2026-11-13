@@ -8,6 +8,8 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-11-13
+
 ### Added
 
 - **Well-known documents** (`README.md`, `AGENTS.md`, `CLAUDE.md`,
@@ -21,6 +23,13 @@ turns them into the next release's section.
   Replies you haven't read put a dot on the note's margin icon and a
   **New reply** label in the Marks view, and the status bar says "Claude
   Code replied to 3 notes"; click it to go to each in turn.
+- **Claude Code plugin.** `/plugin marketplace add crazzybot/folio`, then
+  `/plugin install folio@folio`, sets up Folio's MCP server in Claude Code
+  and adds **/folio:review**: the agent gets your review notes, revises the
+  documents, and answers each note in Folio.
+- **Settings → Coding agents** in the desktop app: the two lines that
+  install the Claude Code plugin, and the MCP settings for Cursor, Codex and
+  other agents, each with a **Copy** button.
 
 ### Changed
 
@@ -202,6 +211,7 @@ the `folio-data` volume.
 First release: signed and notarized macOS builds (Apple Silicon and Intel),
 Windows and Linux builds, and in-app updates.
 
+[0.6.0]: https://github.com/crazzybot/folio/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/crazzybot/folio/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/crazzybot/folio/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/crazzybot/folio/compare/v0.3.1...v0.3.2

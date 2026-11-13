@@ -24,6 +24,48 @@ read and mark them up in Folio, and your notes go back to the agent.
 
 <!-- TODO: a worked example: a spec, two notes, the copied text, the revision -->
 
+## Connect the agent
+
+Instead of copying and pasting, the agent can get your notes itself, through
+Folio's MCP server, and answer each one in Folio. In Claude Code, install
+Folio's plugin:
+
+```
+/plugin marketplace add crazzybot/folio
+/plugin install folio@folio
+```
+
+Then run `/folio:review` in the project. The agent gets the notes you haven't
+sent yet, revises the documents, and answers each note: what it changed, or
+why not, or a question. Name documents to review only those:
+`/folio:review docs/spec.md`.
+
+Other agents (Cursor, Codex and any other MCP client) run the server with
+`npx -y @crazzybot/folio-mcp`; see its
+[setup](https://www.npmjs.com/package/@crazzybot/folio-mcp). It needs
+Node 20.19 or later. The server reads your documents and never writes to
+them; the agent edits them with its own tools.
+
+**Settings → Coding agents** (`⌘,` / `Ctrl+,`) has both setups, each with
+a **Copy** button.
+
+## Replies
+
+The agent's answers show under each note: in the popover when you click a
+highlight, and under the note on the document. Each reply has its author and
+when it was written.
+
+- **New replies.** A note with replies you haven't read has a dot on its
+  margin icon, and a **New reply** label in the **Marks** view. The status
+  bar says who replied, such as "Claude Code replied to 3 notes"; click it to
+  go to each note in turn. Opening a note marks its replies as read.
+- **Addressed or open.** When the agent changed the document for a note, its
+  reply marks the note **Addressed**. A question, or an explanation of why
+  it didn't change anything, leaves the note open, to go with the next round.
+- **Reply.** Click **Reply** under a note to answer, and **Send** (`⌘↩` /
+  `Ctrl+Enter`). Your reply opens the note again, so it goes with the next
+  round.
+
 ## What the agent receives
 
 The copied text is Markdown. Each note has the document's file path and line
