@@ -49,6 +49,23 @@ them; the agent edits them with its own tools.
 **Settings → Coding agents** (`⌘,` / `Ctrl+,`) has both setups, each with
 a **Copy** button.
 
+## Replies
+
+The agent's answers show under each note: in the popover when you click a
+highlight, and under the note on the document. Each reply has its author and
+when it was written.
+
+- **New replies.** A note with replies you haven't read has a dot on its
+  margin icon, and a **New reply** label in the **Marks** view. The status
+  bar says who replied, such as "Claude Code replied to 3 notes"; click it to
+  go to each note in turn. Opening a note marks its replies as read.
+- **Addressed or open.** When the agent changed the document for a note, its
+  reply marks the note **Addressed**. A question, or an explanation of why
+  it didn't change anything, leaves the note open, to go with the next round.
+- **Reply.** Click **Reply** under a note to answer, and **Send** (`⌘↩` /
+  `Ctrl+Enter`). Your reply opens the note again, so it goes with the next
+  round.
+
 ## What the agent receives
 
 The copied text is Markdown. Each note has the document's file path and line
