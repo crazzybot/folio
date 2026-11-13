@@ -9,7 +9,7 @@
  */
 
 import type { NoteIconKind } from "./noteIcons";
-import { requestDone } from "./status";
+import { isPrivate, sendableNote } from "../../packages/core/src/reviewNotes";
 import type { DocumentMeta, DocumentNote, Highlight, NoteState, Round, SendDocument } from "./types";
 
 /** What the Marks view's state filter tells apart: the four states, and private marks. */
@@ -35,22 +35,8 @@ export function stateOf(mark: { state?: NoteState | undefined }): NoteState {
   return mark.state ?? "open";
 }
 
-/** Whether a highlight stays out of the loop: locked, or without a note and never sent to the agent. */
-export function isPrivate(h: Pick<Highlight, "note" | "private">): boolean {
-  return h.private ?? (h.note === null || h.note.trim() === "");
-}
-
-/**
- * The part of a document's note that goes to the agent: its comment unless
- * locked, and a status change the document doesn't have yet (always
- * feedback). Null when there's nothing to send.
- */
-export function sendableNote(note: DocumentNote | undefined, status: string | null | undefined): DocumentNote | null {
-  if (note === undefined) return null;
-  const text = note.private === true ? null : note.text;
-  const requestedStatus = requestDone(status, note.requestedStatus) ? null : note.requestedStatus;
-  return text === null && requestedStatus === null ? null : { ...note, text, requestedStatus };
-}
+// Shared with the MCP server, which sends the same notes
+export { isPrivate, sendableNote };
 
 /** Where a highlight falls in the state filter. */
 export function filterOf(h: Highlight): StateFilter {

@@ -7,6 +7,7 @@
 import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
+import { DEFAULT_SKIP_DIRS, maxDepthSetting, skipDirsSetting } from "../../packages/core/src/settings";
 
 export type Theme = "system" | "light" | "dark";
 
@@ -32,42 +33,8 @@ export interface Settings {
   editor: string | null;
 }
 
-/**
- * Folders never worth scanning: version control, dependencies, virtualenvs,
- * caches and tool data — large, and full of other projects' READMEs. Not
- * dist / build / vendor / target: some projects keep real documentation
- * there.
- */
-export const DEFAULT_SKIP_DIRS: readonly string[] = [
-  ".git",
-  "node_modules",
-  ".venv",
-  "venv",
-  "__pycache__",
-  ".cache",
-  ".local",
-  ".tox",
-  ".nox",
-  ".mypy_cache",
-  ".pytest_cache",
-  ".ruff_cache",
-  ".next",
-  ".nuxt",
-  ".svelte-kit",
-  ".yarn",
-  "bower_components",
-  ".terraform",
-  "Pods",
-  ".gradle",
-];
-
-// The default before the list above. A saved list equal to it was never
-// customised, so it's upgraded to the current default.
-const PREVIOUS_DEFAULT_SKIP_DIRS = [".git", "node_modules", ".venv", "__pycache__", ".cache"];
-
-function isPreviousDefault(names: readonly string[]): boolean {
-  return names.length === PREVIOUS_DEFAULT_SKIP_DIRS.length && PREVIOUS_DEFAULT_SKIP_DIRS.every((n) => names.includes(n));
-}
+// Shared with the MCP server, which scans the same folders
+export { DEFAULT_SKIP_DIRS };
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
   workspace: null,
@@ -84,16 +51,8 @@ export function settingsPath(): string {
 /** Validate each field, falling back to its default when missing or malformed. */
 export function normalizeSettings(raw: Partial<Record<keyof Settings, unknown>>): Settings {
   const workspace = typeof raw.workspace === "string" ? raw.workspace : null;
-  const savedSkipDirs =
-    Array.isArray(raw.skipDirs) && raw.skipDirs.every((name) => typeof name === "string")
-      ? (raw.skipDirs as string[]).map((name) => name.trim()).filter(Boolean)
-      : null;
-  const skipDirs =
-    savedSkipDirs === null || isPreviousDefault(savedSkipDirs) ? [...DEFAULT_SKIP_DIRS] : savedSkipDirs;
-  const maxDepth =
-    typeof raw.maxDepth === "number" && Number.isInteger(raw.maxDepth) && raw.maxDepth > 0
-      ? raw.maxDepth
-      : null;
+  const skipDirs = skipDirsSetting(raw.skipDirs);
+  const maxDepth = maxDepthSetting(raw.maxDepth);
   const theme = isTheme(raw.theme) ? raw.theme : DEFAULT_SETTINGS.theme;
   const editor = typeof raw.editor === "string" && raw.editor.trim() !== "" ? raw.editor.trim() : null;
   return {

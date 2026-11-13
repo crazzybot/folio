@@ -1,0 +1,4 @@
+node_modules/
+dist/
+# Copied from the repository root when packing
+LICENSE
