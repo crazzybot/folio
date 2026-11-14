@@ -70,6 +70,12 @@ turns them into the next release's section.
   it gives an agent the same way. What you set in an earlier version is
   moved there.
 
+### Fixed
+
+- Headings with the same text (an **Added** under each release) are told
+  apart: the outline highlights only the one you're reading, and clicking
+  one goes to it. As on GitHub, repeats get numbered anchors (`#added-1`).
+
 ## [0.6.0] — 2026-11-13
 
 ### Added
