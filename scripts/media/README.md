@@ -9,8 +9,8 @@ demo build (`demo/relay/` and `demo/seed-marks.json`) in headless Chrome:
 | `app-light.webp`, `app-dark.webp`, `status.webp`, `search.webp`, `book.webp`, `marks.webp` | `shoot.mjs` (1440×900 @2x), then `cwebp` |
 | `og.png` (1200×630 link preview) | `og.mjs` + `og.html`, from `app-light.png` |
 
-Last made: video and poster 2026-11-12 (0.5.0); stills and `og.png`
-2026-11-09.
+Last made: video, poster, stills and `og.png` 2026-11-14 (0.7.0,
+unreleased).
 
 - `lib.mjs`: shared puppeteer-core helpers (eased mouse, text selection),
   against the demo build at `http://localhost:3000`: documents from its

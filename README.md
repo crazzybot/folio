@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <img src="site/img/app-light.webp" alt="Folio showing a docs folder of ADRs and specs, each with its status, beside a proposed ADR with a highlight and a review note">
+  <img src="site/img/app-light.webp" alt="Folio showing a docs folder of ADRs and specs, each with its status, beside a proposed ADR that changed since it was read, with a highlight, a review note and the coding agent's reply">
 </p>
 
 Open a folder and Folio lists every Markdown file in it, lets you search titles,
