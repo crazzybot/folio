@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { recordId } from "../src/marks";
-import { hashFile, ReadsStore } from "../src/reads";
+import { hashFile, MAX_READ_VERSIONS, ReadsStore } from "../src/reads";
 
 const sha1 = (text: string) => createHash("sha1").update(text).digest("hex");
 
@@ -82,6 +82,49 @@ describe("ReadsStore", () => {
     expect((await store.list(workspace, docs("docs/a.md")))[0]?.read).toBeNull();
   });
 
+  it("counts a version read before as read, as after switching branches", async () => {
+    await store.list(workspace, docs("docs/a.md"));
+    // Another branch: its version is read there
+    edit("docs/a.md", "# A on a branch\n");
+    await store.mark(at("docs/a.md"), sha1("# A on a branch\n"));
+    // Back on the first branch: read, and it's the last read again
+    edit("docs/a.md", "# A\n");
+    const [back] = await store.list(workspace, docs("docs/a.md"));
+    expect([back?.read?.sha1, back?.baseline]).toEqual([sha1("# A\n"), true]);
+    expect(await store.lastRead(at("docs/a.md"))).toBe("# A\n");
+    // So an edit there is compared with it, not with the branch's version
+    edit("docs/a.md", "# A, revised\n");
+    expect(await store.lastRead(at("docs/a.md"))).toBe("# A\n");
+    // And the branch's version is still read
+    edit("docs/a.md", "# A on a branch\n");
+    const [again] = await store.list(workspace, docs("docs/a.md"));
+    expect([again?.read?.sha1, again?.baseline]).toEqual([sha1("# A on a branch\n"), false]);
+  });
+
+  it("forgets the version marked unread, so listing doesn't count it as read", async () => {
+    await store.list(workspace, docs("docs/a.md"));
+    edit("docs/a.md", "# A2\n");
+    await store.mark(at("docs/a.md"), sha1("# A2\n"));
+    edit("docs/a.md", "# A\n");
+    await store.list(workspace, docs("docs/a.md"));
+    await store.unmark(at("docs/a.md"));
+    const [a] = await store.list(workspace, docs("docs/a.md"));
+    expect(a?.read?.sha1).toBe(sha1("# A2\n"));
+  });
+
+  it("remembers at most MAX_READ_VERSIONS versions", async () => {
+    await store.list(workspace, docs("docs/a.md"));
+    for (let n = 1; n <= MAX_READ_VERSIONS; n++) {
+      edit("docs/a.md", `# A${n}\n`);
+      await store.mark(at("docs/a.md"), sha1(`# A${n}\n`));
+    }
+    // The baseline's version is the one that went
+    edit("docs/a.md", "# A\n");
+    const [a] = await store.list(workspace, docs("docs/a.md"));
+    expect(a?.read?.sha1).toBe(sha1(`# A${MAX_READ_VERSIONS}\n`));
+    expect((await store.versions()).size).toBe(MAX_READ_VERSIONS);
+  });
+
   it("marks many at their current versions", async () => {
     await store.list(workspace, docs("docs/a.md", "docs/b.md"));
     edit("docs/a.md", "# A2\n");
@@ -115,11 +158,13 @@ describe("snapshots", () => {
     await store.mark(at("docs/a.md"), sha1("# A2\n"));
     edit("docs/a.md", "# A3\n");
     await store.mark(at("docs/a.md"), sha1("# A3\n"));
-    // a.md's last read and the one before, and b.md's
+    // Every version of a.md read, and b.md's
     const keep = await store.versions();
-    expect([...keep].sort()).toEqual([sha1("# A2\n"), sha1("# A3\n"), sha1("# B\n")].sort());
-    expect(await store.snapshots.collect(keep)).toBe(1);
-    expect(await store.snapshots.read(sha1("# A\n"))).toBeNull();
+    expect([...keep].sort()).toEqual([sha1("# A\n"), sha1("# A2\n"), sha1("# A3\n"), sha1("# B\n")].sort());
+    // Unmarked, A3 goes: nothing points at it
+    await store.unmark(at("docs/a.md"));
+    expect(await store.snapshots.collect(await store.versions())).toBe(1);
+    expect(await store.snapshots.read(sha1("# A3\n"))).toBeNull();
     expect(await store.snapshots.read(sha1("# A2\n"))).toBe("# A2\n");
   });
 });

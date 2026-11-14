@@ -12,6 +12,7 @@ since, and which sections of a changed document changed.
 | Question | Decision |
 |---|---|
 | What "read" records | The SHA-1 of the document's bytes, and the time. Not scroll position or how much was read |
+| A version read before | Counts as read when the document goes back to it (a git checkout of another branch, an edit undone), and becomes the last read again. Each record keeps the last 10 versions read. Without this, reading a document on two branches would mark it unread at every switch |
 | When a document counts as read | Shown for 3 seconds with the window focused and visible. Also **Mark as Read** in the document's context menu (desktop) |
 | First run | The first time a workspace is listed, every document in it without a record is recorded as read at its current version (a baseline), so the list isn't all "new" on day one. The workspaces seen are kept, so this happens once per workspace |
 | Where it's kept | `~/.folio/reads/`, beside `marks/`: it's the user's state, like marks. Not in the marks record, which is deleted once empty and drives re-linking |
@@ -36,6 +37,7 @@ since, and which sections of a changed document changed.
   "path": "/Users/me/app/docs/adr/0003-event-store.md",
   "read": { "sha1": "…", "at": "2026-11-10T09:12:00Z" },
   "previous": { "sha1": "…", "at": "2026-11-03T16:40:00Z" },
+  "earlier": [{ "sha1": "…", "at": "2026-11-01T08:00:00Z", "baseline": true }],
   "baseline": false
 }
 ```
@@ -48,11 +50,20 @@ since, and which sections of a changed document changed.
   step: the document shows as changed again. With no read before, the
   record goes and the document shows as new. Reading the same version
   again keeps `previous` as it was.
+- `earlier` holds the reads before `previous`, most recent first, up to 10
+  versions in all; each version is there once. When a listing finds a
+  document at a version in `previous` or `earlier`, that version moves to
+  `read`, so the document is read and a later edit is compared with the
+  version it came from, not the other branch's. A version recorded at the
+  baseline keeps `"baseline": true` while it's in `previous` or `earlier`,
+  so the hover card still says "since Folio first saw it" when it comes
+  back. **Mark as Unread** forgets the version it unmarks; otherwise the
+  next listing would count it as read again.
 - Records are written atomically (temp file, then rename), and changes run
   one at a time, as for marks (marks.md).
 - A snapshot is written whenever a version is recorded as read: at the
   baseline and on Mark as Read. At launch the desktop app deletes snapshots
-  that no read record (its last read or the one before) or review round
+  that no read record (any version it holds) or review round
   (the version sent, agent-integration.md) points at. Records made before
   snapshots existed have none; their banner says since when, not which
   sections.

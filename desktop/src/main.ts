@@ -272,8 +272,8 @@ function sendList(value: unknown): { docId: string; highlightIds: unknown; docum
 const reads = new ReadsStore(defaultDataDir());
 
 /**
- * Delete snapshots nothing points at any more: not a read record (its last
- * read or the one before), nor a review round (the version sent).
+ * Delete snapshots nothing points at any more: not a read record (any
+ * version it remembers), nor a review round (the version sent).
  */
 async function collectSnapshots(): Promise<void> {
   const keep = await reads.versions();
