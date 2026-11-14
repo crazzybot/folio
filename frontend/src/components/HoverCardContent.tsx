@@ -1,6 +1,6 @@
 import React from "react";
 import { documentsInFolder } from "../documentTree";
-import { branchSentence, changeSentence, commitSentence, folderName } from "../git";
+import { branchSentence, commitSentence, folderName, isOnBase } from "../git";
 import { requestDone, statusText } from "../status";
 import { isPrivate, lastSent, loopSentence, needsYou, sendableNote, stateOf } from "../sending";
 import type { NoteIconKind } from "../noteIcons";
@@ -21,6 +21,7 @@ export function DocumentCard({
   note,
   read = null,
   change = null,
+  changeText = null,
   commit = null,
 }: {
   doc: DocumentMeta;
@@ -32,6 +33,8 @@ export function DocumentCard({
   read?: string | null;
   /** How it changed on the git branch (desktop); null when it didn't. */
   change?: GitChange | null;
+  /** That change in words, with its branch and base ("Modified on feature/x since main"). */
+  changeText?: string | null;
   /** The last commit that touched it (desktop); null when unknown. */
   commit?: GitLastCommit | null;
 }): React.ReactElement {
@@ -62,7 +65,7 @@ export function DocumentCard({
               >
                 {change.status}
               </span>
-              {changeSentence(change)}
+              {changeText}
             </div>
           )}
           {commit !== null && <div className={styles.commit}>{commitSentence(commit)}</div>}
@@ -174,6 +177,8 @@ export function FolderCard({
           {repository.mainCheckout !== null && (
             <span className={styles.branchNote}>worktree of {folderName(repository.mainCheckout)}</span>
           )}
+          {/* What A and M mean in this repository */}
+          {!isOnBase(repository) && <span className={styles.branchNote}>compared with {repository.base}</span>}
         </div>
       )}
     </>

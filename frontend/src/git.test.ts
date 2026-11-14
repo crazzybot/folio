@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { branchLabel, branchSentence, changeSentence, changesById, commitSentence, isOnBase, repositoryAtFolder, repositoryOf } from "./git";
+import {
+  branchFilterLabel,
+  branchLabel,
+  branchSentence,
+  changeSentence,
+  changesById,
+  commitSentence,
+  isOnBase,
+  repositoryAtFolder,
+  repositoryName,
+  repositoryOf,
+  statusBranchText,
+} from "./git";
 import type { DocumentMeta, GitRepository, GitState } from "./types";
 
 function repo(location: string, changes: Partial<GitRepository> = {}): GitRepository {
@@ -94,11 +106,64 @@ describe("changesById", () => {
 });
 
 describe("changeSentence", () => {
-  it("says how a document changed on the branch", () => {
-    expect(changeSentence({ location: "a.md", status: "A", uncommitted: false })).toBe("Added on this branch");
-    expect(changeSentence({ location: "a.md", status: "M", uncommitted: true })).toBe(
-      "Modified on this branch, with uncommitted changes",
+  const feature = repo("", { branch: "feature/X", base: "origin/main" });
+
+  it("names the branch and what it's compared with", () => {
+    expect(changeSentence({ location: "a.md", status: "A", uncommitted: false }, feature)).toBe(
+      "Added on feature/X since origin/main",
     );
+    expect(changeSentence({ location: "a.md", status: "M", uncommitted: true }, feature)).toBe(
+      "Modified on feature/X since origin/main, with uncommitted changes",
+    );
+    expect(changeSentence({ location: "a.md", status: "M", uncommitted: false }, repo("", { branch: null }))).toBe(
+      "Modified since main",
+    );
+  });
+
+  it("says only uncommitted on the base branch", () => {
+    expect(changeSentence({ location: "a.md", status: "M", uncommitted: true }, repo(""))).toBe("Modified, not committed yet");
+    expect(changeSentence({ location: "a.md", status: "A", uncommitted: true }, repo("", { base: null }))).toBe(
+      "Added, not committed yet",
+    );
+  });
+
+  it("counts commits not pushed against the remote base", () => {
+    expect(changeSentence({ location: "a.md", status: "M", uncommitted: false }, repo("", { base: "origin/main" }))).toBe(
+      "Modified on main since origin/main",
+    );
+  });
+
+  it("falls back without a repository", () => {
+    expect(changeSentence({ location: "a.md", status: "A", uncommitted: false }, null)).toBe("Added on this branch");
+  });
+});
+
+describe("branchFilterLabel", () => {
+  it("names the base when the list shows one repository", () => {
+    expect(branchFilterLabel([repo("", { branch: "feature/x" })])).toBe("Changed since main");
+    expect(branchFilterLabel([repo("")])).toBe("Uncommitted changes");
+  });
+
+  it("keeps the general name for several repositories, or none", () => {
+    expect(branchFilterLabel([repo(""), repo("api", { branch: "feature/x" })])).toBe("Changed on this branch");
+    expect(branchFilterLabel([])).toBe("Changed on this branch");
+  });
+});
+
+describe("statusBranchText", () => {
+  it("shows the base off the base branch", () => {
+    expect(statusBranchText(repo("", { branch: "feature/x" }), false)).toBe("feature/x → main");
+    expect(statusBranchText(repo(""), false)).toBe("main");
+    expect(statusBranchText(repo("", { base: null }), false)).toBe("main");
+  });
+
+  it("leads with the repository's name when asked", () => {
+    expect(statusBranchText(repo("api", { branch: "feature/x" }), true)).toBe("api · feature/x → main");
+  });
+
+  it("names a worktree by its repository", () => {
+    const worktree = repo("", { root: "/code/folio-wt", mainCheckout: "/code/folio" });
+    expect(repositoryName(worktree)).toBe("folio");
   });
 });
 

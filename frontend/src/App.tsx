@@ -45,7 +45,7 @@ import ChangesBanner from "./components/ChangesBanner";
 import { sectionChanges } from "../../packages/core/src/sections";
 import { slugify } from "./slug";
 import { BranchIcon, WorktreeIcon } from "./components/GitIcons";
-import { branchLabel, branchSentence, changesById, folderName, repositoryOf, useGitState } from "./git";
+import { branchSentence, changesById, folderName, isOnBase, repositoryOf, statusBranchText, useGitState } from "./git";
 import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
@@ -961,6 +961,9 @@ function AppInner(): React.ReactElement {
   // The status bar shows the branch of the open document's repository: the
   // workspace's, unless the document is in a nested one
   const gitRepo = repositoryOf(git, selectedDoc?.location ?? "");
+  // Named when it might not be the repository the list shows: there are
+  // several, or the open document is in a nested one
+  const gitRepoNamed = gitRepo !== null && ((git?.repositories.length ?? 0) > 1 || gitRepo.location !== "");
 
   return (
     <div
@@ -1407,16 +1410,17 @@ function AppInner(): React.ReactElement {
               const box = e.currentTarget.getBoundingClientRect();
               void window.markdownApi?.git.showMenu(gitRepo.location, box.left, box.top);
             }}
-            aria-label={`Branch: ${branchLabel(gitRepo)}${gitRepo.mainCheckout !== null ? ", in a worktree" : ""}`}
+            aria-label={`Branch: ${statusBranchText(gitRepo, gitRepoNamed)}${gitRepo.mainCheckout !== null ? ", in a worktree" : ""}`}
             title={[
               `${folderName(gitRepo.mainCheckout ?? gitRepo.root)}: ${branchSentence(gitRepo).toLowerCase()}`,
+              isOnBase(gitRepo) ? null : `Changes are compared with ${gitRepo.base}`,
               gitRepo.mainCheckout !== null ? `Worktree of ${gitRepo.mainCheckout}` : null,
             ]
               .filter(Boolean)
               .join("\n")}
           >
             <BranchIcon size={12} />
-            <span className={styles.statusBranchName}>{branchLabel(gitRepo)}</span>
+            <span className={styles.statusBranchName}>{statusBranchText(gitRepo, gitRepoNamed)}</span>
             {gitRepo.mainCheckout !== null && <WorktreeIcon size={12} />}
           </button>
         )}

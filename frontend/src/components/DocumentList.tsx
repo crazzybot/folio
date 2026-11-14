@@ -8,7 +8,7 @@ import { slugify } from "../slug";
 import { hasFilters, NO_FILTERS, toggleFilter } from "../metaFilter";
 import type { FilterOption, MetaFilters } from "../metaFilter";
 import { isRetired, statusText } from "../status";
-import { branchSentence, changeSentence, isOnBase, repositoryAtFolder, repositoryOf } from "../git";
+import { branchFilterLabel, branchSentence, changeSentence, isOnBase, repositoryAtFolder, repositoryOf } from "../git";
 import { readSentence, readStateOf } from "../reads";
 import type { ReadState } from "../reads";
 import { useRowHoverCard } from "../useRowHoverCard";
@@ -35,6 +35,8 @@ import styles from "./DocumentList.module.css";
 import { getItem, setItem } from "../storage";
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+// Not toLowerCase(): branch names keep their case
+const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
 // Searching document text starts at this many characters, after a pause in typing
 const MIN_CONTENT_QUERY = 2;
@@ -197,6 +199,20 @@ export default function DocumentList({
   const searchId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const trimmed = query.trim();
+
+  // The branch filter says what it compares with when the list shows one repository
+  const branchLabel = useMemo(() => {
+    const shown = new Set<GitRepository>();
+    for (const doc of documents) {
+      const repo = repositoryOf(git, doc.location);
+      if (repo !== null) shown.add(repo);
+    }
+    return branchFilterLabel([...shown]);
+  }, [documents, git]);
+  const changeTextOf = (doc: DocumentMeta): string | null => {
+    const change = branchChanges?.get(doc.id);
+    return change === undefined ? null : changeSentence(change, repositoryOf(git, doc.location));
+  };
 
   const chooseFullText = onFullTextChange;
 
@@ -659,7 +675,7 @@ export default function DocumentList({
                       heading: "Git",
                       options:
                         branchCount > 0 || filters.branch
-                          ? [{ value: "branch", label: "Changed on this branch", count: branchCount, checked: filters.branch }]
+                          ? [{ value: "branch", label: branchLabel, count: branchCount, checked: filters.branch }]
                           : [],
                     },
                     {
@@ -740,10 +756,10 @@ export default function DocumentList({
                 type="button"
                 className={styles.chip}
                 onClick={() => onFiltersChange({ ...filters, branch: false })}
-                aria-label="Remove filter: Changed on this branch"
+                aria-label={`Remove filter: ${branchLabel}`}
                 title="Remove filter"
               >
-                Changed on branch
+                {branchLabel}
                 <span className={styles.chipRemove} aria-hidden="true">
                   ×
                 </span>
@@ -868,6 +884,7 @@ export default function DocumentList({
                 }
                 readState={row.kind === "document" ? readStateOf(reads.get(row.doc.id)) : "read"}
                 change={row.kind === "document" ? (branchChanges?.get(row.doc.id) ?? null) : null}
+                changeText={row.kind === "document" ? changeTextOf(row.doc) : null}
                 unread={row.kind === "folder" ? (unreadByFolder.get(row.folderKey) ?? 0) : 0}
                 onMarkRead={onMarkRead}
                 onMarkUnread={onMarkUnread}
@@ -895,6 +912,7 @@ export default function DocumentList({
               note={documentNotes.get(cardRow.doc.id)}
               read={readSentence(reads.get(cardRow.doc.id))}
               change={branchChanges?.get(cardRow.doc.id) ?? null}
+              changeText={changeTextOf(cardRow.doc)}
               commit={cardCommit}
             />
           ) : (
@@ -992,6 +1010,8 @@ interface RowItemProps {
   readState: ReadState;
   /** For a document: how it changed on the git branch, if it did. */
   change: GitChange | null;
+  /** For a document: that change in words, with its branch and base. */
+  changeText: string | null;
   /** For a folder: how many documents under it are unread. */
   unread: number;
   onMarkRead: ((docId: string) => void) | undefined;
@@ -1013,6 +1033,7 @@ function RowItem({
   repository,
   readState,
   change,
+  changeText,
   unread,
   onMarkRead,
   onMarkUnread,
@@ -1050,7 +1071,7 @@ function RowItem({
           if (!api) return;
           e.preventDefault();
           const folder = row.folderKey;
-          void api.showFolderMenu(folder, unread > 0).then((choice) => {
+          void api.showFolderMenu(folder, unread > 0, repository?.location ?? null).then((choice) => {
             if (choice === "focus") onFocusFolder(folder);
             if (choice === "mark-read") onMarkFolderRead?.(folder);
           });
@@ -1114,7 +1135,7 @@ function RowItem({
         className={`${styles.entry} ${selected ? styles.entrySelected : ""} ${status !== null && isRetired(status) ? styles.entryRetired : ""}`}
         style={tree ? { paddingLeft: TREE_PADDING + row.level * INDENT + CHEVRON } : undefined}
         aria-selected={selected}
-        aria-label={`${doc.title} — ${doc.location}${described}${readState === "read" ? "" : ` — ${readState}`}${change === null ? "" : ` — ${changeSentence(change).toLowerCase()}`}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
+        aria-label={`${doc.title} — ${doc.location}${described}${readState === "read" ? "" : ` — ${readState}`}${changeText === null ? "" : ` — ${lowerFirst(changeText)}`}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
         onContextMenu={(e) => {
           // Desktop: a native menu (Mark as Read, Open in Editor, Reveal in
           // Finder…); the browser keeps its own
@@ -1144,7 +1165,7 @@ function RowItem({
         {change !== null && (
           <span
             className={`${styles.changeLetter} ${change.status === "A" ? styles.changeAdded : ""} ${change.uncommitted ? styles.changeUncommitted : ""}`}
-            title={changeSentence(change)}
+            title={changeText ?? undefined}
             aria-hidden="true"
           >
             {change.status}
