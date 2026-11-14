@@ -25,6 +25,27 @@ Linux.
 
 <!-- TODO: screenshot of a freshly opened workspace, with the parts labelled -->
 
+Folio remembers the folder, and **File → Open Recent** lists the last 10.
+It watches the folder while it's open: save a document in your editor and
+Folio shows the change in place, keeping your scroll position. New, renamed
+and deleted files show up in the list right away.
+
+## Open files and folders from your system
+
+A folder you open becomes the workspace. A Markdown file opens in place
+when it's in the current workspace; otherwise its folder becomes the
+workspace.
+
+- **Finder or Explorer:** right-click a `.md` file (or, on macOS, a folder)
+  and choose **Open With → Folio**. You can also make Folio the default app
+  for Markdown files.
+- **Drag and drop:** drop a file or folder onto Folio's window, or onto its
+  Dock icon.
+- **Command line:** on macOS, choose **Folio → Install 'folio' Command in
+  PATH…** once. Then run `folio .`, `folio docs/` or `folio README.md`. On
+  Windows and Linux, pass the path to Folio's executable. If Folio is
+  already open, the path opens in its window.
+
 ## Find your way around
 
 - **Sidebar, left:** the document list, with a search box above it, and the
@@ -33,6 +54,9 @@ Linux.
 - **Outline, right:** the open document's headings. The section you're
   reading is highlighted as you scroll.
 
+In a window narrower than 960px, the outline slides in from the right when
+you open it. Below 768px, the document list slides in from the left too.
+
 ## Next steps
 
 - [Reading a folder of docs](./reading): search, filters and focusing on one
@@ -40,3 +64,5 @@ Linux.
 - [Highlights, notes and bookmarks](./marking-up): marking what you read.
 - [Reviewing specs with a coding agent](./review-loop): sending your notes
   back.
+- [Settings](../reference/settings): skipped folders, your editor, custom
+  CSS.

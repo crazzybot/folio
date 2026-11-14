@@ -25,8 +25,8 @@ cd folio
 cd desktop && npm install && npm start
 ```
 
-For live-reload development of the desktop app and running the live demo
-locally, see the [README](README.md#quick-start).
+For live-reload development of the desktop app, running the live demo
+locally and the project's layout, see [docs/development.md](docs/development.md).
 
 ## Before opening a pull request
 
@@ -51,10 +51,12 @@ A few things worth knowing:
   scanning rules, update the fixture deliberately.
 - **Untrusted Markdown.** Documents may come from cloned repositories, so
   rendering and file serving are locked down (see
-  [Security](README.md#security) in the README). Changes that loosen the HTML
+  "How Folio protects you" in [SECURITY.md](SECURITY.md)). Changes that loosen the HTML
   sanitizer, the CSP, the served file types or Electron's sandboxing need a
   clear reason in the PR.
-- **Docs.** If you change behavior a user can see, update the README too.
+- **Docs.** If you change behavior a user can see, add it to `CHANGELOG.md`
+  under `## [Unreleased]`, and update the user docs in `docs-site/` when it
+  ships. The README lists only the core features.
 
 ## Commit messages
 

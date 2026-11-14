@@ -57,6 +57,7 @@ export default defineConfig({
         items: [
           { text: "Keyboard shortcuts", link: "/reference/shortcuts" },
           { text: "Markdown support", link: "/reference/markdown" },
+          { text: "Settings", link: "/reference/settings" },
         ],
       },
       { text: "FAQ", link: "/faq" },
