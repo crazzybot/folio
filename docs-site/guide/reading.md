@@ -27,6 +27,32 @@ The filters are remembered for each workspace.
 
 <!-- TODO: front matter example, and how "Superseded by" links work -->
 
+## New and changed documents
+
+Folio remembers which version of each document you last read. A dot after a
+document's title means it changed since you read it; a ring means it's new.
+Folders show how many unread documents they hold, and the **Documents** tab
+shows the total. Hover a document to see since when: "Changed since you read
+it on 3 Nov", or "New since you last looked". **Unread** in the filter menu
+lists only those documents.
+
+A document counts as read once it has been on screen for 3 seconds, with the
+window in front. The first time you open a workspace, everything in it
+counts as read, so the list doesn't start out all new. A version you've read
+before counts as read when it comes back, so switching git branches doesn't
+mark documents unread.
+
+A changed document opens with a banner above it: since when, how many
+sections changed, and which ones, each a link to its section. Added sections
+are marked "(new)", and removed ones are struck through. The banner stays
+until you open another document, even once the document counts as read.
+**Mark as Read** is there while it's unread; ✕ closes the banner.
+
+In the desktop app, right-click a document for **Mark as Read** or **Mark as
+Unread** (back to the version you read before), or a folder for **Mark All
+as Read**. Folio keeps the versions you read in `~/.folio`, compressed, to
+compare with.
+
 ## Git branches
 
 In the desktop app, when the workspace is in a git repository, the status
@@ -48,6 +74,10 @@ changes that aren't committed yet. Hover a document to see what changed it
 ("Modified on feature/x since main"), the last commit that touched it, and
 "with Claude" when Claude co-wrote it. A folder's hover card names its
 branch and what it's compared with.
+
+In a workspace of several repositories, a folder that holds one shows a
+branch icon when that repository isn't on its base branch, and a worktree
+icon when it's a linked worktree.
 
 The filter menu lists only the changed documents. When the list shows one
 repository, the filter says what it compares with: **Changed since main**,

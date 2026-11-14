@@ -34,6 +34,12 @@ follows GitHub's rules, so prices like "$5 and $10" stay text.
 diagram and click its expand button, or double-click it, to view it in the
 whole window with zoom and pan.
 
+## Heading links
+
+Each heading has an anchor made from its text, as on GitHub, so
+`[see Retries](#retries)` goes to the `## Retries` heading. Repeated
+headings get numbered anchors: the second `## Added` is `#added-1`.
+
 ## Images and links
 
 - Images from the workspace, relative to the document, and from the web.
