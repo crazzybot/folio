@@ -30,17 +30,28 @@ The filters are remembered for each workspace.
 ## Git branches
 
 In the desktop app, when the workspace is in a git repository, the status
-bar shows its branch. Click it for the repository's worktrees (choose one to
-open it as the workspace), **Copy Branch Name**, and **Compare With**, the
-branch yours is compared with. Folio picks `origin`'s default branch, else
-`main` or `master`; choose another there, and Folio remembers it for the
-repository.
+bar shows the open document's branch, and the branch it's compared with:
+`feature/x → main`. When the workspace holds several repositories, it starts
+with the repository's name (`api · feature/x → main`), since the open
+document may not be in the repository the list shows.
+
+Click the branch for the repository's worktrees (choose one to open it as
+the workspace), **Copy Branch Name**, and **Compare With**, the branch yours
+is compared with. Folio picks `origin`'s default branch, else `main` or
+`master`; choose another there, and Folio remembers it for the repository.
+For a repository inside the workspace, right-click its folder for **Compare
+With** too.
 
 Documents changed on your branch show a letter after their title: **A** for
 added, **M** for modified. The letter is in italics when the document has
-changes that aren't committed yet. **Changed on this branch** in the filter
-menu lists only those. Hover a document to see the last commit that touched
-it, and "with Claude" when Claude co-wrote it.
+changes that aren't committed yet. Hover a document to see what changed it
+("Modified on feature/x since main"), the last commit that touched it, and
+"with Claude" when Claude co-wrote it. A folder's hover card names its
+branch and what it's compared with.
+
+The filter menu lists only the changed documents. When the list shows one
+repository, the filter says what it compares with: **Changed since main**,
+or **Uncommitted changes** on the base branch itself.
 
 Folio only reads git; it never changes anything in the repository.
 

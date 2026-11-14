@@ -33,11 +33,21 @@ installed, so Folio never makes that dialog appear.
   repository (the workspace's, unless the document is in a nested one), or
   the short commit when HEAD is detached, and a worktree icon when it's a
   linked worktree (`--git-dir` differs from `--git-common-dir`).
-- Clicking it opens a native menu: the repository, **Compare With** (the
+- Off the base branch it adds the base: `feature/x → main`. The base decides
+  what A and M mean, and was otherwise only in the menu.
+- It's led by the repository's name (`api · feature/x → main`) when the
+  workspace holds several repositories or the document is in a nested one.
+  The status bar follows the open document, like the breadcrumb, while the
+  list can be focused on another repository; the name says which one it
+  describes. Following the list instead would give it two sources.
+- Clicking it opens a native menu: the repository, **Compare <name> With**
+  (named because it applies to every document in that repository; the
   base branch, checked, then **Default Branch** when one was chosen, then
   the local and `origin` branches most recently committed first), its
   **Worktrees** (from `git worktree list --porcelain`, the current one
-  checked), and **Copy Branch Name**. Choosing a worktree opens it as the
+  checked), and **Copy Branch Name**. A nested repository's folder row has
+  the same **Compare <name> With** in its context menu, beside its
+  documents. Choosing a worktree opens it as the
   workspace: the same folder inside it when the workspace is a folder of
   the repository, else its root.
 
@@ -45,7 +55,9 @@ installed, so Folio never makes that dialog appear.
 
 - **Changed on this branch** in the filter menu (a Git section, beside
   Unread) lists the documents changed on the branch, counted in the focused
-  folder. Unlike Unread it doesn't keep the open document listed: nothing
+  folder. When the list shows documents of one repository, the filter and
+  its chip say what they compare with: "Changed since main", or
+  "Uncommitted changes" when the branch is its own base (or has none). Unlike Unread it doesn't keep the open document listed: nothing
   about reading it changes whether it changed on the branch. Before the git
   state arrives, or without git, the filter is left out rather than
   emptying the list.
@@ -62,10 +74,13 @@ installed, so Folio never makes that dialog appear.
 
   run in each repository and limited to the part the workspace shows, then
   to Markdown files. Renames count as an added file (and a deleted one).
-- A document's hover card says how it changed on the branch, and the last
-  commit that touched it: subject, author and day (`git log -1`), and "with
-  Claude" when the message has a `Co-Authored-By: Claude …` trailer, since
-  whether an agent wrote a change is worth knowing when reviewing it. It's
+- A document's hover card (and the letter's tooltip) says how it changed,
+  naming the branch and the base: "Modified on feature/x since main, with
+  uncommitted changes", or "Modified, not committed yet" on the base
+  branch. It also shows the last commit that touched it: subject, author
+  and day (`git log -1`), and "with Claude" when the message has a
+  `Co-Authored-By: Claude …` trailer, since whether an agent wrote a change
+  is worth knowing when reviewing it. It's
   asked for when the card opens and kept until the git state changes.
 - A folder row that's a nested repository's root gets a branch icon when
   that repository isn't on its base branch or is detached, and a worktree
@@ -73,8 +88,9 @@ installed, so Folio never makes that dialog appear.
   chain of folders ("api / docs"); the icon shows when any of them is the
   root. The workspace's own repository has no row: its branch is in the
   status bar.
-- Every folder's hover card names the branch of the repository it's in, and
-  "worktree of …" for a linked worktree.
+- Every folder's hover card names the branch of the repository it's in,
+  "worktree of …" for a linked worktree, and "compared with main" off the
+  base branch.
 
 ## Marks across branches
 

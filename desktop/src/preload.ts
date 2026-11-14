@@ -183,7 +183,8 @@ contextBridge.exposeInMainWorld("markdownApi", {
     },
   },
   /** A folder's context menu in the document list; resolves "focus", "mark-read" or null. */
-  showFolderMenu: (location: string, hasUnread: boolean) => ipcRenderer.invoke("folder:context-menu", location, hasUnread),
+  showFolderMenu: (location: string, hasUnread: boolean, repository: string | null) =>
+    ipcRenderer.invoke("folder:context-menu", location, hasUnread, repository),
   /** A document's context menu in the document list; resolves "read", "unread" or null. */
   showDocumentMenu: (docId: string, unread: boolean) => ipcRenderer.invoke("document:context-menu", docId, unread),
 });
