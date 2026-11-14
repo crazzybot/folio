@@ -1,32 +1,39 @@
 /**
  * NoteThread.tsx — The replies under a note, each with its author and time,
  * and a box for the user's own (docs/design/agent-integration.md). Shown in
- * a highlight's popover and the note on the document. The user's latest
- * reply can be edited until someone answers it.
+ * a highlight's popover and the note on the document. Once a note has
+ * replies, it's the thread's first message and scrolls with them: what was
+ * answered can't be edited. Only the user's latest reply can, until someone
+ * answers it, and deleted, until it's sent.
  *
- * Replies are plain text, as notes are: an agent's reply is shown, never
- * rendered as Markdown or HTML.
+ * Messages are light Markdown (MessageText.tsx): formatting only, never
+ * HTML, links that open or images that load.
  */
 
 import { useState } from "react";
 import { authorName, newReplies, replyTime } from "../threads";
-import type { Thread } from "../types";
+import type { Author, NoteState, Thread } from "../types";
+import MessageText from "./MessageText";
 import styles from "./NoteThread.module.css";
 
 const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 const SEND_SHORTCUT = IS_MAC ? "⌘↩" : "Ctrl+Enter";
 
 interface NoteThreadProps {
-  thread: Thread;
+  thread: Thread & { state?: NoteState | undefined };
+  /** The note itself, shown as the first message (when it has replies). */
+  note?: { text: string; author?: Author | undefined; at: string } | undefined;
   /** Send the user's reply. */
   onReply: (text: string) => void;
   /** Change the user's latest reply. */
   onEditReply: (replyId: string, text: string) => void;
+  /** Delete the user's latest reply: the note goes back to its state before it. */
+  onDeleteReply: (replyId: string) => void;
   /** Whether the reply box is open: the popover keeps Escape for it while it is. */
   onWritingChange?: (writing: boolean) => void;
 }
 
-export default function NoteThread({ thread, onReply, onEditReply, onWritingChange }: NoteThreadProps): React.ReactElement | null {
+export default function NoteThread({ thread, note, onReply, onEditReply, onDeleteReply, onWritingChange }: NoteThreadProps): React.ReactElement | null {
   // A new reply (replyId null), or the user's latest one being edited
   const [draft, setDraft] = useState<{ text: string; replyId: string | null } | null>(null);
   const replies = thread.replies ?? [];
@@ -35,6 +42,8 @@ export default function NoteThread({ thread, onReply, onEditReply, onWritingChan
   // The store refuses an edit once someone has answered, so only the last reply offers it
   const last = replies[replies.length - 1];
   const editable = last?.author.kind === "user" ? last.id : null;
+  // Open: not sent yet, so the agent hasn't seen it
+  const deletable = (thread.state ?? "open") === "open";
 
   const write = (next: { text: string; replyId: string | null } | null) => {
     setDraft(next);
@@ -92,8 +101,19 @@ export default function NoteThread({ thread, onReply, onEditReply, onWritingChan
 
   return (
     <div className={styles.thread}>
-      {replies.length > 0 && (
+      {(note !== undefined || replies.length > 0) && (
         <ol className={styles.replies} aria-label="Replies">
+          {note !== undefined && (
+            <li className={`${styles.reply} ${(note.author?.kind ?? "user") === "user" ? styles.mine : ""}`}>
+              <div className={styles.byline}>
+                <span className={styles.author}>{authorName(note.author ?? { kind: "user" })}</span>
+                <time dateTime={note.at} title={new Date(note.at).toLocaleString()}>
+                  {replyTime(note.at)}
+                </time>
+              </div>
+              <MessageText text={note.text} />
+            </li>
+          )}
           {replies.map((reply) => (
             <li key={reply.id} className={`${styles.reply} ${reply.author.kind === "user" ? styles.mine : ""}`}>
               <div className={styles.byline}>
@@ -117,8 +137,19 @@ export default function NoteThread({ thread, onReply, onEditReply, onWritingChan
                     Edit
                   </button>
                 )}
+                {reply.id === editable && deletable && draft === null && (
+                  <button
+                    type="button"
+                    className={styles.deleteBtn}
+                    onClick={() => onDeleteReply(reply.id)}
+                    aria-label="Delete reply"
+                    title="Delete your reply: it hasn't been sent"
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
-              {draft !== null && draft.replyId === reply.id ? editor(true) : <div className={styles.text}>{reply.text}</div>}
+              {draft !== null && draft.replyId === reply.id ? editor(true) : <MessageText text={reply.text} />}
             </li>
           ))}
         </ol>

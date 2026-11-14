@@ -195,6 +195,8 @@ interface MarksLayerProps {
   onReply: (id: string, text: string) => void;
   /** The user's latest reply to a highlight's note, changed. */
   onEditReply: (id: string, replyId: string, text: string) => void;
+  /** The user's latest reply to a highlight's note, deleted before it's sent. */
+  onDeleteReply: (id: string, replyId: string) => void;
   /** The user saw a highlight's thread (its popover opened with new replies). */
   onSeen: (id: string) => void;
   onToggleBookmark: (heading: BookmarkHeading) => void;
@@ -226,6 +228,7 @@ export default function MarksLayer({
   rounds,
   onReply,
   onEditReply,
+  onDeleteReply,
   onSeen,
   onToggleBookmark,
   onPainted,
@@ -569,7 +572,9 @@ export default function MarksLayer({
       const existing = highlightAt(selected.start, selected.end);
       if (existing !== undefined) {
         setToolbar(null);
-        const note = withNote ? (highlights.find((h) => h.id === existing)?.note ?? "") : null;
+        // A note with replies isn't edited: its popover shows the conversation instead
+        const found = highlights.find((h) => h.id === existing);
+        const note = withNote && (found?.replies?.length ?? 0) === 0 ? (found?.note ?? "") : null;
         openPopover(existing, selected.range.getBoundingClientRect(), note);
         return;
       }
@@ -653,6 +658,8 @@ export default function MarksLayer({
   }, [articleRef, ready, renderKey, openPopover]);
 
   const current = popover === null ? undefined : highlights.find((h) => h.id === popover.id);
+  // Replied to: the note is part of the conversation, and stays as it was answered
+  const answered = (current?.replies?.length ?? 0) > 0;
 
   /** Close the popover, keeping a note being written. */
   const closePopover = useCallback(() => {
@@ -883,7 +890,7 @@ export default function MarksLayer({
               />
             ))}
             <span className={styles.divider} aria-hidden="true" />
-            {draft === null && (
+            {draft === null && !answered && (
               <button
                 type="button"
                 className={styles.action}
@@ -912,7 +919,8 @@ export default function MarksLayer({
             </button>
           </div>
 
-          {draft === null && current.note !== null && (
+          {/* Answered: the note is the thread's first message, no longer editable */}
+          {draft === null && current.note !== null && !answered && (
             <button type="button" className={styles.noteText} onClick={() => setDraft(current.note ?? "")} title="Edit note">
               {current.note}
             </button>
@@ -953,8 +961,10 @@ export default function MarksLayer({
             <NoteThread
               key={current.id}
               thread={current}
+              note={answered && current.note !== null ? { text: current.note, author: current.author, at: current.created } : undefined}
               onReply={(text) => onReply(current.id, text)}
               onEditReply={(replyId, text) => onEditReply(current.id, replyId, text)}
+              onDeleteReply={(replyId) => onDeleteReply(current.id, replyId)}
               onWritingChange={setReplying}
             />
           )}

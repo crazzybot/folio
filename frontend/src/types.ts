@@ -109,6 +109,8 @@ export interface Reply {
   author: Author;
   text: string;
   at: string; // ISO-8601
+  /** The note's state before this reply (the user's) reopened it: deleting the reply restores it. Absent: open. */
+  reopened?: NoteState;
 }
 
 /** A note's thread; absent fields mean none yet. */

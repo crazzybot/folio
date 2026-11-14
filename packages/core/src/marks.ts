@@ -208,7 +208,30 @@ function withReply<T extends Thread & { state?: NoteState; private?: boolean }>(
 ): T {
   const replies = mark.replies ?? [];
   if (replies.length >= MAX_REPLIES) throw new MarkError(409, `A note can have at most ${MAX_REPLIES} replies`);
-  return { ...withLoop(mark, { state: addressed ? "addressed" : "open" }), replies: [...replies, reply] };
+  // The user's reply remembers the state it reopened, for deleting it
+  const before = mark.state ?? "open";
+  const added = !addressed && reply.author.kind === "user" && before !== "open" ? { ...reply, reopened: before } : reply;
+  return { ...withLoop(mark, { state: addressed ? "addressed" : "open" }), replies: [...replies, added] };
+}
+
+/**
+ * `mark` without its last reply, the user's, while it hasn't been sent (the
+ * note is still open). The note goes back to the state the reply took it
+ * from: addressed, say, after the agent's answer.
+ */
+function withoutReply<T extends Thread & { state?: NoteState; private?: boolean }>(mark: T, replyId: string): T {
+  const replies = mark.replies ?? [];
+  const last = replies[replies.length - 1];
+  if (!replies.some((r) => r.id === replyId)) throw new MarkError(404, `Reply '${replyId}' not found`);
+  if (last?.id !== replyId || last.author.kind !== "user" || (mark.state ?? "open") !== "open") {
+    throw new MarkError(409, "Only your latest reply can be deleted, before it's sent");
+  }
+  const next = withLoop(mark, { state: last.reopened ?? "open" });
+  if (replies.length === 1) {
+    const { replies: _gone, ...rest } = next;
+    return rest as T;
+  }
+  return { ...next, replies: replies.slice(0, -1) };
 }
 
 /**
@@ -634,6 +657,31 @@ export class MarksStore {
       }
       const old = find(record, highlightId);
       const highlight = { ...withEditedReply(old, replyId, text, at), updated: at };
+      const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? highlight : h));
+      await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
+      return highlight;
+    });
+  }
+
+  /**
+   * Delete the user's reply `replyId` to highlight `highlightId`'s note (null:
+   * the document's note): only the thread's latest reply, and only before it's
+   * sent. Resolves to the note, back in the state the reply took it from.
+   */
+  deleteReply(file: string, highlightId: string | null, replyId: string): Promise<Highlight | DocumentNote> {
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = await this.writable(id);
+      const at = now();
+      if (highlightId === null) {
+        const old = storedNote(record?.documentNote);
+        if (record === null || old === null) throw new MarkError(404, "The document has no note");
+        const note = { ...withoutReply(old, replyId), updated: at };
+        await this.write(id, await refreshed(withNote(record, note), file));
+        return note;
+      }
+      const old = find(record, highlightId);
+      const highlight = { ...withoutReply(old, replyId), updated: at };
       const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? highlight : h));
       await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
       return highlight;

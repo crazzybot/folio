@@ -17,8 +17,9 @@ read and mark them up in Folio, and your notes go back to the agent.
 2. **Read and mark up.** Highlight what's unclear or wrong and write a note
    on it. Give the document a status to ask for, such as `accepted`.
 3. **Send your notes.** The header's clipboard button opens the Send dialog,
-   with the notes not sent yet ticked. Copy them and paste them into the
-   agent (Claude Code, Cursor or any other).
+   with the notes not sent yet ticked. A note with replies says how many;
+   they go with it. Copy them and paste them into the agent (Claude Code,
+   Cursor or any other).
 4. **Read the revision.** Folio shows the agent's edits as it saves them,
    and your marks follow the text.
 
@@ -53,7 +54,10 @@ a **Copy** button.
 
 The agent's answers show under each note: in the popover when you click a
 highlight, and under the note on the document. Each reply has its author and
-when it was written.
+when it was written, in a box of its own; yours are tinted. Messages show
+their Markdown formatting, such as bold, lists and code. Links show their
+address when you point at them, but don't open, and images show only their
+description.
 
 - **New replies.** A note with replies you haven't read has a dot on its
   margin icon, and a **New reply** label in the **Marks** view. The status
@@ -71,6 +75,14 @@ when it was written.
 - **Edit your reply.** Until someone answers it, your latest reply has an
   **Edit** link. **Save** (`⌘↩` / `Ctrl+Enter`) opens the note again, so
   the new wording goes with the next round.
+- **Delete your reply.** Until it's sent, your latest reply has **Delete**
+  too. The note goes back to how it was before your reply, **Addressed** for
+  example. The bin at the top of the popover still removes the highlight
+  with its whole conversation.
+- **One conversation.** Once a note has replies, it's the first message of
+  the thread, and the whole thread scrolls together. A note or reply that
+  was answered can't be edited. On the note on the document, you can still
+  change the **Status**.
 
 ## What the agent receives
 

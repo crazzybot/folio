@@ -665,7 +665,7 @@ function AppInner(): React.ReactElement {
   useEffect(() => {
     if (contentId !== null) rememberForWorkspace(LAST_DOCUMENT_KEY, contentId);
   }, [contentId]);
-  const { add: addMark, recolor, setNote, remove: removeMark, setLoop, reply, editReply, markSeen, toggleBookmark, removeBookmark } = marks;
+  const { add: addMark, recolor, setNote, remove: removeMark, setLoop, reply, editReply, deleteReply, markSeen, toggleBookmark, removeBookmark } = marks;
   const shownRounds = contentId === null ? undefined : marks.byDoc.get(contentId)?.rounds;
   // Changes to the shown document's marks, from the viewer
   const markHandlers = useMemo((): MarkHandlers | undefined => {
@@ -678,11 +678,12 @@ function AppInner(): React.ReactElement {
       setLoop: (id, changes) => void setLoop(contentId, id, changes),
       reply: (id, text) => void reply(contentId, id, text),
       editReply: (id, replyId, text) => void editReply(contentId, id, replyId, text),
+      deleteReply: (id, replyId) => void deleteReply(contentId, id, replyId),
       markSeen: (id) => void markSeen(contentId, id),
       toggleHeadingBookmark: (heading) => void toggleBookmark(contentId, heading),
       rounds: shownRounds,
     };
-  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, reply, editReply, markSeen, toggleBookmark, shownRounds]);
+  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, reply, editReply, deleteReply, markSeen, toggleBookmark, shownRounds]);
   const shownMarks = contentId === null ? undefined : marks.byDoc.get(contentId);
   const documentBookmarked = shownMarks !== undefined && findBookmark(shownMarks.bookmarks, null) !== undefined;
 
@@ -1179,6 +1180,7 @@ function AppInner(): React.ReactElement {
                 onSetState={(state) => void marks.setDocumentNoteLoop(contentId, { state })}
                 onReply={(text) => void marks.reply(contentId, null, text)}
                 onEditReply={(replyId, text) => void marks.editReply(contentId, null, replyId, text)}
+                onDeleteReply={(replyId) => void marks.deleteReply(contentId, null, replyId)}
                 onSeen={seeDocumentNote}
                 onClose={() => setNoteEditor(null)}
               />

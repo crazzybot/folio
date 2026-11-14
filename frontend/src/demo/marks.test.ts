@@ -182,4 +182,16 @@ describe("DemoMarks", () => {
     expect(() => marks.editReply("b", "s1", mine, " ")).toThrow();
     expect(() => marks.editReply("b", "s1", "gone", "Hi")).toThrow();
   });
+
+  it("deletes the visitor's latest reply before it's sent, back to the note's state", () => {
+    const marks = new DemoMarks(listed, seed, memoryStorage());
+    marks.updateHighlight("b", "s1", { state: "addressed" });
+    const mine = marks.reply("b", "s1", "Not quite.").replies?.[0]?.id ?? "";
+    const back = marks.deleteReply("b", "s1", mine);
+    expect([back.state, back.replies]).toEqual(["addressed", undefined]);
+
+    const again = marks.reply("b", "s1", "Not quite.").replies?.[0]?.id ?? "";
+    marks.updateHighlight("b", "s1", { state: "sent" });
+    expect(() => marks.deleteReply("b", "s1", again)).toThrow();
+  });
 });

@@ -281,7 +281,9 @@ export class DemoMarks {
     const target = highlightId === null ? this.documents[docId]?.note : this.highlight(docId, highlightId);
     if (target === undefined) throw new Error("The document has no note");
     const at = now();
-    target.replies = [...(target.replies ?? []), { id: newId(), author: { kind: "user" }, text, at }];
+    // Remembers the state it reopened, for deleting it
+    const reopened = target.state === undefined || target.state === "open" ? {} : { reopened: target.state };
+    target.replies = [...(target.replies ?? []), { id: newId(), author: { kind: "user" }, text, at, ...reopened }];
     delete target.state;
     target.updated = at;
     this.changed(docId);
@@ -300,6 +302,24 @@ export class DemoMarks {
     target.replies = [...replies.slice(0, -1), { ...last, text, at }];
     delete target.state;
     target.updated = at;
+    this.changed(docId);
+    return structuredClone(target);
+  }
+
+  /** The visitor's latest reply, deleted before it's sent, as the desktop store does: the note goes back to its state before it. */
+  deleteReply(docId: string, highlightId: string | null, replyId: string): Highlight | DocumentNote {
+    const target = highlightId === null ? this.documents[docId]?.note : this.highlight(docId, highlightId);
+    if (target === undefined) throw new Error("The document has no note");
+    const replies = target.replies ?? [];
+    const last = replies[replies.length - 1];
+    if (last?.id !== replyId || last.author.kind !== "user" || (target.state ?? "open") !== "open") {
+      throw new Error("Only your latest reply can be deleted, before it's sent");
+    }
+    if (replies.length === 1) delete target.replies;
+    else target.replies = replies.slice(0, -1);
+    if (last.reopened === undefined || last.reopened === "open") delete target.state;
+    else target.state = last.reopened;
+    target.updated = now();
     this.changed(docId);
     return structuredClone(target);
   }

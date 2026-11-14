@@ -102,8 +102,8 @@ Books, so there is no third kind.
 - **Threads** add more optional fields, still version 1: a note's
   `author` (absent: the user; `agent` with a name, or `github` with a login),
   `replies` (oldest first, at most 100 of 10 000 characters, each with an
-  id, author, text and time) and `seen` (when the user last saw the
-  thread). A reply marked addressed sets the note to `addressed`; any other
+  id, author, text and time; the user's, the note's state it reopened, as
+  `reopened`) and `seen` (when the user last saw the thread). A reply marked addressed sets the note to `addressed`; any other
   reply sets it back to open, so it goes with the next round. A round
   fetched by an agent has `via: "mcp"` and the agent's name in `client`.
   The document note keeps fields it doesn't know too.

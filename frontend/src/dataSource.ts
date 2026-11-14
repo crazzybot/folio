@@ -67,6 +67,8 @@ export interface DataSource {
     reply(docId: string, highlightId: string | null, text: string): Promise<Highlight | DocumentNote>;
     /** Change the user's latest reply to a note, while nobody has answered it; resolves to the note. */
     editReply(docId: string, highlightId: string | null, replyId: string, text: string): Promise<Highlight | DocumentNote>;
+    /** Delete the user's latest reply to a note, before it's sent; resolves to the note, in its state before the reply. */
+    deleteReply(docId: string, highlightId: string | null, replyId: string): Promise<Highlight | DocumentNote>;
     /** Record that the user saw a note's thread. */
     markSeen(docId: string, highlightId: string | null): Promise<void>;
   };

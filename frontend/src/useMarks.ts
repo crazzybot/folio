@@ -14,6 +14,7 @@ import {
   deleteBookmark,
   deleteDocumentNote,
   deleteHighlight,
+  deleteNoteReply,
   editNoteReply,
   fetchMarks,
   forgetMarks,
@@ -82,6 +83,8 @@ export interface Marks {
   reply(docId: string, highlightId: string | null, text: string): Promise<void>;
   /** Change the user's latest reply to a note, while nobody has answered it. The note is open again. */
   editReply(docId: string, highlightId: string | null, replyId: string, text: string): Promise<void>;
+  /** Delete the user's latest reply to a note, before it's sent. The note goes back to its state before it. */
+  deleteReply(docId: string, highlightId: string | null, replyId: string): Promise<void>;
   /** Record that the user saw a note's thread: its new replies are no longer new. */
   markSeen(docId: string, highlightId: string | null): Promise<void>;
   /** Bookmark the document (`heading` null) or a heading, or remove that bookmark. */
@@ -261,6 +264,15 @@ export default function useMarks(): Marks {
     [update, saved, failed],
   );
 
+  const deleteReply = useCallback(
+    (docId: string, highlightId: string | null, replyId: string) =>
+      deleteNoteReply(docId, highlightId, replyId).then((note) => {
+        if (highlightId === null) update(docId, (m) => withNote(m, note as DocumentNote));
+        else saved(docId)(note as Highlight);
+      }, failed("delete the reply")),
+    [update, saved, failed],
+  );
+
   // Seen is shown at once (the new-reply dots go), then saved
   const markSeen = useCallback(
     (docId: string, highlightId: string | null) => {
@@ -359,6 +371,7 @@ export default function useMarks(): Marks {
     unsend,
     reply,
     editReply,
+    deleteReply,
     markSeen,
     toggleBookmark,
     removeBookmark,

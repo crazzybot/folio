@@ -47,6 +47,7 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
       unsend: (round) => api.marks.unsend(round),
       reply: (docId, highlightId, text) => api.marks.reply(docId, highlightId, text),
       editReply: (docId, highlightId, replyId, text) => api.marks.editReply(docId, highlightId, replyId, text),
+      deleteReply: (docId, highlightId, replyId) => api.marks.deleteReply(docId, highlightId, replyId),
       markSeen: (docId, highlightId) => api.marks.markSeen(docId, highlightId),
     },
   };
@@ -90,6 +91,7 @@ const unavailableSource: DataSource = {
     unsend: unavailable,
     reply: unavailable,
     editReply: unavailable,
+    deleteReply: unavailable,
     markSeen: unavailable,
   },
 };
@@ -224,6 +226,11 @@ export async function editNoteReply(
   text: string,
 ): Promise<Highlight | DocumentNote> {
   return source.marks.editReply(docId, highlightId, replyId, text);
+}
+
+/** Delete the user's latest reply to a note, before it's sent (highlightId null: the document's note). */
+export async function deleteNoteReply(docId: string, highlightId: string | null, replyId: string): Promise<Highlight | DocumentNote> {
+  return source.marks.deleteReply(docId, highlightId, replyId);
 }
 
 /** Record that the user saw a note's thread. */
