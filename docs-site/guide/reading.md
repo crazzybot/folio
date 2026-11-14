@@ -27,6 +27,23 @@ The filters are remembered for each workspace.
 
 <!-- TODO: front matter example, and how "Superseded by" links work -->
 
+## Git branches
+
+In the desktop app, when the workspace is in a git repository, the status
+bar shows its branch. Click it for the repository's worktrees (choose one to
+open it as the workspace), **Copy Branch Name**, and **Compare With**, the
+branch yours is compared with. Folio picks `origin`'s default branch, else
+`main` or `master`; choose another there, and Folio remembers it for the
+repository.
+
+Documents changed on your branch show a letter after their title: **A** for
+added, **M** for modified. The letter is in italics when the document has
+changes that aren't committed yet. **Changed on this branch** in the filter
+menu lists only those. Hover a document to see the last commit that touched
+it, and "with Claude" when Claude co-wrote it.
+
+Folio only reads git; it never changes anything in the repository.
+
 ## Focus on a folder
 
 To read only part of a large workspace, click the focus button on a folder

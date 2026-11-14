@@ -54,8 +54,9 @@ import { canInstallCommand, installCommand } from "./cli";
 import { ensureCustomCss, readCustomCss, watchCustomCss } from "./customCss";
 import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
-import { GitTracker } from "./git";
-import type { GitState, Repository } from "./git";
+import { branchesOf, GitTracker, lastCommit } from "./git";
+import type { GitState, LastCommit, Repository } from "./git";
+import { chooseBase, chosenBase } from "./gitBases";
 import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } from "./openPaths";
 import { filesOnOtherBranches } from "../../packages/core/src/git";
 import { defaultDataDir, listMarks, MarkError, MarksStore, newRoundId } from "../../packages/core/src/marks";
@@ -601,7 +602,13 @@ function registerIpcHandlers(): void {
     const win = BrowserWindow.fromWebContents(event.sender);
     const repository = (await git.current())?.repositories.find((repo) => repo.location === location);
     if (win === null || repository === undefined || typeof x !== "number" || typeof y !== "number") return;
-    Menu.buildFromTemplate(branchMenu(win, repository)).popup({ window: win, x: Math.round(x), y: Math.round(y) });
+    const branches = await branchesOf(repository.root);
+    Menu.buildFromTemplate(branchMenu(win, repository, branches)).popup({ window: win, x: Math.round(x), y: Math.round(y) });
+  });
+  // A document's hover card: the last commit that touched it
+  ipcMain.handle("git:last-commit", async (event, docId: unknown): Promise<LastCommit | null> => {
+    assertTrustedSender(event);
+    return lastCommit(await markedDocument(docId));
   });
 
   // The renderer asks once on load; later changes are pushed (see applyTheme)
@@ -711,7 +718,7 @@ const git = new GitTracker((state) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send("git:changed", state);
   }
-});
+}, chosenBase);
 
 /** Read the workspace's git state again; its documents tell where nested repositories are. */
 async function refreshGit(): Promise<void> {
@@ -740,11 +747,27 @@ async function openWorktree(win: BrowserWindow, repository: Repository, worktree
 }
 
 /** The status bar's branch menu: the repository, its worktrees, Copy Branch Name. */
-function branchMenu(win: BrowserWindow, repository: Repository): MenuItemConstructorOptions[] {
-  const { branch, base, worktrees } = repository;
+function branchMenu(win: BrowserWindow, repository: Repository, branches: readonly string[]): MenuItemConstructorOptions[] {
+  const { branch, base, baseChosen, worktrees } = repository;
+  const mainCheckout = repository.mainCheckout ?? repository.root;
+  const compareWith = (choice: string | null) => {
+    chooseBase(mainCheckout, choice);
+    void git.reread();
+  };
+  // The branch itself isn't offered: nothing would show as changed
+  const others = branches.filter((name) => name !== branch && name !== base);
   const items: MenuItemConstructorOptions[] = [
-    { label: path.basename(repository.mainCheckout ?? repository.root), enabled: false },
-    ...(base === null ? [] : [{ label: `Compared with ${base}`, enabled: false }]),
+    { label: path.basename(mainCheckout), enabled: false },
+    {
+      label: base === null ? "Compare With" : `Compare With: ${base}`,
+      enabled: base !== null || others.length > 0,
+      submenu: [
+        ...(base === null ? [] : [{ label: base, type: "checkbox" as const, checked: true }]),
+        ...(baseChosen ? [{ label: "Default Branch", click: () => compareWith(null) }] : []),
+        ...(others.length === 0 ? [] : [{ type: "separator" as const }]),
+        ...others.map((name) => ({ label: name, click: () => compareWith(name) })),
+      ],
+    },
   ];
   if (worktrees.length > 1) {
     items.push({ type: "separator" }, { label: "Worktrees", enabled: false });

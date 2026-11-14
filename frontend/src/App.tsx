@@ -45,7 +45,7 @@ import ChangesBanner from "./components/ChangesBanner";
 import { sectionChanges } from "../../packages/core/src/sections";
 import { slugify } from "./slug";
 import { BranchIcon, WorktreeIcon } from "./components/GitIcons";
-import { branchLabel, branchSentence, folderName, repositoryOf, useGitState } from "./git";
+import { branchLabel, branchSentence, changesById, folderName, repositoryOf, useGitState } from "./git";
 import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
@@ -186,13 +186,22 @@ function AppInner(): React.ReactElement {
   const focusedDocuments = useMemo(() => documentsInFolder(documents, focus), [documents, focus]);
   // ── New and changed documents (see reads.ts) ──────────────────────────────
   const reads = useReads();
-  // ── Status, tag and Unread filters: the list, search and count narrow further ─
+  // The workspace's git repositories (desktop): the status bar's branch,
+  // folder icons, and the documents changed on the branch
+  const git = useGitState();
+  const branchChanges = useMemo(() => changesById(git, documents), [git, documents]);
+  const changedIds = useMemo(() => (branchChanges === null ? null : new Set(branchChanges.keys())), [branchChanges]);
+  const changedInFocus = useMemo(
+    () => (changedIds === null ? 0 : focusedDocuments.filter((doc) => changedIds.has(doc.id)).length),
+    [focusedDocuments, changedIds],
+  );
+  // ── Status, tag, Unread and branch filters: the list, search and count narrow further ─
   // (not the Marks view, which has nowhere to show them). The open document
   // stays listed under Unread once it's read
   const [metaFilters, setMetaFilters] = useMetaFilters();
   const listedDocuments = useMemo(
-    () => filterByMeta(focusedDocuments, metaFilters, reads.unreadIds, selectedId),
-    [focusedDocuments, metaFilters, reads.unreadIds, selectedId],
+    () => filterByMeta(focusedDocuments, metaFilters, reads.unreadIds, selectedId, changedIds),
+    [focusedDocuments, metaFilters, reads.unreadIds, selectedId, changedIds],
   );
   const unreadInFocus = useMemo(
     () => unreadCount(focusedDocuments.map((doc) => doc.id), reads.unreadIds),
@@ -218,8 +227,6 @@ function AppInner(): React.ReactElement {
 
   // ── Bookmarks and highlights (kept outside the workspace; see useMarks.ts) ─
   const marks = useMarks();
-  // The workspace's git repositories (desktop): the status bar's branch, folder icons
-  const git = useGitState();
   const highlightCounts = useMemo(
     () =>
       new Map(
@@ -1039,6 +1046,8 @@ function AppInner(): React.ReactElement {
             onFiltersChange={setMetaFilters}
             highlightCounts={highlightCounts}
             git={git}
+            branchChanges={branchChanges}
+            branchCount={changedInFocus}
             loading={listLoading}
             error={listError}
           />
