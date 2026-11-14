@@ -16,7 +16,7 @@ const desktopApi = window.markdownApi;
 import { resolveImageSrc, resolveLink } from "../links";
 import type { ImageSource, LinkTarget } from "../links";
 import { saveScrollPosition } from "../scrollHistory";
-import { slugify } from "../slug";
+import rehypeHeadingIds from "../headingIds";
 import { clearMatches, findMatches, showMatches } from "../searchHighlight";
 import MarksLayer from "./MarksLayer";
 import { findBookmark, headingIdentities } from "../bookmarks";
@@ -122,53 +122,6 @@ export interface SearchFocus {
   docId: string;
   occurrence: number;
   nonce: number;
-}
-
-// ---------------------------------------------------------------------------
-// Heading anchors — GFM slugs of the heading's text (see slug.ts)
-// ---------------------------------------------------------------------------
-
-/** Recursively extract plain text from React children. */
-function extractText(node: React.ReactNode): string {
-  if (typeof node === "string") return node;
-  if (typeof node === "number") return String(node);
-  if (Array.isArray(node)) return node.map(extractText).join("");
-  if (React.isValidElement(node)) {
-    // `props` is typed as `unknown` in strict React 18 — narrow safely.
-    const props = node.props as Record<string, unknown>;
-    return extractText(props["children"] as React.ReactNode);
-  }
-  return "";
-}
-
-/** Convert a heading's text content to a GFM-compatible anchor slug. */
-function toSlug(children: React.ReactNode): string {
-  return slugify(extractText(children));
-}
-
-// ---------------------------------------------------------------------------
-// Custom heading components — h1 through h6
-// Each one computes a slug from its children and sets it as the `id`.
-// ---------------------------------------------------------------------------
-
-type HeadingTag = "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
-
-function makeHeading(Tag: HeadingTag) {
-  // Named so React DevTools shows a useful label
-  function Heading({
-    children,
-    node: _node,
-    ...rest
-  }: React.HTMLAttributes<HTMLHeadingElement> & ExtraProps): React.ReactElement {
-    const id = toSlug(children);
-    return (
-      <Tag id={id} {...rest}>
-        {children}
-      </Tag>
-    );
-  }
-  Heading.displayName = `Heading(${Tag})`;
-  return Heading;
 }
 
 // ---------------------------------------------------------------------------
@@ -484,12 +437,6 @@ const markdownComponents: Components = {
   a: MarkdownLink,
   pre: MarkdownPre,
   img: MarkdownImage,
-  h1: makeHeading("h1"),
-  h2: makeHeading("h2"),
-  h3: makeHeading("h3"),
-  h4: makeHeading("h4"),
-  h5: makeHeading("h5"),
-  h6: makeHeading("h6"),
 };
 
 // ---------------------------------------------------------------------------
@@ -537,6 +484,8 @@ function buildRehypePlugins(katex: RehypeKatex | null): RehypePluginList {
     [rehypeSanitize, defaultSchema],
     ...(katex === null ? [] : [katex]),
     [rehypeHighlight, rehypeHighlightOptions],
+    // Last, so heading ids come from the text as rendered
+    rehypeHeadingIds,
   ];
 }
 
