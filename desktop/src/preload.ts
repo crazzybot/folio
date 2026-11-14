@@ -183,5 +183,5 @@ contextBridge.exposeInMainWorld("markdownApi", {
   /** A folder's context menu in the document list; resolves "focus", "mark-read" or null. */
   showFolderMenu: (location: string, hasUnread: boolean) => ipcRenderer.invoke("folder:context-menu", location, hasUnread),
   /** A document's context menu in the document list; resolves "read", "unread" or null. */
-  showDocumentMenu: (unread: boolean) => ipcRenderer.invoke("document:context-menu", unread),
+  showDocumentMenu: (docId: string, unread: boolean) => ipcRenderer.invoke("document:context-menu", docId, unread),
 });

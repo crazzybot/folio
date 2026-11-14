@@ -10,6 +10,11 @@ turns them into the next release's section.
 
 ### Added
 
+- **Open and reveal files from the document list** (desktop). Right-click
+  a document for **Open in Editor**, named after your editor (**Open in
+  Visual Studio Code**), and **Reveal in Finder** (**Show in Folder** on
+  Windows and Linux). Right-click a folder for **Reveal in Finder** too.
+
 - **What changed since you read it.** A changed document opens with a
   banner above it: since when, and which sections changed, were added or
   were removed, each a link to its section. **Mark as Read** is there while

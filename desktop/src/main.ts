@@ -528,7 +528,8 @@ function registerIpcHandlers(): void {
   });
 
   // A folder's context menu in the document list: Focus on Folder and Mark
-  // All as Read are the page's to apply; Open Folder as Workspace is done here
+  // All as Read are the page's to apply; Open Folder as Workspace and Reveal
+  // in Finder are done here
   ipcMain.handle(
     "folder:context-menu",
     async (event, location: unknown, hasUnread: unknown): Promise<"focus" | "mark-read" | null> => {
@@ -537,26 +538,39 @@ function registerIpcHandlers(): void {
       const folder =
         settings.workspace === null || typeof location !== "string" ? null : await folderInWorkspace(settings.workspace, location);
       if (win === null || folder === null) return null;
-      const choice = await popupChoice<"focus" | "mark-read" | "open">(win, [
+      const choice = await popupChoice<"focus" | "mark-read" | "open" | "reveal">(win, [
         { label: "Focus on Folder", choice: "focus" },
         { label: "Mark All as Read", choice: "mark-read", enabled: hasUnread === true },
         null,
         { label: "Open Folder as Workspace", choice: "open" },
+        { label: revealLabel(), choice: "reveal" },
       ]);
       if (choice === "open") await openWorkspace(win, folder);
-      return choice === "open" ? null : choice;
+      if (choice === "reveal") shell.showItemInFolder(folder);
+      return choice === "open" || choice === "reveal" ? null : choice;
     },
   );
 
-  // A document's context menu in the document list: the page applies the choice
-  ipcMain.handle("document:context-menu", async (event, unread: unknown): Promise<"read" | "unread" | null> => {
-    assertTrustedSender(event);
-    const win = BrowserWindow.fromWebContents(event.sender);
-    if (win === null) return null;
-    return popupChoice<"read" | "unread">(win, [
-      unread === true ? { label: "Mark as Read", choice: "read" } : { label: "Mark as Unread", choice: "unread" },
-    ]);
-  });
+  // A document's context menu in the document list: the page applies Mark as
+  // Read / Unread; Open in Editor and Reveal in Finder are done here
+  ipcMain.handle(
+    "document:context-menu",
+    async (event, docId: unknown, unread: unknown): Promise<"read" | "unread" | null> => {
+      assertTrustedSender(event);
+      const win = BrowserWindow.fromWebContents(event.sender);
+      const file = typeof docId === "string" ? await docPath(docId) : null;
+      if (win === null || file === null) return null;
+      const choice = await popupChoice<"read" | "unread" | "editor" | "reveal">(win, [
+        unread === true ? { label: "Mark as Read", choice: "read" } : { label: "Mark as Unread", choice: "unread" },
+        null,
+        { label: editorLabel(), choice: "editor" },
+        { label: revealLabel(), choice: "reveal" },
+      ]);
+      if (choice === "editor") await openFileInEditor(win, file);
+      if (choice === "reveal") shell.showItemInFolder(file);
+      return choice === "editor" || choice === "reveal" ? null : choice;
+    },
+  );
 
   // A file or folder dropped on the window (the renderer resolves its path)
   ipcMain.handle("workspace:open-path", (event, target: unknown): void => {
@@ -1022,18 +1036,37 @@ function currentDocId(win: BrowserWindow): string | null {
   return match?.[1] !== undefined ? decodeURIComponent(match[1]) : null;
 }
 
+/** The file of the workspace's document `docId`, or null when there's none. */
+async function docPath(docId: string): Promise<string | null> {
+  if (settings.workspace === null) return null;
+  const doc = await findDocument(settings.workspace, docId, scanOptions());
+  return doc === null ? null : path.join(settings.workspace, doc.meta.location);
+}
+
 /** The file of the document shown in `win`, or null when none is. */
 async function currentDocPath(win: BrowserWindow): Promise<string | null> {
   const docId = currentDocId(win);
-  if (docId === null || settings.workspace === null) return null;
-  const doc = await findDocument(settings.workspace, docId, scanOptions());
-  return doc === null ? null : path.join(settings.workspace, doc.meta.location);
+  return docId === null ? null : docPath(docId);
+}
+
+/** "Open in Visual Studio Code": the File menu and the document list's menu name the editor. */
+function editorLabel(): string {
+  return `Open in ${editorName(settings.editor) ?? "Editor"}`;
+}
+
+/** Finder on macOS; Explorer or the file manager elsewhere. */
+function revealLabel(): string {
+  return process.platform === "darwin" ? "Reveal in Finder" : "Show in Folder";
 }
 
 /** File → Open in Editor (and the header button). */
 async function openCurrentInEditor(win: BrowserWindow): Promise<void> {
   const file = await currentDocPath(win);
-  if (file === null) return;
+  if (file !== null) await openFileInEditor(win, file);
+}
+
+/** Open a document's file in the editor, or say why it couldn't. */
+async function openFileInEditor(win: BrowserWindow, file: string): Promise<void> {
   try {
     await openInEditor(file, settings.editor);
   } catch (error) {
@@ -1172,12 +1205,12 @@ function buildMenu(): Menu {
         ...(isMac ? [] : [settingsItem]),
         { type: "separator" },
         {
-          label: `Open in ${editorName(settings.editor) ?? "Editor"}`,
+          label: editorLabel(),
           accelerator: "CmdOrCtrl+E",
           click: withWindow(openCurrentInEditor),
         },
         {
-          label: isMac ? "Reveal in Finder" : "Show in Folder",
+          label: revealLabel(),
           accelerator: isMac ? "Alt+Cmd+R" : "Shift+Alt+R",
           click: withWindow(revealCurrent),
         },
