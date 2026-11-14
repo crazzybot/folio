@@ -3,6 +3,7 @@ import type { ReviewNotes } from "../reviewNotes";
 import { defaultSelection, picked } from "../sending";
 import type { Picked, SendGroup, SendItem } from "../sending";
 import { getItem, setItem } from "../storage";
+import { threadSummary } from "../threads";
 import styles from "./SendNotesDialog.module.css";
 
 const IS_MAC = window.markdownApi?.platform === "darwin" || navigator.platform.toUpperCase().includes("MAC");
@@ -383,7 +384,7 @@ function GroupRows({
   );
 }
 
-/** A note to tick: its colour, quote and note, as in the Marks view. */
+/** A note to tick: its colour, quote and note, as in the Marks view, and its replies in one line (they're sent too). */
 function ItemRow({
   item,
   checked,
@@ -399,6 +400,8 @@ function ItemRow({
 }): React.ReactElement {
   const h = item.highlight;
   const note = item.note;
+  const thread = h ?? note;
+  const replies = thread === null ? null : threadSummary(thread);
   return (
     <li className={styles.item}>
       <label className={styles.itemLabel}>
@@ -409,6 +412,11 @@ function ItemRow({
             <span className={styles.itemBody}>
               <span className={styles.quote}>“{h.quote.exact}”</span>
               <span className={styles.itemNote}>{h.note?.trim() ? h.note : "(no comment)"}</span>
+              {replies !== null && (
+                <span className={styles.itemReplies} title={replies.title}>
+                  ↳ {replies.text}
+                </span>
+              )}
             </span>
           </>
         ) : (
@@ -419,6 +427,11 @@ function ItemRow({
             <span className={styles.itemBody}>
               {note?.requestedStatus != null && <span className={styles.quote}>Document: change status to {note.requestedStatus}</span>}
               {note?.text != null && <span className={styles.itemNote}>{note.text}</span>}
+              {replies !== null && (
+                <span className={styles.itemReplies} title={replies.title}>
+                  ↳ {replies.text}
+                </span>
+              )}
             </span>
           </>
         )}

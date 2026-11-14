@@ -8,6 +8,30 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Added
+
+- **Edit or delete your reply.** Your latest reply to a note has an
+  **Edit** link until someone answers it. The note opens again, so the new
+  wording goes with the next round. Until it's sent, it has **Delete** too:
+  the note goes back to how it was before, **Addressed** for example.
+
+### Changed
+
+- **A note with replies reads as one conversation.** The note is the
+  thread's first message and scrolls with the replies, instead of staying
+  on top. What was answered can't be edited: only your latest reply, until
+  someone answers it.
+- **Replies show their formatting.** Messages in a note's thread render
+  their Markdown (bold, lists, code, quotes), each in its own box. Links
+  and images aren't opened or loaded.
+
+### Fixed
+
+- The **Send review notes** dialog gives a note's replies too, so the agent
+  gets the whole thread after you answer it, not just the first comment.
+  In the **List** view, a note with replies says so under it, such as
+  "↳ 3 replies · latest from Claude Code, 10:02".
+
 ## [0.7.0] — 2026-11-14
 
 ### Added

@@ -172,4 +172,26 @@ describe("DemoMarks", () => {
     expect(() => marks.reply("b", "s1", "  ")).toThrow();
     expect(() => marks.reply("a", null, "Hi")).toThrow();
   });
+
+  it("edits the visitor's latest reply until someone answers it", () => {
+    const marks = new DemoMarks(listed, seed, memoryStorage());
+    const mine = marks.reply("b", "s1", "Not quite.").replies?.[0]?.id ?? "";
+    marks.updateHighlight("b", "s1", { state: "sent" });
+    const edited = marks.editReply("b", "s1", mine, "Not yet.");
+    expect([edited.state, edited.replies?.map((r) => r.text)]).toEqual([undefined, ["Not yet."]]);
+    expect(() => marks.editReply("b", "s1", mine, " ")).toThrow();
+    expect(() => marks.editReply("b", "s1", "gone", "Hi")).toThrow();
+  });
+
+  it("deletes the visitor's latest reply before it's sent, back to the note's state", () => {
+    const marks = new DemoMarks(listed, seed, memoryStorage());
+    marks.updateHighlight("b", "s1", { state: "addressed" });
+    const mine = marks.reply("b", "s1", "Not quite.").replies?.[0]?.id ?? "";
+    const back = marks.deleteReply("b", "s1", mine);
+    expect([back.state, back.replies]).toEqual(["addressed", undefined]);
+
+    const again = marks.reply("b", "s1", "Not quite.").replies?.[0]?.id ?? "";
+    marks.updateHighlight("b", "s1", { state: "sent" });
+    expect(() => marks.deleteReply("b", "s1", again)).toThrow();
+  });
 });

@@ -1,47 +1,119 @@
 /**
  * NoteThread.tsx — The replies under a note, each with its author and time,
  * and a box for the user's own (docs/design/agent-integration.md). Shown in
- * a highlight's popover and the note on the document.
+ * a highlight's popover and the note on the document. Once a note has
+ * replies, it's the thread's first message and scrolls with them: what was
+ * answered can't be edited. Only the user's latest reply can, until someone
+ * answers it, and deleted, until it's sent.
  *
- * Replies are plain text, as notes are: an agent's reply is shown, never
- * rendered as Markdown or HTML.
+ * Messages are light Markdown (MessageText.tsx): formatting only, never
+ * HTML, links that open or images that load.
  */
 
 import { useState } from "react";
 import { authorName, newReplies, replyTime } from "../threads";
-import type { Thread } from "../types";
+import type { Author, NoteState, Thread } from "../types";
+import MessageText from "./MessageText";
 import styles from "./NoteThread.module.css";
 
 const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 const SEND_SHORTCUT = IS_MAC ? "⌘↩" : "Ctrl+Enter";
 
 interface NoteThreadProps {
-  thread: Thread;
+  thread: Thread & { state?: NoteState | undefined };
+  /** The note itself, shown as the first message (when it has replies). */
+  note?: { text: string; author?: Author | undefined; at: string } | undefined;
   /** Send the user's reply. */
   onReply: (text: string) => void;
+  /** Change the user's latest reply. */
+  onEditReply: (replyId: string, text: string) => void;
+  /** Delete the user's latest reply: the note goes back to its state before it. */
+  onDeleteReply: (replyId: string) => void;
   /** Whether the reply box is open: the popover keeps Escape for it while it is. */
   onWritingChange?: (writing: boolean) => void;
 }
 
-export default function NoteThread({ thread, onReply, onWritingChange }: NoteThreadProps): React.ReactElement | null {
-  const [draft, setDraft] = useState<string | null>(null);
+export default function NoteThread({ thread, note, onReply, onEditReply, onDeleteReply, onWritingChange }: NoteThreadProps): React.ReactElement | null {
+  // A new reply (replyId null), or the user's latest one being edited
+  const [draft, setDraft] = useState<{ text: string; replyId: string | null } | null>(null);
   const replies = thread.replies ?? [];
   // Captured when shown, so the replies stay marked new while the thread is open
   const [fresh] = useState(() => new Set(newReplies(thread).map((r) => r.id)));
+  // The store refuses an edit once someone has answered, so only the last reply offers it
+  const last = replies[replies.length - 1];
+  const editable = last?.author.kind === "user" ? last.id : null;
+  // Open: not sent yet, so the agent hasn't seen it
+  const deletable = (thread.state ?? "open") === "open";
 
-  const write = (next: string | null) => {
+  const write = (next: { text: string; replyId: string | null } | null) => {
     setDraft(next);
     onWritingChange?.(next !== null);
   };
   const send = () => {
-    if (draft !== null && draft.trim() !== "") onReply(draft.trim());
+    const text = draft?.text.trim() ?? "";
+    if (draft !== null && text !== "") {
+      if (draft.replyId === null) onReply(text);
+      else if (text !== replies.find((r) => r.id === draft.replyId)?.text) onEditReply(draft.replyId, text);
+    }
     write(null);
   };
 
+  const editor = (editing: boolean) =>
+    draft === null ? null : (
+      <div className={styles.editor}>
+        <textarea
+          className={styles.field}
+          value={draft.text}
+          onChange={(e) => setDraft({ ...draft, text: e.target.value })}
+          onKeyDown={(e) => {
+            // Its own keys: not the note editor's around it (⌘↩ saves and closes that)
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              e.stopPropagation();
+              send();
+            } else if (e.key === "Escape") {
+              // Cancel the reply, keep the popover
+              e.stopPropagation();
+              write(null);
+            }
+          }}
+          onFocus={(e) => {
+            // Editing: the cursor at the end of the reply
+            const end = e.currentTarget.value.length;
+            e.currentTarget.setSelectionRange(end, end);
+          }}
+          aria-label={editing ? "Edit reply" : "Reply"}
+          placeholder="Reply… it goes with the next round"
+          rows={3}
+          maxLength={10_000}
+          autoFocus
+        />
+        <div className={styles.actions}>
+          <span className={styles.hint}>
+            {SEND_SHORTCUT} to {editing ? "save" : "send"} · Esc to cancel
+          </span>
+          <button type="button" className={styles.sendBtn} onClick={send} disabled={draft.text.trim() === ""}>
+            {editing ? "Save" : "Send"}
+          </button>
+        </div>
+      </div>
+    );
+
   return (
     <div className={styles.thread}>
-      {replies.length > 0 && (
+      {(note !== undefined || replies.length > 0) && (
         <ol className={styles.replies} aria-label="Replies">
+          {note !== undefined && (
+            <li className={`${styles.reply} ${(note.author?.kind ?? "user") === "user" ? styles.mine : ""}`}>
+              <div className={styles.byline}>
+                <span className={styles.author}>{authorName(note.author ?? { kind: "user" })}</span>
+                <time dateTime={note.at} title={new Date(note.at).toLocaleString()}>
+                  {replyTime(note.at)}
+                </time>
+              </div>
+              <MessageText text={note.text} />
+            </li>
+          )}
           {replies.map((reply) => (
             <li key={reply.id} className={`${styles.reply} ${reply.author.kind === "user" ? styles.mine : ""}`}>
               <div className={styles.byline}>
@@ -54,48 +126,41 @@ export default function NoteThread({ thread, onReply, onWritingChange }: NoteThr
                     New
                   </span>
                 )}
+                {reply.id === editable && draft === null && (
+                  <button
+                    type="button"
+                    className={styles.editBtn}
+                    onClick={() => write({ text: reply.text, replyId: reply.id })}
+                    aria-label="Edit reply"
+                    title="Edit your reply: it goes with the next round"
+                  >
+                    Edit
+                  </button>
+                )}
+                {reply.id === editable && deletable && draft === null && (
+                  <button
+                    type="button"
+                    className={styles.deleteBtn}
+                    onClick={() => onDeleteReply(reply.id)}
+                    aria-label="Delete reply"
+                    title="Delete your reply: it hasn't been sent"
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
-              <div className={styles.text}>{reply.text}</div>
+              {draft !== null && draft.replyId === reply.id ? editor(true) : <MessageText text={reply.text} />}
             </li>
           ))}
         </ol>
       )}
 
       {draft === null ? (
-        <button type="button" className={styles.replyBtn} onClick={() => write("")}>
+        <button type="button" className={styles.replyBtn} onClick={() => write({ text: "", replyId: null })}>
           Reply
         </button>
       ) : (
-        <div className={styles.editor}>
-          <textarea
-            className={styles.field}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              // Its own keys: not the note editor's around it (⌘↩ saves and closes that)
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                e.stopPropagation();
-                send();
-              } else if (e.key === "Escape") {
-                // Cancel the reply, keep the popover
-                e.stopPropagation();
-                write(null);
-              }
-            }}
-            aria-label="Reply"
-            placeholder="Reply… it goes with the next round"
-            rows={3}
-            maxLength={10_000}
-            autoFocus
-          />
-          <div className={styles.actions}>
-            <span className={styles.hint}>{SEND_SHORTCUT} to send · Esc to cancel</span>
-            <button type="button" className={styles.sendBtn} onClick={send} disabled={draft.trim() === ""}>
-              Send
-            </button>
-          </div>
-        </div>
+        draft.replyId === null && editor(false)
       )}
     </div>
   );

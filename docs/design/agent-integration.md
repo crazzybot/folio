@@ -35,10 +35,31 @@ next round.
 ## In the app
 
 - **Highlight popover and the note on a document**: the note, then its
-  replies, each with its author and time (plain text, never rendered).
+  replies, each in a box with its author and time. Messages are light
+  Markdown (`MessageText.tsx`): emphasis, lists, code, quotes and tables
+  only. Raw HTML is dropped, images show their alt text, links are text with
+  the address in the tooltip, and headings read as a bold line; no diagrams,
+  math or highlighting. Sanitised as documents are. The user's messages are
+  tinted, and the boxes keep a message's bold text from being taken for
+  the next author's name, which stays bold.
   **Reply** opens a box under them (`⌘↩` / `Ctrl+Enter` sends); the reply is
   the user's, and the note is open again. Only the MCP server writes an
   agent's replies: the app's IPC always signs them as the user.
+- **One conversation**: once a note has replies, the note is the thread's
+  first message (its author and creation time) and scrolls with the
+  replies. It can't be edited then: the popover drops its note button, and
+  the note on the document its **Comment** box (its **Status** stays). The
+  store doesn't enforce this: the note on the document's status is saved
+  with its text.
+- **Editing a reply**: the user's latest reply has **Edit** until someone
+  answers it (the store refuses an edit of any other reply). It keeps its
+  id, takes the edit's time, and opens the note again so the new wording
+  goes with the next round.
+- **Deleting a reply**: the user's latest reply has **Delete** while the
+  note is open (not sent since: the agent hasn't seen it). A reply that
+  reopened a note keeps the state it reopened in `reopened`; deleting the
+  reply restores it, so a note the agent addressed is addressed again. The
+  bin at the top of the popover still removes the highlight and its thread.
 - **New replies**: an agent's or imported reply after the thread's `seen`
   time. Opening the note's popover (or the note on the document) sets
   `seen`. Until then, its margin icon has a dot and its Marks view row a
@@ -59,8 +80,9 @@ next round.
 | `folio_reply` | `noteId` or `path`, `text`, `addressed?` | What happened to the note |
 
 - The notes are formatted by the core (`reviewNotes.ts`), shared with Copy
-  review notes. For the agent, each location line ends with the note's id,
-  and the replies follow the note:
+  review notes. The replies follow the note in both, so a note answered back
+  and forth reaches the agent as the whole thread. For the agent, each
+  location line also ends with the note's id:
 
   ```
   2. /Users/me/app/docs/adr/0003-event-store.md:57-59 · Decision › Consequences · note a1b2c3d4

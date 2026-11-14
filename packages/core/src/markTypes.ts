@@ -32,6 +32,8 @@ export interface Reply {
   author: Author;
   text: string;
   at: string;
+  /** The note's state before this reply (the user's) reopened it: deleting the reply restores it. Absent: open. */
+  reopened?: NoteState;
 }
 
 /** A note's thread (agent-integration): absent fields mean none yet. */

@@ -236,7 +236,7 @@ describe("formatReviewNotes with a note on the document", () => {
 });
 
 describe("formatReviewNotes for an agent", () => {
-  it("gives each note's id and its replies", () => {
+  it("gives each note's id with its replies", () => {
     const h = highlight("one table per aggregate", {
       id: "a1b2c3d4e5f60718",
       note: "Why not a single table?",
@@ -245,7 +245,7 @@ describe("formatReviewNotes for an agent", () => {
         { id: "r2", author: { kind: "user" }, text: "The events table.\n\nOne for all.", at: "2026-11-10T10:05:00Z" },
       ],
     });
-    const { text } = formatReviewNotes([doc([h])], null, { threads: true });
+    const { text } = formatReviewNotes([doc([h])], null, { noteIds: true });
     expect(text).toBe(
       [
         `1. docs/adr.md:${lineOf("one table per")} · Event store › Decision · note a1b2c3d4`,
@@ -260,8 +260,10 @@ describe("formatReviewNotes for an agent", () => {
         "   One for all.",
       ].join("\n"),
     );
-    // Copied by hand: neither
-    expect(formatReviewNotes([doc([h])], null).text).not.toContain("a1b2c3d4");
+    // Copied: the replies, without the id
+    const copied = formatReviewNotes([doc([h])], null).text;
+    expect(copied).not.toContain("a1b2c3d4");
+    expect(copied).toContain("   Reply from Claude Code: Which table?\n\n   My reply: The events table.");
   });
 
   it("names an imported comment's author", () => {
@@ -277,7 +279,7 @@ describe("formatReviewNotes for an agent", () => {
       updated: "2026-11-08T10:00:00Z",
       replies: [{ id: "r1", author: { kind: "agent" as const, name: "Codex" }, text: "Done.", at: "2026-11-10T10:02:00Z" }],
     };
-    const { text } = formatReviewNotes([doc([], { note: n })], null, { threads: true });
+    const { text } = formatReviewNotes([doc([], { note: n })], null, { noteIds: true });
     expect(text).toBe(["Document: docs/adr.md", "Overall: Ship it.", "", "Reply from Codex: Done."].join("\n"));
   });
 });

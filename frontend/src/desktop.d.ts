@@ -108,6 +108,10 @@ interface MarkdownDesktopApi {
     unsend(round: SentRound): Promise<void>;
     /** The user's reply to a note (highlightId null: the document's note). */
     reply(docId: string, highlightId: string | null, text: string): Promise<Highlight | DocumentNote>;
+    /** Change the user's latest reply to a note, while nobody has answered it. */
+    editReply(docId: string, highlightId: string | null, replyId: string, text: string): Promise<Highlight | DocumentNote>;
+    /** Delete the user's latest reply to a note, before it's sent. */
+    deleteReply(docId: string, highlightId: string | null, replyId: string): Promise<Highlight | DocumentNote>;
     /** Record that the user saw a note's thread. */
     markSeen(docId: string, highlightId: string | null): Promise<void>;
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */
