@@ -30,9 +30,12 @@ follows GitHub's rules, so prices like "$5 and $10" stay text.
 
 ## Mermaid diagrams
 
-` ```mermaid ` blocks are drawn in the current light or dark theme. Hover a
-diagram and click its expand button, or double-click it, to view it in the
-whole window with zoom and pan.
+` ```mermaid ` blocks are drawn in the current light or dark theme. A
+diagram that sets its own colours (`rect rgb(…)`, `fill:`) or theme
+(`%%{init: {"theme": …}}%%`) is drawn on a card of the background it was
+written for, so its text stays readable in either theme. Hover a diagram
+and click its expand button, or double-click it, to view it in the whole
+window with zoom and pan ([keys](./shortcuts#diagrams-and-images-in-the-whole-window)).
 
 ## Heading links
 

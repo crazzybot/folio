@@ -12,7 +12,7 @@
 //      the release's compare link;
 //   3. commits all that as "chore: release X.Y.Z" on a new branch,
 //      release-X.Y.Z.
-// Merging, tagging and publishing stay manual (README → Releasing).
+// Merging, tagging and publishing stay manual (docs/releasing.md).
 //
 // --check (CI) fails unless both files and their lock files agree.
 
