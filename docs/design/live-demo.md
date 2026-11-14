@@ -24,7 +24,8 @@ server, nothing to keep running, and every visitor's marks are their own.
 | Documents | A JSON bundle made at build time with the desktop app's scanner, so titles, headings and ids match the app exactly |
 | Search | In the browser, mirroring `desktop/src/search.ts`, as the desktop app mirrors the backend |
 | Marks | `localStorage`, per visitor. No validation beyond what the UI already ensures: nothing is shared, so nothing to protect |
-| First visit | A few marks are already there (two notes, a highlight, a bookmark), so the Marks view and Copy review notes have something to show. **Reset demo** brings them back |
+| First visit | A few marks are already there (two notes, a highlight, a bookmark), so the Marks view and Copy review notes have something to show. The two notes were sent in a review round, and a coding agent's replies are there: one note addressed, one answered with a question. The agent revised ADR 0003 in that round, so it starts as changed since you read it. **Reset demo** brings all of it back |
+| Simulated replies | Written in `demo/seed-marks.json`, by an agent named "Claude Code (demo)", and the demo banner says the replies are simulated: a visitor shouldn't take them for a real agent at work |
 | Routing | `HashRouter` (`/folio/demo/#/doc/…`) and a relative base, so deep links survive a reload on Pages (which has no SPA fallback for a subfolder) and the demo works under any path or a custom domain later |
 | Content | The Relay repository from the video, extended, committed in `demo/relay/` |
 | Built from | `main`, on every push that touches the frontend or the demo. It can run ahead of the latest release, so a visitor may try a feature the download doesn't have yet. Building from the release tag is the fix if that starts to matter |
@@ -62,7 +63,8 @@ as the check.
 ## 2. Demo source (`frontend/src/demo/`)
 
 - **`bundle.json`**, fetched once on load: `documents` (the `DocumentMeta`
-  list), `contents` (id → Markdown), `attachments`, and `seedMarks`.
+  list), `contents` (id → Markdown), `attachments`, `seedMarks`, and
+  `readVersions` (id → the text read before the seeded round, and when).
 - **Search** (`search.ts`): `searchContent()` and its snippet rules mirrored
   from `desktop/src/search.ts` (same limits: 2–200 characters, 200 results,
   3 snippets). A test runs both on the same inputs, so they can't drift.
@@ -72,6 +74,10 @@ as the check.
   always empty, since the documents never change, and `relink` / `forget`
   are no-ops. Storage that throws (private windows, blocked storage) falls
   back to memory: marks then last until the tab closes.
+- **Read records** (`reads.ts`): kept in `localStorage` like the marks. The
+  first visit records every document as read, except those with a read
+  version, which start at it: they show as changed, and the changes banner
+  compares with that text. Reset demo clears them with the marks.
 - **Files**: `workspaceFileUrl()` returns `workspace/<location>`, a static
   copy of the demo repository published next to the app. Images and linked
   files work with no special handling.
@@ -94,6 +100,12 @@ as the check.
 - `demo/seed-marks.json`: the first-visit marks, as quotes and headings. The
   script resolves them to `DocumentMarks` and fails the build if a quote is no
   longer in its document, so editing the demo docs can't silently drop them.
+  Its `round` (a time and the agent's name) is a review round already sent:
+  notes with a `state` (`sent` or `addressed`) were in it, their `replies`
+  are the agent's, and each document with such notes gets the round, with
+  the SHA-1 of the version sent. `readVersions` names, per document, a file
+  with the version read before the round (`demo/read-versions/`); the build
+  fails when it's the same as the document or lacks a quote noted on it.
 
 ## 4. Demo build
 

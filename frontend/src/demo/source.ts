@@ -11,7 +11,7 @@
 import type { DataSource } from "../dataSource";
 import type { DocumentContent, DocumentMeta } from "../types";
 import { DemoMarks, type MarksStorage, type StoredMarks } from "./marks";
-import { DemoReads, sha1Of } from "./reads";
+import { DemoReads, sha1Of, type ReadVersionSeed } from "./reads";
 import { searchDocuments } from "./search";
 
 export interface DemoBundle {
@@ -23,10 +23,12 @@ export interface DemoBundle {
   attachments: string[];
   /** The marks a first visit starts with, by document id. */
   seedMarks: Record<string, StoredMarks>;
+  /** Versions read before the seeded review round, by document id: those start as changed. */
+  readVersions?: Record<string, ReadVersionSeed>;
 }
 
 export interface DemoSource extends DataSource {
-  /** Back to the seed marks. */
+  /** Back to the seed marks and the first visit's read records. */
   resetMarks(): Promise<void>;
 }
 
@@ -55,7 +57,7 @@ export function createDemoSource(base: string, storage: MarksStorage | null = br
         return {
           bundle,
           marks: new DemoMarks(bundle.documents, bundle.seedMarks, storage),
-          reads: new DemoReads(bundle.documents, bundle.contents, storage),
+          reads: new DemoReads(bundle.documents, bundle.contents, storage, bundle.readVersions),
         };
       })
       .catch((err: unknown) => {
@@ -107,6 +109,11 @@ export function createDemoSource(base: string, storage: MarksStorage | null = br
       reply: async (docId, highlightId, text) => (await marks()).reply(docId, highlightId, text),
       markSeen: async (docId, highlightId) => (await marks()).markSeen(docId, highlightId),
     },
-    resetMarks: async () => (await marks()).reset(),
+    // The marks and the read records: the seeded round shows again
+    resetMarks: async () => {
+      const loaded = await load();
+      loaded.reads.reset();
+      return loaded.marks.reset();
+    },
   };
 }

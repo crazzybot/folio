@@ -3,6 +3,10 @@
  * marks. The same rules as the desktop app's (packages/core/src/reads.ts):
  * the first visit records every document as read (the baseline), Mark as
  * read records the version shown, and Mark as unread goes back one read.
+ *
+ * Documents with a version read before the seeded review round (the
+ * bundle's readVersions) start at that version instead, so they show as
+ * changed since: the agent revised them.
  */
 
 import type { DocumentRead, ReadVersion } from "../types";
@@ -10,6 +14,13 @@ import type { MarksStorage } from "./marks";
 
 export const READS_STORAGE_KEY = "folio.demo.reads";
 const VERSION = 1;
+
+/** A version read before the seeded review round (demo-bundle.mjs). */
+export interface ReadVersionSeed {
+  text: string;
+  /** When it was read. */
+  at: string;
+}
 
 interface StoredRead {
   read: ReadVersion;
@@ -33,16 +44,20 @@ export class DemoReads {
   private documents: Record<string, StoredRead> | null;
   private storage: MarksStorage | null;
   private hashes: Promise<Map<string, string>> | null = null;
+  // The texts there are, by SHA-1: current versions and versions read before
+  private texts: Promise<Map<string, string>> | null = null;
 
   /**
    * @param listed   the demo's documents, in list order
    * @param contents their Markdown, by document id
    * @param storage  where the records are kept; null keeps them in memory
+   * @param readVersions versions read before the seeded round, by document id
    */
   constructor(
     private readonly listed: readonly { id: string; location: string }[],
     private readonly contents: Readonly<Record<string, string>>,
     storage: MarksStorage | null,
+    private readonly readVersions: Readonly<Record<string, ReadVersionSeed>> = {},
   ) {
     this.storage = storage;
     this.documents = this.load();
@@ -76,13 +91,29 @@ export class DemoReads {
     return this.hashes;
   }
 
+  /** Every text there is, by SHA-1, for snapshots. */
+  private allTexts(): Promise<Map<string, string>> {
+    this.texts ??= Promise.all(
+      [...Object.values(this.contents), ...Object.values(this.readVersions).map((v) => v.text)].map(
+        async (text) => [await sha1Of(text), text] as const,
+      ),
+    ).then((pairs) => new Map(pairs));
+    return this.texts;
+  }
+
   async list(): Promise<DocumentRead[]> {
     const hashes = await this.current();
     if (this.documents === null) {
       const at = new Date().toISOString();
-      this.documents = Object.fromEntries(
-        [...hashes].map(([id, sha1]) => [id, { read: { sha1, at }, baseline: true }]),
-      );
+      const documents: Record<string, StoredRead> = {};
+      for (const [id, sha1] of hashes) {
+        const before = this.readVersions[id];
+        documents[id] =
+          before === undefined
+            ? { read: { sha1, at }, baseline: true }
+            : { read: { sha1: await sha1Of(before.text), at: before.at }, baseline: false };
+      }
+      this.documents = documents;
       this.save();
     }
     const documents = this.documents;
@@ -117,7 +148,17 @@ export class DemoReads {
    */
   async snapshot(docId: string): Promise<string | null> {
     const read = this.documents?.[docId]?.read;
-    return read !== undefined && (await this.current()).get(docId) === read.sha1 ? (this.contents[docId] ?? null) : null;
+    return read === undefined ? null : ((await this.allTexts()).get(read.sha1) ?? null);
+  }
+
+  /** Back to the first visit's records: the next listing records them again. */
+  reset(): void {
+    this.documents = null;
+    try {
+      this.storage?.removeItem(READS_STORAGE_KEY);
+    } catch {
+      this.storage = null;
+    }
   }
 
   async markFolder(folder: string): Promise<void> {

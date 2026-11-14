@@ -1,6 +1,7 @@
 /**
  * DemoBanner — The strip above the live demo (`vite build --mode demo`):
- * says it's a sample repository, links to the docs and back to the download,
+ * says it's a sample repository (with a review round whose agent replies
+ * are simulated), links to the docs and back to the download,
  * and resets the demo to how a first visit finds it.
  */
 
@@ -34,7 +35,7 @@ export default function DemoBanner(): React.ReactElement {
     <div className={styles.banner} role="note">
       <span className={styles.label}>Demo</span>
       <span className={styles.text}>
-        A sample repository. Your highlights and notes stay in this browser.
+        A sample repository, one review round in: the agent's replies are simulated. Your notes stay in this browser.
       </span>
       <span className={styles.actions}>
         <button type="button" className={styles.link} onClick={() => void resetDemo()}>
