@@ -65,6 +65,19 @@
   color: var(--color-text-subtle);
 }
 
+/* A document's change on the git branch and the last commit that touched it */
+.git {
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
+.commit {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* A highlight's passage, with its colour as a bar; long ones are cut at 12 lines */
 .quote {
   margin: 0;

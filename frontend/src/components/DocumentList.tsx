@@ -8,11 +8,22 @@ import { slugify } from "../slug";
 import { hasFilters, NO_FILTERS, toggleFilter } from "../metaFilter";
 import type { FilterOption, MetaFilters } from "../metaFilter";
 import { isRetired, statusText } from "../status";
-import { branchSentence, isOnBase, repositoryAtFolder, repositoryOf } from "../git";
+import { branchSentence, changeSentence, isOnBase, repositoryAtFolder, repositoryOf } from "../git";
 import { readSentence, readStateOf } from "../reads";
 import type { ReadState } from "../reads";
 import { useRowHoverCard } from "../useRowHoverCard";
-import type { DocumentMeta, DocumentNote, DocumentRead, GitRepository, GitState, Heading, SearchMatch, SearchResult } from "../types";
+import type {
+  DocumentMeta,
+  DocumentNote,
+  DocumentRead,
+  GitChange,
+  GitLastCommit,
+  GitRepository,
+  GitState,
+  Heading,
+  SearchMatch,
+  SearchResult,
+} from "../types";
 import DrawerCloseButton from "./DrawerCloseButton";
 import FilterMenu from "./FilterMenu";
 import { BranchIcon, WorktreeIcon } from "./GitIcons";
@@ -119,6 +130,10 @@ interface DocumentListProps {
   bookmarkedIds?: ReadonlySet<string>;
   /** The workspace's git repositories (desktop): folder icons and hover cards. */
   git?: GitState | null;
+  /** Documents changed on the branch, by id (desktop): letters and hover cards; null without git. */
+  branchChanges?: ReadonlyMap<string, GitChange> | null;
+  /** Documents changed on the branch in the focused folder: the filter menu's count. */
+  branchCount?: number;
   /** Each document's read record, by id: new and changed markers, hover cards. */
   reads?: ReadonlyMap<string, DocumentRead>;
   /** Documents that are new or changed. */
@@ -166,6 +181,8 @@ export default function DocumentList({
   highlightCounts = NO_COUNTS,
   bookmarkedIds = NO_IDS,
   git = null,
+  branchChanges = null,
+  branchCount = 0,
   reads = NO_READS,
   unreadIds = NO_IDS,
   unreadCount = 0,
@@ -449,6 +466,10 @@ export default function DocumentList({
   useEffect(() => dismissCard(), [dismissCard, trimmed]);
 
   const cardRow = card === null ? undefined : rowsByKey.get(card.key);
+  const cardCommit = useLastCommit(
+    cardRow?.kind === "document" && repositoryOf(git, cardRow.doc.location) !== null ? cardRow.doc.id : null,
+    git,
+  );
 
   const activate = (row: Row) => {
     if (row.kind === "folder") setFolderExpanded([row.folderKey], !row.expanded);
@@ -618,7 +639,11 @@ export default function DocumentList({
           </div>
           <div className={styles.searchTools}>
             {onFiltersChange !== undefined &&
-              (filterOptions.statuses.length > 0 || filterOptions.tags.length > 0 || unreadCount > 0 || hasFilters(filters)) && (
+              (filterOptions.statuses.length > 0 ||
+                filterOptions.tags.length > 0 ||
+                unreadCount > 0 ||
+                branchCount > 0 ||
+                hasFilters(filters)) && (
                 <FilterMenu
                   sections={[
                     {
@@ -627,6 +652,14 @@ export default function DocumentList({
                       options:
                         unreadCount > 0 || filters.unread
                           ? [{ value: "unread", label: "Unread", count: unreadCount, checked: filters.unread }]
+                          : [],
+                    },
+                    {
+                      id: "branch",
+                      heading: "Git",
+                      options:
+                        branchCount > 0 || filters.branch
+                          ? [{ value: "branch", label: "Changed on this branch", count: branchCount, checked: filters.branch }]
                           : [],
                     },
                     {
@@ -652,12 +685,14 @@ export default function DocumentList({
                       })),
                     },
                   ]}
-                  active={filters.statuses.length + filters.tags.length + (filters.unread ? 1 : 0)}
+                  active={filters.statuses.length + filters.tags.length + (filters.unread ? 1 : 0) + (filters.branch ? 1 : 0)}
                   onToggle={(section, value) =>
                     onFiltersChange(
                       section === "read"
                         ? { ...filters, unread: !filters.unread }
-                        : toggleFilter(filters, section === "status" ? "status" : "tag", value),
+                        : section === "branch"
+                          ? { ...filters, branch: !filters.branch }
+                          : toggleFilter(filters, section === "status" ? "status" : "tag", value),
                     )
                   }
                   onClear={() => onFiltersChange(NO_FILTERS)}
@@ -695,6 +730,20 @@ export default function DocumentList({
                 title="Remove filter"
               >
                 Unread
+                <span className={styles.chipRemove} aria-hidden="true">
+                  ×
+                </span>
+              </button>
+            )}
+            {filters.branch && (
+              <button
+                type="button"
+                className={styles.chip}
+                onClick={() => onFiltersChange({ ...filters, branch: false })}
+                aria-label="Remove filter: Changed on this branch"
+                title="Remove filter"
+              >
+                Changed on branch
                 <span className={styles.chipRemove} aria-hidden="true">
                   ×
                 </span>
@@ -818,6 +867,7 @@ export default function DocumentList({
                   row.kind === "folder" ? repositoryAtFolder(git, row.folderKey, row.label.split(FOLDER_SEPARATOR).length) : null
                 }
                 readState={row.kind === "document" ? readStateOf(reads.get(row.doc.id)) : "read"}
+                change={row.kind === "document" ? (branchChanges?.get(row.doc.id) ?? null) : null}
                 unread={row.kind === "folder" ? (unreadByFolder.get(row.folderKey) ?? 0) : 0}
                 onMarkRead={onMarkRead}
                 onMarkUnread={onMarkUnread}
@@ -844,6 +894,8 @@ export default function DocumentList({
               highlightCount={highlightCounts.get(cardRow.doc.id) ?? 0}
               note={documentNotes.get(cardRow.doc.id)}
               read={readSentence(reads.get(cardRow.doc.id))}
+              change={branchChanges?.get(cardRow.doc.id) ?? null}
+              commit={cardCommit}
             />
           ) : (
             <FolderCard
@@ -859,6 +911,39 @@ export default function DocumentList({
       )}
     </div>
   );
+}
+
+/**
+ * The last commit that touched `docId` (desktop, in a repository), for its
+ * hover card. Asked for when the card opens; kept per document until the
+ * git state changes (a commit, a checkout), so hovering again doesn't run
+ * git again.
+ */
+function useLastCommit(docId: string | null, git: GitState | null): GitLastCommit | null {
+  const [known, setKnown] = useState<{ git: GitState | null; commits: ReadonlyMap<string, GitLastCommit | null> }>({
+    git,
+    commits: new Map(),
+  });
+  const commits = known.git === git ? known.commits : NO_COMMITS;
+  const fetched = docId !== null && commits.has(docId);
+
+  useEffect(() => {
+    const api = window.markdownApi;
+    if (docId === null || fetched || !api) return;
+    let live = true;
+    api.git.lastCommit(docId).then(
+      (commit) => {
+        if (!live) return;
+        setKnown((prev) => ({ git, commits: new Map(prev.git === git ? prev.commits : []).set(docId, commit) }));
+      },
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [docId, fetched, git]);
+
+  return docId === null ? null : (commits.get(docId) ?? null);
 }
 
 // ─── Rows ────────────────────────────────────────────────────────────────────
@@ -905,6 +990,8 @@ interface RowItemProps {
   repository: GitRepository | null;
   /** For a document: new, changed or read. */
   readState: ReadState;
+  /** For a document: how it changed on the git branch, if it did. */
+  change: GitChange | null;
   /** For a folder: how many documents under it are unread. */
   unread: number;
   onMarkRead: ((docId: string) => void) | undefined;
@@ -925,6 +1012,7 @@ function RowItem({
   bookmarked,
   repository,
   readState,
+  change,
   unread,
   onMarkRead,
   onMarkUnread,
@@ -1026,7 +1114,7 @@ function RowItem({
         className={`${styles.entry} ${selected ? styles.entrySelected : ""} ${status !== null && isRetired(status) ? styles.entryRetired : ""}`}
         style={tree ? { paddingLeft: TREE_PADDING + row.level * INDENT + CHEVRON } : undefined}
         aria-selected={selected}
-        aria-label={`${doc.title} — ${doc.location}${described}${readState === "read" ? "" : ` — ${readState}`}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
+        aria-label={`${doc.title} — ${doc.location}${described}${readState === "read" ? "" : ` — ${readState}`}${change === null ? "" : ` — ${changeSentence(change).toLowerCase()}`}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
         onContextMenu={(e) => {
           // Desktop: a native menu (Mark as Read, Open in Editor, Reveal in
           // Finder…); the browser keeps its own
@@ -1052,6 +1140,15 @@ function RowItem({
             title={readState === "new" ? "New" : "Changed since you read it"}
             aria-hidden="true"
           />
+        )}
+        {change !== null && (
+          <span
+            className={`${styles.changeLetter} ${change.status === "A" ? styles.changeAdded : ""} ${change.uncommitted ? styles.changeUncommitted : ""}`}
+            title={changeSentence(change)}
+            aria-hidden="true"
+          >
+            {change.status}
+          </span>
         )}
         {matchCount !== null && <span className={styles.matchCount}>{matchCount}</span>}
         {bookmarked && (
@@ -1110,3 +1207,4 @@ const NO_NOTES: ReadonlyMap<string, DocumentNote> = new Map();
 const NO_READS: ReadonlyMap<string, DocumentRead> = new Map();
 const NO_OPTIONS: { statuses: FilterOption[]; tags: FilterOption[] } = { statuses: [], tags: [] };
 const NO_IDS: ReadonlySet<string> = new Set();
+const NO_COMMITS: ReadonlyMap<string, GitLastCommit | null> = new Map();

@@ -4,6 +4,7 @@ import type {
   DocumentMeta,
   DocumentNote,
   DocumentRead,
+  GitLastCommit,
   GitState,
   Highlight,
   MarksListing,
@@ -125,6 +126,8 @@ interface MarkdownDesktopApi {
   /** The workspace's git repositories (desktop/src/git.ts); null without git or a repository. */
   git: {
     state(): Promise<GitState | null>;
+    /** The last commit that touched a document; null when none did. */
+    lastCommit(docId: string): Promise<GitLastCommit | null>;
     /** The native branch menu of the repository at `location`, at the point (x, y) in the window. */
     showMenu(location: string, x: number, y: number): Promise<void>;
     onChange(callback: (state: GitState | null) => void): () => void;

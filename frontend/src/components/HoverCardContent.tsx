@@ -1,10 +1,10 @@
 import React from "react";
 import { documentsInFolder } from "../documentTree";
-import { branchSentence, folderName } from "../git";
+import { branchSentence, changeSentence, commitSentence, folderName } from "../git";
 import { requestDone, statusText } from "../status";
 import { isPrivate, lastSent, loopSentence, needsYou, sendableNote, stateOf } from "../sending";
 import type { NoteIconKind } from "../noteIcons";
-import type { DocumentMeta, DocumentNote, GitRepository, Highlight, Round } from "../types";
+import type { DocumentMeta, DocumentNote, GitChange, GitLastCommit, GitRepository, Highlight, Round } from "../types";
 import NoteRequest from "./NoteRequest";
 import NoteStateIcon from "./NoteStateIcon";
 import StatusIcon from "./StatusIcon";
@@ -19,6 +19,8 @@ export function DocumentCard({
   highlightCount,
   note,
   read = null,
+  change = null,
+  commit = null,
 }: {
   doc: DocumentMeta;
   bookmarked: boolean;
@@ -27,6 +29,10 @@ export function DocumentCard({
   note?: DocumentNote | undefined;
   /** "Changed since you read it on 3 Nov", "New since you last looked"; null when read. */
   read?: string | null;
+  /** How it changed on the git branch (desktop); null when it didn't. */
+  change?: GitChange | null;
+  /** The last commit that touched it (desktop); null when unknown. */
+  commit?: GitLastCommit | null;
 }): React.ReactElement {
   const marks = [bookmarked && "Bookmarked", highlightCount > 0 && plural(highlightCount, "highlight", "highlights")].filter(Boolean);
   const { status = null, statusDetail = null, date = null, people = [], tags = [] } = doc.meta ?? {};
@@ -45,6 +51,12 @@ export function DocumentCard({
       {tags.length > 0 && <div className={styles.detail}>{tags.map((tag) => `#${tag}`).join("  ")}</div>}
       {marks.length > 0 && <div className={styles.detail}>{marks.join(" · ")}</div>}
       {note !== undefined && <NoteSummary note={note} status={status} />}
+      {(change !== null || commit !== null) && (
+        <div className={styles.git}>
+          {change !== null && <div>{changeSentence(change)}</div>}
+          {commit !== null && <div className={styles.commit}>{commitSentence(commit)}</div>}
+        </div>
+      )}
     </>
   );
 }

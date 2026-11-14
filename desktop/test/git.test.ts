@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "nod
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { GitTracker, parseWorktrees } from "../src/git";
+import { GitTracker, lastCommit, parseNameStatus, parseStatus, parseWorktrees } from "../src/git";
 import type { GitState } from "../src/git";
 
 describe("parseWorktrees", () => {
@@ -19,6 +19,29 @@ describe("parseWorktrees", () => {
       { path: "/code/folio", branch: "main", current: false },
       { path: "/code/folio-x", branch: "feature/x", current: true },
       { path: "/code/folio-detached", branch: null, current: false },
+    ]);
+  });
+});
+
+describe("parseStatus", () => {
+  it("reads added, modified and untracked files, leaving out deleted ones", () => {
+    const out = ["A  docs/new.md", " M docs/a.md", "MM docs/b.md", "?? notes/idea.md", " D docs/gone.md", "AM docs/c.md", ""].join("\0");
+    expect([...parseStatus(out)]).toEqual([
+      ["docs/new.md", "A"],
+      ["docs/a.md", "M"],
+      ["docs/b.md", "M"],
+      ["notes/idea.md", "A"],
+      ["docs/c.md", "A"],
+    ]);
+  });
+});
+
+describe("parseNameStatus", () => {
+  it("reads the diff's status and path pairs, leaving out deleted ones", () => {
+    expect([...parseNameStatus(["A", "docs/spec.md", "M", "a.md", "D", "old.md", "T", "link.md", ""].join("\0"))]).toEqual([
+      ["docs/spec.md", "A"],
+      ["a.md", "M"],
+      ["link.md", "M"],
     ]);
   });
 });
@@ -80,11 +103,13 @@ describe("a workspace in git", () => {
         branch: "main",
         head: expect.stringMatching(/^[0-9a-f]{7,}$/),
         base: "main",
+        baseChosen: false,
         mainCheckout: null,
         worktrees: [
           { path: repo, branch: "main", current: true },
           { path: worktree, branch: "feature/x", current: false },
         ],
+        changes: [],
       },
     ]);
   });
@@ -100,6 +125,56 @@ describe("a workspace in git", () => {
       ["", "main", "main"],
       ["vendor/lib", "fix", "main"],
     ]);
+  });
+
+  it("lists the documents changed on the branch, committed or not", async () => {
+    write(path.join(worktree, "docs", "a.md"), "# A, revised");
+    write(path.join(worktree, "docs", "draft.md"), "# Draft");
+    write(path.join(worktree, "docs", "notes.txt"), "not Markdown");
+    try {
+      const [own] = (await read(path.join(worktree, "docs"), ["a.md", "spec.md", "draft.md"]))?.repositories ?? [];
+      expect(own?.changes).toEqual([
+        { location: "a.md", status: "M", uncommitted: true },
+        { location: "draft.md", status: "A", uncommitted: true },
+        { location: "spec.md", status: "A", uncommitted: false },
+      ]);
+    } finally {
+      run(worktree, "checkout", "-q", "--", "docs/a.md");
+      rmSync(path.join(worktree, "docs", "draft.md"));
+      rmSync(path.join(worktree, "docs", "notes.txt"));
+    }
+  });
+
+  it("lists only uncommitted changes on the base branch", async () => {
+    const [own] = (await read(repo, ["docs/a.md"]))?.repositories ?? [];
+    expect(own?.changes).toEqual([]);
+  });
+
+  it("compares with the branch chosen for the repository", async () => {
+    const tracker = new GitTracker(
+      () => {},
+      (mainCheckout) => (mainCheckout === repo ? "feature/x" : null),
+    );
+    const state = await tracker.refresh(worktree, ["docs/spec.md"]);
+    tracker.dispose();
+    expect([state?.repositories[0]?.base, state?.repositories[0]?.baseChosen, state?.repositories[0]?.changes]).toEqual([
+      "feature/x",
+      true,
+      [],
+    ]);
+  });
+
+  it("finds the last commit that touched a document, and whether Claude co-wrote it", async () => {
+    write(path.join(worktree, "docs", "spec.md"), "# Spec, revised");
+    run(worktree, "commit", "-q", "-am", "Revise the spec\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>");
+    expect(await lastCommit(path.join(worktree, "docs", "spec.md"))).toEqual({
+      subject: "Revise the spec",
+      author: "t",
+      date: expect.stringMatching(/^\d{4}-\d\d-\d\dT/),
+      withClaude: true,
+    });
+    expect((await lastCommit(path.join(repo, "docs", "a.md")))?.withClaude).toBe(false);
+    expect(await lastCommit(path.join(tmp, "nowhere.md"))).toBeNull();
   });
 
   it("has no state outside a repository", async () => {

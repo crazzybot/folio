@@ -1,12 +1,13 @@
 /**
- * git.ts — Which git repository a document or folder is in, and how its
- * branch is shown: the status bar, folder rows and their hover cards. The
+ * git.ts — Which git repository a document or folder is in, how its branch
+ * is shown (the status bar, folder rows and their hover cards), and which
+ * documents changed on the branch (the filter, the letters). The
  * state comes from the desktop app (desktop/src/git.ts); the browser and the
  * live demo have none.
  */
 
 import { useEffect, useState } from "react";
-import type { GitRepository, GitState } from "./types";
+import type { DocumentMeta, GitChange, GitLastCommit, GitRepository, GitState } from "./types";
 
 /** The repository `location` (a document's or folder's) is in: the deepest one holding it. */
 export function repositoryOf(state: GitState | null, location: string): GitRepository | null {
@@ -43,6 +44,37 @@ export function isOnBase(repo: GitRepository): boolean {
 /** "On branch feature/x", "Detached at 1a2b3c4". */
 export function branchSentence(repo: GitRepository): string {
   return repo.branch !== null ? `On branch ${repo.branch}` : `Detached at ${repo.head ?? "HEAD"}`;
+}
+
+/** Documents changed on the branch, by document ID; null without git state (the filter is then left out). */
+export function changesById(state: GitState | null, documents: readonly DocumentMeta[]): ReadonlyMap<string, GitChange> | null {
+  if (state === null) return null;
+  const byLocation = new Map<string, GitChange>();
+  for (const repo of state.repositories) for (const change of repo.changes) byLocation.set(change.location, change);
+  const byId = new Map<string, GitChange>();
+  for (const doc of documents) {
+    const change = byLocation.get(doc.location);
+    if (change !== undefined) byId.set(doc.id, change);
+  }
+  return byId;
+}
+
+/** "Added on this branch, with uncommitted changes", for a change's letter. */
+export function changeSentence(change: GitChange): string {
+  return `${change.status === "A" ? "Added" : "Modified"} on this branch${change.uncommitted ? ", with uncommitted changes" : ""}`;
+}
+
+/** "Fix the retry budget · Ada · 3 Nov · with Claude", for a document's hover card. */
+export function commitSentence(commit: GitLastCommit, now = new Date()): string {
+  const date = new Date(commit.date);
+  const day = Number.isNaN(date.getTime())
+    ? null
+    : date.toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "short",
+        ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+      });
+  return [commit.subject, commit.author, day, commit.withClaude ? "with Claude" : null].filter(Boolean).join(" · ");
 }
 
 /** The last folder of a path ("/Users/me/code/folio" → "folio"). */
