@@ -8,6 +8,8 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-11-14
+
 ### Added
 
 - **Changed on this branch** (desktop). Documents changed on your git
@@ -281,6 +283,7 @@ the `folio-data` volume.
 First release: signed and notarized macOS builds (Apple Silicon and Intel),
 Windows and Linux builds, and in-app updates.
 
+[0.7.0]: https://github.com/crazzybot/folio/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/crazzybot/folio/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/crazzybot/folio/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/crazzybot/folio/compare/v0.3.2...v0.4.0
