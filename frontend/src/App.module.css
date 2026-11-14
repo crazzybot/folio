@@ -211,7 +211,7 @@
 }
 
 /* The path takes the space between the settings gear and the count */
-.statusItem:first-of-type {
+.statusLocation {
   flex: 1;
   min-width: 0;
 }

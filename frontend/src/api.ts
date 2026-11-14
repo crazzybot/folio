@@ -43,7 +43,7 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
       deleteNote: (docId) => api.marks.deleteNote(docId),
       relink: (recordId, docId) => api.marks.relink(recordId, docId),
       forget: (recordId) => api.marks.forget(recordId),
-      send: (docs, markSent) => api.marks.send(docs, markSent),
+      send: (docs, markSent, agent) => api.marks.send(docs, markSent, agent),
       unsend: (round) => api.marks.unsend(round),
       reply: (docId, highlightId, text) => api.marks.reply(docId, highlightId, text),
       markSeen: (docId, highlightId) => api.marks.markSeen(docId, highlightId),
@@ -199,9 +199,13 @@ export async function forgetMarks(recordId: string): Promise<void> {
   return source.marks.forget(recordId);
 }
 
-/** Record that notes were sent (docs/design/sending-notes.md); with `markSent`, open ones become sent. */
-export async function sendNotes(docs: readonly SendDocument[], markSent: boolean): Promise<SentRound> {
-  return source.marks.send(docs, markSent);
+/**
+ * Record that notes were sent (docs/design/sending-notes.md); with
+ * `markSent`, open ones become sent. With `agent`, to the agents in a review
+ * loop on them; else copied.
+ */
+export async function sendNotes(docs: readonly SendDocument[], markSent: boolean, agent: string | null = null): Promise<SentRound> {
+  return source.marks.send(docs, markSent, agent);
 }
 
 /** Undo a send. */

@@ -1,4 +1,5 @@
 import type {
+  AgentSession,
   Bookmark,
   DocumentContent,
   DocumentMeta,
@@ -102,8 +103,12 @@ interface MarkdownDesktopApi {
     deleteNote(docId: string): Promise<void>;
     relink(recordId: string, docId: string): Promise<void>;
     forget(recordId: string): Promise<void>;
-    /** Record a round of sent notes; with `markSent`, open notes become sent. */
-    send(docs: readonly SendDocument[], markSent: boolean): Promise<SentRound>;
+    /**
+     * Record a round of sent notes; with `markSent`, open notes become sent.
+     * With `agent` (its name), sent to the agents in a review loop on them;
+     * else copied.
+     */
+    send(docs: readonly SendDocument[], markSent: boolean, agent?: string | null): Promise<SentRound>;
     /** Undo a round `send` recorded. */
     unsend(round: SentRound): Promise<void>;
     /** The user's reply to a note (highlightId null: the document's note). */
@@ -132,15 +137,31 @@ interface MarkdownDesktopApi {
     showMenu(location: string, x: number, y: number): Promise<void>;
     onChange(callback: (state: GitState | null) => void): () => void;
   };
+  /** Agents waiting for review notes on the workspace (desktop/src/agents.ts). */
+  agents: {
+    list(): Promise<AgentSession[]>;
+    /** End Review Loop for the sessions `pids`, in a native menu at the point (x, y). */
+    showMenu(pids: number[], x: number, y: number): Promise<void>;
+    onChange(callback: (sessions: AgentSession[]) => void): () => void;
+  };
   /**
    * The context menu of a folder in the document list (workspace location).
-   * Resolves "focus" for Focus on Folder, "mark-read" for Mark All as Read
+   * Resolves "focus" for Focus on Folder (or, for the `focused` folder,
+   * "unfocus" for Show All Documents), "mark-read" for Mark All as Read
    * (offered when `hasUnread`), else null; Open Folder as Workspace and
    * Reveal in Finder are handled by the main process, as is Compare With
    * when `repository` is the location of the nested repository whose root
-   * the row shows.
+   * the row shows, and End Review Loop for the agents `agentPids` on it.
+   * At the pointer, or below the point `at`.
    */
-  showFolderMenu(location: string, hasUnread: boolean, repository: string | null): Promise<"focus" | "mark-read" | null>;
+  showFolderMenu(
+    location: string,
+    hasUnread: boolean,
+    repository: string | null,
+    agentPids: number[],
+    focused?: boolean,
+    at?: { x: number; y: number } | null,
+  ): Promise<"focus" | "unfocus" | "mark-read" | null>;
   /**
    * The context menu of a document in the list: Mark as Read when `unread`,
    * else Mark as Unread; Open in Editor and Reveal in Finder are handled by

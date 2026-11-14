@@ -45,6 +45,8 @@ import ChangesBanner from "./components/ChangesBanner";
 import { sectionChanges } from "../../packages/core/src/sections";
 import { slugify } from "./slug";
 import { BranchIcon, WorktreeIcon } from "./components/GitIcons";
+import { agentsFor, useAgents } from "./agents";
+import LivePill from "./components/LivePill";
 import { branchSentence, changesById, folderName, isOnBase, repositoryOf, statusBranchText, useGitState } from "./git";
 import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
@@ -189,6 +191,8 @@ function AppInner(): React.ReactElement {
   // The workspace's git repositories (desktop): the status bar's branch,
   // folder icons, and the documents changed on the branch
   const git = useGitState();
+  const agents = useAgents();
+  const workspaceAgents = useMemo(() => agents.filter((a) => a.location === ""), [agents]);
   const branchChanges = useMemo(() => changesById(git, documents), [git, documents]);
   const changedIds = useMemo(() => (branchChanges === null ? null : new Set(branchChanges.keys())), [branchChanges]);
   const changedInFocus = useMemo(
@@ -815,11 +819,16 @@ function AppInner(): React.ReactElement {
   // Recording a send, with Undo in the status bar
   const { send: recordSend, unsend } = marks;
   const recordSent = useCallback(
-    (picks: readonly Picked[], sent: boolean) => {
+    (picks: readonly Picked[], sent: boolean, agent: string | null = null) => {
       const count = picks.reduce((n, p) => n + p.highlights.length + (p.note === undefined ? 0 : 1), 0);
       const docs = picks.length > 1 ? ` from ${picks.length} documents` : "";
-      void recordSend(sendDocuments(picks), sent).then((round) => {
+      void recordSend(sendDocuments(picks), sent, agent).then((round) => {
         if (round === null) return;
+        // No Undo: the waiting agent has the notes within a second
+        if (agent !== null) {
+          setStatusMessage({ text: `Sent ${count} note${count !== 1 ? "s" : ""}${docs} to ${agent}` });
+          return;
+        }
         setStatusMessage({
           text: `${sent ? "Sent" : "Copied"} ${count} note${count !== 1 ? "s" : ""}${docs}`,
           action: { label: "Undo", run: () => void unsend(round) },
@@ -1049,6 +1058,7 @@ function AppInner(): React.ReactElement {
             onFiltersChange={setMetaFilters}
             highlightCounts={highlightCounts}
             git={git}
+            agents={agents}
             branchChanges={branchChanges}
             branchCount={changedInFocus}
             loading={listLoading}
@@ -1338,6 +1348,7 @@ function AppInner(): React.ReactElement {
       {sending !== null && (
         <SendNotesDialog
           title={sending.title}
+          agents={agents.filter((a) => sending.docs.some((d) => agentsFor([a], d.doc.location).length > 0))}
           groups={sendingGroups}
           format={formatPicks}
           markSent={markSent}
@@ -1424,7 +1435,19 @@ function AppInner(): React.ReactElement {
             {gitRepo.mainCheckout !== null && <WorktreeIcon size={12} />}
           </button>
         )}
-        <span className={styles.statusItem} title={selectedDoc?.location}>
+        {/* An agent on the whole workspace: no folder row to show it on, so its menu is here */}
+        <LivePill
+          agents={workspaceAgents}
+          onClick={(e) => {
+            const box = e.currentTarget.getBoundingClientRect();
+            void window.markdownApi?.agents.showMenu(
+              workspaceAgents.map((a) => a.pid),
+              box.left,
+              box.top,
+            );
+          }}
+        />
+        <span className={`${styles.statusItem} ${styles.statusLocation}`} title={selectedDoc?.location}>
           {selectedDoc ? selectedDoc.location : ""}
         </span>
         {statusMessage !== null && (

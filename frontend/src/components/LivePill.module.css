@@ -1,0 +1,48 @@
+.pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--color-status-accepted);
+  border-radius: 999px;
+  color: var(--color-status-accepted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.button {
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--color-hover-bg);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Waiting: a slow pulse, so it reads as listening */
+.waiting {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .waiting {
+    animation: none;
+  }
+}

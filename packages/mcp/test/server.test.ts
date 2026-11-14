@@ -34,7 +34,7 @@ async function session(folio: Folio, clientName: string) {
 }
 
 describe("the MCP server", () => {
-  it("serves the three tools and signs replies with the client's name", async () => {
+  it("serves the four tools and signs replies with the client's name", async () => {
     const root = mkdtempSync(path.join(os.tmpdir(), "folio-mcp-root-"));
     const dataDir = mkdtempSync(path.join(os.tmpdir(), "folio-mcp-data-"));
     const doc = path.join(root, "plan.md");
@@ -49,7 +49,7 @@ describe("the MCP server", () => {
     const { request, callTool } = await session(new Folio({ root, dataDir, settings: () => ({}), watch: false }), "claude-code");
 
     const tools = (await request("tools/list", {})) as { result: { tools: { name: string }[] } };
-    expect(tools.result.tools.map((t) => t.name)).toEqual(["folio_list_documents", "folio_get_review_notes", "folio_reply"]);
+    expect(tools.result.tools.map((t) => t.name)).toEqual(["folio_list_documents", "folio_get_review_notes", "folio_wait_for_review", "folio_reply"]);
 
     const notes = await callTool("folio_get_review_notes", {});
     expect(notes.text).toContain(`note ${h.id.slice(0, 8)}`);

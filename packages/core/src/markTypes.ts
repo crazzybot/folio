@@ -88,12 +88,12 @@ export interface DocumentNote extends Thread {
   private?: boolean;
 }
 
-/** Notes sent together: copied, or (later) fetched by an agent. */
+/** Notes sent together: copied, sent to an agent in a review loop, or fetched by an agent. */
 export interface Round {
   id: string;
   at: string;
-  via: "copy" | "mcp";
-  /** The agent that fetched them (via mcp): "Claude Code". */
+  via: "copy" | "send" | "mcp";
+  /** The agent that got them (via send or mcp): "Claude Code". */
   client?: string;
   /** The version sent: the document's SHA-1 then. */
   sha1: string;

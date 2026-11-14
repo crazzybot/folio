@@ -8,11 +8,14 @@ import { slugify } from "../slug";
 import { hasFilters, NO_FILTERS, toggleFilter } from "../metaFilter";
 import type { FilterOption, MetaFilters } from "../metaFilter";
 import { isRetired, statusText } from "../status";
+import { agentsAtFolder, agentsOnFolder } from "../agents";
+import LivePill from "./LivePill";
 import { branchFilterLabel, branchSentence, changeSentence, isOnBase, repositoryAtFolder, repositoryOf } from "../git";
 import { readSentence, readStateOf } from "../reads";
 import type { ReadState } from "../reads";
 import { useRowHoverCard } from "../useRowHoverCard";
 import type {
+  AgentSession,
   DocumentMeta,
   DocumentNote,
   DocumentRead,
@@ -43,6 +46,8 @@ const MIN_CONTENT_QUERY = 2;
 const CONTENT_SEARCH_DELAY_MS = 200;
 // Matching headings listed under a document before "N more"
 const MAX_HEADING_ROWS = 3;
+// One empty list, so rows without agents keep their props equal between renders
+const NO_AGENTS: readonly AgentSession[] = [];
 
 const EXPANDED_KEY = "folio.expandedFolders";
 // Remembered expanded folders, most recent last; old workspaces' folders age out
@@ -132,6 +137,8 @@ interface DocumentListProps {
   bookmarkedIds?: ReadonlySet<string>;
   /** The workspace's git repositories (desktop): folder icons and hover cards. */
   git?: GitState | null;
+  /** Agents in a review loop (desktop): a Live pill on the folders they listen on. */
+  agents?: readonly AgentSession[];
   /** Documents changed on the branch, by id (desktop): letters and hover cards; null without git. */
   branchChanges?: ReadonlyMap<string, GitChange> | null;
   /** Documents changed on the branch in the focused folder: the filter menu's count. */
@@ -183,6 +190,7 @@ export default function DocumentList({
   highlightCounts = NO_COUNTS,
   bookmarkedIds = NO_IDS,
   git = null,
+  agents = NO_AGENTS,
   branchChanges = null,
   branchCount = 0,
   reads = NO_READS,
@@ -549,6 +557,23 @@ export default function DocumentList({
 
   const groupLabel = grouped ? "Show as a flat list" : "Group by folder";
 
+  // The focused folder's row is hidden: its bar shows the repository and
+  // agents the row would, and opens the same menu
+  const focusRepository = focus === null ? null : repositoryAtFolder(git, focus);
+  const focusAgents = useMemo(() => (focus === null ? NO_AGENTS : agentsOnFolder(agents, focus)), [agents, focus]);
+  const showFocusMenu = (e: React.MouseEvent, at: { x: number; y: number } | null) => {
+    const api = window.markdownApi;
+    if (!api || focus === null) return;
+    e.preventDefault();
+    const folder = focus;
+    void api
+      .showFolderMenu(folder, unreadCount > 0, focusRepository?.location ?? null, focusAgents.map((a) => a.pid), true, at)
+      .then((choice) => {
+        if (choice === "unfocus") onFocusChange(null);
+        if (choice === "mark-read") onMarkFolderRead?.(folder);
+      });
+  };
+
   return (
     <div className={styles.container}>
       {/* ── Header ── */}
@@ -561,15 +586,36 @@ export default function DocumentList({
         )}
       </header>
 
-      {/* ── Focused folder ── */}
+      {/* ── Focused folder: what its hidden row showed, and its menu ── */}
       {focus !== null && (
-        <div className={styles.focusBar}>
+        <div className={styles.focusBar} onContextMenu={(e) => showFocusMenu(e, null)}>
           <svg className={styles.focusIcon} width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
             <path d="M1.5 3.5h4.5l1.5 1.5h7v8.5h-13z" />
           </svg>
           <span className={styles.focusLabel} title={`Showing only documents in ${focus}`}>
             {focus.split("/").join(" / ")}
           </span>
+          {focusRepository !== null && <RepositoryIcon repository={focusRepository} />}
+          <LivePill agents={focusAgents} />
+          <span className={styles.focusSpacer} />
+          {window.markdownApi !== undefined && (
+            <button
+              type="button"
+              className={styles.focusClear}
+              onClick={(e) => {
+                const box = e.currentTarget.getBoundingClientRect();
+                showFocusMenu(e, { x: box.left, y: box.bottom });
+              }}
+              aria-label={`More for ${focus}`}
+              title="More"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+                <circle cx="2" cy="6" r="1.1" fill="currentColor" />
+                <circle cx="6" cy="6" r="1.1" fill="currentColor" />
+                <circle cx="10" cy="6" r="1.1" fill="currentColor" />
+              </svg>
+            </button>
+          )}
           <button
             type="button"
             className={styles.focusClear}
@@ -882,6 +928,7 @@ export default function DocumentList({
                 repository={
                   row.kind === "folder" ? repositoryAtFolder(git, row.folderKey, row.label.split(FOLDER_SEPARATOR).length) : null
                 }
+                agents={row.kind === "folder" ? agentsAtFolder(agents, row.folderKey, row.label.split(FOLDER_SEPARATOR).length) : NO_AGENTS}
                 readState={row.kind === "document" ? readStateOf(reads.get(row.doc.id)) : "read"}
                 change={row.kind === "document" ? (branchChanges?.get(row.doc.id) ?? null) : null}
                 changeText={row.kind === "document" ? changeTextOf(row.doc) : null}
@@ -1006,6 +1053,8 @@ interface RowItemProps {
   bookmarked: boolean;
   /** For a folder: the nested git repository whose root it is, if any. */
   repository: GitRepository | null;
+  /** For a folder: agents in a review loop on it. */
+  agents: readonly AgentSession[];
   /** For a document: new, changed or read. */
   readState: ReadState;
   /** For a document: how it changed on the git branch, if it did. */
@@ -1031,6 +1080,7 @@ function RowItem({
   highlightCount,
   bookmarked,
   repository,
+  agents,
   readState,
   change,
   changeText,
@@ -1071,7 +1121,7 @@ function RowItem({
           if (!api) return;
           e.preventDefault();
           const folder = row.folderKey;
-          void api.showFolderMenu(folder, unread > 0, repository?.location ?? null).then((choice) => {
+          void api.showFolderMenu(folder, unread > 0, repository?.location ?? null, agents.map((a) => a.pid)).then((choice) => {
             if (choice === "focus") onFocusFolder(folder);
             if (choice === "mark-read") onMarkFolderRead?.(folder);
           });
@@ -1090,6 +1140,7 @@ function RowItem({
         </svg>
         <span className={styles.entryTitle}>{row.label}</span>
         {repository !== null && <RepositoryIcon repository={repository} />}
+        <LivePill agents={agents} />
         {unread > 0 && (
           <span className={styles.folderUnread} aria-label={`${unread} unread`}>
             {unread}

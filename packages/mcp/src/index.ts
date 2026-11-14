@@ -46,6 +46,10 @@ function main(): void {
     root: values.root ?? process.cwd(),
     dataDir: values["data-dir"] ?? defaultDataDir(),
   });
+  // The presence file says a session is waiting: it goes with the session.
+  // Signals otherwise end the process without the exit event
+  process.on("exit", () => folio.leave());
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) process.once(signal, () => process.exit(0));
   // One server for the connection: the agent keeps it for its session
   serveStdio(() => createServer(folio));
 }

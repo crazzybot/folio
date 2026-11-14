@@ -114,12 +114,17 @@
 }
 
 .focusLabel {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--color-text);
+}
+
+/* Keeps the branch icon and Live pill beside the name, the buttons at the end */
+.focusSpacer {
+  flex: 1;
 }
 
 .focusClear {

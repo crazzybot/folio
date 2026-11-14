@@ -59,8 +59,8 @@ export interface DataSource {
     deleteNote(docId: string): Promise<void>;
     relink(recordId: string, docId: string): Promise<void>;
     forget(recordId: string): Promise<void>;
-    /** Record a round of sent notes; with `markSent`, open notes become sent. */
-    send(docs: readonly SendDocument[], markSent: boolean): Promise<SentRound>;
+    /** Record a round of sent notes; with `markSent`, open notes become sent. With `agent`, sent to it rather than copied. */
+    send(docs: readonly SendDocument[], markSent: boolean, agent?: string | null): Promise<SentRound>;
     /** Undo a round: it goes, and the notes it made sent are open again. */
     unsend(round: SentRound): Promise<void>;
     /** The user's reply to a highlight's note (highlightId null: the document's note); resolves to the note. */

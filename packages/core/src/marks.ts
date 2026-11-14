@@ -614,8 +614,9 @@ export class MarksStore {
 
   /**
    * Record that the document's notes `highlightIds` (and its note on the
-   * whole, with `documentNote`) were sent in round `roundId`, copied or
-   * (`via: "mcp"`) fetched by agent `client`; with `markSent`, open ones
+   * whole, with `documentNote`) were sent in round `roundId`: copied, sent
+   * to agent `client` in a review loop (`via: "send"`) or fetched by it
+   * (`via: "mcp"`); with `markSent`, open ones
    * become sent. Notes no longer there are left out.
    * Resolves to what became sent, for undoing it.
    */
@@ -736,7 +737,7 @@ function sendBody(body: unknown): {
     throw new MarkError(400, "highlightIds must be a list of highlight ids");
   }
   const via = body["via"] ?? "copy";
-  if (via !== "copy" && via !== "mcp") throw new MarkError(400, "via must be copy or mcp");
+  if (via !== "copy" && via !== "send" && via !== "mcp") throw new MarkError(400, "via must be copy, send or mcp");
   return {
     roundId,
     highlightIds: ids as string[],

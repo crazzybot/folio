@@ -52,6 +52,8 @@ import {
 import { serveImage } from "./images";
 import { canInstallCommand, installCommand } from "./cli";
 import { ensureCustomCss, readCustomCss, watchCustomCss } from "./customCss";
+import { AgentTracker } from "./agents";
+import type { AgentSession } from "./agents";
 import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
 import { branchesOf, GitTracker, lastCommit } from "./git";
@@ -417,12 +419,15 @@ function registerIpcHandlers(): void {
   });
   // Sending notes (docs/design/sending-notes.md): one round across the
   // documents copied, and undoing it
-  ipcMain.handle("marks:send", async (event, docs: unknown, markSent: unknown): Promise<SentRound> => {
+  // With `agent` (its name), the round goes to the agents in a review loop
+  // on the documents (`via: "send"`); their wait takes only those rounds
+  ipcMain.handle("marks:send", async (event, docs: unknown, markSent: unknown, agent: unknown): Promise<SentRound> => {
     assertTrustedSender(event);
     const roundId = newRoundId();
+    const via = typeof agent === "string" && agent !== "" ? { via: "send", client: agent } : { via: "copy" };
     const sent: SentRound["documents"] = [];
     for (const doc of sendList(docs)) {
-      const done = await marks.send(await markedDocument(doc.docId), { ...doc, roundId, markSent: markSent !== false });
+      const done = await marks.send(await markedDocument(doc.docId), { ...doc, ...via, roundId, markSent: markSent !== false });
       sent.push({ docId: doc.docId, ...done });
     }
     notifyMarksChanged();
@@ -528,12 +533,21 @@ function registerIpcHandlers(): void {
     event.returnValue = isRendererUrl(event.senderFrame?.url ?? "") ? settings.workspace : null;
   });
 
-  // A folder's context menu in the document list: Focus on Folder and Mark
-  // All as Read are the page's to apply; Open Folder as Workspace and Reveal
-  // in Finder are done here
+  // A folder's context menu in the document list: Focus on Folder (Show All
+  // Documents on the focused folder's bar) and Mark All as Read are the
+  // page's to apply; Open Folder as Workspace and Reveal in Finder are done
+  // here. At the pointer, or below the point `at` (the focus bar's button)
   ipcMain.handle(
     "folder:context-menu",
-    async (event, location: unknown, hasUnread: unknown, repositoryAt: unknown): Promise<"focus" | "mark-read" | null> => {
+    async (
+      event,
+      location: unknown,
+      hasUnread: unknown,
+      repositoryAt: unknown,
+      agentPids: unknown,
+      focused: unknown,
+      at: unknown,
+    ): Promise<"focus" | "unfocus" | "mark-read" | null> => {
       assertTrustedSender(event);
       const win = BrowserWindow.fromWebContents(event.sender);
       const folder =
@@ -545,14 +559,20 @@ function registerIpcHandlers(): void {
           ? (await git.current())?.repositories.find((repo) => repo.location === repositoryAt)
           : undefined;
       const compare = repository === undefined ? [] : [null, compareWithItem(repository, await branchesOf(repository.root))];
-      const choice = await popupChoice<"focus" | "mark-read" | "open" | "reveal">(win, [
-        { label: "Focus on Folder", choice: "focus" },
-        { label: "Mark All as Read", choice: "mark-read", enabled: hasUnread === true },
-        ...compare,
-        null,
-        { label: "Open Folder as Workspace", choice: "open" },
-        { label: revealLabel(), choice: "reveal" },
-      ]);
+      const endLoop = endLoopItems(agentPids);
+      const choice = await popupChoice<"focus" | "unfocus" | "mark-read" | "open" | "reveal">(
+        win,
+        [
+          focused === true ? { label: "Show All Documents", choice: "unfocus" } : { label: "Focus on Folder", choice: "focus" },
+          { label: "Mark All as Read", choice: "mark-read", enabled: hasUnread === true },
+          ...compare,
+          ...(endLoop.length > 0 ? [null, ...endLoop] : []),
+          null,
+          { label: "Open Folder as Workspace", choice: "open" },
+          { label: revealLabel(), choice: "reveal" },
+        ],
+        pointOf(at),
+      );
       if (choice === "open") await openWorkspace(win, folder);
       if (choice === "reveal") shell.showItemInFolder(folder);
       return choice === "open" || choice === "reveal" ? null : choice;
@@ -598,6 +618,19 @@ function registerIpcHandlers(): void {
     if (win !== null) await openCurrentInEditor(win);
   });
 
+  // Agents waiting for notes on the workspace; later changes are pushed (see agents.ts)
+  ipcMain.handle("agents:list", (event): AgentSession[] => {
+    assertTrustedSender(event);
+    return agents.current();
+  });
+  // The status bar's Live pill: End Review Loop for its sessions, below the point (x, y)
+  ipcMain.handle("agents:menu", (event, pids: unknown, x: unknown, y: unknown): void => {
+    assertTrustedSender(event);
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const items = endLoopItems(pids);
+    if (win === null || items.length === 0 || typeof x !== "number" || typeof y !== "number") return;
+    Menu.buildFromTemplate(items).popup({ window: win, x: Math.round(x), y: Math.round(y) });
+  });
   // The workspace's repositories; later changes are pushed (see refreshGit)
   ipcMain.handle("git:state", (event): Promise<GitState | null> => {
     assertTrustedSender(event);
@@ -643,9 +676,19 @@ function registerIpcHandlers(): void {
  * on its own) and resolve the choice of the one clicked, or null when the
  * menu closes without one.
  */
+/** A point `{ x, y }` from the page, in whole pixels; undefined when it isn't one. */
+function pointOf(at: unknown): { x: number; y: number } | undefined {
+  if (typeof at !== "object" || at === null) return undefined;
+  const { x, y } = at as { x?: unknown; y?: unknown };
+  return typeof x === "number" && typeof y === "number" && Number.isFinite(x) && Number.isFinite(y)
+    ? { x: Math.round(x), y: Math.round(y) }
+    : undefined;
+}
+
 function popupChoice<T>(
   win: BrowserWindow,
   items: readonly ({ label: string; choice: T; enabled?: boolean } | MenuItemConstructorOptions | null)[],
+  at?: { x: number; y: number },
 ): Promise<T | null> {
   return new Promise((resolve) => {
     Menu.buildFromTemplate(
@@ -659,6 +702,7 @@ function popupChoice<T>(
       ),
     ).popup({
       window: win,
+      ...at,
       // Called when the menu closes, which can come before the item's
       // click: give the click a moment to resolve first
       callback: () => setTimeout(() => resolve(null), 100),
@@ -719,6 +763,30 @@ function restartWatcher(): void {
     void refreshGit();
   });
   void refreshGit();
+  agents.setWorkspace(settings.workspace);
+}
+
+// ---------------------------------------------------------------------------
+// Agents in a review loop (see agents.ts)
+// ---------------------------------------------------------------------------
+
+const agents = new AgentTracker(defaultDataDir(), (sessions) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) win.webContents.send("agents:changed", sessions);
+  }
+});
+
+/**
+ * End Review Loop, for each live session among `pids` (from the page, so
+ * checked against the sessions we know): one item, or one per session.
+ */
+function endLoopItems(pids: unknown): MenuItemConstructorOptions[] {
+  const wanted = new Set(Array.isArray(pids) ? pids.filter((p): p is number => typeof p === "number") : []);
+  const sessions = agents.current().filter((s) => wanted.has(s.pid));
+  return sessions.map((s) => ({
+    label: sessions.length === 1 ? "End Review Loop" : `End Review Loop: ${s.client} in ${path.basename(s.root)}`,
+    click: () => void agents.endLoop(s.pid),
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -1547,6 +1615,7 @@ void app.whenReady().then(() => {
   watchCustomCss((css) => {
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send("custom-css:changed", css);
   });
+  agents.start();
   restartWatcher();
   watchMarks(marks.folder, (id) => marks.changedOutside(id), notifyMarksChanged);
   void collectSnapshots().catch(() => {});

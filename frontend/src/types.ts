@@ -162,12 +162,12 @@ export interface DocumentNote extends Thread {
   private?: boolean;
 }
 
-/** Notes sent together: copied, or fetched by an agent. */
+/** Notes sent together: copied, sent to an agent in a review loop, or fetched by an agent. */
 export interface Round {
   id: string;
   at: string; // ISO-8601
-  via: "copy" | "mcp";
-  /** The agent that fetched them (via mcp): "Claude Code". */
+  via: "copy" | "send" | "mcp";
+  /** The agent that got them (via send or mcp): "Claude Code". */
   client?: string;
   /** The document's SHA-1 when sent. */
   sha1: string;
@@ -264,6 +264,19 @@ export interface GitRepository {
   worktrees: GitWorktree[];
   /** Markdown documents in the workspace changed on the branch. */
   changes: GitChange[];
+}
+
+/** An agent in a review loop on the workspace: it takes the notes sent from documents under `location` (desktop/src/agents.ts). */
+export interface AgentSession {
+  /** Its MCP server's process: what End Review Loop names. */
+  pid: number;
+  /** Its folder's workspace location ("projects/api"); "" when it's the workspace or holds it. */
+  location: string;
+  root: string;
+  /** "Claude Code". */
+  client: string;
+  /** Waiting for notes, or working on the last ones (it takes new ones next). */
+  state: "waiting" | "working";
 }
 
 export interface GitState {

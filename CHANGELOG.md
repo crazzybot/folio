@@ -8,6 +8,24 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Added
+
+- **Review loop with your agent.** Ask your agent to wait for your review
+  (`/folio:review-loop` in Claude Code) and it waits for notes from Folio.
+  In the **Send review notes** dialog, **Send** hands the ticked notes
+  straight to it; there's nothing to paste. The agent addresses them,
+  replies to each in Folio, then waits for the next round. Folio's MCP
+  server has a new tool for this, `folio_wait_for_review`. It only takes
+  notes on documents in the folder the agent works in.
+
+- **Live** (desktop). A green **Live** pill shows where an agent is
+  waiting for your notes: on its folder in the document list, on a
+  focused folder, or in the status bar when it works on the whole
+  workspace. The **Send review notes** dialog shows it too, and names the
+  agent the notes go to; **Copy** is still there for pasting elsewhere.
+  **End Review Loop**, in the folder's context menu or on the status bar's
+  pill, tells the agent to stop waiting.
+
 ## [0.7.0] — 2026-11-14
 
 ### Added

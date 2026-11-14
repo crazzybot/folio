@@ -7,10 +7,11 @@
  * them with its own tools. Only marks in the data folder change.
  */
 
-import { watch } from "node:fs";
+import { rmSync, watch } from "node:fs";
 import type { FSWatcher } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { agentsFolder, presenceFile, stopFile, stopRequested, writePresence } from "../../core/src/agents";
 import { filesOnOtherBranches } from "../../core/src/git";
 import { listMarks, MarkError, MarksStore, newRoundId, realPath } from "../../core/src/marks";
 import type { DocumentMarks, DocumentNote, Highlight, NoteState } from "../../core/src/marks";
@@ -23,6 +24,10 @@ import { maxDepthSetting, readAppSettings, reviewIntroSetting, skipDirsSetting }
 // Paths differ only by case on these platforms' default file systems
 const CASE_INSENSITIVE = process.platform === "darwin" || process.platform === "win32";
 const MARKDOWN = /\.(md|markdown)$/i;
+// While waiting for notes: check again this often without a change seen, and
+// this long after the last change to the marks folder
+const RECHECK_MS = 10_000;
+const SETTLE_MS = 300;
 
 // A document only on another git branch keeps its marks where they are, as
 // in the desktop app: not moved to a namesake with the same content
@@ -65,6 +70,21 @@ export interface NotesRequest {
   includeAddressed?: boolean | undefined;
 }
 
+export interface WaitRequest {
+  /** Only notes sent after this time (ISO 8601); default: from now. */
+  since?: string | undefined;
+  timeoutMs: number;
+  signal?: AbortSignal | undefined;
+}
+
+/** Notes the user sent, and the time to wait for the next ones after. */
+export interface SentNotes {
+  text: string;
+  notes: number;
+  documents: number;
+  since: string;
+}
+
 export interface ReplyRequest {
   noteId?: string | undefined;
   path?: string | undefined;
@@ -75,6 +95,9 @@ export interface ReplyRequest {
 export class Folio {
   readonly root: string;
   private readonly store: MarksStore;
+  private readonly dataDir: string;
+  /** Rounds this session's waits have given the agent. */
+  private readonly delivered = new Set<string>();
   private readonly settings: () => Record<string, unknown>;
   private readonly watching: boolean;
   private scan: { key: string; documents: Promise<DocumentMeta[]> } | null = null;
@@ -83,6 +106,7 @@ export class Folio {
   constructor(options: FolioOptions) {
     this.root = realPath(options.root);
     this.store = new MarksStore(options.dataDir);
+    this.dataDir = options.dataDir;
     this.settings = options.settings ?? (() => readAppSettings());
     this.watching = options.watch ?? true;
   }
@@ -209,18 +233,8 @@ export class Folio {
       const sendableDocNote = sendableNote(marks.note, status);
       const note = sendableDocNote !== null && sendable.has(sendableDocNote.state ?? "open") ? sendableDocNote : undefined;
       if (highlights.length === 0 && note === undefined) continue;
-      const source = await readFile(path.join(this.root, ...doc.location.split("/")), "utf8");
       picked.push({
-        review: {
-          docId: doc.id,
-          path: this.absolute(doc.location),
-          name: doc.filename,
-          source,
-          highlights,
-          note,
-          status,
-          statusLine: doc.meta?.statusLine ?? null,
-        },
+        review: await this.reviewDocument(doc, highlights, note),
         highlightIds: highlights.map((h) => h.id),
         documentNote: note !== undefined,
       });
@@ -243,6 +257,147 @@ export class Folio {
       });
     }
     return { text: formatted.text, notes: formatted.notes.length + formatted.documentNotes, documents: picked.length };
+  }
+
+  private async reviewDocument(doc: DocumentMeta, highlights: Highlight[], note: DocumentNote | undefined): Promise<ReviewDocument> {
+    const source = await readFile(path.join(this.root, ...doc.location.split("/")), "utf8");
+    return {
+      docId: doc.id,
+      path: this.absolute(doc.location),
+      name: doc.filename,
+      source,
+      highlights,
+      note,
+      status: doc.meta?.status ?? null,
+      statusLine: doc.meta?.statusLine ?? null,
+    };
+  }
+
+  // ── Waiting for the user's notes ─────────────────────────────────────────
+
+  /**
+   * Wait until the user sends notes on documents under the root after
+   * `since` (default: now), then give them as `reviewNotes` does. Sending is
+   * Send in the app's Send dialog, offered while this session is live there,
+   * which records a round `via: "send"`: an explicit "these are ready",
+   * unlike a new highlight, which may be the first of many. Copy, for
+   * pasting elsewhere, doesn't count. The round is already recorded, so
+   * none is added here.
+   *
+   * Resolves to `null` at the timeout or when `signal` aborts; the agent
+   * calls again with the same `since`. Resolves to "stopped" when the user
+   * ended the loop in the app, now or while the agent worked on the last
+   * notes.
+   */
+  async waitForReview(request: WaitRequest, client: string): Promise<SentNotes | "stopped" | null> {
+    const since = request.since ?? new Date().toISOString();
+    const after = Date.parse(since);
+    if (Number.isNaN(after)) throw new FolioError(`${since} isn't a time: pass the since value Folio gave you, or leave it out`);
+    const deadline = Date.now() + request.timeoutMs;
+    for (let first = true; ; first = false) {
+      if (await stopRequested(this.dataDir, process.pid)) {
+        this.leave();
+        return "stopped";
+      }
+      if (first) await this.announce({ state: "waiting", since, until: new Date(deadline).toISOString() }, client);
+      const sent = await this.sentAfter(after);
+      if (sent !== null) {
+        // Until the agent calls again, it's working on these
+        await this.announce({ state: "working", since: sent.since }, client);
+        return sent;
+      }
+      const left = deadline - Date.now();
+      if (left <= 0 || request.signal?.aborted === true) return null;
+      await this.marksChange(Math.min(left, RECHECK_MS), request.signal);
+    }
+  }
+
+  /**
+   * Tell the app this session is in a review loop on the root (core
+   * agents.ts). Removed by `leave`. Best effort: the wait works without it.
+   */
+  private async announce(status: { state: "waiting" | "working"; since: string; until?: string }, client: string): Promise<void> {
+    try {
+      await writePresence(this.dataDir, { pid: process.pid, root: this.root, client, ...status });
+    } catch {
+      // Unwritable data folder: the app just won't know a session is waiting
+    }
+  }
+
+  /** Remove this session's presence file: on exit, synchronously. */
+  leave(): void {
+    rmSync(presenceFile(this.dataDir, process.pid), { force: true });
+    rmSync(stopFile(this.dataDir, process.pid), { force: true });
+  }
+
+  /**
+   * The notes in rounds sent to agents after `after` (ms), as they are now: resolved
+   * and private ones left out. Rounds are timed to the second, so one in the
+   * same second as `after` counts, unless this session already had it.
+   */
+  private async sentAfter(after: number): Promise<SentNotes | null> {
+    const from = Math.floor(after / 1000) * 1000;
+    const documents = await this.documents();
+    const { documents: marked } = await listMarks(this.store, this.root, documents, MARKS_OPTIONS);
+    const picked: ReviewDocument[] = [];
+    let latest = after;
+    for (const marks of marked) {
+      const rounds = (marks.rounds ?? []).filter((r) => r.via === "send" && Date.parse(r.at) >= from && !this.delivered.has(r.id));
+      const doc = documents.find((d) => d.id === marks.docId);
+      if (rounds.length === 0 || doc === undefined) continue;
+      for (const r of rounds) {
+        latest = Math.max(latest, Date.parse(r.at));
+        this.delivered.add(r.id);
+      }
+      const ids = new Set(rounds.flatMap((r) => r.notes));
+      const highlights = marks.highlights.filter((h) => ids.has(h.id) && !isPrivate(h) && h.state !== "resolved");
+      const docNote = rounds.some((r) => r.documentNote === true) ? sendableNote(marks.note, doc.meta?.status) : null;
+      const note = docNote !== null && docNote.state !== "resolved" ? docNote : undefined;
+      if (highlights.length === 0 && note === undefined) continue;
+      picked.push(await this.reviewDocument(doc, highlights, note));
+    }
+    if (picked.length === 0) return null;
+    const formatted = formatReviewNotes(picked, reviewIntroSetting(this.settings()), { threads: true });
+    return {
+      text: formatted.text,
+      notes: formatted.notes.length + formatted.documentNotes,
+      documents: picked.length,
+      since: new Date(latest).toISOString(),
+    };
+  }
+
+  /**
+   * Resolves when the marks folder or the agents folder (a stop) changes,
+   * once the writes settle, after `ms`, or when `signal` aborts. The timer
+   * also covers a folder that doesn't exist yet and file systems where
+   * watching misses events.
+   */
+  private marksChange(ms: number, signal: AbortSignal | undefined): Promise<void> {
+    return new Promise((resolve) => {
+      const watchers: FSWatcher[] = [];
+      let timer: NodeJS.Timeout | undefined = undefined;
+      const done = () => {
+        clearTimeout(timer);
+        for (const w of watchers) w.close();
+        signal?.removeEventListener("abort", done);
+        resolve();
+      };
+      timer = setTimeout(done, ms);
+      signal?.addEventListener("abort", done, { once: true });
+      for (const folder of [this.store.folder, agentsFolder(this.dataDir)]) {
+        try {
+          // A send writes one record per document: wait for the last of them
+          const watcher = watch(folder, () => {
+            clearTimeout(timer);
+            timer = setTimeout(done, SETTLE_MS);
+          });
+          watcher.on("error", () => watcher.close());
+          watchers.push(watcher);
+        } catch {
+          // No such folder yet: the timer checks again
+        }
+      }
+    });
   }
 
   // ── Replies ──────────────────────────────────────────────────────────────
