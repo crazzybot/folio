@@ -34,6 +34,8 @@ interface DocumentNoteEditorProps {
   onSetState: (state: NoteState) => void;
   /** The user's reply to the note, and that they saw its thread (docs/design/agent-integration.md). */
   onReply: (text: string) => void;
+  onEditReply: (replyId: string, text: string) => void;
+  onDeleteReply: (replyId: string) => void;
   onSeen: () => void;
   onClose: () => void;
 }
@@ -52,6 +54,8 @@ export default function DocumentNoteEditor({
   onRemove,
   onSetState,
   onReply,
+  onEditReply,
+  onDeleteReply,
   onSeen,
   onClose,
 }: DocumentNoteEditorProps): React.ReactElement {
@@ -65,6 +69,8 @@ export default function DocumentNoteEditor({
   );
   const [other, setOther] = useState(requested !== null && !statuses.includes(requested) ? requested : "");
   const [text, setText] = useState(note?.text ?? "");
+  // Replied to: the comment is part of the conversation, and stays as it was answered
+  const answered = (note?.replies?.length ?? 0) > 0;
   // Only me: the comment stays out of the loop; a status change is still sent
   const [locked, setLocked] = useState(note?.private === true);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -182,18 +188,23 @@ export default function DocumentNoteEditor({
         />
       )}
 
-      <label className={styles.label} htmlFor={`${id}-text`}>
-        Comment
-      </label>
-      <textarea
-        id={`${id}-text`}
-        className={styles.textarea}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Your overall comment…"
-        rows={4}
-        maxLength={10_000}
-      />
+      {/* Answered: the comment is the thread's first message, no longer editable */}
+      {!answered && (
+        <>
+          <label className={styles.label} htmlFor={`${id}-text`}>
+            Comment
+          </label>
+          <textarea
+            id={`${id}-text`}
+            className={styles.textarea}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Your overall comment…"
+            rows={4}
+            maxLength={10_000}
+          />
+        </>
+      )}
 
       <label className={styles.lock} title="The comment is never sent; a status change still is">
         <input type="checkbox" checked={locked} onChange={(e) => setLocked(e.target.checked)} />
@@ -203,7 +214,13 @@ export default function DocumentNoteEditor({
       {/* The thread: the saved note's, while it's sent to the agent or has replies */}
       {note !== undefined && (!locked || (note.replies?.length ?? 0) > 0) && (
         <div className={styles.thread}>
-          <NoteThread thread={note} onReply={onReply} />
+          <NoteThread
+            thread={note}
+            note={answered && note.text !== null ? { text: note.text, author: note.author, at: note.created } : undefined}
+            onReply={onReply}
+            onEditReply={onEditReply}
+            onDeleteReply={onDeleteReply}
+          />
         </div>
       )}
 

@@ -222,6 +222,12 @@
   overflow-wrap: anywhere;
 }
 
+/* "↳ 3 replies · latest from Claude Code, 10:02": they're sent with the note */
+.itemReplies {
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+
 /* Only me and Go to: on hover or focus */
 .rowActions {
   flex-shrink: 0;

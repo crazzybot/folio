@@ -244,7 +244,7 @@ export class Folio {
     const formatted = formatReviewNotes(
       picked.map((p) => p.review),
       reviewIntroSetting(this.settings()),
-      { threads: true },
+      { noteIds: true },
     );
     const roundId = newRoundId();
     for (const p of picked) {
@@ -357,7 +357,7 @@ export class Folio {
       picked.push(await this.reviewDocument(doc, highlights, note));
     }
     if (picked.length === 0) return null;
-    const formatted = formatReviewNotes(picked, reviewIntroSetting(this.settings()), { threads: true });
+    const formatted = formatReviewNotes(picked, reviewIntroSetting(this.settings()), { noteIds: true });
     return {
       text: formatted.text,
       notes: formatted.notes.length + formatted.documentNotes,
