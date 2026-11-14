@@ -11,6 +11,11 @@ number before the title. Well-known documents (`README.md`, `AGENTS.md`,
 name, such as `# Changelog`, is shown alone. Hover a document to see its full
 title, location, status, tags and marks.
 
+In the desktop app, right-click a document to open it in your editor (the
+menu names it, such as **Open in Visual Studio Code**) or **Reveal in
+Finder** (**Show in Folder** on Windows and Linux). A folder's menu has
+**Reveal in Finder** too, and **Open Folder as Workspace**.
+
 ## Statuses and tags
 
 Folio reads a document's status from front matter `status:`, or a `Status:`

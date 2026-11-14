@@ -956,7 +956,7 @@ function RowItem({
         aria-expanded={row.expanded}
         aria-selected={false}
         onContextMenu={(e) => {
-          // Desktop: a native menu (Focus on Folder, Open Folder as Workspace);
+          // Desktop: a native menu (Focus on Folder, Reveal in Finder…);
           // the browser keeps its own menu
           const api = window.markdownApi;
           if (!api) return;
@@ -1028,11 +1028,12 @@ function RowItem({
         aria-selected={selected}
         aria-label={`${doc.title} — ${doc.location}${described}${readState === "read" ? "" : ` — ${readState}`}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
         onContextMenu={(e) => {
-          // Desktop: a native menu (Mark as Read, Mark as Unread); the browser keeps its own
+          // Desktop: a native menu (Mark as Read, Open in Editor, Reveal in
+          // Finder…); the browser keeps its own
           const api = window.markdownApi;
           if (!api) return;
           e.preventDefault();
-          void api.showDocumentMenu(readState !== "read").then((choice) => {
+          void api.showDocumentMenu(doc.id, readState !== "read").then((choice) => {
             if (choice === "read") onMarkRead?.(doc.id);
             if (choice === "unread") onMarkUnread?.(doc.id);
           });
