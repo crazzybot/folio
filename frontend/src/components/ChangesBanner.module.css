@@ -116,8 +116,10 @@
     flex-wrap: wrap;
   }
 
+  /* A line of their own, so the text keeps the width */
   .actions {
-    margin-left: auto;
+    flex-basis: 100%;
+    justify-content: flex-end;
   }
 }
 

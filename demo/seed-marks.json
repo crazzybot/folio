@@ -1,32 +1,65 @@
 {
-  "$comment": "Marks a first visit to the live demo starts with (see docs/design/live-demo.md). Each quote must be on one line of its document and contain no Markdown syntax; desktop/scripts/demo-bundle.mjs fails when one isn't found.",
+  "$comment": "Marks a first visit to the live demo starts with (see docs/design/live-demo.md). Each quote must be on one line of its document and contain no Markdown syntax; desktop/scripts/demo-bundle.mjs fails when one isn't found. \"round\" is a review round already sent to a coding agent: highlights with a \"state\" were in it, and their \"replies\" are the agent's, simulated. \"readVersions\" are the versions the visitor read before that round, by document (files relative to this one): those documents start as changed since.",
+  "round": {
+    "at": "2026-11-12T16:20:00Z",
+    "agent": "Claude Code (demo)"
+  },
+  "readVersions": {
+    "docs/adr/0003-hmac-signatures.md": "read-versions/docs/adr/0003-hmac-signatures.md"
+  },
   "documents": {
     "docs/specs/rate-limits.md": {
       "highlights": [
         {
           "quote": "Limits apply per endpoint, not per tenant",
           "color": "yellow",
-          "note": "This contradicts the summary: a tenant can get around its plan by adding endpoints. Should the limit be per tenant, shared by its endpoints?"
+          "note": "This contradicts the summary: a tenant can get around its plan by adding endpoints. Should the limit be per tenant, shared by its endpoints?",
+          "state": "sent",
+          "replies": [
+            {
+              "text": "Per tenant would change what the plans promise: a Team tenant with ten endpoints gets 500 deliveries per second today. Should the totals in **Limits by plan** stay as they are and be shared by the endpoints, or go up?",
+              "at": "2026-11-12T16:31:00Z"
+            }
+          ]
         }
       ]
     },
     "docs/specs/signed-payloads.md": {
       "highlights": [
-        { "quote": "Receivers should also reject signatures older than five minutes", "color": "green", "note": null }
+        {
+          "quote": "Receivers should also reject signatures older than five minutes",
+          "color": "green",
+          "note": null
+        }
       ],
-      "bookmarks": [{ "heading": "Verifying a signature" }]
+      "bookmarks": [
+        {
+          "heading": "Verifying a signature"
+        }
+      ]
     },
     "docs/adr/0003-hmac-signatures.md": {
       "highlights": [
         {
           "quote": "anyone forge deliveries to that endpoint until it's rotated",
           "color": "pink",
-          "note": "How long does a rotation take a tenant today? Worth a number here before this is accepted."
+          "note": "How long does a rotation take a tenant today? Worth a number here before this is accepted.",
+          "state": "addressed",
+          "replies": [
+            {
+              "text": "Added it under **Consequences**: about ten minutes, with both secrets valid for 24 hours. **Decision** now says an endpoint can hold two secrets, as the signed payloads spec already does.",
+              "at": "2026-11-12T16:29:00Z"
+            }
+          ]
         }
       ]
     },
     "README.md": {
-      "bookmarks": [{ "heading": null }]
+      "bookmarks": [
+        {
+          "heading": null
+        }
+      ]
     }
   }
 }

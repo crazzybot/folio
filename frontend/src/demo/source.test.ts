@@ -64,6 +64,24 @@ describe("createDemoSource", () => {
     expect((await source.reads.list())[0]?.read?.sha1).toBe(sha1);
   });
 
+    it("starts a document read before the seeded round as changed, with that version to compare", async () => {
+    const before = "# Alpha\n\nThe lease ends.";
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ ...bundle, readVersions: { a: { text: before, at: "2026-11-12T16:20:00Z" } } }), { status: 200 }),
+    );
+    const source = createDemoSource("./", null);
+    const [a, b] = await source.reads.list();
+    expect([a?.read?.at, a?.baseline, a?.read?.sha1 === a?.sha1]).toEqual(["2026-11-12T16:20:00Z", false, false]);
+    expect(b?.read?.sha1 === b?.sha1).toBe(true);
+    expect(await source.reads.snapshot("a")).toBe(before);
+    // Read now, then reset: changed again
+    await source.reads.mark("a", a?.sha1 ?? "");
+    expect(await source.reads.snapshot("a")).toBe(bundle.contents["a"]);
+    await source.resetMarks();
+    expect((await source.reads.list())[0]?.read?.sha1 === a?.sha1).toBe(false);
+  });
+
     it("refuses a document that isn't in the bundle", async () => {
     await expect(createDemoSource("./", null).getDocumentContent("zzz")).rejects.toThrow("not found");
   });
