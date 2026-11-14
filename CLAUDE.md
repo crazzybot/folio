@@ -3,8 +3,10 @@
 Folio is a desktop app (Electron + React) for reading and reviewing folders of
 Markdown: specs, ADRs, notes, Obsidian vaults. It never writes to the
 documents it opens; highlights, notes and bookmarks live in `~/.folio`.
-Public repo `crazzybot/folio`, MIT. The README is the full user and
-developer reference; CONTRIBUTING.md has the checks and commit conventions.
+Public repo `crazzybot/folio`, MIT. The README is the overview (core
+features, install, build); the user docs (`docs-site/`) are the full user
+reference, `docs/development.md` and `docs/releasing.md` the developer one.
+CONTRIBUTING.md has the checks and commit conventions.
 
 ## Layout
 
@@ -18,6 +20,7 @@ developer reference; CONTRIBUTING.md has the checks and commit conventions.
 | `site/` | Product site (plain HTML/CSS/JS), on GitHub Pages at `crazzybot.github.io/folio/` |
 | `docs-site/` | User docs (VitePress), published at `/folio/docs/`. Linked from Help → Folio Documentation and the demo banner |
 | `docs/design/` | Design docs for contributors, one per feature, with a `Status:` line |
+| `docs/development.md`, `docs/releasing.md` | Architecture, project structure, scripts; how each part is released |
 | `scripts/release.mjs` | Prepares a release (version, CHANGELOG, `release-X.Y.Z` branch) |
 | `scripts/media/` | Records the site's demo video, screenshots and link preview |
 | `tests/fixtures/` | Workspace, expected scan and marks for core and desktop tests |
@@ -90,13 +93,13 @@ phone width (375px and 320px), with no horizontal scroll.
 - **Commit and push only when the user asks.** Never force-push a branch
   that's been pushed unless the user asks for it; never force-push `main`.
 - **Don't tag or release.** Tags (`vX.Y.Z`) and publishing are done by hand
-  by the maintainer (README → Releasing the desktop app).
+  by the maintainer (`docs/releasing.md`).
 - **Checks pass before every commit** (above). If one fails, fix it or say
   so; don't commit around it.
-- **User-visible change → three places:** a bullet under `## [Unreleased]`
-  in `CHANGELOG.md`, the README's Features list, and the user docs in
-  `docs-site/` (the `sync-docs-site` skill). Design changes update or add a
-  doc in `docs/design/`.
+- **User-visible change:** a bullet under `## [Unreleased]` in
+  `CHANGELOG.md`, and the user docs in `docs-site/` (the `sync-docs-site`
+  skill). The README's Features list changes only for a core feature: keep
+  it to one line each. Design changes update or add a doc in `docs/design/`.
 - **Keep PRs focused**: one feature or fix. Unrelated cleanups go in their
   own PR.
 

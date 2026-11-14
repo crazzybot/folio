@@ -1,6 +1,6 @@
 ---
 name: sync-docs-site
-description: Bring the user documentation in docs-site/ up to date with Folio's released features, from CHANGELOG.md, the README and the code. Use when the user asks to update, sync or check the docs site, after a release, or when a feature change should be reflected in the user docs.
+description: Bring the user documentation in docs-site/ up to date with Folio's released features, from CHANGELOG.md and the code. Use when the user asks to update, sync or check the docs site, after a release, or when a feature change should be reflected in the user docs.
 ---
 
 # Sync the docs site with the latest features
@@ -24,14 +24,15 @@ yet, unless the user is preparing that release.
 
 ## 2. Check every fact against the code
 
-The CHANGELOG and README say what was meant; the code says what shipped.
+The CHANGELOG says what was meant; the code says what shipped.
 Before writing a claim, confirm it:
 
 - Menu items and shortcuts: the menu template in `desktop/src/main.ts`
   (`accelerator:`). Keep `reference/shortcuts.md` in step with it.
 - UI names: the labels and `aria-label`s in `frontend/src/components/`.
   Write UI names in **bold**, exactly as the app shows them.
-- Settings: `desktop/src/settings.ts`.
+- Settings: `desktop/src/settings.ts`. Keep `reference/settings.md` in step
+  with it.
 - Front matter and Markdown support: `packages/core/src/` and the frontend's
   remark/rehype plugins.
 
