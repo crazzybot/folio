@@ -1,6 +1,6 @@
 {
   "name": "@crazzybot/folio-mcp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Folio's MCP server: gives a coding agent the review notes you left in Folio, and keeps its replies",
   "license": "MIT",
   "type": "module",
