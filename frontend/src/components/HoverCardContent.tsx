@@ -5,6 +5,7 @@ import { requestDone, statusText } from "../status";
 import { isPrivate, lastSent, loopSentence, needsYou, sendableNote, stateOf } from "../sending";
 import type { NoteIconKind } from "../noteIcons";
 import type { DocumentMeta, DocumentNote, GitChange, GitLastCommit, GitRepository, Highlight, Round } from "../types";
+import { BranchIcon, WorktreeIcon } from "./GitIcons";
 import NoteRequest from "./NoteRequest";
 import NoteStateIcon from "./NoteStateIcon";
 import StatusIcon from "./StatusIcon";
@@ -53,7 +54,17 @@ export function DocumentCard({
       {note !== undefined && <NoteSummary note={note} status={status} />}
       {(change !== null || commit !== null) && (
         <div className={styles.git}>
-          {change !== null && <div>{changeSentence(change)}</div>}
+          {change !== null && (
+            <div className={styles.change}>
+              <span
+                className={`${styles.changeLetter} ${change.status === "A" ? styles.changeAdded : ""} ${change.uncommitted ? styles.changeUncommitted : ""}`}
+                aria-hidden="true"
+              >
+                {change.status}
+              </span>
+              {changeSentence(change)}
+            </div>
+          )}
           {commit !== null && <div className={styles.commit}>{commitSentence(commit)}</div>}
         </div>
       )}
@@ -153,9 +164,16 @@ export function FolderCard({
         {highlighted > 0 && ` · ${highlighted} with highlights`}
       </div>
       {repository !== null && (
-        <div className={styles.detail}>
-          {branchSentence(repository)}
-          {repository.mainCheckout !== null && ` · worktree of ${folderName(repository.mainCheckout)}`}
+        <div className={styles.branchLine}>
+          {/* A pill like VS Code's git graph; the sentence is for screen readers */}
+          <span className={styles.branch} aria-label={branchSentence(repository)}>
+            {repository.mainCheckout !== null ? <WorktreeIcon size={12} /> : <BranchIcon size={12} />}
+            <span aria-hidden="true">{repository.branch ?? repository.head ?? "HEAD"}</span>
+          </span>
+          {repository.branch === null && <span className={styles.branchNote}>detached</span>}
+          {repository.mainCheckout !== null && (
+            <span className={styles.branchNote}>worktree of {folderName(repository.mainCheckout)}</span>
+          )}
         </div>
       )}
     </>

@@ -65,6 +65,10 @@ turns them into the next release's section.
 - In a note's replies, the author's name (**You**, **Claude Code**) is
   bold, so each turn of the conversation stands out.
 
+- A folder's hover card shows its branch as a pill, with a worktree icon
+  in a linked worktree. A document's hover card sets its change on the
+  branch apart, with the **A** or **M** badge in the list's colours.
+
 - **Settings → Review notes** is kept in `settings.json` in the desktop app
   (`reviewIntroOn`, `reviewIntro`), so Folio's MCP server starts the notes
   it gives an agent the same way. What you set in an earlier version is
