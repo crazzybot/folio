@@ -225,6 +225,26 @@ export interface GitWorktree {
   current: boolean;
 }
 
+/** A document changed on the branch (desktop/src/git.ts). */
+export interface GitChange {
+  /** Its workspace location. */
+  location: string;
+  /** Added or modified since the merge base with the base branch. */
+  status: "A" | "M";
+  /** Whether it has changes that aren't committed (untracked counts). */
+  uncommitted: boolean;
+}
+
+/** The last commit that touched a document (desktop/src/git.ts). */
+export interface GitLastCommit {
+  subject: string;
+  author: string;
+  /** ISO 8601. */
+  date: string;
+  /** Whether its message has a `Co-Authored-By: Claude` trailer. */
+  withClaude: boolean;
+}
+
 /** A git repository of the workspace (desktop/src/git.ts). */
 export interface GitRepository {
   /** Its root's workspace location ("projects/api"); "" for the repository the workspace is in. */
@@ -235,11 +255,15 @@ export interface GitRepository {
   branch: string | null;
   /** The short commit of HEAD; null before the first commit. */
   head: string | null;
-  /** "origin/main", "main" or "master"; null when there's none of those. */
+  /** The branch it's compared with: chosen in the branch menu, else "origin/main", "main" or "master"; null when none. */
   base: string | null;
+  /** Whether `base` was chosen in the branch menu rather than found. */
+  baseChosen: boolean;
   /** For a linked worktree, the path of the main checkout; else null. */
   mainCheckout: string | null;
   worktrees: GitWorktree[];
+  /** Markdown documents in the workspace changed on the branch. */
+  changes: GitChange[];
 }
 
 export interface GitState {

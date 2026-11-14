@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { branchLabel, branchSentence, isOnBase, repositoryAtFolder, repositoryOf } from "./git";
-import type { GitRepository, GitState } from "./types";
+import { branchLabel, branchSentence, changeSentence, changesById, commitSentence, isOnBase, repositoryAtFolder, repositoryOf } from "./git";
+import type { DocumentMeta, GitRepository, GitState } from "./types";
 
 function repo(location: string, changes: Partial<GitRepository> = {}): GitRepository {
   return {
@@ -9,8 +9,10 @@ function repo(location: string, changes: Partial<GitRepository> = {}): GitReposi
     branch: "main",
     head: "1a2b3c4",
     base: "main",
+    baseChosen: false,
     mainCheckout: null,
     worktrees: [],
+    changes: [],
     ...changes,
   };
 }
@@ -66,5 +68,53 @@ describe("branches", () => {
     expect(isOnBase(repo("", { branch: "feature/x", base: "origin/main" }))).toBe(false);
     expect(isOnBase(repo("", { branch: null }))).toBe(false);
     expect(isOnBase(repo("", { branch: "feature/x", base: null }))).toBe(true);
+  });
+});
+
+describe("changesById", () => {
+  const doc = (location: string) => ({ id: `id-${location}`, location }) as DocumentMeta;
+
+  it("finds each listed document's change, in any repository", () => {
+    const changed: GitState = {
+      repositories: [
+        repo("", { changes: [{ location: "docs/spec.md", status: "A", uncommitted: false }] }),
+        repo("api", { changes: [{ location: "api/README.md", status: "M", uncommitted: true }] }),
+      ],
+    };
+    const byId = changesById(changed, [doc("docs/spec.md"), doc("api/README.md"), doc("notes.md")]);
+    expect([...(byId ?? [])]).toEqual([
+      ["id-docs/spec.md", { location: "docs/spec.md", status: "A", uncommitted: false }],
+      ["id-api/README.md", { location: "api/README.md", status: "M", uncommitted: true }],
+    ]);
+  });
+
+  it("is null without git state, so the filter is left out", () => {
+    expect(changesById(null, [doc("a.md")])).toBeNull();
+  });
+});
+
+describe("changeSentence", () => {
+  it("says how a document changed on the branch", () => {
+    expect(changeSentence({ location: "a.md", status: "A", uncommitted: false })).toBe("Added on this branch");
+    expect(changeSentence({ location: "a.md", status: "M", uncommitted: true })).toBe(
+      "Modified on this branch, with uncommitted changes",
+    );
+  });
+});
+
+describe("commitSentence", () => {
+  const now = new Date("2026-11-13T12:00:00Z");
+
+  it("names the subject, author and day, and Claude when it co-wrote it", () => {
+    const commit = { subject: "Retry budget", author: "Ada", date: "2026-11-03T10:00:00Z", withClaude: true };
+    const sentence = commitSentence(commit, now);
+    expect(sentence.startsWith("Retry budget · Ada · ")).toBe(true);
+    expect(sentence.endsWith(" · with Claude")).toBe(true);
+    expect(sentence).not.toContain("2026");
+  });
+
+  it("adds the year for an older commit and leaves out a date it can't read", () => {
+    expect(commitSentence({ subject: "s", author: "a", date: "2024-02-01T10:00:00Z", withClaude: false }, now)).toContain("2024");
+    expect(commitSentence({ subject: "s", author: "a", date: "", withClaude: false }, now)).toBe("s · a");
   });
 });

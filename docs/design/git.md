@@ -1,12 +1,14 @@
 # Git: branches and worktrees
 
-Status: implemented (2026-11-13). Branches and worktrees are desktop only;
-marks on other branches are kept by the desktop app and the MCP server.
+Status: implemented (2026-11-13). Branches, worktrees and the documents
+changed on a branch are desktop only; marks on other branches are kept by
+the desktop app and the MCP server.
 
 Specs and ADRs live in repositories, and coding agents write them on
 branches, often in worktrees of their own. Folio shows what's on disk; this
-tells the reader which branch that is, lets them move between worktrees,
-and keeps marks safe when a branch switch makes documents disappear.
+tells the reader which branch that is and which documents it changed, lets
+them move between worktrees, and keeps marks safe when a branch switch
+makes documents disappear.
 
 ## Decisions
 
@@ -15,8 +17,9 @@ and keeps marks safe when a branch switch makes documents disappear.
 | How Folio reads git | The `git` command, with `execFile` (no shell), a 5 s timeout and an output limit. Without git the feature is hidden |
 | Writes | None. Every command is a query, run with `GIT_OPTIONAL_LOCKS=0` so not even git's index is refreshed |
 | Which repositories | The one containing the workspace folder, and nested ones: a folder that holds documents, or is above them, with a `.git` of its own |
-| Base branch | `origin/HEAD` if set, else `main`, else `master` |
-| Refresh | When the workspace's Markdown changes, when a repository's git folder (`HEAD`) or list of worktrees changes (watched apart: the workspace watcher skips `.git`), and when a window is focused |
+| Base branch | Chosen in the branch menu (**Compare With**), else `origin/HEAD` if set, else `main`, else `master`. A choice is kept per repository, by its main checkout, so its worktrees share it; a chosen branch that's since been deleted falls back to the one found |
+| Changed on the branch | Committed since the merge base with the base branch, plus uncommitted and untracked changes. On the base branch, only the uncommitted |
+| Refresh | When the workspace's Markdown changes, when a repository's git folder (`HEAD`, `index`: a checkout, a commit, staging) or list of worktrees changes (watched apart: the workspace watcher skips `.git`), and when a window is focused |
 | Platforms | Desktop. The browser build and the live demo have no git state. The MCP server uses git only to keep marks on other branches (below) |
 
 Finding git: GUI apps on macOS don't get the shell's `PATH`, so Homebrew's
@@ -30,7 +33,9 @@ installed, so Folio never makes that dialog appear.
   repository (the workspace's, unless the document is in a nested one), or
   the short commit when HEAD is detached, and a worktree icon when it's a
   linked worktree (`--git-dir` differs from `--git-common-dir`).
-- Clicking it opens a native menu: the repository and its base branch, its
+- Clicking it opens a native menu: the repository, **Compare With** (the
+  base branch, checked, then **Default Branch** when one was chosen, then
+  the local and `origin` branches most recently committed first), its
   **Worktrees** (from `git worktree list --porcelain`, the current one
   checked), and **Copy Branch Name**. Choosing a worktree opens it as the
   workspace: the same folder inside it when the workspace is a folder of
@@ -38,6 +43,30 @@ installed, so Folio never makes that dialog appear.
 
 ## Document list
 
+- **Changed on this branch** in the filter menu (a Git section, beside
+  Unread) lists the documents changed on the branch, counted in the focused
+  folder. Unlike Unread it doesn't keep the open document listed: nothing
+  about reading it changes whether it changed on the branch. Before the git
+  state arrives, or without git, the filter is left out rather than
+  emptying the list.
+- A letter after a changed document's title: **A** added, **M** modified,
+  as in VS Code's explorer, in italics when the document has changes that
+  aren't committed (untracked counts). A document added on the branch and
+  edited since stays **A**. Deleted documents aren't listed, so they get
+  none. The list comes from:
+
+  ```
+  git diff --name-status --no-renames -z <merge-base> HEAD -- <workspace>
+  git status --porcelain=v1 -z --no-renames --untracked-files=all -- <workspace>
+  ```
+
+  run in each repository and limited to the part the workspace shows, then
+  to Markdown files. Renames count as an added file (and a deleted one).
+- A document's hover card says how it changed on the branch, and the last
+  commit that touched it: subject, author and day (`git log -1`), and "with
+  Claude" when the message has a `Co-Authored-By: Claude …` trailer, since
+  whether an agent wrote a change is worth knowing when reviewing it. It's
+  asked for when the card opens and kept until the git state changes.
 - A folder row that's a nested repository's root gets a branch icon when
   that repository isn't on its base branch or is detached, and a worktree
   icon instead when it's a linked worktree. A row can stand for a merged
@@ -72,9 +101,14 @@ content match (marks.md) could move its marks to a different file. So:
   queue per repository so its commands run one at a time, `rev-parse` for
   a repository's folders, and `filesOnOtherBranches`.
 - `desktop/src/git.ts`: reading a repository (`symbolic-ref`, the base
-  branch, `worktree list`), and `GitTracker`, which keeps the state,
-  watches the git folders and reports changes.
-- IPC: `git:state` (the repositories), pushed again as `git:changed`;
-  `git:menu` opens the branch menu at a point in the window.
-- `frontend/src/git.ts`: which repository a document or folder is in, and
-  the `useGitState` hook.
+  branch, `worktree list`, the changed documents), the last commit of a
+  file, and `GitTracker`, which keeps the state, watches the git folders
+  and reports changes. `desktop/src/gitBases.ts` keeps the chosen base
+  branches in `git-bases.json` in the app's data folder.
+- IPC: `git:state` (the repositories, each with its changed documents by
+  workspace location), pushed again as `git:changed`; `git:menu` opens the
+  branch menu at a point in the window; `git:last-commit` for a document's
+  hover card.
+- `frontend/src/git.ts`: which repository a document or folder is in, the
+  changes by document ID, and the `useGitState` hook. The filter is in
+  `metaFilter.ts` with the others, remembered per workspace.

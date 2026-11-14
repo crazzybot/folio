@@ -149,9 +149,11 @@ contextBridge.exposeInMainWorld("markdownApi", {
       };
     },
   },
-  /** The workspace's git repositories: branches and worktrees (see git.ts). */
+  /** The workspace's git repositories: branches, worktrees and changed documents (see git.ts). */
   git: {
     state: () => ipcRenderer.invoke("git:state"),
+    /** The last commit that touched a document, for its hover card. */
+    lastCommit: (docId: string) => ipcRenderer.invoke("git:last-commit", docId),
     /** The branch menu of the repository at `location`, at the point (x, y). */
     showMenu: (location: string, x: number, y: number) => ipcRenderer.invoke("git:menu", location, x, y),
     /** Subscribe to changes (a checkout, a new worktree); returns an unsubscribe function. */
