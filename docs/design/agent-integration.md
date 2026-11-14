@@ -39,6 +39,10 @@ next round.
   **Reply** opens a box under them (`⌘↩` / `Ctrl+Enter` sends); the reply is
   the user's, and the note is open again. Only the MCP server writes an
   agent's replies: the app's IPC always signs them as the user.
+- **Editing a reply**: the user's latest reply has **Edit** until someone
+  answers it (the store refuses an edit of any other reply). It keeps its
+  id, takes the edit's time, and opens the note again so the new wording
+  goes with the next round.
 - **New replies**: an agent's or imported reply after the thread's `seen`
   time. Opening the note's popover (or the note on the document) sets
   `seen`. Until then, its margin icon has a dot and its Marks view row a
@@ -59,8 +63,9 @@ next round.
 | `folio_reply` | `noteId` or `path`, `text`, `addressed?` | What happened to the note |
 
 - The notes are formatted by the core (`reviewNotes.ts`), shared with Copy
-  review notes. For the agent, each location line ends with the note's id,
-  and the replies follow the note:
+  review notes. The replies follow the note in both, so a note answered back
+  and forth reaches the agent as the whole thread. For the agent, each
+  location line also ends with the note's id:
 
   ```
   2. /Users/me/app/docs/adr/0003-event-store.md:57-59 · Decision › Consequences · note a1b2c3d4

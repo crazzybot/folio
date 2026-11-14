@@ -139,6 +139,8 @@ contextBridge.exposeInMainWorld("markdownApi", {
     unsend: (round: unknown) => ipcRenderer.invoke("marks:unsend", round),
     reply: (docId: string, highlightId: string | null, text: string) =>
       ipcRenderer.invoke("marks:reply", docId, highlightId, text),
+    editReply: (docId: string, highlightId: string | null, replyId: string, text: string) =>
+      ipcRenderer.invoke("marks:editReply", docId, highlightId, replyId, text),
     markSeen: (docId: string, highlightId: string | null) => ipcRenderer.invoke("marks:seen", docId, highlightId),
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */
     onChange: (callback: () => void) => {

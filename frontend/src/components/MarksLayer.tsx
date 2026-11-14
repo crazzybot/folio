@@ -193,6 +193,8 @@ interface MarksLayerProps {
   rounds?: readonly Round[] | undefined;
   /** The user's reply to a highlight's note. */
   onReply: (id: string, text: string) => void;
+  /** The user's latest reply to a highlight's note, changed. */
+  onEditReply: (id: string, replyId: string, text: string) => void;
   /** The user saw a highlight's thread (its popover opened with new replies). */
   onSeen: (id: string) => void;
   onToggleBookmark: (heading: BookmarkHeading) => void;
@@ -223,6 +225,7 @@ export default function MarksLayer({
   onSetLoop,
   rounds,
   onReply,
+  onEditReply,
   onSeen,
   onToggleBookmark,
   onPainted,
@@ -947,7 +950,13 @@ export default function MarksLayer({
 
           {/* The thread: a note in the loop, or one that has replies */}
           {draft === null && (!isPrivate(current) || (current.replies?.length ?? 0) > 0) && (
-            <NoteThread key={current.id} thread={current} onReply={(text) => onReply(current.id, text)} onWritingChange={setReplying} />
+            <NoteThread
+              key={current.id}
+              thread={current}
+              onReply={(text) => onReply(current.id, text)}
+              onEditReply={(replyId, text) => onEditReply(current.id, replyId, text)}
+              onWritingChange={setReplying}
+            />
           )}
 
           {draft === null && <LoopRow highlight={current} rounds={rounds} onSetLoop={(changes) => onSetLoop(current.id, changes)} />}

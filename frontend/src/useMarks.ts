@@ -14,6 +14,7 @@ import {
   deleteBookmark,
   deleteDocumentNote,
   deleteHighlight,
+  editNoteReply,
   fetchMarks,
   forgetMarks,
   markNoteSeen,
@@ -79,6 +80,8 @@ export interface Marks {
    * note is open again, to go with the next round.
    */
   reply(docId: string, highlightId: string | null, text: string): Promise<void>;
+  /** Change the user's latest reply to a note, while nobody has answered it. The note is open again. */
+  editReply(docId: string, highlightId: string | null, replyId: string, text: string): Promise<void>;
   /** Record that the user saw a note's thread: its new replies are no longer new. */
   markSeen(docId: string, highlightId: string | null): Promise<void>;
   /** Bookmark the document (`heading` null) or a heading, or remove that bookmark. */
@@ -249,6 +252,15 @@ export default function useMarks(): Marks {
     [update, saved, failed],
   );
 
+  const editReply = useCallback(
+    (docId: string, highlightId: string | null, replyId: string, text: string) =>
+      editNoteReply(docId, highlightId, replyId, text).then((note) => {
+        if (highlightId === null) update(docId, (m) => withNote(m, note as DocumentNote));
+        else saved(docId)(note as Highlight);
+      }, failed("save the reply")),
+    [update, saved, failed],
+  );
+
   // Seen is shown at once (the new-reply dots go), then saved
   const markSeen = useCallback(
     (docId: string, highlightId: string | null) => {
@@ -346,6 +358,7 @@ export default function useMarks(): Marks {
     send,
     unsend,
     reply,
+    editReply,
     markSeen,
     toggleBookmark,
     removeBookmark,

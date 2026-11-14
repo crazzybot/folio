@@ -172,4 +172,14 @@ describe("DemoMarks", () => {
     expect(() => marks.reply("b", "s1", "  ")).toThrow();
     expect(() => marks.reply("a", null, "Hi")).toThrow();
   });
+
+  it("edits the visitor's latest reply until someone answers it", () => {
+    const marks = new DemoMarks(listed, seed, memoryStorage());
+    const mine = marks.reply("b", "s1", "Not quite.").replies?.[0]?.id ?? "";
+    marks.updateHighlight("b", "s1", { state: "sent" });
+    const edited = marks.editReply("b", "s1", mine, "Not yet.");
+    expect([edited.state, edited.replies?.map((r) => r.text)]).toEqual([undefined, ["Not yet."]]);
+    expect(() => marks.editReply("b", "s1", mine, " ")).toThrow();
+    expect(() => marks.editReply("b", "s1", "gone", "Hi")).toThrow();
+  });
 });

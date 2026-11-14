@@ -34,6 +34,7 @@ interface DocumentNoteEditorProps {
   onSetState: (state: NoteState) => void;
   /** The user's reply to the note, and that they saw its thread (docs/design/agent-integration.md). */
   onReply: (text: string) => void;
+  onEditReply: (replyId: string, text: string) => void;
   onSeen: () => void;
   onClose: () => void;
 }
@@ -52,6 +53,7 @@ export default function DocumentNoteEditor({
   onRemove,
   onSetState,
   onReply,
+  onEditReply,
   onSeen,
   onClose,
 }: DocumentNoteEditorProps): React.ReactElement {
@@ -203,7 +205,7 @@ export default function DocumentNoteEditor({
       {/* The thread: the saved note's, while it's sent to the agent or has replies */}
       {note !== undefined && (!locked || (note.replies?.length ?? 0) > 0) && (
         <div className={styles.thread}>
-          <NoteThread thread={note} onReply={onReply} />
+          <NoteThread thread={note} onReply={onReply} onEditReply={onEditReply} />
         </div>
       )}
 

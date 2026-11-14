@@ -46,6 +46,7 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
       send: (docs, markSent) => api.marks.send(docs, markSent),
       unsend: (round) => api.marks.unsend(round),
       reply: (docId, highlightId, text) => api.marks.reply(docId, highlightId, text),
+      editReply: (docId, highlightId, replyId, text) => api.marks.editReply(docId, highlightId, replyId, text),
       markSeen: (docId, highlightId) => api.marks.markSeen(docId, highlightId),
     },
   };
@@ -88,6 +89,7 @@ const unavailableSource: DataSource = {
     send: unavailable,
     unsend: unavailable,
     reply: unavailable,
+    editReply: unavailable,
     markSeen: unavailable,
   },
 };
@@ -212,6 +214,16 @@ export async function unsendNotes(round: SentRound): Promise<void> {
 /** Reply to a highlight's note (null: the document's note), as the user. */
 export async function replyToNote(docId: string, highlightId: string | null, text: string): Promise<Highlight | DocumentNote> {
   return source.marks.reply(docId, highlightId, text);
+}
+
+/** Change the user's latest reply to a note (highlightId null: the document's note). */
+export async function editNoteReply(
+  docId: string,
+  highlightId: string | null,
+  replyId: string,
+  text: string,
+): Promise<Highlight | DocumentNote> {
+  return source.marks.editReply(docId, highlightId, replyId, text);
 }
 
 /** Record that the user saw a note's thread. */

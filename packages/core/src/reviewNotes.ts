@@ -199,13 +199,14 @@ function shorten(quote: string): string {
  * quote and the note, or "(no comment)". Several documents get a `## path`
  * heading each. `intro`: the opening line, with {documents} replaced by the
  * file name or "3 documents"; undefined for the default, null for none.
- * `threads`: for an agent that answers in Folio, each note's id on its
- * location line, and the replies so far under each note.
+ * The replies so far follow each note, so a note answered back and forth
+ * reaches the agent as the whole thread. `noteIds`: for an agent that
+ * answers in Folio, each note's id on its location line.
  */
 export function formatReviewNotes(
   documents: readonly ReviewDocument[],
   intro?: string | null,
-  { threads = false }: { threads?: boolean } = {},
+  { noteIds = false }: { noteIds?: boolean } = {},
 ): ReviewNotes {
   const out: string[] = [];
   const notes: ReviewNote[] = [];
@@ -245,7 +246,7 @@ export function formatReviewNotes(
     if (comment !== null) {
       const [first = "", ...rest] = comment.split(/\r?\n/);
       out.push(`Overall: ${first}`, ...rest);
-      if (threads) out.push(...replyLines(doc.note?.replies, ""));
+      out.push(...replyLines(doc.note?.replies, ""));
       out.push("");
     }
 
@@ -264,7 +265,7 @@ export function formatReviewNotes(
             ? `:${where.startLine}-${where.endLine}`
             : `:${where.startLine}`;
       const section = where !== null && where.section.length > 0 ? ` · ${where.section.join(" › ")}` : "";
-      const id = threads ? ` · note ${shortNoteId(h.id)}` : "";
+      const id = noteIds ? ` · note ${shortNoteId(h.id)}` : "";
       out.push(`${marker}${doc.path}${lines}${section}${id}`);
       for (const line of shorten(h.quote.exact).split(/\r?\n/)) {
         out.push(line.trim() === "" ? `${indent}>` : `${indent}> ${line}`);
@@ -273,7 +274,7 @@ export function formatReviewNotes(
       const note = h.note?.trim() ? h.note.trim() : "(no comment)";
       for (const line of note.split(/\r?\n/)) out.push(line.trim() === "" ? "" : `${indent}${line}`);
       if (h.author?.kind === "github") out.push(`${indent}— @${h.author.login}`);
-      if (threads) out.push(...replyLines(h.replies, indent));
+      out.push(...replyLines(h.replies, indent));
 
       notes.push({ docId: doc.docId, highlightId: h.id, lines: { start, end: out.length }, located: where !== null });
       out.push("");

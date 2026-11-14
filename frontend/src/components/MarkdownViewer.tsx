@@ -111,6 +111,7 @@ export interface MarkHandlers {
   setLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
   /** The user's reply to a note, and that they saw its thread (docs/design/agent-integration.md). */
   reply: (id: string, text: string) => void;
+  editReply: (id: string, replyId: string, text: string) => void;
   markSeen: (id: string) => void;
   toggleHeadingBookmark: (heading: BookmarkHeading) => void;
   /** The document's latest rounds, for when a note was sent. */
@@ -1175,6 +1176,7 @@ export default function MarkdownViewer({
               onSetLoop={markHandlers.setLoop}
               rounds={markHandlers.rounds}
               onReply={markHandlers.reply}
+              onEditReply={markHandlers.editReply}
               onSeen={markHandlers.markSeen}
               onToggleBookmark={markHandlers.toggleHeadingBookmark}
               onPainted={handlePainted}

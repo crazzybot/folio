@@ -466,6 +466,34 @@ describe("threads", () => {
     expect(await refusal(() => store.reply(PLAIN, null, { author: CLAUDE, text: "Hi" }))).toBe(404);
   });
 
+  it("edits the user's latest reply until someone answers it", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "Why?" }));
+    const asked = await store.reply(PLAIN, a.id, { author: CLAUDE, text: "Which part?" });
+    const answered = await store.reply(PLAIN, a.id, { author: { kind: "user" }, text: "The frist one." });
+    const mine = answered.replies?.[1]?.id ?? "";
+    await store.send(PLAIN, { roundId: ROUND, highlightIds: [a.id] });
+
+    // Sent before the edit: open again, so the new wording goes next round
+    const edited = await store.editReply(PLAIN, a.id, mine, { text: "The first one." });
+    expect(edited.replies?.map((r) => r.text)).toEqual(["Which part?", "The first one."]);
+    expect(edited.replies?.[1]?.id).toBe(mine);
+    expect("state" in edited).toBe(false);
+
+    // The agent's reply isn't the user's to edit, and an answered one stays
+    expect(await refusal(() => store.editReply(PLAIN, a.id, asked.replies?.[0]?.id ?? "", { text: "No" }))).toBe(409);
+    await store.reply(PLAIN, a.id, { author: CLAUDE, text: "Done.", addressed: true });
+    expect(await refusal(() => store.editReply(PLAIN, a.id, mine, { text: "Both." }))).toBe(409);
+    expect(await refusal(() => store.editReply(PLAIN, a.id, "gone", { text: "Both." }))).toBe(404);
+    expect(await refusal(() => store.editReply(PLAIN, a.id, mine, { text: " " }))).toBe(400);
+  });
+
+  it("edits the user's reply to the document's note", async () => {
+    await store.setNote(BLANK_DOC, { text: "Overall fine.", requestedStatus: null });
+    const note = await store.reply(BLANK_DOC, null, { author: { kind: "user" }, text: "Also the title." });
+    const edited = await store.editReply(BLANK_DOC, null, note.replies?.[0]?.id ?? "", { text: "Also the intro." });
+    expect(edited.replies?.[0]?.text).toBe("Also the intro.");
+  });
+
   it("marks a thread seen without changing the note", async () => {
     const a = await store.addHighlight(PLAIN, highlight({ note: "Why?" }));
     await store.markSeen(PLAIN, a.id);

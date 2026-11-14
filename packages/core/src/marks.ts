@@ -211,6 +211,27 @@ function withReply<T extends Thread & { state?: NoteState; private?: boolean }>(
   return { ...withLoop(mark, { state: addressed ? "addressed" : "open" }), replies: [...replies, reply] };
 }
 
+/**
+ * `mark` with its last reply's text changed to `text`. Only the user's own
+ * reply, and only while nobody has answered it: a reply already answered
+ * stays as it was. The note is open again, so the new wording goes with the
+ * next round.
+ */
+function withEditedReply<T extends Thread & { state?: NoteState; private?: boolean }>(
+  mark: T,
+  replyId: string,
+  text: string,
+  at: string,
+): T {
+  const replies = mark.replies ?? [];
+  const last = replies[replies.length - 1];
+  if (!replies.some((r) => r.id === replyId)) throw new MarkError(404, `Reply '${replyId}' not found`);
+  if (last?.id !== replyId || last.author.kind !== "user") {
+    throw new MarkError(409, "Only your latest reply can be edited, while it has no answer");
+  }
+  return { ...withLoop(mark, { state: "open" }), replies: [...replies.slice(0, -1), { ...last, text, at }] };
+}
+
 function requestedStatus(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   const text = string(value, "requestedStatus", MAX_REQUESTED_STATUS).trim();
@@ -585,6 +606,34 @@ export class MarksStore {
       }
       const old = find(record, highlightId);
       const highlight = { ...withReply(old, reply, addressed), updated: reply.at };
+      const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? highlight : h));
+      await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
+      return highlight;
+    });
+  }
+
+  /**
+   * Change the text (`{text}`) of the user's reply `replyId` to highlight
+   * `highlightId`'s note (null: the document's note). Only the thread's
+   * latest reply, and only the user's. Resolves to the note with its replies.
+   */
+  editReply(file: string, highlightId: string | null, replyId: string, body: unknown): Promise<Highlight | DocumentNote> {
+    if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
+    const text = string(body["text"], "text", MAX_REPLY, 1);
+    if (text.trim() === "") throw new MarkError(400, "text must not be blank");
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = await this.writable(id);
+      const at = now();
+      if (highlightId === null) {
+        const old = storedNote(record?.documentNote);
+        if (record === null || old === null) throw new MarkError(404, "The document has no note");
+        const note = { ...withEditedReply(old, replyId, text, at), updated: at };
+        await this.write(id, await refreshed(withNote(record, note), file));
+        return note;
+      }
+      const old = find(record, highlightId);
+      const highlight = { ...withEditedReply(old, replyId, text, at), updated: at };
       const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? highlight : h));
       await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
       return highlight;

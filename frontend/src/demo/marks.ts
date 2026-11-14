@@ -288,6 +288,22 @@ export class DemoMarks {
     return structuredClone(target);
   }
 
+  /** The visitor's latest reply, changed while nobody has answered it, as the desktop store does: the note is open again. */
+  editReply(docId: string, highlightId: string | null, replyId: string, text: string): Highlight | DocumentNote {
+    if (text.trim() === "") throw new Error("A reply needs some text");
+    const target = highlightId === null ? this.documents[docId]?.note : this.highlight(docId, highlightId);
+    if (target === undefined) throw new Error("The document has no note");
+    const replies = target.replies ?? [];
+    const last = replies[replies.length - 1];
+    if (last?.id !== replyId || last.author.kind !== "user") throw new Error("Only your latest reply can be edited");
+    const at = now();
+    target.replies = [...replies.slice(0, -1), { ...last, text, at }];
+    delete target.state;
+    target.updated = at;
+    this.changed(docId);
+    return structuredClone(target);
+  }
+
   markSeen(docId: string, highlightId: string | null): void {
     const target = highlightId === null ? this.documents[docId]?.note : this.highlight(docId, highlightId);
     if (target === undefined) throw new Error("The document has no note");

@@ -230,7 +230,7 @@ export class Folio {
     const formatted = formatReviewNotes(
       picked.map((p) => p.review),
       reviewIntroSetting(this.settings()),
-      { threads: true },
+      { noteIds: true },
     );
     const roundId = newRoundId();
     for (const p of picked) {

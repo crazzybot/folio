@@ -447,6 +447,18 @@ function registerIpcHandlers(): void {
     notifyMarksChanged();
     return note;
   });
+  // Only the user's latest reply, while nobody has answered it (the store checks)
+  ipcMain.handle(
+    "marks:editReply",
+    async (event, docId: unknown, highlightId: unknown, replyId: unknown, text: unknown): Promise<Highlight | DocumentNote> => {
+      assertTrustedSender(event);
+      if (highlightId !== null && typeof highlightId !== "string") throw new Error("Highlight id must be a string or null");
+      if (typeof replyId !== "string") throw new Error("Reply id must be a string");
+      const note = await marks.editReply(await markedDocument(docId), highlightId, replyId, { text });
+      notifyMarksChanged();
+      return note;
+    },
+  );
   ipcMain.handle("marks:seen", async (event, docId: unknown, highlightId: unknown): Promise<void> => {
     assertTrustedSender(event);
     if (highlightId !== null && typeof highlightId !== "string") throw new Error("Highlight id must be a string or null");

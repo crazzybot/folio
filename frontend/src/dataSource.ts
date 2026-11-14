@@ -65,6 +65,8 @@ export interface DataSource {
     unsend(round: SentRound): Promise<void>;
     /** The user's reply to a highlight's note (highlightId null: the document's note); resolves to the note. */
     reply(docId: string, highlightId: string | null, text: string): Promise<Highlight | DocumentNote>;
+    /** Change the user's latest reply to a note, while nobody has answered it; resolves to the note. */
+    editReply(docId: string, highlightId: string | null, replyId: string, text: string): Promise<Highlight | DocumentNote>;
     /** Record that the user saw a note's thread. */
     markSeen(docId: string, highlightId: string | null): Promise<void>;
   };

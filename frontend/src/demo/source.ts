@@ -107,6 +107,7 @@ export function createDemoSource(base: string, storage: MarksStorage | null = br
       send: async (docs, markSent) => (await marks()).send(docs, markSent),
       unsend: async (round) => (await marks()).unsend(round),
       reply: async (docId, highlightId, text) => (await marks()).reply(docId, highlightId, text),
+      editReply: async (docId, highlightId, replyId, text) => (await marks()).editReply(docId, highlightId, replyId, text),
       markSeen: async (docId, highlightId) => (await marks()).markSeen(docId, highlightId),
     },
     // The marks and the read records: the seeded round shows again

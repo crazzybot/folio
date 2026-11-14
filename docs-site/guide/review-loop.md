@@ -68,11 +68,15 @@ when it was written.
 - **Reply.** Click **Reply** under a note to answer, and **Send** (`⌘↩` /
   `Ctrl+Enter`). Your reply opens the note again, so it goes with the next
   round.
+- **Edit your reply.** Until someone answers it, your latest reply has an
+  **Edit** link. **Save** (`⌘↩` / `Ctrl+Enter`) opens the note again, so
+  the new wording goes with the next round.
 
 ## What the agent receives
 
 The copied text is Markdown. Each note has the document's file path and line
-(`/path/to/spec.md:42`), its section, the quoted passage and your note.
+(`/path/to/spec.md:42`), its section, the quoted passage and your note,
+followed by its replies so far, yours and the agent's.
 Highlights without a note, and notes marked **Only me**, are never sent.
 
 `⇧⌘C` / `Ctrl+Shift+C` copies the unsent notes without opening the dialog.

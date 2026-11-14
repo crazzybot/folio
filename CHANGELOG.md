@@ -8,6 +8,17 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Added
+
+- **Edit your reply.** Your latest reply to a note has an **Edit** link
+  until someone answers it. The note opens again, so the new wording goes
+  with the next round.
+
+### Fixed
+
+- The **Send review notes** dialog gives a note's replies too, so the agent
+  gets the whole thread after you answer it, not just the first comment.
+
 ## [0.7.0] — 2026-11-14
 
 ### Added
