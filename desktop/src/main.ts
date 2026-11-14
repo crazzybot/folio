@@ -533,15 +533,22 @@ function registerIpcHandlers(): void {
   // in Finder are done here
   ipcMain.handle(
     "folder:context-menu",
-    async (event, location: unknown, hasUnread: unknown): Promise<"focus" | "mark-read" | null> => {
+    async (event, location: unknown, hasUnread: unknown, repositoryAt: unknown): Promise<"focus" | "mark-read" | null> => {
       assertTrustedSender(event);
       const win = BrowserWindow.fromWebContents(event.sender);
       const folder =
         settings.workspace === null || typeof location !== "string" ? null : await folderInWorkspace(settings.workspace, location);
       if (win === null || folder === null) return null;
+      // A nested repository's root: its base branch is chosen here too, beside its documents
+      const repository =
+        typeof repositoryAt === "string" && repositoryAt !== ""
+          ? (await git.current())?.repositories.find((repo) => repo.location === repositoryAt)
+          : undefined;
+      const compare = repository === undefined ? [] : [null, compareWithItem(repository, await branchesOf(repository.root))];
       const choice = await popupChoice<"focus" | "mark-read" | "open" | "reveal">(win, [
         { label: "Focus on Folder", choice: "focus" },
         { label: "Mark All as Read", choice: "mark-read", enabled: hasUnread === true },
+        ...compare,
         null,
         { label: "Open Folder as Workspace", choice: "open" },
         { label: revealLabel(), choice: "reveal" },
@@ -632,19 +639,23 @@ function registerIpcHandlers(): void {
 }
 
 /**
- * Show a context menu of `items` (null: a separator) and resolve the choice
- * of the one clicked, or null when the menu closes without one.
+ * Show a context menu of `items` (null: a separator; a plain menu item acts
+ * on its own) and resolve the choice of the one clicked, or null when the
+ * menu closes without one.
  */
 function popupChoice<T>(
   win: BrowserWindow,
-  items: readonly ({ label: string; choice: T; enabled?: boolean } | null)[],
+  items: readonly ({ label: string; choice: T; enabled?: boolean } | MenuItemConstructorOptions | null)[],
 ): Promise<T | null> {
   return new Promise((resolve) => {
     Menu.buildFromTemplate(
       items.map((item): MenuItemConstructorOptions =>
         item === null
           ? { type: "separator" }
-          : { label: item.label, enabled: item.enabled ?? true, click: () => resolve(item.choice) },
+          : // An item that acts on its own (a submenu) rather than resolving a choice
+            !("choice" in item)
+            ? item
+            : { label: item.label, enabled: item.enabled ?? true, click: () => resolve(item.choice) },
       ),
     ).popup({
       window: win,
@@ -746,9 +757,14 @@ async function openWorktree(win: BrowserWindow, repository: Repository, worktree
   await openWorkspace(win, existsSync(sameFolder) ? sameFolder : worktree);
 }
 
-/** The status bar's branch menu: the repository, its worktrees, Copy Branch Name. */
-function branchMenu(win: BrowserWindow, repository: Repository, branches: readonly string[]): MenuItemConstructorOptions[] {
-  const { branch, base, baseChosen, worktrees } = repository;
+/**
+ * Compare <repository> With: the base branch its changes are compared with,
+ * for the branch menu and a nested repository's folder menu. Named, since
+ * the choice applies to every document in the repository, not only the
+ * open one.
+ */
+function compareWithItem(repository: Repository, branches: readonly string[]): MenuItemConstructorOptions {
+  const { branch, base, baseChosen } = repository;
   const mainCheckout = repository.mainCheckout ?? repository.root;
   const compareWith = (choice: string | null) => {
     chooseBase(mainCheckout, choice);
@@ -756,18 +772,25 @@ function branchMenu(win: BrowserWindow, repository: Repository, branches: readon
   };
   // The branch itself isn't offered: nothing would show as changed
   const others = branches.filter((name) => name !== branch && name !== base);
+  const label = `Compare ${path.basename(mainCheckout)} With`;
+  return {
+    label: base === null ? label : `${label}: ${base}`,
+    enabled: base !== null || others.length > 0,
+    submenu: [
+      ...(base === null ? [] : [{ label: base, type: "checkbox" as const, checked: true }]),
+      ...(baseChosen ? [{ label: "Default Branch", click: () => compareWith(null) }] : []),
+      ...(others.length === 0 ? [] : [{ type: "separator" as const }]),
+      ...others.map((name) => ({ label: name, click: () => compareWith(name) })),
+    ],
+  };
+}
+
+/** The status bar's branch menu: the repository, Compare With, its worktrees, Copy Branch Name. */
+function branchMenu(win: BrowserWindow, repository: Repository, branches: readonly string[]): MenuItemConstructorOptions[] {
+  const { branch, worktrees } = repository;
   const items: MenuItemConstructorOptions[] = [
-    { label: path.basename(mainCheckout), enabled: false },
-    {
-      label: base === null ? "Compare With" : `Compare With: ${base}`,
-      enabled: base !== null || others.length > 0,
-      submenu: [
-        ...(base === null ? [] : [{ label: base, type: "checkbox" as const, checked: true }]),
-        ...(baseChosen ? [{ label: "Default Branch", click: () => compareWith(null) }] : []),
-        ...(others.length === 0 ? [] : [{ type: "separator" as const }]),
-        ...others.map((name) => ({ label: name, click: () => compareWith(name) })),
-      ],
-    },
+    { label: path.basename(repository.mainCheckout ?? repository.root), enabled: false },
+    compareWithItem(repository, branches),
   ];
   if (worktrees.length > 1) {
     items.push({ type: "separator" }, { label: "Worktrees", enabled: false });

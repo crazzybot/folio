@@ -246,7 +246,8 @@
 .statusBranch {
   flex-shrink: 1;
   min-width: 0;
-  max-width: 30%;
+  /* Room for "api · feature/x → main" */
+  max-width: 40%;
   height: 18px;
   margin-left: calc(-1 * var(--space-3));
   padding: 0 var(--space-1);

@@ -16,7 +16,10 @@ turns them into the next release's section.
   in the filter menu lists only those. A document's hover card shows the
   last commit that touched it, and "with Claude" when Claude co-wrote it.
   The branch menu's **Compare With** chooses the branch yours is compared
-  with, remembered for each repository.
+  with, remembered for each repository; a nested repository's folder has it
+  in its context menu too. The status bar, the hover cards and the filter
+  name that branch ("feature/x → main", "Changed since main"), and the
+  status bar names the repository when the workspace holds several.
 
 - **Open and reveal files from the document list** (desktop). Right-click
   a document for **Open in Editor**, named after your editor (**Open in

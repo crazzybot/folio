@@ -136,9 +136,11 @@ interface MarkdownDesktopApi {
    * The context menu of a folder in the document list (workspace location).
    * Resolves "focus" for Focus on Folder, "mark-read" for Mark All as Read
    * (offered when `hasUnread`), else null; Open Folder as Workspace and
-   * Reveal in Finder are handled by the main process.
+   * Reveal in Finder are handled by the main process, as is Compare With
+   * when `repository` is the location of the nested repository whose root
+   * the row shows.
    */
-  showFolderMenu(location: string, hasUnread: boolean): Promise<"focus" | "mark-read" | null>;
+  showFolderMenu(location: string, hasUnread: boolean, repository: string | null): Promise<"focus" | "mark-read" | null>;
   /**
    * The context menu of a document in the list: Mark as Read when `unread`,
    * else Mark as Unread; Open in Editor and Reveal in Finder are handled by
