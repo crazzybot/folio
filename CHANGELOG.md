@@ -62,6 +62,7 @@ turns them into the next release's section.
   is in the review loop (**Not sent**, **Sent**, **Addressed**,
   **Resolved**). Highlights show **Not sent** too. **Save** waits until
   you change something; **Save and Send** until there's something to send.
+  The reply box's button says **Save** whether an agent is Live or not.
 - **Replies show their formatting.** Messages in a note's thread render
   their Markdown (bold, lists, code, quotes), each in its own box. Links
   and images aren't opened or loaded.

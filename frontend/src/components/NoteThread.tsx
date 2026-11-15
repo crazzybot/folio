@@ -17,7 +17,7 @@ import MessageText from "./MessageText";
 import styles from "./NoteThread.module.css";
 
 const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
-const SEND_SHORTCUT = IS_MAC ? "⌘↩" : "Ctrl+Enter";
+const SAVE_SHORTCUT = IS_MAC ? "⌘↩" : "Ctrl+Enter";
 const SEND_NOW_SHORTCUT = IS_MAC ? "⇧⌘↩" : "Ctrl+Shift+Enter";
 
 interface NoteThreadProps {
@@ -129,7 +129,7 @@ export default function NoteThread({
         />
         <div className={styles.actions}>
           <span className={styles.hint}>
-            {SEND_SHORTCUT} to {editing || canSend ? "save" : "send"} · Esc to cancel
+            {SAVE_SHORTCUT} to save · Esc to cancel
           </span>
           {canSend && (
             <button
@@ -143,7 +143,7 @@ export default function NoteThread({
             </button>
           )}
           <button type="button" className={styles.sendBtn} onClick={send} disabled={unchanged}>
-            {editing || canSend ? "Save" : "Send"}
+            Save
           </button>
         </div>
       </div>
