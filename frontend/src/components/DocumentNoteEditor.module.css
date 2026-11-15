@@ -84,15 +84,6 @@
   line-height: 1.45;
 }
 
-.lock {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  cursor: pointer;
-}
-
 /* Where the note is in the review loop, and what can be done */
 /* The replies to the saved note, under the comment */
 .thread {
@@ -100,9 +91,48 @@
   border-top: 1px solid var(--color-border-light);
 }
 
-.loop {
+/* As a highlight's last row (MarksLayer.module.css .loopRow) */
+.loopRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--space-1);
   font-size: var(--text-xs);
   color: var(--color-text-muted);
+}
+
+.loopStatus {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 4px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.lock:hover {
+  background: var(--color-hover-bg);
+}
+
+.lock:focus-visible {
+  outline: 2px solid var(--color-accent);
+}
+
+.lockOn {
+  color: var(--color-text);
 }
 
 .loopBtn {
@@ -145,7 +175,7 @@
   color: #fff;
 }
 
-.saveBtn:hover {
+.saveBtn:hover:not(:disabled) {
   filter: brightness(1.1);
 }
 
@@ -155,6 +185,13 @@
   color: var(--color-text);
 }
 
-.removeBtn:hover {
+.removeBtn:hover:not(:disabled) {
   background: var(--color-hover-bg);
+}
+
+/* Nothing changed yet: nothing to save */
+.saveBtn:disabled,
+.removeBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

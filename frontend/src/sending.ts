@@ -68,23 +68,43 @@ export function feedbackSummary(
 
 const TIME = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-/** When a highlight (null: the note on the document as a whole) was last sent, from the rounds that list it. */
-export function lastSent(rounds: readonly Round[] | undefined, highlightId: string | null): string | null {
-  const round = [...(rounds ?? [])]
+/** The latest round that sent a highlight (null: the note on the document as a whole). */
+function lastRound(rounds: readonly Round[] | undefined, highlightId: string | null): Round | undefined {
+  return [...(rounds ?? [])]
     .reverse()
     .find((r) => (highlightId === null ? r.documentNote === true : r.notes.includes(highlightId)));
+}
+
+/** When a highlight (null: the note on the document as a whole) was last sent, from the rounds that list it. */
+export function lastSent(rounds: readonly Round[] | undefined, highlightId: string | null): string | null {
+  const round = lastRound(rounds, highlightId);
   return round === undefined ? null : TIME.format(new Date(round.at));
 }
 
-/** Where a note is in the review loop, in a sentence: "Sent Nov 11, 10:02 · waiting for the agent". */
-export function loopSentence(kind: NoteIconKind, sent: string | null = null): string {
+/**
+ * The agent working on a sent note ("Claude Code"): it took the round that
+ * last sent it, from a review loop or by fetching it. Null while the notes
+ * wait for it, or when they were copied.
+ */
+export function pickedUpBy(rounds: readonly Round[] | undefined, highlightId: string | null): string | null {
+  const round = lastRound(rounds, highlightId);
+  if (round === undefined || round.client === undefined) return null;
+  return round.via === "mcp" || round.picked !== undefined ? round.client : null;
+}
+
+/**
+ * Where a note is in the review loop, in a sentence: "Sent Nov 11, 10:02 ·
+ * waiting for the agent", or "… · Claude Code is working on it" once
+ * `pickedBy` took it.
+ */
+export function loopSentence(kind: NoteIconKind, sent: string | null = null, pickedBy: string | null = null): string {
   switch (kind) {
     case "private":
       return "Private: only you see it, never sent";
     case "open":
       return "Not sent yet";
     case "sent":
-      return `Sent${sent === null ? "" : ` ${sent}`} · waiting for the agent`;
+      return `Sent${sent === null ? "" : ` ${sent}`} · ${pickedBy === null ? "waiting for the agent" : `${pickedBy} is working on it`}`;
     case "addressed":
       return "Addressed by the agent · resolve or reopen it";
     case "resolved":

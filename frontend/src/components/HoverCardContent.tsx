@@ -2,7 +2,7 @@ import React from "react";
 import { documentsInFolder } from "../documentTree";
 import { branchSentence, commitSentence, folderName, isOnBase } from "../git";
 import { requestDone, statusText } from "../status";
-import { isPrivate, lastSent, loopSentence, needsYou, sendableNote, stateOf } from "../sending";
+import { isPrivate, lastSent, loopSentence, needsYou, pickedUpBy, sendableNote, stateOf } from "../sending";
 import type { NoteIconKind } from "../noteIcons";
 import type { DocumentMeta, DocumentNote, GitChange, GitLastCommit, GitRepository, Highlight, Round } from "../types";
 import { BranchIcon, WorktreeIcon } from "./GitIcons";
@@ -95,11 +95,11 @@ function NoteSummary({ note, status }: { note: DocumentNote; status: string | nu
 }
 
 /** Where a note is in the review loop: its icon and a sentence. */
-function LoopLine({ kind, sent }: { kind: NoteIconKind; sent: string | null }): React.ReactElement {
+function LoopLine({ kind, sent, pickedBy = null }: { kind: NoteIconKind; sent: string | null; pickedBy?: string | null }): React.ReactElement {
   return (
     <div className={`${styles.loop} ${needsYou(kind) ? styles.loopNeedsYou : ""}`}>
       <NoteStateIcon kind={kind} size={12} />
-      {loopSentence(kind, sent)}
+      {loopSentence(kind, sent, pickedBy)}
     </div>
   );
 }
@@ -129,7 +129,11 @@ export function DocumentNoteCard({
         </div>
       )}
       {note.text !== null && <div className={styles.note}>{note.text}</div>}
-      <LoopLine kind={kind} sent={kind === "sent" ? lastSent(rounds, null) : null} />
+      <LoopLine
+        kind={kind}
+        sent={kind === "sent" ? lastSent(rounds, null) : null}
+        pickedBy={kind === "sent" ? pickedUpBy(rounds, null) : null}
+      />
       <div className={styles.path}>{doc.location}</div>
     </>
   );
@@ -214,7 +218,11 @@ export function HighlightCard({
     <>
       <blockquote className={`${styles.quote} ${styles[highlight.color] ?? ""}`}>{highlight.quote.exact}</blockquote>
       {highlight.note !== null && <div className={styles.note}>{highlight.note}</div>}
-      <LoopLine kind={kind} sent={kind === "sent" ? lastSent(rounds, highlight.id) : null} />
+      <LoopLine
+        kind={kind}
+        sent={kind === "sent" ? lastSent(rounds, highlight.id) : null}
+        pickedBy={kind === "sent" ? pickedUpBy(rounds, highlight.id) : null}
+      />
       <div className={styles.path}>{doc.location}</div>
       {unplaced && <div className={styles.detail}>Not found in the current text</div>}
     </>

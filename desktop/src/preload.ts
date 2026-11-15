@@ -182,6 +182,14 @@ contextBridge.exposeInMainWorld("markdownApi", {
         ipcRenderer.removeListener("agents:changed", listener);
       };
     },
+    /** Subscribe to clicks on a reply notification; returns an unsubscribe function. */
+    onShowReplies: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on("replies:show", listener);
+      return () => {
+        ipcRenderer.removeListener("replies:show", listener);
+      };
+    },
   },
   /** Which version of each document was last read (see reads.ts). */
   reads: {

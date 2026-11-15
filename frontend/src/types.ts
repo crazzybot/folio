@@ -176,6 +176,8 @@ export interface Round {
   /** The highlights sent. */
   notes: string[];
   documentNote?: boolean;
+  /** When the agent took the notes (a round via send); absent: not yet. */
+  picked?: string;
 }
 
 export interface DocumentMarks {

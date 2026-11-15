@@ -10,7 +10,7 @@
  * HTML, links that open or images that load.
  */
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { authorName, newReplies, replyTime } from "../threads";
 import type { Author, NoteState, Thread } from "../types";
 import MessageText from "./MessageText";
@@ -53,11 +53,23 @@ export default function NoteThread({
   const replies = thread.replies ?? [];
   // Captured when shown, so the replies stay marked new while the thread is open
   const [fresh] = useState(() => new Set(newReplies(thread).map((r) => r.id)));
+  // As in a messaging app: the latest message in view on opening, and when a reply comes
+  const listRef = useRef<HTMLOListElement>(null);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (list !== null) list.scrollTop = list.scrollHeight;
+  }, [replies.length]);
   // The store refuses an edit once someone has answered, so only the last reply offers it
   const last = replies[replies.length - 1];
   const editable = last?.author.kind === "user" ? last.id : null;
   // Open: not sent yet, so the agent hasn't seen it
   const deletable = (thread.state ?? "open") === "open";
+
+  // Nothing to save: an empty reply, or an edit that changed nothing
+  const unchanged =
+    draft === null ||
+    draft.text.trim() === "" ||
+    (draft.replyId !== null && draft.text.trim() === replies.find((r) => r.id === draft.replyId)?.text);
 
   const write = (next: { text: string; replyId: string | null } | null) => {
     setDraft(next);
@@ -76,7 +88,7 @@ export default function NoteThread({
   const canSend = sendTo !== null && onSaveAndSend !== undefined;
   const saveAndSend = () => {
     const text = draft?.text.trim() ?? "";
-    if (!canSend || draft === null || text === "") return;
+    if (!canSend || draft === null || unchanged) return;
     onSaveAndSend({ text, replyId: draft.replyId });
     write(null);
   };
@@ -124,13 +136,13 @@ export default function NoteThread({
               type="button"
               className={styles.sendNowBtn}
               onClick={saveAndSend}
-              disabled={draft.text.trim() === ""}
+              disabled={unchanged}
               title={`Save, and send this note to ${sendTo} (${SEND_NOW_SHORTCUT})`}
             >
               Save and Send
             </button>
           )}
-          <button type="button" className={styles.sendBtn} onClick={send} disabled={draft.text.trim() === ""}>
+          <button type="button" className={styles.sendBtn} onClick={send} disabled={unchanged}>
             {editing || canSend ? "Save" : "Send"}
           </button>
         </div>
@@ -140,7 +152,7 @@ export default function NoteThread({
   return (
     <div className={styles.thread}>
       {(note !== undefined || replies.length > 0) && (
-        <ol className={styles.replies} aria-label="Replies">
+        <ol ref={listRef} className={styles.replies} aria-label="Replies">
           {note !== undefined && (
             <li className={`${styles.reply} ${(note.author?.kind ?? "user") === "user" ? styles.mine : ""}`}>
               <div className={styles.byline}>

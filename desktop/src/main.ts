@@ -323,6 +323,8 @@ async function checkReplies(): Promise<void> {
     if (win === undefined) return;
     if (win.isMinimized()) win.restore();
     win.focus();
+    // The window opens the first note with new replies, as the status bar's link does
+    win.webContents.send("replies:show");
   });
   notification.show();
 }

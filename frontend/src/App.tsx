@@ -51,7 +51,7 @@ import { branchSentence, changesById, folderName, isOnBase, repositoryOf, status
 import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
-import { defaultSelection, picked, sendDocuments, sendGroups } from "./sending";
+import { defaultSelection, picked, pickedUpBy, sendDocuments, sendGroups } from "./sending";
 import { repliedNotes, repliesSummary } from "./threads";
 import type { Picked, SendItem, StateFilter } from "./sending";
 import styles from "./App.module.css";
@@ -781,14 +781,33 @@ function AppInner(): React.ReactElement {
   const selectedDoc = documents.find((doc) => doc.id === selectedId) ?? null;
 
   // ── Agents' new replies (docs/design/agent-integration.md): the status bar
-  // says who replied to how many notes; each click goes to the next one
+  // says who replied to how many notes; each click opens the first with its
+  // thread (a highlight's popover, or the note on the document's editor).
+  // Opening it marks the replies seen, so the next click gets the next note
   const replied = useMemo(() => repliedNotes(marks.byDoc), [marks.byDoc]);
   const repliedText = repliesSummary(replied);
-  const nextReplied = useRef(0);
   const showNextReplied = useCallback(() => {
-    const note = replied[nextReplied.current++ % replied.length];
-    if (note !== undefined) openMark(note.docId, note.highlightId === null ? null : { highlight: note.highlightId });
-  }, [replied, openMark]);
+    const note = replied[0];
+    if (note === undefined) return;
+    if (note.highlightId !== null) {
+      setMarkFocus({ docId: note.docId, target: { highlight: note.highlightId }, open: true, nonce: Date.now() });
+    } else {
+      // Under the toolbar button, which stays put across documents; shown once the document is
+      const box = noteButtonRef.current?.getBoundingClientRect();
+      if (box !== undefined) setNoteEditor({ docId: note.docId, right: box.right, bottom: box.bottom });
+    }
+    if (note.docId !== selectedId) navigate("/doc/" + encodeURIComponent(note.docId));
+  }, [replied, selectedId, navigate]);
+  // A click on the desktop's reply notification does the same
+  const showRepliedRef = useRef(showNextReplied);
+  useEffect(() => {
+    showRepliedRef.current = showNextReplied;
+  });
+  useEffect(
+    () =>
+      window.markdownApi?.agents.onShowReplies(() => showRepliedRef.current()),
+    [],
+  );
 
   // ── Send review notes: notes as Markdown for a coding agent
   // (docs/design/review-notes.md), picked in the Send dialog; copying records
@@ -1226,6 +1245,7 @@ function AppInner(): React.ReactElement {
                 onSaveAndSend={(changes) =>
                   sendNow(contentId, changes === null ? Promise.resolve() : marks.saveDocumentNote(contentId, changes), "document")
                 }
+                pickedBy={pickedUpBy(shownRounds, null)}
                 onReplyAndSend={(r) =>
                   sendNow(
                     contentId,
@@ -1527,7 +1547,7 @@ function AppInner(): React.ReactElement {
               type="button"
               className={styles.statusAction}
               onClick={showNextReplied}
-              title={replied.length === 1 ? "Show the note" : "Show the next note with new replies"}
+              title={replied.length === 1 ? "Open the note" : "Open the first note with new replies"}
             >
               {repliedText}
             </button>

@@ -333,7 +333,8 @@ export class Folio {
   /**
    * The notes in rounds sent to agents after `after` (ms), as they are now: resolved
    * and private ones left out. Rounds are timed to the second, so one in the
-   * same second as `after` counts, unless this session already had it.
+   * same second as `after` counts, unless this session already had it. The
+   * rounds are marked picked up, so the app shows their notes being worked on.
    */
   private async sentAfter(after: number): Promise<SentNotes | null> {
     const from = Math.floor(after / 1000) * 1000;
@@ -348,6 +349,11 @@ export class Folio {
       for (const r of rounds) {
         latest = Math.max(latest, Date.parse(r.at));
         this.delivered.add(r.id);
+      }
+      try {
+        await this.store.markPicked(path.join(this.root, ...doc.location.split("/")), rounds.map((r) => r.id));
+      } catch {
+        // Best effort: the notes reach the agent either way
       }
       const ids = new Set(rounds.flatMap((r) => r.notes));
       const highlights = marks.highlights.filter((h) => ids.has(h.id) && !isPrivate(h) && h.state !== "resolved");

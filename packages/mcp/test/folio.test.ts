@@ -168,8 +168,9 @@ describe("waitForReview", () => {
     expect([sent?.notes, sent?.documents]).toEqual([1, 1]);
     expect(Date.parse(sent?.since ?? "")).toBeGreaterThanOrEqual(Date.parse(since) - 1000);
     expect(presence()).toMatchObject({ state: "working", since: sent?.since });
-    // No round of its own: the app recorded it
+    // No round of its own: the app recorded it, and it's now picked up
     expect((await records())[0]?.rounds).toHaveLength(1);
+    expect((await records())[0]?.rounds?.[0]?.picked).toBeDefined();
 
     folio.leave();
     expect(() => presence()).toThrow();

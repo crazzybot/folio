@@ -751,6 +751,23 @@ export class MarksStore {
     });
   }
 
+  /**
+   * Record that the agent took the notes of rounds `roundIds` (its wait
+   * returned them), so the app shows them as being worked on. Rounds already
+   * picked up, or no longer kept, are left as they are.
+   */
+  markPicked(file: string, roundIds: readonly string[]): Promise<void> {
+    const id = recordId(file);
+    const wanted = new Set(roundIds);
+    return this.serially(async () => {
+      const record = await this.writable(id);
+      if (record === null || !(record.rounds ?? []).some((r) => wanted.has(r.id) && r.picked === undefined)) return;
+      const picked = now();
+      const rounds = (record.rounds ?? []).map((r) => (wanted.has(r.id) && r.picked === undefined ? { ...r, picked } : r));
+      await this.write(id, await refreshed({ ...record, rounds }, file));
+    });
+  }
+
   /** Undo `send`: the round goes, and the notes it made sent are open again (unless they changed since). */
   unsend(file: string, body: unknown): Promise<void> {
     const { roundId, highlightIds, documentNote } = sendBody(body);

@@ -147,6 +147,8 @@ interface MarkdownDesktopApi {
     /** End Review Loop for the sessions `pids`, in a native menu at the point (x, y). */
     showMenu(pids: number[], x: number, y: number): Promise<void>;
     onChange(callback: (sessions: AgentSession[]) => void): () => void;
+    /** The user clicked a notification of agents' replies (desktop/src/replyAlerts.ts). */
+    onShowReplies(callback: () => void): () => void;
   };
   /**
    * The context menu of a folder in the document list (workspace location).

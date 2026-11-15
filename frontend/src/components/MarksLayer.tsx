@@ -6,11 +6,12 @@ import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
-import { isPrivate, lastSent, stateOf } from "../sending";
+import { isPrivate, lastSent, pickedUpBy, stateOf } from "../sending";
 import { buildTextModel } from "../textModel";
 import { newReplies, threadSummary } from "../threads";
 import { HIGHLIGHT_COLORS } from "../types";
 import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, NoteState, Round, TextAnchor } from "../types";
+import LockIcon from "./LockIcon";
 import NoteStateIcon from "./NoteStateIcon";
 import NoteThread from "./NoteThread";
 import styles from "./MarksLayer.module.css";
@@ -148,6 +149,8 @@ function scrollToRect(container: HTMLElement, rect: DOMRect): void {
 /** A mark to scroll to once the document is shown; a new `nonce` asks again. */
 export interface MarkFocus {
   target: { highlight: string } | { heading: BookmarkHeading };
+  /** A highlight's popover opens too, with its thread (the status bar's new replies). */
+  open?: boolean;
   nonce: number;
 }
 
@@ -468,6 +471,17 @@ export default function MarksLayer({
     };
   }, [articleRef, hoveredNote, layoutVersion]);
 
+  /** A highlight's popover, by `rect`; with `note`, writing its note. */
+  const openPopover = useCallback(
+    (id: string, rect: DOMRect, note: string | null = null) => {
+      const container = containerRef.current;
+      if (container === null) return;
+      setPopover({ ...placeBy(container, rect, true), id });
+      setDraft(note);
+    },
+    [containerRef],
+  );
+
   // ── Scroll to a mark (Marks view) ──────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
@@ -480,7 +494,10 @@ export default function MarksLayer({
       handledFocus.current = nonce;
       if ("highlight" in target) {
         const range = located.current.get(target.highlight);
-        if (range !== undefined) scrollToRect(container, range.getBoundingClientRect());
+        if (range === undefined) return;
+        scrollToRect(container, range.getBoundingClientRect());
+        // Placed where the highlight is once scrolled
+        if (focus.open === true) openPopover(target.highlight, range.getBoundingClientRect());
         return;
       }
       const elements = [...article.querySelectorAll<HTMLElement>(HEADINGS)];
@@ -491,7 +508,7 @@ export default function MarksLayer({
       }
     });
     return () => cancelAnimationFrame(frame);
-  }, [articleRef, containerRef, ready, focus, renderKey, highlights]);
+  }, [articleRef, containerRef, ready, focus, renderKey, highlights, openPopover]);
 
   // Another document: nothing of the previous one stays open. A reload of
   // the same one keeps the open highlight's popover, and its note being
@@ -566,16 +583,6 @@ export default function MarksLayer({
     setDraft(null);
   }
 
-  /** A highlight's popover, by `rect`; with `note`, writing its note. */
-  const openPopover = useCallback(
-    (id: string, rect: DOMRect, note: string | null = null) => {
-      const container = containerRef.current;
-      if (container === null) return;
-      setPopover({ ...placeBy(container, rect, true), id });
-      setDraft(note);
-    },
-    [containerRef],
-  );
 
   /** The most recent highlight that shares text with `start`–`end`. */
   const highlightAt = useCallback((start: number, end: number): string | undefined => {
@@ -1103,6 +1110,7 @@ function LoopRow({
   const locked = isPrivate(highlight);
   const state = stateOf(highlight);
   const when = state === "sent" ? lastSent(rounds, highlight.id) : null;
+  const pickedBy = state === "sent" ? pickedUpBy(rounds, highlight.id) : null;
   const link = (label: string, changes: { state?: NoteState; private?: boolean | null }, title?: string) => (
     <button type="button" className={styles.loopBtn} onClick={() => onSetLoop(changes)} title={title}>
       {label}
@@ -1122,9 +1130,15 @@ function LoopRow({
   return (
     <div className={styles.loopRow}>
       <span className={styles.loopStatus}>
+        {!locked && state === "open" && (
+          <>
+            <NoteStateIcon kind="open" size={12} /> Not sent
+          </>
+        )}
         {!locked && state === "sent" && (
           <>
-            <NoteStateIcon kind="sent" size={12} /> Sent{when === null ? "" : ` · ${when}`} ·{" "}
+            <NoteStateIcon kind="sent" size={12} /> Sent{when === null ? "" : ` · ${when}`}
+            {pickedBy === null ? "" : ` · ${pickedBy} has it`} ·{" "}
             {link("Mark not sent", { state: "open" }, "It will be sent again next time")} ·{" "}
             {link("Resolve", { state: "resolved" })}
           </>
@@ -1152,15 +1166,6 @@ function LoopRow({
         <LockIcon locked={locked} /> Only me
       </button>
     </div>
-  );
-}
-
-function LockIcon({ locked }: { locked: boolean }): React.ReactElement {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="7" width="10" height="7" rx="1.5" fill={locked ? "currentColor" : "none"} />
-      <path d={locked ? "M5 7V5a3 3 0 0 1 6 0v2" : "M5 7V5a3 3 0 0 1 5.8-1"} />
-    </svg>
   );
 }
 

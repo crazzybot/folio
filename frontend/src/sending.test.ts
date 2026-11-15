@@ -7,12 +7,14 @@ import {
   isPrivate,
   noteKey,
   picked,
+  pickedUpBy,
+  loopSentence,
   sendableNote,
   sendDocuments,
   sendGroups,
   shownStates,
 } from "./sending";
-import type { DocumentMeta, DocumentNote, Highlight } from "./types";
+import type { DocumentMeta, DocumentNote, Highlight, Round } from "./types";
 
 const doc = (location: string, status: string | null = null): DocumentMeta => ({
   id: location,
@@ -129,5 +131,24 @@ describe("the Send dialog", () => {
     expect(picks.map((p) => p.highlights.map((h) => h.id))).toEqual([["early", "sent"]]);
     expect(picks[0]?.note?.requestedStatus).toBe("accepted");
     expect(sendDocuments(picks)).toEqual([{ docId: "adr.md", highlightIds: ["early", "sent"], documentNote: true }]);
+  });
+});
+
+describe("pickedUpBy", () => {
+  const round = (id: string, extra: Partial<Round>): Round => ({ id, at: "2026-11-14T10:00:00Z", via: "send", sha1: "", notes: ["h1"], ...extra });
+
+  it("names the agent that took the round that last sent the note", () => {
+    expect(pickedUpBy([round("r1", { client: "Claude Code" })], "h1")).toBeNull();
+    expect(pickedUpBy([round("r1", { client: "Claude Code", picked: "2026-11-14T10:00:01Z" })], "h1")).toBe("Claude Code");
+    // The agent's own fetch is picked up as it's recorded; a copy never is
+    expect(pickedUpBy([round("r1", { via: "mcp", client: "Cursor" })], "h1")).toBe("Cursor");
+    expect(pickedUpBy([round("r1", { via: "copy" })], "h1")).toBeNull();
+    // Sent again since: the new round decides
+    expect(pickedUpBy([round("r1", { client: "Claude Code", picked: "x" }), round("r2", { client: "Claude Code" })], "h1")).toBeNull();
+  });
+
+  it("says so in the note's loop sentence", () => {
+    expect(loopSentence("sent", null, "Claude Code")).toBe("Sent · Claude Code is working on it");
+    expect(loopSentence("sent")).toBe("Sent · waiting for the agent");
   });
 });

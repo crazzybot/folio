@@ -103,4 +103,10 @@ export interface Round {
   notes: string[];
   /** Whether the note on the document as a whole was sent. */
   documentNote?: boolean;
+  /**
+   * When the agent took the notes (a round via send: its wait returned
+   * them), so they show as being worked on. Absent: not yet. A round via
+   * mcp is the agent's own fetch, picked up as it's recorded.
+   */
+  picked?: string;
 }
