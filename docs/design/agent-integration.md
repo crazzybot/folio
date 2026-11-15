@@ -78,6 +78,7 @@ next round.
 | `folio_list_documents` | `folder?`, `status?`, `tag?`, `withOpenNotes?` | Path, title, status, tags, and how many notes wait on the agent (unsent or sent) |
 | `folio_get_review_notes` | `paths?` (default: every document with notes to send), `includeSent?`, `includeAddressed?` | The review notes, with each note's id and its replies so far. Records a round |
 | `folio_reply` | `noteId` or `path`, `text`, `addressed?` | What happened to the note |
+| `folio_wait_for_review` | `since?`, `timeoutSeconds?` | The next notes the user sends from Folio, or none by the timeout; see [review-loop.md](review-loop.md) |
 
 - The notes are formatted by the core (`reviewNotes.ts`), shared with Copy
   review notes. The replies follow the note in both, so a note answered back
@@ -136,6 +137,7 @@ plugins/folio/
   .claude-plugin/plugin.json      name, version
   .mcp.json                       runs: npx -y @crazzybot/folio-mcp
   skills/review/SKILL.md          /folio:review [paths…]
+  skills/review-loop/SKILL.md     /folio:review-loop (review-loop.md)
 ```
 
 - The server is the npm package, not a copy in the plugin: `npx -y` runs the

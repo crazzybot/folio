@@ -45,11 +45,13 @@ import ChangesBanner from "./components/ChangesBanner";
 import { sectionChanges } from "../../packages/core/src/sections";
 import { slugify } from "./slug";
 import { BranchIcon, WorktreeIcon } from "./components/GitIcons";
+import { agentNames, agentsFor, useAgents } from "./agents";
+import LivePill from "./components/LivePill";
 import { branchSentence, changesById, folderName, isOnBase, repositoryOf, statusBranchText, useGitState } from "./git";
 import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
-import { defaultSelection, picked, sendDocuments, sendGroups } from "./sending";
+import { defaultSelection, picked, pickedUpBy, sendDocuments, sendGroups } from "./sending";
 import { repliedNotes, repliesSummary } from "./threads";
 import type { Picked, SendItem, StateFilter } from "./sending";
 import styles from "./App.module.css";
@@ -189,6 +191,8 @@ function AppInner(): React.ReactElement {
   // The workspace's git repositories (desktop): the status bar's branch,
   // folder icons, and the documents changed on the branch
   const git = useGitState();
+  const agents = useAgents();
+  const workspaceAgents = useMemo(() => agents.filter((a) => a.location === ""), [agents]);
   const branchChanges = useMemo(() => changesById(git, documents), [git, documents]);
   const changedIds = useMemo(() => (branchChanges === null ? null : new Set(branchChanges.keys())), [branchChanges]);
   const changedInFocus = useMemo(
@@ -667,6 +671,35 @@ function AppInner(): React.ReactElement {
   }, [contentId]);
   const { add: addMark, recolor, setNote, remove: removeMark, setLoop, reply, editReply, deleteReply, markSeen, toggleBookmark, removeBookmark } = marks;
   const shownRounds = contentId === null ? undefined : marks.byDoc.get(contentId)?.rounds;
+  const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
+  const [markSent, setMarkSent] = useMarkSent();
+  // The agents in a review loop on the shown document: its note editors
+  // offer Save and Send, which gives them one note without the Send dialog
+  const shownLocation = documents.find((doc) => doc.id === contentId)?.location ?? null;
+  const sendTo = useMemo(() => {
+    const live = shownLocation === null ? [] : agentsFor(agents, shownLocation);
+    return live.length === 0 ? null : agentNames(live);
+  }, [agents, shownLocation]);
+  const { send: recordSend } = marks;
+  const sendNow = useCallback(
+    (docId: string, saved: Promise<void>, target: { highlightId: string } | "document") => {
+      if (sendTo === null) return;
+      const agent = sendTo;
+      // After the save, so the agent gets the note as written
+      void saved
+        .then(() =>
+          recordSend(
+            [{ docId, highlightIds: target === "document" ? [] : [target.highlightId], documentNote: target === "document" }],
+            markSent,
+            agent,
+          ),
+        )
+        .then((round) => {
+          if (round !== null) setStatusMessage({ text: `Sent 1 note to ${agent}` });
+        });
+    },
+    [sendTo, recordSend, markSent],
+  );
   // Changes to the shown document's marks, from the viewer
   const markHandlers = useMemo((): MarkHandlers | undefined => {
     if (contentId === null) return undefined;
@@ -682,8 +715,17 @@ function AppInner(): React.ReactElement {
       markSeen: (id) => void markSeen(contentId, id),
       toggleHeadingBookmark: (heading) => void toggleBookmark(contentId, heading),
       rounds: shownRounds,
+      sendTo,
+      saveAndSend: (id, note) =>
+        sendNow(contentId, note === undefined ? Promise.resolve() : setNote(contentId, id, note), { highlightId: id }),
+      replyAndSend: (id, r) =>
+        sendNow(
+          contentId,
+          r.replyId === null ? reply(contentId, id, r.text) : editReply(contentId, id, r.replyId, r.text),
+          { highlightId: id },
+        ),
     };
-  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, reply, editReply, deleteReply, markSeen, toggleBookmark, shownRounds]);
+  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, reply, editReply, deleteReply, markSeen, toggleBookmark, shownRounds, sendTo, sendNow]);
   const shownMarks = contentId === null ? undefined : marks.byDoc.get(contentId);
   const documentBookmarked = shownMarks !== undefined && findBookmark(shownMarks.bookmarks, null) !== undefined;
 
@@ -739,27 +781,44 @@ function AppInner(): React.ReactElement {
   const selectedDoc = documents.find((doc) => doc.id === selectedId) ?? null;
 
   // ── Agents' new replies (docs/design/agent-integration.md): the status bar
-  // says who replied to how many notes; each click goes to the next one
+  // says who replied to how many notes; each click opens the first with its
+  // thread (a highlight's popover, or the note on the document's editor).
+  // Opening it marks the replies seen, so the next click gets the next note
   const replied = useMemo(() => repliedNotes(marks.byDoc), [marks.byDoc]);
   const repliedText = repliesSummary(replied);
-  const nextReplied = useRef(0);
   const showNextReplied = useCallback(() => {
-    const note = replied[nextReplied.current++ % replied.length];
-    if (note !== undefined) openMark(note.docId, note.highlightId === null ? null : { highlight: note.highlightId });
-  }, [replied, openMark]);
+    const note = replied[0];
+    if (note === undefined) return;
+    if (note.highlightId !== null) {
+      setMarkFocus({ docId: note.docId, target: { highlight: note.highlightId }, open: true, nonce: Date.now() });
+    } else {
+      // Under the toolbar button, which stays put across documents; shown once the document is
+      const box = noteButtonRef.current?.getBoundingClientRect();
+      if (box !== undefined) setNoteEditor({ docId: note.docId, right: box.right, bottom: box.bottom });
+    }
+    if (note.docId !== selectedId) navigate("/doc/" + encodeURIComponent(note.docId));
+  }, [replied, selectedId, navigate]);
+  // A click on the desktop's reply notification does the same
+  const showRepliedRef = useRef(showNextReplied);
+  useEffect(() => {
+    showRepliedRef.current = showNextReplied;
+  });
+  useEffect(
+    () =>
+      window.markdownApi?.agents.onShowReplies(() => showRepliedRef.current()),
+    [],
+  );
 
   // ── Send review notes: notes as Markdown for a coding agent
   // (docs/design/review-notes.md), picked in the Send dialog; copying records
   // a round and, with Don't send these notes again, makes them sent
   // (docs/design/sending-notes.md) ──────────────────────────────────────────────
   const [sending, setSending] = useState<{ title: string; docs: readonly SendScope[] } | null>(null);
-  const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
   useEffect(() => {
     if (statusMessage === null) return;
     const timer = setTimeout(() => setStatusMessage(null), statusMessage.action ? UNDO_SHOWN_MS : STATUS_SHOWN_MS);
     return () => clearTimeout(timer);
   }, [statusMessage]);
-  const [markSent, setMarkSent] = useMarkSent();
   // The Marks view's state filter, set from the Send dialog's counts
   const [marksFilter, setMarksFilter] = useState<{ filter: readonly StateFilter[]; nonce: number } | null>(null);
 
@@ -815,13 +874,18 @@ function AppInner(): React.ReactElement {
   );
 
   // Recording a send, with Undo in the status bar
-  const { send: recordSend, unsend } = marks;
+  const { unsend } = marks;
   const recordSent = useCallback(
-    (picks: readonly Picked[], sent: boolean) => {
+    (picks: readonly Picked[], sent: boolean, agent: string | null = null) => {
       const count = picks.reduce((n, p) => n + p.highlights.length + (p.note === undefined ? 0 : 1), 0);
       const docs = picks.length > 1 ? ` from ${picks.length} documents` : "";
-      void recordSend(sendDocuments(picks), sent).then((round) => {
+      void recordSend(sendDocuments(picks), sent, agent).then((round) => {
         if (round === null) return;
+        // No Undo: the waiting agent has the notes within a second
+        if (agent !== null) {
+          setStatusMessage({ text: `Sent ${count} note${count !== 1 ? "s" : ""}${docs} to ${agent}` });
+          return;
+        }
         setStatusMessage({
           text: `${sent ? "Sent" : "Copied"} ${count} note${count !== 1 ? "s" : ""}${docs}`,
           action: { label: "Undo", run: () => void unsend(round) },
@@ -1051,6 +1115,7 @@ function AppInner(): React.ReactElement {
             onFiltersChange={setMetaFilters}
             highlightCounts={highlightCounts}
             git={git}
+            agents={agents}
             branchChanges={branchChanges}
             branchCount={changedInFocus}
             loading={listLoading}
@@ -1176,6 +1241,18 @@ function AppInner(): React.ReactElement {
                 note={documentNote}
                 workspaceStatuses={workspaceStatuses}
                 onSave={(changes) => void marks.saveDocumentNote(contentId, changes)}
+                sendTo={sendTo}
+                onSaveAndSend={(changes) =>
+                  sendNow(contentId, changes === null ? Promise.resolve() : marks.saveDocumentNote(contentId, changes), "document")
+                }
+                pickedBy={pickedUpBy(shownRounds, null)}
+                onReplyAndSend={(r) =>
+                  sendNow(
+                    contentId,
+                    r.replyId === null ? marks.reply(contentId, null, r.text) : marks.editReply(contentId, null, r.replyId, r.text),
+                    "document",
+                  )
+                }
                 onRemove={() => void marks.removeDocumentNote(contentId)}
                 onSetState={(state) => void marks.setDocumentNoteLoop(contentId, { state })}
                 onReply={(text) => void marks.reply(contentId, null, text)}
@@ -1342,6 +1419,7 @@ function AppInner(): React.ReactElement {
       {sending !== null && (
         <SendNotesDialog
           title={sending.title}
+          agents={agents.filter((a) => sending.docs.some((d) => agentsFor([a], d.doc.location).length > 0))}
           groups={sendingGroups}
           format={formatPicks}
           markSent={markSent}
@@ -1428,7 +1506,19 @@ function AppInner(): React.ReactElement {
             {gitRepo.mainCheckout !== null && <WorktreeIcon size={12} />}
           </button>
         )}
-        <span className={styles.statusItem} title={selectedDoc?.location}>
+        {/* An agent on the whole workspace: no folder row to show it on, so its menu is here */}
+        <LivePill
+          agents={workspaceAgents}
+          onClick={(e) => {
+            const box = e.currentTarget.getBoundingClientRect();
+            void window.markdownApi?.agents.showMenu(
+              workspaceAgents.map((a) => a.pid),
+              box.left,
+              box.top,
+            );
+          }}
+        />
+        <span className={`${styles.statusItem} ${styles.statusLocation}`} title={selectedDoc?.location}>
           {selectedDoc ? selectedDoc.location : ""}
         </span>
         {statusMessage !== null && (
@@ -1457,7 +1547,7 @@ function AppInner(): React.ReactElement {
               type="button"
               className={styles.statusAction}
               onClick={showNextReplied}
-              title={replied.length === 1 ? "Show the note" : "Show the next note with new replies"}
+              title={replied.length === 1 ? "Open the note" : "Open the first note with new replies"}
             >
               {repliedText}
             </button>

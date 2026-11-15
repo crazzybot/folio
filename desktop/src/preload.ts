@@ -135,7 +135,7 @@ contextBridge.exposeInMainWorld("markdownApi", {
     deleteNote: (docId: string) => ipcRenderer.invoke("marks:note-delete", docId),
     relink: (recordId: string, docId: string) => ipcRenderer.invoke("marks:relink", recordId, docId),
     forget: (recordId: string) => ipcRenderer.invoke("marks:forget", recordId),
-    send: (docs: unknown, markSent: boolean) => ipcRenderer.invoke("marks:send", docs, markSent),
+    send: (docs: unknown, markSent: boolean, agent: string | null = null) => ipcRenderer.invoke("marks:send", docs, markSent, agent),
     unsend: (round: unknown) => ipcRenderer.invoke("marks:unsend", round),
     reply: (docId: string, highlightId: string | null, text: string) =>
       ipcRenderer.invoke("marks:reply", docId, highlightId, text),
@@ -169,6 +169,28 @@ contextBridge.exposeInMainWorld("markdownApi", {
       };
     },
   },
+  /** Agents waiting for review notes on the workspace (see agents.ts). */
+  agents: {
+    list: () => ipcRenderer.invoke("agents:list"),
+    /** End Review Loop for these sessions, in a menu at the point (x, y). */
+    showMenu: (pids: number[], x: number, y: number) => ipcRenderer.invoke("agents:menu", pids, x, y),
+    /** Subscribe to agents starting, working and stopping; returns an unsubscribe function. */
+    onChange: (callback: (sessions: unknown) => void) => {
+      const listener = (_event: IpcRendererEvent, sessions: unknown) => callback(sessions);
+      ipcRenderer.on("agents:changed", listener);
+      return () => {
+        ipcRenderer.removeListener("agents:changed", listener);
+      };
+    },
+    /** Subscribe to clicks on a reply notification; returns an unsubscribe function. */
+    onShowReplies: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on("replies:show", listener);
+      return () => {
+        ipcRenderer.removeListener("replies:show", listener);
+      };
+    },
+  },
   /** Which version of each document was last read (see reads.ts). */
   reads: {
     list: () => ipcRenderer.invoke("reads:list"),
@@ -186,9 +208,15 @@ contextBridge.exposeInMainWorld("markdownApi", {
       };
     },
   },
-  /** A folder's context menu in the document list; resolves "focus", "mark-read" or null. */
-  showFolderMenu: (location: string, hasUnread: boolean, repository: string | null) =>
-    ipcRenderer.invoke("folder:context-menu", location, hasUnread, repository),
+  /** A folder's context menu in the document list; resolves "focus", "unfocus", "mark-read" or null. */
+  showFolderMenu: (
+    location: string,
+    hasUnread: boolean,
+    repository: string | null,
+    agentPids: number[],
+    focused = false,
+    at: { x: number; y: number } | null = null,
+  ) => ipcRenderer.invoke("folder:context-menu", location, hasUnread, repository, agentPids, focused, at),
   /** A document's context menu in the document list; resolves "read", "unread" or null. */
   showDocumentMenu: (docId: string, unread: boolean) => ipcRenderer.invoke("document:context-menu", docId, unread),
 });

@@ -10,6 +10,40 @@ turns them into the next release's section.
 
 ### Added
 
+- **Review loop with your agent.** Ask your agent to wait for your review
+  (`/folio:review-loop` in Claude Code) and it waits for notes from Folio.
+  In the **Send review notes** dialog, **Send** hands the ticked notes
+  straight to it; there's nothing to paste. The agent addresses them,
+  replies to each in Folio, then waits for the next round. Folio's MCP
+  server has a new tool for this, `folio_wait_for_review`. It only takes
+  notes on documents in the folder the agent works in.
+
+- **Live** (desktop). A green **Live** pill shows where an agent is
+  waiting for your notes: on its folder in the document list, on a
+  focused folder, or in the status bar when it works on the whole
+  workspace. The **Send review notes** dialog shows it too, and names the
+  agent the notes go to; **Copy** is still there for pasting elsewhere.
+  **End Review Loop**, in the folder's context menu or on the status bar's
+  pill, tells the agent to stop waiting.
+
+- **Picked up.** Once the agent takes notes you sent, they show it: "Sent ·
+  Claude Code has it" in the note's popover and on the note on the
+  document, and "Claude Code is working on it" in the Marks view. Until
+  then they're still waiting for the agent.
+
+- **Save and Send** (desktop). With an agent Live on the document, the
+  note editor and the reply box have **Save and Send** (`⇧⌘↩` /
+  `Ctrl+Shift+Enter`): that one note goes to the agent at once, without the
+  **Send review notes** dialog.
+
+- **Know when the agent replied** (desktop). While you're in another app,
+  a system notification says when an agent answers your notes ("Claude
+  Code replied to 4 notes"); click it to come back to Folio with the first
+  of those notes open. The Dock icon shows how many notes have replies you
+  haven't read yet. In the status bar, **Claude Code replied to …** opens
+  the next one: a highlight's note with its thread, or the note on the
+  document.
+
 - **Edit or delete your reply.** Your latest reply to a note has an
   **Edit** link until someone answers it. The note opens again, so the new
   wording goes with the next round. Until it's sent, it has **Delete** too:
@@ -21,6 +55,14 @@ turns them into the next release's section.
   thread's first message and scrolls with the replies, instead of staying
   on top. What was answered can't be edited: only your latest reply, until
   someone answers it.
+- **Conversations open at the latest message**, and scroll down when a
+  reply comes in.
+- **The note on the document works like a highlight's note.** Its dialog
+  is wider, and **Only me** is a lock at the bottom, beside where the note
+  is in the review loop (**Not sent**, **Sent**, **Addressed**,
+  **Resolved**). Highlights show **Not sent** too. **Save** waits until
+  you change something; **Save and Send** until there's something to send.
+  The reply box's button says **Save** whether an agent is Live or not.
 - **Replies show their formatting.** Messages in a note's thread render
   their Markdown (bold, lists, code, quotes), each in its own box. Links
   and images aren't opened or loaded.

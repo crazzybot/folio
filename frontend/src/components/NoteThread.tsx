@@ -10,14 +10,15 @@
  * HTML, links that open or images that load.
  */
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { authorName, newReplies, replyTime } from "../threads";
 import type { Author, NoteState, Thread } from "../types";
 import MessageText from "./MessageText";
 import styles from "./NoteThread.module.css";
 
 const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
-const SEND_SHORTCUT = IS_MAC ? "⌘↩" : "Ctrl+Enter";
+const SAVE_SHORTCUT = IS_MAC ? "⌘↩" : "Ctrl+Enter";
+const SEND_NOW_SHORTCUT = IS_MAC ? "⇧⌘↩" : "Ctrl+Shift+Enter";
 
 interface NoteThreadProps {
   thread: Thread & { state?: NoteState | undefined };
@@ -31,19 +32,44 @@ interface NoteThreadProps {
   onDeleteReply: (replyId: string) => void;
   /** Whether the reply box is open: the popover keeps Escape for it while it is. */
   onWritingChange?: (writing: boolean) => void;
+  /** The agents in a review loop on the document ("Claude Code"): the reply box offers Save and Send. */
+  sendTo?: string | null | undefined;
+  /** Save a new reply (replyId null) or the edit of the latest, and send the note to `sendTo` on its own. */
+  onSaveAndSend?: ((reply: { text: string; replyId: string | null }) => void) | undefined;
 }
 
-export default function NoteThread({ thread, note, onReply, onEditReply, onDeleteReply, onWritingChange }: NoteThreadProps): React.ReactElement | null {
+export default function NoteThread({
+  thread,
+  note,
+  onReply,
+  onEditReply,
+  onDeleteReply,
+  onWritingChange,
+  sendTo = null,
+  onSaveAndSend,
+}: NoteThreadProps): React.ReactElement | null {
   // A new reply (replyId null), or the user's latest one being edited
   const [draft, setDraft] = useState<{ text: string; replyId: string | null } | null>(null);
   const replies = thread.replies ?? [];
   // Captured when shown, so the replies stay marked new while the thread is open
   const [fresh] = useState(() => new Set(newReplies(thread).map((r) => r.id)));
+  // As in a messaging app: the latest message in view on opening, and when a reply comes
+  const listRef = useRef<HTMLOListElement>(null);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (list !== null) list.scrollTop = list.scrollHeight;
+  }, [replies.length]);
   // The store refuses an edit once someone has answered, so only the last reply offers it
   const last = replies[replies.length - 1];
   const editable = last?.author.kind === "user" ? last.id : null;
   // Open: not sent yet, so the agent hasn't seen it
   const deletable = (thread.state ?? "open") === "open";
+
+  // Nothing to save: an empty reply, or an edit that changed nothing
+  const unchanged =
+    draft === null ||
+    draft.text.trim() === "" ||
+    (draft.replyId !== null && draft.text.trim() === replies.find((r) => r.id === draft.replyId)?.text);
 
   const write = (next: { text: string; replyId: string | null } | null) => {
     setDraft(next);
@@ -57,6 +83,15 @@ export default function NoteThread({ thread, note, onReply, onEditReply, onDelet
     }
     write(null);
   };
+  // Save and Send: with an agent in a loop on the document, the reply goes
+  // to it at once instead of with the next round
+  const canSend = sendTo !== null && onSaveAndSend !== undefined;
+  const saveAndSend = () => {
+    const text = draft?.text.trim() ?? "";
+    if (!canSend || draft === null || unchanged) return;
+    onSaveAndSend({ text, replyId: draft.replyId });
+    write(null);
+  };
 
   const editor = (editing: boolean) =>
     draft === null ? null : (
@@ -67,7 +102,11 @@ export default function NoteThread({ thread, note, onReply, onEditReply, onDelet
           onChange={(e) => setDraft({ ...draft, text: e.target.value })}
           onKeyDown={(e) => {
             // Its own keys: not the note editor's around it (⌘↩ saves and closes that)
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.shiftKey && canSend) {
+              e.preventDefault();
+              e.stopPropagation();
+              saveAndSend();
+            } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
               e.stopPropagation();
               send();
@@ -90,10 +129,21 @@ export default function NoteThread({ thread, note, onReply, onEditReply, onDelet
         />
         <div className={styles.actions}>
           <span className={styles.hint}>
-            {SEND_SHORTCUT} to {editing ? "save" : "send"} · Esc to cancel
+            {SAVE_SHORTCUT} to save · Esc to cancel
           </span>
-          <button type="button" className={styles.sendBtn} onClick={send} disabled={draft.text.trim() === ""}>
-            {editing ? "Save" : "Send"}
+          {canSend && (
+            <button
+              type="button"
+              className={styles.sendNowBtn}
+              onClick={saveAndSend}
+              disabled={unchanged}
+              title={`Save, and send this note to ${sendTo} (${SEND_NOW_SHORTCUT})`}
+            >
+              Save and Send
+            </button>
+          )}
+          <button type="button" className={styles.sendBtn} onClick={send} disabled={unchanged}>
+            Save
           </button>
         </div>
       </div>
@@ -102,7 +152,7 @@ export default function NoteThread({ thread, note, onReply, onEditReply, onDelet
   return (
     <div className={styles.thread}>
       {(note !== undefined || replies.length > 0) && (
-        <ol className={styles.replies} aria-label="Replies">
+        <ol ref={listRef} className={styles.replies} aria-label="Replies">
           {note !== undefined && (
             <li className={`${styles.reply} ${(note.author?.kind ?? "user") === "user" ? styles.mine : ""}`}>
               <div className={styles.byline}>

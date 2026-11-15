@@ -90,12 +90,12 @@ export interface DocumentNote extends Thread {
   private?: boolean;
 }
 
-/** Notes sent together: copied, or (later) fetched by an agent. */
+/** Notes sent together: copied, sent to an agent in a review loop, or fetched by an agent. */
 export interface Round {
   id: string;
   at: string;
-  via: "copy" | "mcp";
-  /** The agent that fetched them (via mcp): "Claude Code". */
+  via: "copy" | "send" | "mcp";
+  /** The agent that got them (via send or mcp): "Claude Code". */
   client?: string;
   /** The version sent: the document's SHA-1 then. */
   sha1: string;
@@ -103,4 +103,10 @@ export interface Round {
   notes: string[];
   /** Whether the note on the document as a whole was sent. */
   documentNote?: boolean;
+  /**
+   * When the agent took the notes (a round via send: its wait returned
+   * them), so they show as being worked on. Absent: not yet. A round via
+   * mcp is the agent's own fetch, picked up as it's recorded.
+   */
+  picked?: string;
 }

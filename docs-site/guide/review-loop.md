@@ -50,6 +50,42 @@ them; the agent edits them with its own tools.
 **Settings → Coding agents** (`⌘,` / `Ctrl+,`) has both setups, each with
 a **Copy** button.
 
+## Review in a loop
+
+Rather than going back to the agent after each round, you can leave it
+waiting for your notes. In Claude Code, with Folio's plugin, run
+`/folio:review-loop`. Other agents can do the same: ask them to wait for
+your review notes with `folio_wait_for_review`, address them, and keep going
+until you stop them. The agent only takes notes on documents in the folder
+it works in.
+
+- **Live** (desktop). A green **Live** pill shows where an agent is waiting
+  for your notes: on its folder in the document list, on a focused folder,
+  or in the status bar when it works on the whole workspace. Point at it to
+  see whether the agent is waiting or working on notes.
+- **Send.** With an agent Live, the **Send review notes** dialog names it,
+  and **Send** hands the ticked notes straight to it; there's nothing to
+  paste. **Copy** is still there, for pasting elsewhere.
+- **Save and Send** (desktop). With an agent Live on the document, the
+  note editor and the reply box have **Save and Send** (`⇧⌘↩` /
+  `Ctrl+Shift+Enter`): that one note goes to the agent at once, without the
+  dialog. On the note on the document, it's there while the note has
+  changes or hasn't been sent.
+- **Picked up.** Once the agent takes the notes you sent, they show it:
+  "Sent · Claude Code has it" in the note's popover and on the note on the
+  document, and "Claude Code is working on it" in the **Marks** view. Until
+  then they're waiting for the agent.
+- **End Review Loop.** In the folder's context menu, or on the status bar's
+  **Live** pill. The agent stops waiting and tells you the loop has ended.
+  You can also stop it in the agent itself.
+
+### Know when the agent replied
+
+While you're in another app, a system notification says when an agent
+answers your notes, such as "Claude Code replied to 4 notes" (desktop).
+Click it to come back to Folio with the first of those notes open. The Dock
+icon shows how many notes have replies you haven't read yet.
+
 ## Replies
 
 The agent's answers show under each note: in the popover when you click a
@@ -69,9 +105,9 @@ description.
 - **Addressed or open.** When the agent changed the document for a note, its
   reply marks the note **Addressed**. A question, or an explanation of why
   it didn't change anything, leaves the note open, to go with the next round.
-- **Reply.** Click **Reply** under a note to answer, and **Send** (`⌘↩` /
+- **Reply.** Click **Reply** under a note to answer, and **Save** (`⌘↩` /
   `Ctrl+Enter`). Your reply opens the note again, so it goes with the next
-  round.
+  round. With an agent Live, **Save and Send** sends it at once.
 - **Edit your reply.** Until someone answers it, your latest reply has an
   **Edit** link. **Save** (`⌘↩` / `Ctrl+Enter`) opens the note again, so
   the new wording goes with the next round.
@@ -82,7 +118,8 @@ description.
 - **One conversation.** Once a note has replies, it's the first message of
   the thread, and the whole thread scrolls together. A note or reply that
   was answered can't be edited. On the note on the document, you can still
-  change the **Status**.
+  change the **Status**. A conversation opens at its latest message, and
+  scrolls down when a reply comes in.
 
 ## What the agent receives
 

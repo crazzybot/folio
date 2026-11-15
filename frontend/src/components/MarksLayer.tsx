@@ -6,11 +6,12 @@ import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
-import { isPrivate, lastSent, stateOf } from "../sending";
+import { isPrivate, lastSent, pickedUpBy, stateOf } from "../sending";
 import { buildTextModel } from "../textModel";
 import { newReplies, threadSummary } from "../threads";
 import { HIGHLIGHT_COLORS } from "../types";
 import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, NoteState, Round, TextAnchor } from "../types";
+import LockIcon from "./LockIcon";
 import NoteStateIcon from "./NoteStateIcon";
 import NoteThread from "./NoteThread";
 import styles from "./MarksLayer.module.css";
@@ -20,6 +21,7 @@ const COLOR_KEY = "folio.highlightColor";
 const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 const HIGHLIGHT_SHORTCUT = IS_MAC ? "⇧⌘H" : "Ctrl+Shift+H";
 const SAVE_SHORTCUT = IS_MAC ? "⌘↩" : "Ctrl+Enter";
+const SEND_SHORTCUT = IS_MAC ? "⇧⌘↩" : "Ctrl+Shift+Enter";
 const supported = typeof CSS !== "undefined" && "highlights" in CSS;
 // Room above a selection for the toolbar; with less, it goes below
 const TOOLBAR_ROOM = 44;
@@ -147,6 +149,8 @@ function scrollToRect(container: HTMLElement, rect: DOMRect): void {
 /** A mark to scroll to once the document is shown; a new `nonce` asks again. */
 export interface MarkFocus {
   target: { highlight: string } | { heading: BookmarkHeading };
+  /** A highlight's popover opens too, with its thread (the status bar's new replies). */
+  open?: boolean;
   nonce: number;
 }
 
@@ -175,6 +179,8 @@ interface MarksLayerProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   /** The document is rendered (not loading, no error). */
   ready: boolean;
+  /** The document shown: another one closes what's open. */
+  docKey: unknown;
   /** Changes whenever the rendered document does (another document, a reload). */
   renderKey: unknown;
   /** Show notes in the text under their passages (inlineNotes.ts), besides the margin icons. */
@@ -191,6 +197,12 @@ interface MarksLayerProps {
   onSetLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
   /** The document's latest rounds, for when a note was sent. */
   rounds?: readonly Round[] | undefined;
+  /** The agents in a review loop on the document ("Claude Code"): the note editor offers Save and Send. */
+  sendTo?: string | null;
+  /** Save a highlight's note (undefined: unchanged) and send it to `sendTo` on its own. */
+  onSaveAndSend?: ((id: string, note: string | null | undefined) => void) | undefined;
+  /** Save the user's reply (replyId null: a new one) and send the note to `sendTo` on its own. */
+  onReplyAndSend?: ((id: string, reply: { text: string; replyId: string | null }) => void) | undefined;
   /** The user's reply to a highlight's note. */
   onReply: (id: string, text: string) => void;
   /** The user's latest reply to a highlight's note, changed. */
@@ -215,6 +227,7 @@ export default function MarksLayer({
   articleRef,
   containerRef,
   ready,
+  docKey,
   renderKey,
   inlineNotes = false,
   highlights,
@@ -226,6 +239,9 @@ export default function MarksLayer({
   onRemove,
   onSetLoop,
   rounds,
+  sendTo = null,
+  onSaveAndSend,
+  onReplyAndSend,
   onReply,
   onEditReply,
   onDeleteReply,
@@ -260,6 +276,8 @@ export default function MarksLayer({
   const popoverRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const handledFocus = useRef<number | null>(null);
+  // Across a reload: the open highlight, and its height in the view before it
+  const keepInView = useRef<{ id: string; offset: number } | null>(null);
 
   // ── Paint ──────────────────────────────────────────────────────────────────
   // Highlights that can't be found in the current text aren't painted
@@ -453,6 +471,17 @@ export default function MarksLayer({
     };
   }, [articleRef, hoveredNote, layoutVersion]);
 
+  /** A highlight's popover, by `rect`; with `note`, writing its note. */
+  const openPopover = useCallback(
+    (id: string, rect: DOMRect, note: string | null = null) => {
+      const container = containerRef.current;
+      if (container === null) return;
+      setPopover({ ...placeBy(container, rect, true), id });
+      setDraft(note);
+    },
+    [containerRef],
+  );
+
   // ── Scroll to a mark (Marks view) ──────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
@@ -465,7 +494,10 @@ export default function MarksLayer({
       handledFocus.current = nonce;
       if ("highlight" in target) {
         const range = located.current.get(target.highlight);
-        if (range !== undefined) scrollToRect(container, range.getBoundingClientRect());
+        if (range === undefined) return;
+        scrollToRect(container, range.getBoundingClientRect());
+        // Placed where the highlight is once scrolled
+        if (focus.open === true) openPopover(target.highlight, range.getBoundingClientRect());
         return;
       }
       const elements = [...article.querySelectorAll<HTMLElement>(HEADINGS)];
@@ -476,20 +508,74 @@ export default function MarksLayer({
       }
     });
     return () => cancelAnimationFrame(frame);
-  }, [articleRef, containerRef, ready, focus, renderKey, highlights]);
+  }, [articleRef, containerRef, ready, focus, renderKey, highlights, openPopover]);
 
-  // Another document: nothing of the previous one stays open (reset while
-  // rendering, when it changes, rather than in an effect)
-  const [shownFor, setShownFor] = useState(renderKey);
-  if (shownFor !== renderKey) {
-    setShownFor(renderKey);
+  // Another document: nothing of the previous one stays open. A reload of
+  // the same one keeps the open highlight's popover, and its note being
+  // written, where it is on screen (see below). Reset while rendering, when
+  // it changes, rather than in an effect
+  const [shownFor, setShownFor] = useState({ docKey, renderKey });
+  if (shownFor.renderKey !== renderKey || shownFor.docKey !== docKey) {
+    setShownFor({ docKey, renderKey });
     setToolbar(null);
-    setPopover(null);
-    setDraft(null);
+    if (shownFor.docKey !== docKey) {
+      setPopover(null);
+      setDraft(null);
+    }
     setHoveredHeading(null);
     setHoveredBlock(null);
     setHoveredNote(null);
   }
+
+  // The open highlight's height in the view, kept as the view scrolls: a
+  // reload changes the text before any effect could measure it
+  const popoverId = popover?.id ?? null;
+  useEffect(() => {
+    const container = containerRef.current;
+    if (popoverId === null || container === null) {
+      keepInView.current = null;
+      return;
+    }
+    const measure = () => {
+      const range = located.current.get(popoverId);
+      if (range !== undefined && range.startContainer.isConnected) {
+        keepInView.current = { id: popoverId, offset: range.getBoundingClientRect().top - container.getBoundingClientRect().top };
+      }
+    };
+    measure();
+    container.addEventListener("scroll", measure, { passive: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      container.removeEventListener("scroll", measure);
+      window.removeEventListener("resize", measure);
+    };
+    // Again once painting has found the highlight in new text
+  }, [containerRef, popoverId, layoutVersion, renderKey, highlights]);
+
+  // After a reload: the open highlight back at the height it was (text the
+  // agent added above it would push it, and its popover, out of view), and
+  // the popover beside it. Gone from the text: the popover closes
+  useLayoutEffect(() => {
+    const keep = keepInView.current;
+    const article = articleRef.current;
+    const container = containerRef.current;
+    if (popoverId === null || !ready || article === null || container === null) return;
+    const highlight = highlights.find((h) => h.id === popoverId);
+    const model = buildTextModel(article);
+    const span = highlight === undefined ? null : locateAnchor(model.text, highlight);
+    if (span === null) {
+      setPopover(null);
+      setDraft(null);
+      return;
+    }
+    const range = model.range(span.start, span.end);
+    if (keep !== null && keep.id === popoverId) {
+      container.scrollTop += range.getBoundingClientRect().top - container.getBoundingClientRect().top - keep.offset;
+    }
+    setPopover({ ...placeBy(container, range.getBoundingClientRect(), true), id: popoverId });
+    // Only after a reload: the popover and highlights of that render are read, not watched
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renderKey]);
 
   // A removed highlight's popover closes
   if (popover !== null && !highlights.some((h) => h.id === popover.id)) {
@@ -497,16 +583,6 @@ export default function MarksLayer({
     setDraft(null);
   }
 
-  /** A highlight's popover, by `rect`; with `note`, writing its note. */
-  const openPopover = useCallback(
-    (id: string, rect: DOMRect, note: string | null = null) => {
-      const container = containerRef.current;
-      if (container === null) return;
-      setPopover({ ...placeBy(container, rect, true), id });
-      setDraft(note);
-    },
-    [containerRef],
-  );
 
   /** The most recent highlight that shares text with `start`–`end`. */
   const highlightAt = useCallback((start: number, end: number): string | undefined => {
@@ -670,6 +746,24 @@ export default function MarksLayer({
     setDraft(null);
     setReplying(false);
   }, [current, draft, onSetNote]);
+
+  // Save and Send: the note goes to the agents in a loop on the document at
+  // once, without the Send dialog. Not for a private note, which is never sent.
+  // Decided on the draft: a new highlight has no note yet, so is private
+  // until the note being written is saved
+  const canSend =
+    sendTo !== null &&
+    onSaveAndSend !== undefined &&
+    current !== undefined &&
+    !isPrivate({ note: draft ?? current.note, private: current.private });
+  const saveAndSend = () => {
+    if (!canSend || draft === null) return;
+    const note = draft.trim() === "" ? null : draft;
+    onSaveAndSend(current.id, draft.trim() === (current.note ?? "") ? undefined : note);
+    setPopover(null);
+    setDraft(null);
+    setReplying(false);
+  };
 
   // Escape (unless writing a note) or a click elsewhere closes the popover
   useEffect(() => {
@@ -933,7 +1027,10 @@ export default function MarksLayer({
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.shiftKey && canSend) {
+                    e.preventDefault();
+                    saveAndSend();
+                  } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault();
                     closePopover();
                   } else if (e.key === "Escape") {
@@ -949,6 +1046,16 @@ export default function MarksLayer({
               />
               <div className={styles.noteActions}>
                 <span className={styles.noteHint}>{SAVE_SHORTCUT} to save · Esc to cancel</span>
+                {canSend && (
+                  <button
+                    type="button"
+                    className={styles.sendBtn}
+                    onClick={saveAndSend}
+                    title={`Save, and send this note to ${sendTo} (${SEND_SHORTCUT})`}
+                  >
+                    Save and Send
+                  </button>
+                )}
                 <button type="button" className={styles.saveBtn} onClick={closePopover}>
                   Save
                 </button>
@@ -966,6 +1073,15 @@ export default function MarksLayer({
               onEditReply={(replyId, text) => onEditReply(current.id, replyId, text)}
               onDeleteReply={(replyId) => onDeleteReply(current.id, replyId)}
               onWritingChange={setReplying}
+              sendTo={isPrivate(current) ? null : sendTo}
+              onSaveAndSend={
+                onReplyAndSend === undefined
+                  ? undefined
+                  : (reply) => {
+                      onReplyAndSend(current.id, reply);
+                      closePopover();
+                    }
+              }
             />
           )}
 
@@ -994,6 +1110,7 @@ function LoopRow({
   const locked = isPrivate(highlight);
   const state = stateOf(highlight);
   const when = state === "sent" ? lastSent(rounds, highlight.id) : null;
+  const pickedBy = state === "sent" ? pickedUpBy(rounds, highlight.id) : null;
   const link = (label: string, changes: { state?: NoteState; private?: boolean | null }, title?: string) => (
     <button type="button" className={styles.loopBtn} onClick={() => onSetLoop(changes)} title={title}>
       {label}
@@ -1013,9 +1130,15 @@ function LoopRow({
   return (
     <div className={styles.loopRow}>
       <span className={styles.loopStatus}>
+        {!locked && state === "open" && (
+          <>
+            <NoteStateIcon kind="open" size={12} /> Not sent
+          </>
+        )}
         {!locked && state === "sent" && (
           <>
-            <NoteStateIcon kind="sent" size={12} /> Sent{when === null ? "" : ` · ${when}`} ·{" "}
+            <NoteStateIcon kind="sent" size={12} /> Sent{when === null ? "" : ` · ${when}`}
+            {pickedBy === null ? "" : ` · ${pickedBy} has it`} ·{" "}
             {link("Mark not sent", { state: "open" }, "It will be sent again next time")} ·{" "}
             {link("Resolve", { state: "resolved" })}
           </>
@@ -1043,15 +1166,6 @@ function LoopRow({
         <LockIcon locked={locked} /> Only me
       </button>
     </div>
-  );
-}
-
-function LockIcon({ locked }: { locked: boolean }): React.ReactElement {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="7" width="10" height="7" rx="1.5" fill={locked ? "currentColor" : "none"} />
-      <path d={locked ? "M5 7V5a3 3 0 0 1 6 0v2" : "M5 7V5a3 3 0 0 1 5.8-1"} />
-    </svg>
   );
 }
 

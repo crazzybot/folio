@@ -385,6 +385,20 @@ describe("sending notes", () => {
     expect(undone.rounds).toBeUndefined();
   });
 
+  it("marks rounds picked up once, when the agent takes them", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "One" }));
+    await store.send(PLAIN, { roundId: ROUND, highlightIds: [a.id], via: "send", client: "Claude Code" });
+    const round = () => (recordOf(PLAIN) as { rounds: { picked?: string }[] }).rounds[0];
+    expect(round()?.picked).toBeUndefined();
+    await store.markPicked(PLAIN, [ROUND, "fedcba9876543210"]);
+    const picked = round()?.picked;
+    expect(Number.isNaN(Date.parse(picked ?? ""))).toBe(false);
+    // Taken again (another session): the first time stays
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await store.markPicked(PLAIN, [ROUND]);
+    expect(round()?.picked).toBe(picked);
+  });
+
   it("records a round without changing states when asked", async () => {
     const a = await store.addHighlight(PLAIN, highlight({ note: "One" }));
     const sent = await store.send(PLAIN, { roundId: ROUND, highlightIds: [a.id], markSent: false });

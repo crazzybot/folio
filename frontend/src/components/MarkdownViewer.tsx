@@ -117,6 +117,12 @@ export interface MarkHandlers {
   toggleHeadingBookmark: (heading: BookmarkHeading) => void;
   /** The document's latest rounds, for when a note was sent. */
   rounds?: readonly Round[] | undefined;
+  /** The agents in a review loop on the document, by name ("Claude Code"); null when none is. */
+  sendTo?: string | null;
+  /** Save a highlight's note (undefined: unchanged) and send it to `sendTo` on its own. */
+  saveAndSend?: (id: string, note: string | null | undefined) => void;
+  /** Save the user's reply to a highlight's note (replyId null: a new one) and send the note to `sendTo` on its own. */
+  replyAndSend?: (id: string, reply: { text: string; replyId: string | null }) => void;
 }
 
 /** "Scroll to the `occurrence`-th match in `docId`"; a new `nonce` asks again. */
@@ -1165,6 +1171,7 @@ export default function MarkdownViewer({
               articleRef={articleRef}
               containerRef={scrollRef}
               ready={ready}
+              docKey={contentId}
               renderKey={content}
               inlineNotes={inlineNotes}
               highlights={highlights}
@@ -1176,6 +1183,9 @@ export default function MarkdownViewer({
               onRemove={markHandlers.remove}
               onSetLoop={markHandlers.setLoop}
               rounds={markHandlers.rounds}
+              sendTo={markHandlers.sendTo ?? null}
+              onSaveAndSend={markHandlers.saveAndSend}
+              onReplyAndSend={markHandlers.replyAndSend}
               onReply={markHandlers.reply}
               onEditReply={markHandlers.editReply}
               onDeleteReply={markHandlers.deleteReply}

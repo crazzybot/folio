@@ -4,6 +4,9 @@ import { defaultSelection, picked } from "../sending";
 import type { Picked, SendGroup, SendItem } from "../sending";
 import { getItem, setItem } from "../storage";
 import { threadSummary } from "../threads";
+import type { AgentSession } from "../types";
+import { agentNames } from "../agents";
+import LivePill from "./LivePill";
 import styles from "./SendNotesDialog.module.css";
 
 const IS_MAC = window.markdownApi?.platform === "darwin" || navigator.platform.toUpperCase().includes("MAC");
@@ -37,14 +40,19 @@ export function ReviewNotesIcon({ size = 16 }: { size?: number }): React.ReactEl
 interface SendNotesDialogProps {
   /** What the notes are from: the file name, or "3 documents". */
   title: string;
+  /** Agents in a review loop on these documents: Send gives the notes to them. */
+  agents: readonly AgentSession[];
   groups: readonly SendGroup[];
   /** The text the agent gets for the ticked notes. */
   format: (picks: readonly Picked[]) => ReviewNotes;
   /** Don't send these notes again: copying makes them sent. */
   markSent: boolean;
   onMarkSentChange: (on: boolean) => void;
-  /** The ticked notes were copied (or, without a clipboard, selected to copy): record it. */
-  onSent: (picks: readonly Picked[], markSent: boolean) => void;
+  /**
+   * The ticked notes were sent to the agents `agent` names, or (null)
+   * copied, or without a clipboard selected to copy: record it.
+   */
+  onSent: (picks: readonly Picked[], markSent: boolean, agent: string | null) => void;
   onClose: () => void;
   /** Go to a note (the dialog closes); null: the note on the document as a whole. */
   onOpenNote: (docId: string, highlightId: string | null) => void;
@@ -63,11 +71,14 @@ const COPIED_MS = 600;
  * it was opened, as a list to tick, and the exact Markdown the agent gets
  * in the Text tab. Notes not sent yet are ticked; sent ones with no answer
  * are offered apart; private and out-of-date ones are only counted. Copy
- * puts the text on the clipboard and records the round; with **Don't send
- * these notes again**, the notes become sent.
+ * puts the text on the clipboard and records the round; with an agent in a
+ * review loop on the documents, Send (first, Copy beside it) records a round
+ * for the agent instead. With **Don't send these notes again**, the notes
+ * become sent.
  */
 export default function SendNotesDialog({
   title,
+  agents,
   groups,
   format,
   markSent,
@@ -81,13 +92,15 @@ export default function SendNotesDialog({
 }: SendNotesDialogProps): React.ReactElement {
   const dialogRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const copyRef = useRef<HTMLButtonElement>(null);
+  // The primary button: Send with an agent waiting, else Copy
+  const primaryRef = useRef<HTMLButtonElement>(null);
   const textRef = useRef<HTMLPreElement>(null);
   const titleId = useId();
   const [tab, setTab] = useState<"list" | "text">(() => (getItem(TAB_KEY) === "text" ? "text" : "list"));
   const [chosen, setChosen] = useState<ReadonlySet<string>>(() => defaultSelection(groups));
   const [showSent, setShowSent] = useState(false);
-  const [status, setStatus] = useState<"idle" | "copied" | "manual">("idle");
+  const [status, setStatus] = useState<"idle" | "copied" | "sent" | "manual">("idle");
+  const live = agents.length > 0;
   const recorded = useRef(false);
 
   // Notes made private (or removed) since opening leave the selection
@@ -100,18 +113,18 @@ export default function SendNotesDialog({
   const privateCount = groups.reduce((n, g) => n + g.privateCount, 0);
   const unplacedCount = groups.reduce((n, g) => n + g.unplacedCount, 0);
 
-  // Focus Copy (the dialog itself when there's nothing to copy, so Escape
-  // still closes it); give focus back to what opened the dialog on close
+  // Focus Send or Copy (the dialog itself when there's nothing to send, so
+  // Escape still closes it); give focus back to what opened the dialog on close
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    const copyButton = copyRef.current;
-    if (copyButton !== null && !copyButton.disabled) copyButton.focus();
+    const primary = primaryRef.current;
+    if (primary !== null && !primary.disabled) primary.focus();
     else dialogRef.current?.focus();
     return () => opener?.focus();
   }, []);
 
   useEffect(() => {
-    if (status !== "copied") return;
+    if (status !== "copied" && status !== "sent") return;
     const timer = setTimeout(onClose, COPIED_MS);
     return () => clearTimeout(timer);
   }, [status, onClose]);
@@ -132,24 +145,30 @@ export default function SendNotesDialog({
     });
   };
 
-  const record = () => {
+  const record = (agent: string | null) => {
     if (recorded.current) return;
     recorded.current = true;
-    onSent(picks, markSent);
+    onSent(picks, markSent, agent);
+  };
+
+  const send = () => {
+    if (count === 0) return;
+    record(agentNames(agents));
+    setStatus("sent");
   };
 
   const copy = () => {
     if (count === 0) return;
     void copyText(notes.text).then((ok) => {
       if (ok) {
-        record();
+        record(null);
         setStatus("copied");
         return;
       }
       // No clipboard: show the text selected, for the user to copy
       setTab("text");
       setStatus("manual");
-      record();
+      record(null);
     });
   };
 
@@ -174,7 +193,8 @@ export default function SendNotesDialog({
     const target = e.target as HTMLElement;
     if (e.key === "Enter" && !(target instanceof HTMLButtonElement)) {
       e.preventDefault();
-      copy();
+      if (live) send();
+      else copy();
       return;
     }
     // Keep Tab inside the dialog
@@ -235,9 +255,12 @@ export default function SendNotesDialog({
         onKeyDown={onKeyDown}
       >
         <header className={styles.header}>
-          <h2 id={titleId} className={styles.title}>
-            Send review notes <span className={styles.subject}>· {title}</span>
-          </h2>
+          <div className={styles.heading}>
+            <h2 id={titleId} className={styles.title}>
+              Send review notes <span className={styles.subject}>· {title}</span>
+            </h2>
+            <LivePill agents={agents} />
+          </div>
           <div className={styles.tabs} role="tablist" aria-label="Show">
             {(["list", "text"] as const).map((t) => (
               <button
@@ -312,7 +335,7 @@ export default function SendNotesDialog({
         )}
 
         <footer className={styles.footer}>
-          <label className={styles.markSent} title="Copied notes become sent, and aren't ticked next time">
+          <label className={styles.markSent} title="Sent notes aren't ticked next time">
             <input type="checkbox" checked={markSent} onChange={(e) => onMarkSentChange(e.target.checked)} />
             Don't send these notes again
           </label>
@@ -324,16 +347,27 @@ export default function SendNotesDialog({
             <span className={styles.hint}>
               {count} note{count !== 1 ? "s" : ""}
               {docs > 1 ? ` · ${docs} docs` : ""}
+              {live ? ` · to ${agentNames(agents)}` : ""}
             </span>
           )}
-          <button ref={copyRef} type="button" className={styles.primaryBtn} onClick={copy} disabled={count === 0}>
-            {status === "copied" ? (
-              <>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                  <path d="M3 8.5l3.5 3.5L13 4.5" />
-                </svg>
-                Copied
-              </>
+          {/* With an agent waiting, Copy is for pasting elsewhere: it doesn't reach the agent */}
+          {live && (
+            <button type="button" className={styles.secondaryBtn} onClick={copy} disabled={count === 0 || status === "sent"}>
+              {status === "copied" ? <Done label="Copied" /> : "Copy"}
+            </button>
+          )}
+          <button
+            ref={primaryRef}
+            type="button"
+            className={styles.primaryBtn}
+            onClick={live ? send : copy}
+            disabled={count === 0 || (live && status === "copied")}
+            title={live ? `Send to ${agentNames(agents)}` : undefined}
+          >
+            {live ? (
+              status === "sent" ? <Done label="Sent" /> : "Send"
+            ) : status === "copied" ? (
+              <Done label="Copied" />
             ) : (
               "Copy"
             )}
@@ -341,6 +375,18 @@ export default function SendNotesDialog({
         </footer>
       </div>
     </div>
+  );
+}
+
+/** A button's label once it has done its job: a check and "Copied" or "Sent". */
+function Done({ label }: { label: string }): React.ReactElement {
+  return (
+    <>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <path d="M3 8.5l3.5 3.5L13 4.5" />
+      </svg>
+      {label}
+    </>
   );
 }
 

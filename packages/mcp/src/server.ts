@@ -1,5 +1,5 @@
 /**
- * server.ts — The MCP server: three tools over Folio (folio.ts) for a coding
+ * server.ts — The MCP server: four tools over Folio (folio.ts) for a coding
  * agent. The descriptions are the agent's instructions, so they say what to
  * do with the notes as well as what each tool returns.
  */
@@ -13,7 +13,11 @@ declare const FOLIO_MCP_VERSION: string;
 const VERSION = typeof FOLIO_MCP_VERSION === "string" ? FOLIO_MCP_VERSION : "0.0.0-dev";
 
 const text = (value: string): CallToolResult => ({ content: [{ type: "text", text: value }] });
-const refusal = (value: string): CallToolResult => ({ content: [{ type: "text", text: value }], isError: true });
+// Under the tool-call timeouts of the clients we know; the agent calls again
+const DEFAULT_WAIT_SECONDS = 240;
+const PROGRESS_MS = 15_000;
+
+const refusal =(value: string): CallToolResult => ({ content: [{ type: "text", text: value }], isError: true });
 
 /** A tool's work, with Folio's refusals told to the agent rather than failing the call. */
 async function answer(work: () => Promise<CallToolResult>): Promise<CallToolResult> {
@@ -100,6 +104,74 @@ export function createServer(folio: Folio): McpServer {
             "for a document's overall note or status change, its path instead. " +
             "Set addressed when you changed the document to address it; leave it out to ask a question or explain why not.",
         );
+      }),
+  );
+
+  server.registerTool(
+    "folio_wait_for_review",
+    {
+      title: "Wait for review notes",
+      description:
+        `Wait until the user sends you review notes from Folio on documents under ${folio.root}, then get them as folio_get_review_notes does. ` +
+        "Use it when the user asks you to wait for their review, or to keep reviewing in a loop. " +
+        "Address the notes and answer each with folio_reply, then call this again with the since value it gave you, " +
+        "until the user tells you to stop or ends the loop in Folio. When it returns without notes, call it again with the same since.",
+      inputSchema: z.object({
+        since: z.string().optional().describe("The since value from the last call: notes sent after it. Leave it out the first time"),
+        timeoutSeconds: z
+          .number()
+          .int()
+          .min(10)
+          .max(1800)
+          .optional()
+          .describe(`How long to wait before returning without notes (default ${DEFAULT_WAIT_SECONDS})`),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    (input, ctx) =>
+      answer(async () => {
+        // Progress keeps the call alive in clients that reset their timeout on it
+        const token = ctx.mcpReq._meta?.progressToken;
+        let beats = 0;
+        const progress =
+          token === undefined
+            ? undefined
+            : setInterval(() => {
+                void ctx.mcpReq
+                  .notify({
+                    method: "notifications/progress",
+                    params: { progressToken: token, progress: ++beats, message: "Waiting for review notes from Folio" },
+                  })
+                  .catch(() => undefined);
+              }, PROGRESS_MS);
+        // Fixed now, so notes sent while this call waits are still found by the next one
+        const since = input.since ?? new Date().toISOString();
+        try {
+          const sent = await folio.waitForReview(
+            { since, timeoutMs: (input.timeoutSeconds ?? DEFAULT_WAIT_SECONDS) * 1000, signal: ctx.mcpReq.signal },
+            client(ctx),
+          );
+          if (sent === "stopped") {
+            return text(
+              "The user ended the review loop in Folio. Stop waiting: don't call folio_wait_for_review again unless the user asks you to. " +
+                "Tell them in one line that the loop has ended.",
+            );
+          }
+          if (sent === null) {
+            return text(
+              `No notes sent yet. Call folio_wait_for_review again with since: "${since}" to keep waiting, unless the user asked you to stop.`,
+            );
+          }
+          return text(
+            `${sent.text}\n\n---\n` +
+              "Answer each note with folio_reply: noteId as given after \"note\" on its location line; " +
+              "for a document's overall note or status change, its path instead. " +
+              "Set addressed when you changed the document to address it; leave it out to ask a question or explain why not. " +
+              `Then call folio_wait_for_review with since: "${sent.since}" for the next round, unless the user asked you to stop.`,
+          );
+        } finally {
+          clearInterval(progress);
+        }
       }),
   );
 

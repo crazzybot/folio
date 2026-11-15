@@ -105,7 +105,9 @@ Books, so there is no third kind.
   id, author, text and time; the user's, the note's state it reopened, as
   `reopened`) and `seen` (when the user last saw the thread). A reply marked addressed sets the note to `addressed`; any other
   reply sets it back to open, so it goes with the next round. A round
-  fetched by an agent has `via: "mcp"` and the agent's name in `client`.
+  fetched by an agent has `via: "mcp"` and the agent's name in `client`;
+  one sent with **Send** to agents in a review loop has `via: "send"` and
+  their names.
   The document note keeps fields it doesn't know too.
 
 ### Anchoring highlights

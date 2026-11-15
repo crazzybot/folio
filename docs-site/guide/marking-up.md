@@ -16,13 +16,30 @@ follow the text when a document is edited.
 To note a whole section (a paragraph, list item, table or code block), hover
 it and click the note button in the margin.
 
-<!-- TODO: what the note states mean (Open, Sent, Addressed, Resolved, Private) -->
+### Where a note is in the review
+
+The bottom row of a note's popover says where the note is, with its icon:
+
+- **Not sent**: it goes with the next notes you send.
+- **Sent**: you sent it, and the agent hasn't answered yet. **Mark not
+  sent** puts it back with the next round.
+- **Addressed**: the agent says it changed the document for it.
+  **Resolve** it, or **Reopen** it.
+- **Resolved**: you closed it.
+
+**Only me**, the lock at the right of that row, keeps a note to yourself:
+it's never sent and has no state. A highlight without a note is yours too,
+unless you click **Send to agent** in its popover. [Reviewing specs with a coding agent](./review-loop)
+explains the rounds.
 
 ## A note on the whole document
 
 The note button in the header, beside the bookmark, opens a note on the
 document as a whole: an overall comment and a status to ask for, such as
-`accepted` or `rejected`.
+`accepted` or `rejected`. It works as a highlight's note: the same bottom
+row with **Only me**, and replies under it. **Save** waits until you change
+something. With **Only me** on, the comment is never sent, but a status you
+ask for still is.
 
 ## Bookmarks
 

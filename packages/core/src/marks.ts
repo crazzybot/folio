@@ -711,8 +711,9 @@ export class MarksStore {
 
   /**
    * Record that the document's notes `highlightIds` (and its note on the
-   * whole, with `documentNote`) were sent in round `roundId`, copied or
-   * (`via: "mcp"`) fetched by agent `client`; with `markSent`, open ones
+   * whole, with `documentNote`) were sent in round `roundId`: copied, sent
+   * to agent `client` in a review loop (`via: "send"`) or fetched by it
+   * (`via: "mcp"`); with `markSent`, open ones
    * become sent. Notes no longer there are left out.
    * Resolves to what became sent, for undoing it.
    */
@@ -747,6 +748,23 @@ export class MarksStore {
       const rounds = [...(record.rounds ?? []).filter((r) => r.id !== roundId), round].slice(-MAX_ROUNDS);
       await this.write(id, await refreshed(withNote({ ...record, highlights, rounds }, note), file));
       return sent;
+    });
+  }
+
+  /**
+   * Record that the agent took the notes of rounds `roundIds` (its wait
+   * returned them), so the app shows them as being worked on. Rounds already
+   * picked up, or no longer kept, are left as they are.
+   */
+  markPicked(file: string, roundIds: readonly string[]): Promise<void> {
+    const id = recordId(file);
+    const wanted = new Set(roundIds);
+    return this.serially(async () => {
+      const record = await this.writable(id);
+      if (record === null || !(record.rounds ?? []).some((r) => wanted.has(r.id) && r.picked === undefined)) return;
+      const picked = now();
+      const rounds = (record.rounds ?? []).map((r) => (wanted.has(r.id) && r.picked === undefined ? { ...r, picked } : r));
+      await this.write(id, await refreshed({ ...record, rounds }, file));
     });
   }
 
@@ -833,7 +851,7 @@ function sendBody(body: unknown): {
     throw new MarkError(400, "highlightIds must be a list of highlight ids");
   }
   const via = body["via"] ?? "copy";
-  if (via !== "copy" && via !== "mcp") throw new MarkError(400, "via must be copy or mcp");
+  if (via !== "copy" && via !== "send" && via !== "mcp") throw new MarkError(400, "via must be copy, send or mcp");
   return {
     roundId,
     highlightIds: ids as string[],

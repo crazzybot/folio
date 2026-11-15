@@ -3,7 +3,8 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { MarksStore, realPath } from "../../core/src/marks";
+import { requestStop, stopRequested } from "../../core/src/agents";
+import { MarksStore, newRoundId, realPath } from "../../core/src/marks";
 import type { Highlight } from "../../core/src/marks";
 import { agentName, Folio, FolioError } from "../src/folio";
 
@@ -132,6 +133,102 @@ describe("reviewNotes", () => {
   it("refuses paths it doesn't list", async () => {
     await expect(folio.reviewNotes({ paths: ["docs/missing.md"] }, "Claude Code")).rejects.toThrow("missing.md");
     await expect(folio.reviewNotes({ paths: ["/etc/hosts"] }, "Claude Code")).rejects.toBeInstanceOf(FolioError);
+  });
+});
+
+describe("waitForReview", () => {
+  /** What Send in the Send dialog records, with an agent in a review loop; or (via copy) Copy. */
+  const send = (file: string, highlightIds: string[], via: "send" | "copy" = "send") =>
+    store.send(file, {
+      roundId: newRoundId(),
+      highlightIds,
+      documentNote: false,
+      markSent: true,
+      via,
+      ...(via === "send" ? { client: "Claude Code" } : {}),
+    });
+  /** A wait that isn't stopped: its notes, or null at the timeout. */
+  const wait = async (request: Parameters<Folio["waitForReview"]>[0]) => {
+    const result = await folio.waitForReview(request, "Claude Code");
+    if (result === "stopped") throw new Error("Stopped");
+    return result;
+  };
+  const presence = () => JSON.parse(readFileSync(path.join(dataDir, "agents", `${process.pid}.json`), "utf8")) as Record<string, unknown>;
+
+  it("waits for notes the user sends, and tells the app it's waiting", async () => {
+    const h = await note("Why not a single table?");
+    const since = new Date().toISOString();
+    const waiting = wait({ since, timeoutMs: 5_000 });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(presence()).toMatchObject({ root: realPath(root), client: "Claude Code", state: "waiting", since });
+
+    await send(adr(), [h.id]);
+    const sent = await waiting;
+    expect(sent?.text).toContain(`note ${h.id.slice(0, 8)}`);
+    expect([sent?.notes, sent?.documents]).toEqual([1, 1]);
+    expect(Date.parse(sent?.since ?? "")).toBeGreaterThanOrEqual(Date.parse(since) - 1000);
+    expect(presence()).toMatchObject({ state: "working", since: sent?.since });
+    // No round of its own: the app recorded it, and it's now picked up
+    expect((await records())[0]?.rounds).toHaveLength(1);
+    expect((await records())[0]?.rounds?.[0]?.picked).toBeDefined();
+
+    folio.leave();
+    expect(() => presence()).toThrow();
+  });
+
+  it("only takes notes sent after since, by the user, on documents under the root", async () => {
+    const h = await note("Why?");
+    await send(adr(), [h.id]);
+    const later = new Date(Date.now() + 2_000).toISOString();
+    expect(await folio.waitForReview({ since: later, timeoutMs: 300 }, "Claude Code")).toBeNull();
+
+    // An agent's own fetch is a round too, but not one the user sent
+    const now = (await records())[0]?.rounds?.[0]?.at ?? "";
+    expect(await folio.reviewNotes({ includeSent: true }, "Claude Code")).not.toBeNull();
+    const delivered = await wait({ since: now, timeoutMs: 300 });
+    expect(delivered?.notes).toBe(1); // the send, in the same second as since
+    expect(await folio.waitForReview({ since: now, timeoutMs: 300 }, "Claude Code")).toBeNull(); // given once
+
+    // A document in another repo, sent while this session waits
+    const other = mkdtempSync(path.join(os.tmpdir(), "folio-mcp-other-"));
+    writeFileSync(path.join(other, "spec.md"), "# Spec\n\nElsewhere.\n");
+    const elsewhere = await store.addHighlight(path.join(other, "spec.md"), {
+      color: "yellow",
+      note: "Not for this session",
+      quote: { exact: "Elsewhere", prefix: "", suffix: "" },
+      position: { start: 8, end: 17 },
+    });
+    const waiting = folio.waitForReview({ since: new Date().toISOString(), timeoutMs: 1_000 }, "Claude Code");
+    await send(path.join(other, "spec.md"), [elsewhere.id]);
+    expect(await waiting).toBeNull();
+  });
+
+  it("leaves out notes copied to paste elsewhere", async () => {
+    const h = await note("For a colleague");
+    const waiting = wait({ since: new Date().toISOString(), timeoutMs: 1_000 });
+    await send(adr(), [h.id], "copy");
+    expect(await waiting).toBeNull();
+  });
+
+  it("ends the loop when the user asks in the app, waiting or not", async () => {
+    const waiting = folio.waitForReview({ timeoutMs: 5_000 }, "Claude Code");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await requestStop(dataDir, process.pid);
+    expect(await waiting).toBe("stopped");
+    expect(() => presence()).toThrow();
+
+    // Asked while the agent worked on notes: the next wait ends at once
+    await requestStop(dataDir, process.pid);
+    expect(await folio.waitForReview({ timeoutMs: 5_000 }, "Claude Code")).toBe("stopped");
+    expect(await stopRequested(dataDir, process.pid)).toBe(false);
+  });
+
+  it("stops when the call is cancelled, and refuses a since that isn't a time", async () => {
+    const abort = new AbortController();
+    const waiting = folio.waitForReview({ timeoutMs: 60_000, signal: abort.signal }, "Claude Code");
+    abort.abort();
+    expect(await waiting).toBeNull();
+    await expect(folio.waitForReview({ since: "yesterday", timeoutMs: 1_000 }, "Claude Code")).rejects.toBeInstanceOf(FolioError);
   });
 });
 

@@ -72,8 +72,12 @@ export interface Marks {
   setLoop(docId: string, highlightId: string, changes: { state?: NoteState; private?: boolean | null }): Promise<void>;
   /** The same for the note on the document as a whole. */
   setDocumentNoteLoop(docId: string, changes: { state?: NoteState; private?: boolean | null }): Promise<void>;
-  /** Record a round of sent notes; with `markSent`, open ones become sent. Resolves to the round, or null if it failed. */
-  send(docs: readonly SendDocument[], markSent: boolean): Promise<SentRound | null>;
+  /**
+   * Record a round of sent notes; with `markSent`, open ones become sent;
+   * with `agent`, sent to the agents in a loop rather than copied. Resolves
+   * to the round, or null if it failed.
+   */
+  send(docs: readonly SendDocument[], markSent: boolean, agent?: string | null): Promise<SentRound | null>;
   /** Undo a round. */
   unsend(round: SentRound): Promise<void>;
   /**
@@ -291,8 +295,8 @@ export default function useMarks(): Marks {
 
   // A send changes states and rounds across documents: reload them
   const send = useCallback(
-    (docs: readonly SendDocument[], markSent: boolean) =>
-      sendNotes(docs, markSent).then(
+    (docs: readonly SendDocument[], markSent: boolean, agent: string | null = null) =>
+      sendNotes(docs, markSent, agent).then(
         async (round) => {
           await reload();
           return round;
