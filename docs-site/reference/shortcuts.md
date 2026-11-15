@@ -27,6 +27,8 @@
 | Bookmark the document | `⌘D` | `Ctrl+D` |
 | Toggle inline notes | `⌥⌘N` | `Ctrl+Alt+N` |
 | Copy review notes | `⇧⌘C` | `Ctrl+Shift+C` |
+| Save a note or reply | `⌘↩` | `Ctrl+Enter` |
+| Save and Send, with an agent Live | `⇧⌘↩` | `Ctrl+Shift+Enter` |
 
 ## The document list
 

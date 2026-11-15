@@ -159,6 +159,8 @@ Overall: Fine once the rotation question below is answered.
   - Save, and Remove when there's a note. Clicking elsewhere saves what
     changed, as a highlight's note does; pressing the toolbar button again
     does the same.
+  - Since the review loop, its last row, buttons and width match a
+    highlight's popover: [review-loop.md](review-loop.md) §6.
 - The document header (metadata strip) shows the note's request and the
   start of its comment, with an Edit link that opens the popover. A
   document without metadata gets the strip when it has a note.

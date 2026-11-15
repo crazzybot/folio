@@ -1,6 +1,6 @@
 # Folio user docs
 
-Synced with: 0.7.0 (unreleased; Unreleased in CHANGELOG.md as of 2026-11-14). The docs describe the latest release; the
+Synced with: 0.7.0, and the Unreleased section of CHANGELOG.md as of 2026-11-14 (the review loop). The docs describe the latest release; the
 `sync-docs-site` skill (`.claude/skills/`) brings them up to date.
 
 The user documentation at <https://crazzybot.github.io/folio/docs/>, built

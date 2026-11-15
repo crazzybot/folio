@@ -11,7 +11,8 @@ the app does. It works whether or not Folio is open.
 
 ## Setup
 
-Claude Code, with Folio's plugin, which adds a `/folio:review` command:
+Claude Code, with Folio's plugin, which adds the `/folio:review` and
+`/folio:review-loop` commands:
 
 ```
 /plugin marketplace add crazzybot/folio
@@ -36,6 +37,18 @@ Other MCP clients:
 
 Then ask the agent to address your Folio review notes.
 
+## Review in a loop
+
+Rather than asking after each round, leave the agent waiting for your notes:
+`/folio:review-loop` in Claude Code, or ask any other agent to wait for your
+review with `folio_wait_for_review` and keep going until you stop it. In
+Folio, **Send** in the **Send review notes** dialog, or **Save and Send** on
+a note, hands your notes straight to it. The agent addresses them, answers
+each one, and waits for the next round.
+
+While it waits, Folio's desktop app shows a **Live** pill on the agent's
+folder. **End Review Loop** there tells the agent to stop waiting.
+
 ## Tools
 
 - `folio_list_documents`: the Markdown documents under the project, with
@@ -44,6 +57,10 @@ Then ask the agent to address your Folio review notes.
   **Copy review notes** words them, with each note's id. They're marked sent.
 - `folio_reply`: answer a note, and say whether it's addressed. You resolve
   or reopen it in Folio.
+- `folio_wait_for_review`: wait until you send notes from Folio, then get
+  them as `folio_get_review_notes` does. Without notes by the timeout
+  (`timeoutSeconds`, default 240), it returns, and the agent calls again
+  with the `since` it gave.
 
 ## Options
 
