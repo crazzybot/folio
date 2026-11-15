@@ -74,6 +74,10 @@ turns them into the next release's section.
   In the **List** view, a note with replies says so under it, such as
   "↳ 3 replies · latest from Claude Code, 10:02".
 
+- A task list item with more than one paragraph, or a code block, shows its
+  content stacked under the checkbox. Before, each part was squeezed into a
+  narrow column side by side.
+
 ## [0.7.0] — 2026-11-14
 
 ### Added

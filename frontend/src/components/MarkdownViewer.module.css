@@ -179,18 +179,15 @@
 /* ─── Task list (GFM) ─────────────────────────────────────────────────────── */
 .article :global(.contains-task-list) {
   list-style: none;
-  padding-left: 0.5em;
+  padding-left: 2em;
 }
 
-.article :global(.task-list-item) {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5em;
-}
-
+/* Block layout, not flex: a loose item holds paragraphs and code blocks that
+   must stack. The checkbox hangs in the gutter so they all line up with the
+   item's text. */
 .article :global(.task-list-item input[type="checkbox"]) {
-  margin-top: 0.35em;
-  flex-shrink: 0;
+  margin: 0 0.4em 0 -1.4em;
+  vertical-align: middle;
   accent-color: var(--color-accent);
 }
 
