@@ -53,6 +53,12 @@ export function agentsOnFolder(sessions: readonly AgentSession[], folder: string
   return sessions.filter((s) => s.location !== "" && (folder === s.location || folder.startsWith(`${s.location}/`)));
 }
 
+/** The agents' names: "Claude Code", "Claude Code and Cursor". */
+export function agentNames(agents: readonly AgentSession[]): string {
+  const [first, ...rest] = [...new Set(agents.map((a) => a.client))];
+  return rest.length === 0 ? (first ?? "the agent") : `${[first, ...rest.slice(0, -1)].join(", ")} and ${rest.at(-1) ?? ""}`;
+}
+
 /** Where the agents are, in a sentence: "Claude Code is waiting for notes in api". */
 export function agentsSentence(sessions: readonly AgentSession[]): string {
   return sessions

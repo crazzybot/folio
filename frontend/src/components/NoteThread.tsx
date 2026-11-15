@@ -18,6 +18,7 @@ import styles from "./NoteThread.module.css";
 
 const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 const SEND_SHORTCUT = IS_MAC ? "⌘↩" : "Ctrl+Enter";
+const SEND_NOW_SHORTCUT = IS_MAC ? "⇧⌘↩" : "Ctrl+Shift+Enter";
 
 interface NoteThreadProps {
   thread: Thread & { state?: NoteState | undefined };
@@ -31,9 +32,22 @@ interface NoteThreadProps {
   onDeleteReply: (replyId: string) => void;
   /** Whether the reply box is open: the popover keeps Escape for it while it is. */
   onWritingChange?: (writing: boolean) => void;
+  /** The agents in a review loop on the document ("Claude Code"): the reply box offers Save and Send. */
+  sendTo?: string | null | undefined;
+  /** Save a new reply (replyId null) or the edit of the latest, and send the note to `sendTo` on its own. */
+  onSaveAndSend?: ((reply: { text: string; replyId: string | null }) => void) | undefined;
 }
 
-export default function NoteThread({ thread, note, onReply, onEditReply, onDeleteReply, onWritingChange }: NoteThreadProps): React.ReactElement | null {
+export default function NoteThread({
+  thread,
+  note,
+  onReply,
+  onEditReply,
+  onDeleteReply,
+  onWritingChange,
+  sendTo = null,
+  onSaveAndSend,
+}: NoteThreadProps): React.ReactElement | null {
   // A new reply (replyId null), or the user's latest one being edited
   const [draft, setDraft] = useState<{ text: string; replyId: string | null } | null>(null);
   const replies = thread.replies ?? [];
@@ -57,6 +71,15 @@ export default function NoteThread({ thread, note, onReply, onEditReply, onDelet
     }
     write(null);
   };
+  // Save and Send: with an agent in a loop on the document, the reply goes
+  // to it at once instead of with the next round
+  const canSend = sendTo !== null && onSaveAndSend !== undefined;
+  const saveAndSend = () => {
+    const text = draft?.text.trim() ?? "";
+    if (!canSend || draft === null || text === "") return;
+    onSaveAndSend({ text, replyId: draft.replyId });
+    write(null);
+  };
 
   const editor = (editing: boolean) =>
     draft === null ? null : (
@@ -67,7 +90,11 @@ export default function NoteThread({ thread, note, onReply, onEditReply, onDelet
           onChange={(e) => setDraft({ ...draft, text: e.target.value })}
           onKeyDown={(e) => {
             // Its own keys: not the note editor's around it (⌘↩ saves and closes that)
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.shiftKey && canSend) {
+              e.preventDefault();
+              e.stopPropagation();
+              saveAndSend();
+            } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
               e.stopPropagation();
               send();
@@ -90,10 +117,21 @@ export default function NoteThread({ thread, note, onReply, onEditReply, onDelet
         />
         <div className={styles.actions}>
           <span className={styles.hint}>
-            {SEND_SHORTCUT} to {editing ? "save" : "send"} · Esc to cancel
+            {SEND_SHORTCUT} to {editing || canSend ? "save" : "send"} · Esc to cancel
           </span>
+          {canSend && (
+            <button
+              type="button"
+              className={styles.sendNowBtn}
+              onClick={saveAndSend}
+              disabled={draft.text.trim() === ""}
+              title={`Save, and send this note to ${sendTo} (${SEND_NOW_SHORTCUT})`}
+            >
+              Save and Send
+            </button>
+          )}
           <button type="button" className={styles.sendBtn} onClick={send} disabled={draft.text.trim() === ""}>
-            {editing ? "Save" : "Send"}
+            {editing || canSend ? "Save" : "Send"}
           </button>
         </div>
       </div>

@@ -5,6 +5,7 @@ import type { Picked, SendGroup, SendItem } from "../sending";
 import { getItem, setItem } from "../storage";
 import { threadSummary } from "../threads";
 import type { AgentSession } from "../types";
+import { agentNames } from "../agents";
 import LivePill from "./LivePill";
 import styles from "./SendNotesDialog.module.css";
 
@@ -60,12 +61,6 @@ interface SendNotesDialogProps {
   /** Show the counted, unlisted notes in the Marks view. */
   onShowPrivate: () => void;
   onShowUnplaced: () => void;
-}
-
-/** The agents' names: "Claude Code", "Claude Code and Cursor". */
-export function agentNames(agents: readonly AgentSession[]): string {
-  const [first, ...rest] = [...new Set(agents.map((a) => a.client))];
-  return rest.length === 0 ? (first ?? "the agent") : `${[first, ...rest.slice(0, -1)].join(", ")} and ${rest.at(-1) ?? ""}`;
 }
 
 // How long the check shows before the dialog closes

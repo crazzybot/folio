@@ -10,6 +10,7 @@ import styles from "./DocumentNoteEditor.module.css";
 
 const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 const SAVE_SHORTCUT = IS_MAC ? "⌘↩" : "Ctrl+Enter";
+const SEND_SHORTCUT = IS_MAC ? "⇧⌘↩" : "Ctrl+Shift+Enter";
 const WIDTH = 320;
 const MARGIN = 8;
 // The status select's values besides the statuses themselves
@@ -29,6 +30,12 @@ interface DocumentNoteEditorProps {
   /** Statuses used in the workspace, offered after the known ones. */
   workspaceStatuses: readonly string[];
   onSave: (changes: NoteChanges) => void;
+  /** The agents in a review loop on the document ("Claude Code"): Save and Send is offered. */
+  sendTo?: string | null;
+  /** Save what changed (null: nothing) and send the note to `sendTo` on its own. */
+  onSaveAndSend?: (changes: NoteChanges | null) => void;
+  /** Save the user's reply (replyId null: a new one) and send the note to `sendTo` on its own. */
+  onReplyAndSend?: (reply: { text: string; replyId: string | null }) => void;
   onRemove: () => void;
   /** Change where the note is in the review loop (docs/design/sending-notes.md). */
   onSetState: (state: NoteState) => void;
@@ -51,6 +58,9 @@ export default function DocumentNoteEditor({
   note,
   workspaceStatuses,
   onSave,
+  sendTo = null,
+  onSaveAndSend,
+  onReplyAndSend,
   onRemove,
   onSetState,
   onReply,
@@ -98,6 +108,13 @@ export default function DocumentNoteEditor({
     if (dirty()) onSave(changes());
     onClose();
   };
+  // Not for a private note, which is never sent, or before there's a note
+  const canSend = sendTo !== null && onSaveAndSend !== undefined && note?.private !== true && (note !== undefined || dirty());
+  const saveAndSend = () => {
+    if (!canSend) return;
+    onSaveAndSend(dirty() ? changes() : null);
+    onClose();
+  };
 
   // Clicking elsewhere saves what changed, as a highlight's note does
   const saveRef = useRef(save);
@@ -135,7 +152,10 @@ export default function DocumentNoteEditor({
         width: WIDTH,
       }}
       onKeyDown={(e) => {
-        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.shiftKey && canSend) {
+          e.preventDefault();
+          saveAndSend();
+        } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
           e.preventDefault();
           save();
         } else if (e.key === "Escape") {
@@ -220,6 +240,15 @@ export default function DocumentNoteEditor({
             onReply={onReply}
             onEditReply={onEditReply}
             onDeleteReply={onDeleteReply}
+            sendTo={note.private === true ? null : sendTo}
+            onSaveAndSend={
+              onReplyAndSend === undefined
+                ? undefined
+                : (reply) => {
+                    onReplyAndSend(reply);
+                    onClose();
+                  }
+            }
           />
         </div>
       )}
@@ -273,6 +302,16 @@ export default function DocumentNoteEditor({
             }}
           >
             Remove
+          </button>
+        )}
+        {canSend && (
+          <button
+            type="button"
+            className={styles.removeBtn}
+            onClick={saveAndSend}
+            title={`Save, and send this note to ${sendTo} (${SEND_SHORTCUT})`}
+          >
+            Save and Send
           </button>
         )}
         <button type="button" className={styles.saveBtn} onClick={save}>

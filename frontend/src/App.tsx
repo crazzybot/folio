@@ -45,7 +45,7 @@ import ChangesBanner from "./components/ChangesBanner";
 import { sectionChanges } from "../../packages/core/src/sections";
 import { slugify } from "./slug";
 import { BranchIcon, WorktreeIcon } from "./components/GitIcons";
-import { agentsFor, useAgents } from "./agents";
+import { agentNames, agentsFor, useAgents } from "./agents";
 import LivePill from "./components/LivePill";
 import { branchSentence, changesById, folderName, isOnBase, repositoryOf, statusBranchText, useGitState } from "./git";
 import SettingsPanel from "./components/SettingsPanel";
@@ -671,6 +671,35 @@ function AppInner(): React.ReactElement {
   }, [contentId]);
   const { add: addMark, recolor, setNote, remove: removeMark, setLoop, reply, editReply, deleteReply, markSeen, toggleBookmark, removeBookmark } = marks;
   const shownRounds = contentId === null ? undefined : marks.byDoc.get(contentId)?.rounds;
+  const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
+  const [markSent, setMarkSent] = useMarkSent();
+  // The agents in a review loop on the shown document: its note editors
+  // offer Save and Send, which gives them one note without the Send dialog
+  const shownLocation = documents.find((doc) => doc.id === contentId)?.location ?? null;
+  const sendTo = useMemo(() => {
+    const live = shownLocation === null ? [] : agentsFor(agents, shownLocation);
+    return live.length === 0 ? null : agentNames(live);
+  }, [agents, shownLocation]);
+  const { send: recordSend } = marks;
+  const sendNow = useCallback(
+    (docId: string, saved: Promise<void>, target: { highlightId: string } | "document") => {
+      if (sendTo === null) return;
+      const agent = sendTo;
+      // After the save, so the agent gets the note as written
+      void saved
+        .then(() =>
+          recordSend(
+            [{ docId, highlightIds: target === "document" ? [] : [target.highlightId], documentNote: target === "document" }],
+            markSent,
+            agent,
+          ),
+        )
+        .then((round) => {
+          if (round !== null) setStatusMessage({ text: `Sent 1 note to ${agent}` });
+        });
+    },
+    [sendTo, recordSend, markSent],
+  );
   // Changes to the shown document's marks, from the viewer
   const markHandlers = useMemo((): MarkHandlers | undefined => {
     if (contentId === null) return undefined;
@@ -686,8 +715,17 @@ function AppInner(): React.ReactElement {
       markSeen: (id) => void markSeen(contentId, id),
       toggleHeadingBookmark: (heading) => void toggleBookmark(contentId, heading),
       rounds: shownRounds,
+      sendTo,
+      saveAndSend: (id, note) =>
+        sendNow(contentId, note === undefined ? Promise.resolve() : setNote(contentId, id, note), { highlightId: id }),
+      replyAndSend: (id, r) =>
+        sendNow(
+          contentId,
+          r.replyId === null ? reply(contentId, id, r.text) : editReply(contentId, id, r.replyId, r.text),
+          { highlightId: id },
+        ),
     };
-  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, reply, editReply, deleteReply, markSeen, toggleBookmark, shownRounds]);
+  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, reply, editReply, deleteReply, markSeen, toggleBookmark, shownRounds, sendTo, sendNow]);
   const shownMarks = contentId === null ? undefined : marks.byDoc.get(contentId);
   const documentBookmarked = shownMarks !== undefined && findBookmark(shownMarks.bookmarks, null) !== undefined;
 
@@ -757,13 +795,11 @@ function AppInner(): React.ReactElement {
   // a round and, with Don't send these notes again, makes them sent
   // (docs/design/sending-notes.md) ──────────────────────────────────────────────
   const [sending, setSending] = useState<{ title: string; docs: readonly SendScope[] } | null>(null);
-  const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
   useEffect(() => {
     if (statusMessage === null) return;
     const timer = setTimeout(() => setStatusMessage(null), statusMessage.action ? UNDO_SHOWN_MS : STATUS_SHOWN_MS);
     return () => clearTimeout(timer);
   }, [statusMessage]);
-  const [markSent, setMarkSent] = useMarkSent();
   // The Marks view's state filter, set from the Send dialog's counts
   const [marksFilter, setMarksFilter] = useState<{ filter: readonly StateFilter[]; nonce: number } | null>(null);
 
@@ -819,7 +855,7 @@ function AppInner(): React.ReactElement {
   );
 
   // Recording a send, with Undo in the status bar
-  const { send: recordSend, unsend } = marks;
+  const { unsend } = marks;
   const recordSent = useCallback(
     (picks: readonly Picked[], sent: boolean, agent: string | null = null) => {
       const count = picks.reduce((n, p) => n + p.highlights.length + (p.note === undefined ? 0 : 1), 0);
@@ -1186,6 +1222,17 @@ function AppInner(): React.ReactElement {
                 note={documentNote}
                 workspaceStatuses={workspaceStatuses}
                 onSave={(changes) => void marks.saveDocumentNote(contentId, changes)}
+                sendTo={sendTo}
+                onSaveAndSend={(changes) =>
+                  sendNow(contentId, changes === null ? Promise.resolve() : marks.saveDocumentNote(contentId, changes), "document")
+                }
+                onReplyAndSend={(r) =>
+                  sendNow(
+                    contentId,
+                    r.replyId === null ? marks.reply(contentId, null, r.text) : marks.editReply(contentId, null, r.replyId, r.text),
+                    "document",
+                  )
+                }
                 onRemove={() => void marks.removeDocumentNote(contentId)}
                 onSetState={(state) => void marks.setDocumentNoteLoop(contentId, { state })}
                 onReply={(text) => void marks.reply(contentId, null, text)}

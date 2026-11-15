@@ -20,6 +20,7 @@ const COLOR_KEY = "folio.highlightColor";
 const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 const HIGHLIGHT_SHORTCUT = IS_MAC ? "⇧⌘H" : "Ctrl+Shift+H";
 const SAVE_SHORTCUT = IS_MAC ? "⌘↩" : "Ctrl+Enter";
+const SEND_SHORTCUT = IS_MAC ? "⇧⌘↩" : "Ctrl+Shift+Enter";
 const supported = typeof CSS !== "undefined" && "highlights" in CSS;
 // Room above a selection for the toolbar; with less, it goes below
 const TOOLBAR_ROOM = 44;
@@ -175,6 +176,8 @@ interface MarksLayerProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   /** The document is rendered (not loading, no error). */
   ready: boolean;
+  /** The document shown: another one closes what's open. */
+  docKey: unknown;
   /** Changes whenever the rendered document does (another document, a reload). */
   renderKey: unknown;
   /** Show notes in the text under their passages (inlineNotes.ts), besides the margin icons. */
@@ -191,6 +194,12 @@ interface MarksLayerProps {
   onSetLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
   /** The document's latest rounds, for when a note was sent. */
   rounds?: readonly Round[] | undefined;
+  /** The agents in a review loop on the document ("Claude Code"): the note editor offers Save and Send. */
+  sendTo?: string | null;
+  /** Save a highlight's note (undefined: unchanged) and send it to `sendTo` on its own. */
+  onSaveAndSend?: ((id: string, note: string | null | undefined) => void) | undefined;
+  /** Save the user's reply (replyId null: a new one) and send the note to `sendTo` on its own. */
+  onReplyAndSend?: ((id: string, reply: { text: string; replyId: string | null }) => void) | undefined;
   /** The user's reply to a highlight's note. */
   onReply: (id: string, text: string) => void;
   /** The user's latest reply to a highlight's note, changed. */
@@ -215,6 +224,7 @@ export default function MarksLayer({
   articleRef,
   containerRef,
   ready,
+  docKey,
   renderKey,
   inlineNotes = false,
   highlights,
@@ -226,6 +236,9 @@ export default function MarksLayer({
   onRemove,
   onSetLoop,
   rounds,
+  sendTo = null,
+  onSaveAndSend,
+  onReplyAndSend,
   onReply,
   onEditReply,
   onDeleteReply,
@@ -260,6 +273,8 @@ export default function MarksLayer({
   const popoverRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const handledFocus = useRef<number | null>(null);
+  // Across a reload: the open highlight, and its height in the view before it
+  const keepInView = useRef<{ id: string; offset: number } | null>(null);
 
   // ── Paint ──────────────────────────────────────────────────────────────────
   // Highlights that can't be found in the current text aren't painted
@@ -478,18 +493,72 @@ export default function MarksLayer({
     return () => cancelAnimationFrame(frame);
   }, [articleRef, containerRef, ready, focus, renderKey, highlights]);
 
-  // Another document: nothing of the previous one stays open (reset while
-  // rendering, when it changes, rather than in an effect)
-  const [shownFor, setShownFor] = useState(renderKey);
-  if (shownFor !== renderKey) {
-    setShownFor(renderKey);
+  // Another document: nothing of the previous one stays open. A reload of
+  // the same one keeps the open highlight's popover, and its note being
+  // written, where it is on screen (see below). Reset while rendering, when
+  // it changes, rather than in an effect
+  const [shownFor, setShownFor] = useState({ docKey, renderKey });
+  if (shownFor.renderKey !== renderKey || shownFor.docKey !== docKey) {
+    setShownFor({ docKey, renderKey });
     setToolbar(null);
-    setPopover(null);
-    setDraft(null);
+    if (shownFor.docKey !== docKey) {
+      setPopover(null);
+      setDraft(null);
+    }
     setHoveredHeading(null);
     setHoveredBlock(null);
     setHoveredNote(null);
   }
+
+  // The open highlight's height in the view, kept as the view scrolls: a
+  // reload changes the text before any effect could measure it
+  const popoverId = popover?.id ?? null;
+  useEffect(() => {
+    const container = containerRef.current;
+    if (popoverId === null || container === null) {
+      keepInView.current = null;
+      return;
+    }
+    const measure = () => {
+      const range = located.current.get(popoverId);
+      if (range !== undefined && range.startContainer.isConnected) {
+        keepInView.current = { id: popoverId, offset: range.getBoundingClientRect().top - container.getBoundingClientRect().top };
+      }
+    };
+    measure();
+    container.addEventListener("scroll", measure, { passive: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      container.removeEventListener("scroll", measure);
+      window.removeEventListener("resize", measure);
+    };
+    // Again once painting has found the highlight in new text
+  }, [containerRef, popoverId, layoutVersion, renderKey, highlights]);
+
+  // After a reload: the open highlight back at the height it was (text the
+  // agent added above it would push it, and its popover, out of view), and
+  // the popover beside it. Gone from the text: the popover closes
+  useLayoutEffect(() => {
+    const keep = keepInView.current;
+    const article = articleRef.current;
+    const container = containerRef.current;
+    if (popoverId === null || !ready || article === null || container === null) return;
+    const highlight = highlights.find((h) => h.id === popoverId);
+    const model = buildTextModel(article);
+    const span = highlight === undefined ? null : locateAnchor(model.text, highlight);
+    if (span === null) {
+      setPopover(null);
+      setDraft(null);
+      return;
+    }
+    const range = model.range(span.start, span.end);
+    if (keep !== null && keep.id === popoverId) {
+      container.scrollTop += range.getBoundingClientRect().top - container.getBoundingClientRect().top - keep.offset;
+    }
+    setPopover({ ...placeBy(container, range.getBoundingClientRect(), true), id: popoverId });
+    // Only after a reload: the popover and highlights of that render are read, not watched
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [renderKey]);
 
   // A removed highlight's popover closes
   if (popover !== null && !highlights.some((h) => h.id === popover.id)) {
@@ -670,6 +739,24 @@ export default function MarksLayer({
     setDraft(null);
     setReplying(false);
   }, [current, draft, onSetNote]);
+
+  // Save and Send: the note goes to the agents in a loop on the document at
+  // once, without the Send dialog. Not for a private note, which is never sent.
+  // Decided on the draft: a new highlight has no note yet, so is private
+  // until the note being written is saved
+  const canSend =
+    sendTo !== null &&
+    onSaveAndSend !== undefined &&
+    current !== undefined &&
+    !isPrivate({ note: draft ?? current.note, private: current.private });
+  const saveAndSend = () => {
+    if (!canSend || draft === null) return;
+    const note = draft.trim() === "" ? null : draft;
+    onSaveAndSend(current.id, draft.trim() === (current.note ?? "") ? undefined : note);
+    setPopover(null);
+    setDraft(null);
+    setReplying(false);
+  };
 
   // Escape (unless writing a note) or a click elsewhere closes the popover
   useEffect(() => {
@@ -933,7 +1020,10 @@ export default function MarksLayer({
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.shiftKey && canSend) {
+                    e.preventDefault();
+                    saveAndSend();
+                  } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                     e.preventDefault();
                     closePopover();
                   } else if (e.key === "Escape") {
@@ -949,6 +1039,16 @@ export default function MarksLayer({
               />
               <div className={styles.noteActions}>
                 <span className={styles.noteHint}>{SAVE_SHORTCUT} to save · Esc to cancel</span>
+                {canSend && (
+                  <button
+                    type="button"
+                    className={styles.sendBtn}
+                    onClick={saveAndSend}
+                    title={`Save, and send this note to ${sendTo} (${SEND_SHORTCUT})`}
+                  >
+                    Save and Send
+                  </button>
+                )}
                 <button type="button" className={styles.saveBtn} onClick={closePopover}>
                   Save
                 </button>
@@ -966,6 +1066,15 @@ export default function MarksLayer({
               onEditReply={(replyId, text) => onEditReply(current.id, replyId, text)}
               onDeleteReply={(replyId) => onDeleteReply(current.id, replyId)}
               onWritingChange={setReplying}
+              sendTo={isPrivate(current) ? null : sendTo}
+              onSaveAndSend={
+                onReplyAndSend === undefined
+                  ? undefined
+                  : (reply) => {
+                      onReplyAndSend(current.id, reply);
+                      closePopover();
+                    }
+              }
             />
           )}
 
