@@ -26,6 +26,16 @@ turns them into the next release's section.
   **End Review Loop**, in the folder's context menu or on the status bar's
   pill, tells the agent to stop waiting.
 
+- **Save and Send** (desktop). With an agent Live on the document, the
+  note editor and the reply box have **Save and Send** (`⇧⌘↩` /
+  `Ctrl+Shift+Enter`): that one note goes to the agent at once, without the
+  **Send review notes** dialog.
+
+- **Know when the agent replied** (desktop). While you're in another app,
+  a system notification says when an agent answers your notes ("Claude
+  Code replied to 4 notes"); click it to come back to Folio. The Dock icon
+  shows how many notes have replies you haven't read yet.
+
 - **Edit or delete your reply.** Your latest reply to a note has an
   **Edit** link until someone answers it. The note opens again, so the new
   wording goes with the next round. Until it's sent, it has **Delete** too:

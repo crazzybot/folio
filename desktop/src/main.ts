@@ -34,6 +34,7 @@ import {
   ipcMain,
   Menu,
   nativeTheme,
+  Notification,
   protocol,
   session,
   shell,
@@ -61,7 +62,7 @@ import type { GitState, LastCommit, Repository } from "./git";
 import { chooseBase, chosenBase } from "./gitBases";
 import { classifyPath, folderInWorkspace, locationInWorkspace, pathsFromArgv } from "./openPaths";
 import { filesOnOtherBranches } from "../../packages/core/src/git";
-import { defaultDataDir, listMarks, MarkError, MarksStore, newRoundId } from "../../packages/core/src/marks";
+import { defaultDataDir, listMarks, MarkError, MarksStore, newRoundId, realPath } from "../../packages/core/src/marks";
 import type { Bookmark, DocumentMarks, DocumentNote, Highlight, MissingMarks } from "../../packages/core/src/marks";
 import { hashFile, ReadsStore } from "../../packages/core/src/reads";
 import type { DocumentRead } from "../../packages/core/src/reads";
@@ -82,6 +83,7 @@ import {
 import type { Settings, Theme } from "./settings";
 import { hasPendingViewState, loadViewState, saveViewState, setViewState, viewStateSnapshot } from "./viewState";
 import { checkForUpdatesNow, initUpdater } from "./updater";
+import { alertText, ReplyAlerts, unseenNotes } from "./replyAlerts";
 import { watchMarks, watchWorkspace } from "./watcher";
 import { DEFAULT_SIZE, loadWindowState, trackWindowState } from "./windowState";
 
@@ -297,6 +299,32 @@ function notifyMarksChanged(): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send("marks:changed");
   }
+  void checkReplies().catch(() => {});
+}
+
+const replyAlerts = new ReplyAlerts();
+
+/**
+ * Agents' replies the user hasn't seen: the Dock badge counts their notes,
+ * and new ones get a system notification while Folio isn't the focused app,
+ * so the user doesn't have to watch Folio for the agent to finish.
+ */
+async function checkReplies(): Promise<void> {
+  const workspace = settings.workspace;
+  if (workspace === null) return;
+  const records = (await marks.records()).map(([, record]) => record);
+  const { badge, fresh } = replyAlerts.check(unseenNotes(realPath(workspace), records));
+  app.setBadgeCount(badge);
+  const text = alertText(fresh);
+  if (text === null || BrowserWindow.getFocusedWindow() !== null || !Notification.isSupported()) return;
+  const notification = new Notification({ ...text, silent: false });
+  notification.on("click", () => {
+    const win = mainWindow ?? BrowserWindow.getAllWindows()[0];
+    if (win === undefined) return;
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  });
+  notification.show();
 }
 
 function registerIpcHandlers(): void {
@@ -1140,6 +1168,10 @@ function applySettings(next: Settings): void {
   if (workspaceChanged || scanChanged) {
     restartWatcher();
     if (workspaceChanged && next.workspace !== null) rememberWorkspace(next.workspace);
+    if (workspaceChanged) {
+      replyAlerts.reset();
+      void checkReplies().catch(() => {});
+    }
     for (const win of BrowserWindow.getAllWindows()) {
       updateWindowTitle(win);
       // A new workspace starts at its first document
@@ -1629,7 +1661,8 @@ void app.whenReady().then(() => {
     recentWorkspaces = addRecentWorkspace(recentWorkspaces, settings.workspace);
   }
   protocol.handle(APP_SCHEME, handleAppRequest);
-  // The app needs no camera, microphone, notifications, geolocation, …
+  // Pages need no camera, microphone, notifications, geolocation, … (reply
+  // notifications come from the main process, replyAlerts.ts)
   // Only writing to the clipboard, for code blocks' copy buttons.
   const allowed = (permission: string) => permission === "clipboard-sanitized-write";
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => callback(allowed(permission)));
@@ -1642,6 +1675,7 @@ void app.whenReady().then(() => {
   agents.start();
   restartWatcher();
   watchMarks(marks.folder, (id) => marks.changedOutside(id), notifyMarksChanged);
+  void checkReplies().catch(() => {});
   void collectSnapshots().catch(() => {});
   // Coming back to the window: a branch made or checked out elsewhere shows
   app.on("browser-window-focus", () => void refreshGit());
