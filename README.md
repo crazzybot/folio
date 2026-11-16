@@ -88,8 +88,16 @@ Install the plugin in Claude Code:
 ```
 
 Then `/folio:review` has the agent get your review notes, revise the
-documents and answer each note in Folio. Other agents (Cursor, Codex…) use
-the MCP server directly: see [packages/mcp](packages/mcp/README.md).
+documents and answer each note in Folio.
+
+To skip asking after each round, run `/folio:review-loop` instead: the agent
+waits for your notes. **Send** in the **Send review notes** dialog hands
+them straight to it. It addresses them, answers each one, and waits for the
+next round. A **Live** pill in Folio shows where it's waiting; **End Review
+Loop** stops it. See [Review in a loop](https://crazzybot.github.io/folio/docs/guide/review-loop#review-in-a-loop).
+
+Other agents (Cursor, Codex…) use the MCP server directly, waiting with
+`folio_wait_for_review`: see [packages/mcp](packages/mcp/README.md).
 **Settings → Coding agents** in the app has both setups.
 
 ## Privacy and security
