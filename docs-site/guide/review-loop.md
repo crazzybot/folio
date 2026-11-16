@@ -105,9 +105,10 @@ description.
 - **Deleted passages.** When the agent removed the passage you noted, the
   note is listed above the document under **Not found in the current
   text**. Click it to read the agent's reply.
-- **Addressed or open.** When the agent changed the document for a note, its
-  reply marks the note **Addressed**. A question, or an explanation of why
-  it didn't change anything, leaves the note open, to go with the next round.
+- **Addressed or answered.** When the agent changed the document for a
+  note, its reply marks the note **Addressed**. A question, or an
+  explanation of why it didn't change anything, marks it **Answered by …**:
+  it waits for you, and isn't sent again until you reply.
 - **Reply.** Click **Reply** under a note to answer, and **Save** (`⌘↩` /
   `Ctrl+Enter`). Your reply opens the note again, so it goes with the next
   round. With an agent Live, **Save and Send** sends it at once.

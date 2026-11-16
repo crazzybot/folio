@@ -23,6 +23,9 @@ The bottom row of a note's popover says where the note is, with its icon:
 - **Not sent**: it goes with the next notes you send.
 - **Sent**: you sent it, and the agent hasn't answered yet. **Mark not
   sent** puts it back with the next round.
+- **Answered by …**: the agent replied without changing the document, with
+  a question or why it left the text as it was. **Reply** to it, or
+  **Resolve** it. It isn't sent again until you reply.
 - **Addressed**: the agent says it changed the document for it.
   **Resolve** it, or **Reopen** it.
 - **Resolved**: you closed it.

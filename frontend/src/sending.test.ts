@@ -5,10 +5,12 @@ import {
   filterOf,
   highlightKey,
   isPrivate,
+  loopKind,
   noteKey,
   picked,
   pickedUpBy,
   loopSentence,
+  needsYou,
   sendableNote,
   sendDocuments,
   sendGroups,
@@ -45,6 +47,9 @@ const docNote = (extra: Partial<DocumentNote> = {}): DocumentNote => ({
   updated: "",
   ...extra,
 });
+
+const agentReply = { id: "r", author: { kind: "agent" as const, name: "Claude Code" }, text: "Why not?", at: "" };
+const userReply = { id: "u", author: { kind: "user" as const }, text: "Because.", at: "" };
 
 describe("privacy", () => {
   it("makes highlights without a note private unless sent to the agent", () => {
@@ -104,8 +109,9 @@ describe("feedbackSummary", () => {
       highlight("d", 3, "Four", { state: "addressed" }),
       highlight("e", 4, null),
       highlight("f", 5, "Mine", { private: true }),
+      highlight("g", 6, "Five", { state: "sent", replies: [agentReply] }),
     ];
-    expect(feedbackSummary(highlights, docNote(), null)).toBe("3 unsent · 1 sent · 1 addressed");
+    expect(feedbackSummary(highlights, docNote(), null)).toBe("3 unsent · 1 sent · 1 answered · 1 addressed");
     expect(feedbackSummary([highlight("e", 4, null)], undefined, null)).toBe("");
   });
 });
@@ -169,5 +175,20 @@ describe("pickedUpBy", () => {
   it("says so in the note's loop sentence", () => {
     expect(loopSentence("sent", null, "Claude Code")).toBe("Sent · Claude Code is working on it");
     expect(loopSentence("sent")).toBe("Sent · waiting for the agent");
+  });
+});
+
+describe("answered notes", () => {
+  it("are sent notes whose latest reply is the agent's", () => {
+    expect(loopKind(highlight("a", 0, "Why?", { state: "sent", replies: [agentReply] }))).toBe("answered");
+    expect(loopKind(highlight("a", 0, "Why?", { state: "sent", replies: [agentReply, userReply] }))).toBe("sent");
+    expect(loopKind(highlight("a", 0, "Why?", { state: "sent" }))).toBe("sent");
+    expect(loopKind(highlight("a", 0, "Why?", { state: "addressed", replies: [agentReply] }))).toBe("addressed");
+    expect(loopKind(docNote({ state: "sent", replies: [agentReply] }))).toBe("answered");
+  });
+
+  it("wait on the user", () => {
+    expect(needsYou("answered")).toBe(true);
+    expect(loopSentence("answered", null, "Claude Code")).toBe("Answered by Claude Code · reply or resolve it");
   });
 });

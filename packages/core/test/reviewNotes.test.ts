@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DocumentNote, Highlight } from "../src/marks";
-import { formatReviewNotes, reviewPath, statusRequest } from "../src/reviewNotes";
+import { answeredBy, formatReviewNotes, reviewPath, statusRequest } from "../src/reviewNotes";
 import type { ReviewDocument } from "../src/reviewNotes";
 
 const SOURCE = `---
@@ -281,5 +281,21 @@ describe("formatReviewNotes for an agent", () => {
     };
     const { text } = formatReviewNotes([doc([], { note: n })], null, { noteIds: true });
     expect(text).toBe(["Document: docs/adr.md", "Overall: Ship it.", "", "Reply from Codex: Done."].join("\n"));
+  });
+});
+
+describe("answeredBy", () => {
+  const agent = { author: { kind: "agent" as const, name: "Claude Code" } };
+  const user = { author: { kind: "user" as const } };
+
+  it("names the agent whose reply is the latest on a sent note", () => {
+    expect(answeredBy({ state: "sent", replies: [user, agent] })).toBe("Claude Code");
+  });
+
+  it("is null while the note waits on the agent, or isn't sent", () => {
+    expect(answeredBy({ state: "sent" })).toBeNull();
+    expect(answeredBy({ state: "sent", replies: [agent, user] })).toBeNull();
+    expect(answeredBy({ state: "addressed", replies: [agent] })).toBeNull();
+    expect(answeredBy({ replies: [agent] })).toBeNull();
   });
 });

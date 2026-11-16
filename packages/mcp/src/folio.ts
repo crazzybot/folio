@@ -15,7 +15,7 @@ import { agentsFolder, presenceFile, stopFile, stopRequested, writePresence } fr
 import { filesOnOtherBranches } from "../../core/src/git";
 import { listMarks, MarkError, MarksStore, newRoundId, realPath } from "../../core/src/marks";
 import type { DocumentMarks, DocumentNote, Highlight, NoteState } from "../../core/src/marks";
-import { formatReviewNotes, isPrivate, reviewPath, sendableNote, shortNoteId } from "../../core/src/reviewNotes";
+import { answeredBy, formatReviewNotes, isPrivate, reviewPath, sendableNote, shortNoteId } from "../../core/src/reviewNotes";
 import type { ReviewDocument } from "../../core/src/reviewNotes";
 import { scanWorkspace } from "../../core/src/scanner";
 import type { DocumentMeta, ScanOptions } from "../../core/src/scanner";
@@ -448,11 +448,12 @@ export class Folio {
   }
 }
 
-/** A document's notes waiting on the agent: unsent and sent, not private. */
+/** A document's notes waiting on the agent: unsent, and sent but not answered yet; not private. */
 function waiting(marks: DocumentMarks, status: string | null | undefined): number {
-  const busy = (state: NoteState | undefined) => state === undefined || state === "open" || state === "sent";
+  const busy = (n: { state?: NoteState; replies?: DocumentNote["replies"] }) =>
+    n.state === undefined || n.state === "open" || (n.state === "sent" && answeredBy(n) === null);
   const note = sendableNote(marks.note, status);
-  return marks.highlights.filter((h) => !isPrivate(h) && busy(h.state)).length + (note !== null && busy(note.state) ? 1 : 0);
+  return marks.highlights.filter((h) => !isPrivate(h) && busy(h)).length + (note !== null && busy(note) ? 1 : 0);
 }
 
 function key(location: string): string {
@@ -462,7 +463,7 @@ function key(location: string): string {
 function replied(what: string, note: { state?: NoteState }): string {
   return note.state === "addressed"
     ? `Replied to ${what}; it's marked addressed for the user to check and resolve.`
-    : `Replied to ${what}; it stays open for the user to answer.`;
+    : `Replied to ${what}; it waits for the user to answer or resolve it, and isn't sent to you again until they reply.`;
 }
 
 /** The agent's name for its replies, from the MCP client's: "claude-code" → "Claude Code". */

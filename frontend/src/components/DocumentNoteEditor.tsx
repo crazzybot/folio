@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { NoteChanges } from "../dataSource";
+import { answeredBy } from "../sending";
 import { KNOWN_STATUSES, normaliseStatus } from "../status";
 import { newReplies } from "../threads";
 import type { DocumentNote, NoteState } from "../types";
@@ -108,6 +109,7 @@ export default function DocumentNoteEditor({
     );
   };
   const state = note?.state ?? "open";
+  const answerer = note === undefined ? null : answeredBy(note);
   const setState = (next: NoteState) => {
     onSetState(next);
     onClose();
@@ -305,7 +307,19 @@ export default function DocumentNoteEditor({
               <NoteStateIcon kind="open" size={12} /> Not sent
             </>
           )}
-          {!locked && state === "sent" && (
+          {!locked && answerer !== null && (
+            <>
+              <NoteStateIcon kind="answered" size={12} /> Answered by {answerer} ·{" "}
+              <button type="button" className={styles.loopBtn} onClick={() => setState("open")}>
+                Mark not sent
+              </button>{" "}
+              ·{" "}
+              <button type="button" className={styles.loopBtn} onClick={() => setState("resolved")}>
+                Resolve
+              </button>
+            </>
+          )}
+          {!locked && state === "sent" && answerer === null && (
             <>
               <NoteStateIcon kind="sent" size={12} /> Sent{pickedBy === null ? "" : ` · ${pickedBy} has it`} ·{" "}
               <button type="button" className={styles.loopBtn} onClick={() => setState("open")}>

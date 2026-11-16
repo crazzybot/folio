@@ -1,8 +1,8 @@
 /**
  * noteIcons.ts — The note icon for each place in the review loop
  * (docs/design/sending-notes.md §2). The highlight's colour belongs to the
- * user, so state is told by shape: what needs the user (unsent, addressed)
- * is solid or checked, what's waiting (sent) has an arrow, what's done
+ * user, so state is told by shape: what needs the user (unsent, answered,
+ * addressed) is solid, has lines of text or is checked, what's waiting (sent) has an arrow, what's done
  * (resolved) is faded, and a private note keeps the plain outline.
  *
  * Paths for a 16×16 view box, stroked in currentColor; shared by the margin
@@ -11,8 +11,8 @@
 
 import type { NoteState } from "./types";
 
-/** A note's icon: its state, or private (out of the loop). */
-export type NoteIconKind = NoteState | "private";
+/** A note's icon: its state, answered (sent, and the agent's reply is the latest), or private (out of the loop). */
+export type NoteIconKind = NoteState | "answered" | "private";
 
 // A speech bubble, and a smaller one with room for an arrow beside it
 const BUBBLE = "M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z";
@@ -27,6 +27,7 @@ export const NOTE_ICON_PATHS: Readonly<Record<NoteIconKind, readonly IconPath[]>
   private: [{ d: BUBBLE }],
   open: [{ d: BUBBLE, fill: true }],
   sent: [{ d: SMALL_BUBBLE }, { d: "M10 3.5h4.5M12.8 1.8l1.7 1.7-1.7 1.7" }],
+  answered: [{ d: BUBBLE }, { d: "M5 6h6M5 8h4" }],
   addressed: [{ d: BUBBLE }, { d: "M5.5 7l1.5 1.5 3-3" }],
   resolved: [{ d: BUBBLE }, { d: "M5.5 7l1.5 1.5 3-3" }],
 };
@@ -35,6 +36,7 @@ export const NOTE_ICON_LABELS: Readonly<Record<NoteIconKind, string>> = {
   private: "Private note",
   open: "Not sent",
   sent: "Sent",
+  answered: "Answered",
   addressed: "Addressed",
   resolved: "Resolved",
 };

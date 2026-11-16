@@ -197,9 +197,11 @@ function replyBody(body: unknown): { author: Author; text: string; addressed: bo
 }
 
 /**
- * `mark` with `reply` added. Addressed: the author says it's done. Otherwise
- * the reply is a question, an objection or the user's answer, so the note is
- * open again, to go with the next round (a resolved one is reopened).
+ * `mark` with `reply` added. Addressed: the author says it's done. The
+ * agent's other replies (a question, or why it left the text) keep the note
+ * sent: the agent has seen it, and it's answered, so it doesn't go again
+ * until the user replies. Any other reply opens the note again, to go with
+ * the next round (a resolved one is reopened).
  */
 function withReply<T extends Thread & { state?: NoteState; private?: boolean }>(
   mark: T,
@@ -211,7 +213,8 @@ function withReply<T extends Thread & { state?: NoteState; private?: boolean }>(
   // The user's reply remembers the state it reopened, for deleting it
   const before = mark.state ?? "open";
   const added = !addressed && reply.author.kind === "user" && before !== "open" ? { ...reply, reopened: before } : reply;
-  return { ...withLoop(mark, { state: addressed ? "addressed" : "open" }), replies: [...replies, added] };
+  const state = addressed ? "addressed" : reply.author.kind === "agent" ? "sent" : "open";
+  return { ...withLoop(mark, { state }), replies: [...replies, added] };
 }
 
 /**

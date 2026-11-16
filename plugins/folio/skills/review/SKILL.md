@@ -23,7 +23,8 @@ Documents to review: $ARGUMENTS
 3. Answer every note with `folio_reply`, in a sentence or two:
    - what you changed, with `addressed: true`;
    - or why you didn't change it, with `addressed` left out;
-   - or a question, with `addressed` left out, so the note stays open.
+   - or a question, with `addressed` left out; the user answers it in
+     Folio, and the note comes back in a later round.
 
    Don't leave a note unanswered, even when the passage it quotes is gone.
 4. Finish with a short summary: the documents you changed, the notes you

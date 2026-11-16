@@ -181,7 +181,7 @@ export function createServer(folio: Folio): McpServer {
       title: "Reply to a note",
       description:
         "Answer one of the user's review notes in Folio, where they read it next to the passage. " +
-        "Say what you changed and set addressed: true, or explain why you didn't change it, or ask a question (addressed left out: the note stays open). " +
+        "Say what you changed and set addressed: true, or explain why you didn't change it, or ask a question (addressed left out: the note waits for the user's answer). " +
         "The user resolves or reopens addressed notes; you can't resolve, edit or delete them. Keep replies short: a sentence or two.",
       inputSchema: z.object({
         noteId: z.string().optional().describe("The note's id from folio_get_review_notes (8 hex digits)"),

@@ -7,7 +7,7 @@ import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
-import { isPrivate, lastSent, pickedUpBy, stateOf, unplacedFirst } from "../sending";
+import { answeredBy, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, unplacedFirst } from "../sending";
 import { buildTextModel } from "../textModel";
 import { newReplies, threadSummary } from "../threads";
 import { HIGHLIGHT_COLORS } from "../types";
@@ -57,12 +57,12 @@ const LAYERS = [
   "folio-mark-sent",
 ];
 
-/** The layers a highlight is painted in: its colour, lighter once resolved, underlined while sent. */
+/** The layers a highlight is painted in: its colour, lighter once resolved, underlined while it waits on the agent. */
 function layersOf(h: Highlight): string[] {
   if (isPrivate(h)) return [`folio-mark-${h.color}`];
-  const state = stateOf(h);
-  if (state === "resolved") return [`folio-mark-${h.color}-resolved`];
-  return state === "sent" ? [`folio-mark-${h.color}`, "folio-mark-sent"] : [`folio-mark-${h.color}`];
+  const kind = loopKind(h);
+  if (kind === "resolved") return [`folio-mark-${h.color}-resolved`];
+  return kind === "sent" ? [`folio-mark-${h.color}`, "folio-mark-sent"] : [`folio-mark-${h.color}`];
 }
 
 /** Paint highlights by layer (::highlight(folio-mark-…) in index.css), under search and find. */
@@ -87,7 +87,7 @@ function hasMarker(h: Highlight): boolean {
 
 /** A highlight's note icon. */
 export function noteIconOf(h: Highlight): NoteIconKind {
-  return isPrivate(h) ? "private" : stateOf(h);
+  return isPrivate(h) ? "private" : loopKind(h);
 }
 
 /** Where to show something by `rect`, in the scroll container's content coordinates. */
@@ -1203,6 +1203,7 @@ function LoopRow({
   const bare = highlight.note === null;
   const locked = isPrivate(highlight);
   const state = stateOf(highlight);
+  const answered = answeredBy(highlight);
   const when = state === "sent" ? lastSent(rounds, highlight.id) : null;
   const pickedBy = state === "sent" ? pickedUpBy(rounds, highlight.id) : null;
   const link = (label: string, changes: { state?: NoteState; private?: boolean | null }, title?: string) => (
@@ -1229,7 +1230,14 @@ function LoopRow({
             <NoteStateIcon kind="open" size={12} /> Not sent
           </>
         )}
-        {!locked && state === "sent" && (
+        {!locked && answered !== null && (
+          <>
+            <NoteStateIcon kind="answered" size={12} /> Answered by {answered} ·{" "}
+            {link("Mark not sent", { state: "open" }, "It will be sent again next time")} ·{" "}
+            {link("Resolve", { state: "resolved" })}
+          </>
+        )}
+        {!locked && state === "sent" && answered === null && (
           <>
             <NoteStateIcon kind="sent" size={12} /> Sent{when === null ? "" : ` · ${when}`}
             {pickedBy === null ? "" : ` · ${pickedBy} has it`} ·{" "}

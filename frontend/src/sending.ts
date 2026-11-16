@@ -5,11 +5,11 @@
  * A highlight without a note is private, one with a note is feedback,
  * unless the user chose otherwise (`private`: Only me, or Send to agent).
  * Feedback is open until sent; the agent may then say it's addressed, and
- * the user resolves it. Private marks have no part in any of it.
+ * the user resolves it, or answer it, and the user replies or resolves it. Private marks have no part in any of it.
  */
 
 import type { NoteIconKind } from "./noteIcons";
-import { isPrivate, sendableNote } from "../../packages/core/src/reviewNotes";
+import { answeredBy, isPrivate, sendableNote } from "../../packages/core/src/reviewNotes";
 import { newReplies } from "./threads";
 import type { DocumentMeta, DocumentNote, Highlight, NoteState, Round, SendDocument } from "./types";
 
@@ -37,7 +37,12 @@ export function stateOf(mark: { state?: NoteState | undefined }): NoteState {
 }
 
 // Shared with the MCP server, which sends the same notes
-export { isPrivate, sendableNote };
+export { answeredBy, isPrivate, sendableNote };
+
+/** A note's icon, for a note in the loop: answered when the agent's reply is the latest on a sent note, else its state. */
+export function loopKind(mark: { state?: NoteState | undefined; replies?: Highlight["replies"] }): Exclude<NoteIconKind, "private"> {
+  return answeredBy(mark) === null ? stateOf(mark) : "answered";
+}
 
 /** Where a highlight falls in the state filter. */
 export function filterOf(h: Highlight): StateFilter {
@@ -60,18 +65,19 @@ export function noteFilterOf(note: DocumentNote, status: string | null | undefin
   return sendableNote(note, status) === null ? "private" : stateOf(note);
 }
 
-/** A document's feedback by state, for its row in the Marks view: "3 unsent · 2 sent · 1 addressed". */
+/** A document's feedback by state, for its row in the Marks view: "3 unsent · 2 sent · 1 answered · 1 addressed". */
 export function feedbackSummary(
   highlights: readonly Highlight[],
   note: DocumentNote | undefined,
   status: string | null | undefined,
 ): string {
-  const counts: Record<NoteState, number> = { open: 0, sent: 0, addressed: 0, resolved: 0 };
-  for (const h of highlights) if (!isPrivate(h)) counts[stateOf(h)]++;
-  if (note !== undefined && sendableNote(note, status) !== null) counts[stateOf(note)]++;
+  const counts: Record<Exclude<NoteIconKind, "private">, number> = { open: 0, sent: 0, answered: 0, addressed: 0, resolved: 0 };
+  for (const h of highlights) if (!isPrivate(h)) counts[loopKind(h)]++;
+  if (note !== undefined && sendableNote(note, status) !== null) counts[loopKind(note)]++;
   return [
     counts.open > 0 && `${counts.open} unsent`,
     counts.sent > 0 && `${counts.sent} sent`,
+    counts.answered > 0 && `${counts.answered} answered`,
     counts.addressed > 0 && `${counts.addressed} addressed`,
   ]
     .filter(Boolean)
@@ -107,7 +113,7 @@ export function pickedUpBy(rounds: readonly Round[] | undefined, highlightId: st
 /**
  * Where a note is in the review loop, in a sentence: "Sent Nov 11, 10:02 ·
  * waiting for the agent", or "… · Claude Code is working on it" once
- * `pickedBy` took it.
+ * `pickedBy` took it. For an answered note, `pickedBy` is the agent that answered.
  */
 export function loopSentence(kind: NoteIconKind, sent: string | null = null, pickedBy: string | null = null): string {
   switch (kind) {
@@ -117,6 +123,8 @@ export function loopSentence(kind: NoteIconKind, sent: string | null = null, pic
       return "Not sent yet";
     case "sent":
       return `Sent${sent === null ? "" : ` ${sent}`} · ${pickedBy === null ? "waiting for the agent" : `${pickedBy} is working on it`}`;
+    case "answered":
+      return `Answered by ${pickedBy ?? "the agent"} · reply or resolve it`;
     case "addressed":
       return "Addressed by the agent · resolve or reopen it";
     case "resolved":
@@ -124,9 +132,9 @@ export function loopSentence(kind: NoteIconKind, sent: string | null = null, pic
   }
 }
 
-/** Whether a note waits on the user: not sent yet, or addressed and to be checked. */
+/** Whether a note waits on the user: not sent yet, answered and to be replied to, or addressed and to be checked. */
 export function needsYou(kind: NoteIconKind): boolean {
-  return kind === "open" || kind === "addressed";
+  return kind === "open" || kind === "answered" || kind === "addressed";
 }
 
 // ─── The Send dialog ─────────────────────────────────────────────────────────
@@ -156,7 +164,7 @@ export interface SendGroup {
   source: string;
   /** Not sent yet: the document's note first, then highlights in text order. */
   items: SendItem[];
-  /** Sent, no answer yet: offered unticked. */
+  /** Sent before, answered or not: offered unticked. */
   sentBefore: SendItem[];
   /** Counted, not listed. */
   privateCount: number;

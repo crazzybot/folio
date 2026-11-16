@@ -2,7 +2,7 @@ import React from "react";
 import { documentsInFolder } from "../documentTree";
 import { branchSentence, commitSentence, folderName, isOnBase } from "../git";
 import { requestDone, statusText } from "../status";
-import { isPrivate, lastSent, loopSentence, needsYou, pickedUpBy, sendableNote, stateOf } from "../sending";
+import { answeredBy, isPrivate, lastSent, loopKind, loopSentence, needsYou, pickedUpBy, sendableNote } from "../sending";
 import type { NoteIconKind } from "../noteIcons";
 import type { DocumentMeta, DocumentNote, GitChange, GitLastCommit, GitRepository, Highlight, Round } from "../types";
 import { BranchIcon, WorktreeIcon } from "./GitIcons";
@@ -114,7 +114,7 @@ export function DocumentNoteCard({
   note: DocumentNote;
   rounds?: readonly Round[] | undefined;
 }): React.ReactElement {
-  const kind: NoteIconKind = sendableNote(note, doc.meta?.status) === null ? "private" : stateOf(note);
+  const kind: NoteIconKind = sendableNote(note, doc.meta?.status) === null ? "private" : loopKind(note);
   return (
     <>
       <div className={styles.title}>Note on {doc.title}</div>
@@ -132,7 +132,7 @@ export function DocumentNoteCard({
       <LoopLine
         kind={kind}
         sent={kind === "sent" ? lastSent(rounds, null) : null}
-        pickedBy={kind === "sent" ? pickedUpBy(rounds, null) : null}
+        pickedBy={kind === "sent" ? pickedUpBy(rounds, null) : answeredBy(note)}
       />
       <div className={styles.path}>{doc.location}</div>
     </>
@@ -213,7 +213,7 @@ export function HighlightCard({
   unplaced: boolean;
   rounds?: readonly Round[] | undefined;
 }): React.ReactElement {
-  const kind: NoteIconKind = isPrivate(highlight) ? "private" : stateOf(highlight);
+  const kind: NoteIconKind = isPrivate(highlight) ? "private" : loopKind(highlight);
   return (
     <>
       <blockquote className={`${styles.quote} ${styles[highlight.color] ?? ""}`}>{highlight.quote.exact}</blockquote>
@@ -221,7 +221,7 @@ export function HighlightCard({
       <LoopLine
         kind={kind}
         sent={kind === "sent" ? lastSent(rounds, highlight.id) : null}
-        pickedBy={kind === "sent" ? pickedUpBy(rounds, highlight.id) : null}
+        pickedBy={kind === "sent" ? pickedUpBy(rounds, highlight.id) : answeredBy(highlight)}
       />
       <div className={styles.path}>{doc.location}</div>
       {unplaced && <div className={styles.detail}>Not found in the current text</div>}

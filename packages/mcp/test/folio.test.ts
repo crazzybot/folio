@@ -247,11 +247,14 @@ describe("reply", () => {
     expect(readFileSync(adr(), "utf8")).toBe(ADR);
   });
 
-  it("leaves a note open for a question", async () => {
+  it("keeps a note it asked about sent: answered, it waits on the user", async () => {
     const h = await note("Why?");
     await folio.reviewNotes({}, "Claude Code");
-    expect(await folio.reply({ noteId: h.id, text: "Which table?" }, "Claude Code")).toContain("open");
-    expect((await records())[0]?.highlights.find((x) => x.id === h.id)?.state).toBeUndefined();
+    expect(await folio.reply({ noteId: h.id, text: "Which table?" }, "Claude Code")).toContain("isn't sent to you again");
+    expect((await records())[0]?.highlights.find((x) => x.id === h.id)?.state).toBe("sent");
+    // Not sent again, nor counted as waiting on the agent
+    expect(await folio.reviewNotes({}, "Claude Code")).toBeNull();
+    expect((await folio.listDocuments({})).find((d) => d.path === file("docs/adr.md"))?.openNotes).toBe(0);
   });
 
   it("answers the note on a document as a whole by its path", async () => {
