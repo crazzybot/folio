@@ -17,6 +17,14 @@ turns them into the next release's section.
   Clicking it in the **Marks** view, or the status bar's **… replied to**
   link, opens it there too. Before, its replies couldn't be read.
 
+### Fixed
+
+- **Notes the agent answered.** When your agent replies to a note without
+  changing the document, with a question or why it left the text as it
+  was, the note now shows **Answered by Claude Code**, with **Resolve**.
+  Before, it said **Not sent**, and the next round sent it to the agent
+  again. Your reply sends it again, as before.
+
 ## [0.8.0] — 2026-11-15
 
 ### Added

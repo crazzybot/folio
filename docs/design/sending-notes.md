@@ -54,6 +54,10 @@ record, [marks.md](marks.md) §2; see As built):
     sent it lists its id.
   - **addressed**: the agent says it's done.
   - **resolved**: the user closed it.
+- **Answered** isn't a state: it's a sent note whose latest reply is the
+  agent's (a question, or why it left the text as it was). The agent has
+  seen it, so it isn't sent again; it waits on the user, who replies
+  (open again, for the next round) or resolves it. See As built.
 - Moves back to **open**: **Reopen**, or **Mark not sent** (the note's
   popover).
 - `private`: written only when the user chooses. Absent means: private if
@@ -74,13 +78,14 @@ record, [marks.md](marks.md) §2; see As built):
 
 The highlight's colour belongs to the user, so state can't use colour. It
 uses the margin icon's shape and the paint. What needs the user (unsent,
-addressed) is loud; what's waiting (sent) or done (resolved) is quiet.
+answered, addressed) is loud; what's waiting (sent) or done (resolved) is quiet.
 
 | | Margin icon | Highlight |
 |---|---|---|
 | Private | Plain note icon (none for a bare highlight) | As before |
 | Open (unsent) | Solid note icon | Full paint |
 | Sent | Outline note icon with a small arrow | Full paint, dashed underline |
+| Answered | Note icon with lines of text | Full paint |
 | Addressed | Note icon with a check | Full paint |
 | Resolved | Faded note icon | Lighter paint |
 
@@ -89,14 +94,16 @@ addressed) is loud; what's waiting (sent) or done (resolved) is quiet.
   icon is shown beside each note in the text.
 - **Popover**: a status line under the note, beside the lock:
   - Sent: "Sent · Nov 11, 10:02 · **Mark not sent**";
+  - Answered: "Answered by Claude Code · **Mark not sent** · **Resolve**";
   - Addressed: "Addressed · **Resolve** / **Reopen**";
   - Open and private: nothing. A bare highlight's popover has **Send to
     agent**.
 - **Marks view**: the state filter is Open · Sent · Addressed · Resolved ·
   Private, by default everything but Resolved (private marks are a
   reader's own, and stay listed). Each document row adds a summary of its
-  feedback: "3 unsent · 2 sent · 1 addressed". Private marks count in the
-  row's mark count, not in the summary.
+  feedback: "3 unsent · 2 sent · 1 answered · 1 addressed". Private marks
+  count in the row's mark count, not in the summary. Answered notes are
+  under Sent in the filter.
 
 ## 3. The Send dialog
 
@@ -201,6 +208,18 @@ Released in 0.5.0, with these differences from the design above:
   and the states, picked to narrow. With none picked, everything but
   resolved notes shows. Notes only also hid highlights without a note,
   which the Private state now covers.
+
+### Answered notes (2026-11-16)
+
+An agent's reply without `addressed` used to set the note back to open.
+The popover then said **Not sent** under the agent's answer, and the next
+round sent the note again, to an agent that had already answered it. Now
+the agent's reply keeps the note sent (or makes an open one sent: it has
+the note), and a sent note whose latest reply is the agent's shows as
+answered. The MCP server doesn't count it as waiting on the agent. The
+user's reply opens the note again, as before. No new state: the latest
+reply's author tells answered from waiting, and older apps show it as
+sent.
 
 ## Later
 

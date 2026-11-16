@@ -312,6 +312,7 @@ li > .folio-inline-notes,
 }
 
 .folio-inline-note-open,
+.folio-inline-note-answered,
 .folio-inline-note-addressed {
   color: var(--color-accent);
 }

@@ -28,9 +28,10 @@ Folio only gives it the notes and stores its replies.
 Marks gain optional fields, still version 1 ([marks.md](marks.md)): a
 note's `author`, `replies` and `seen`. An agent's replies are signed with
 the MCP client's name ("claude-code" → "Claude Code"). A reply marked
-addressed sets the note to `addressed`; any other reply, the agent's
-question or the user's answer, sets it back to open so it goes with the
-next round.
+addressed sets the note to `addressed`. The agent's other replies, a
+question or why it left the text, keep it `sent`: answered, it waits on
+the user and isn't sent again. The user's answer sets it back to open so
+it goes with the next round.
 
 ## In the app
 

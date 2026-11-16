@@ -463,10 +463,10 @@ describe("threads", () => {
     const answered = await store.reply(PLAIN, a.id, { author: { kind: "user" }, text: "Not quite." });
     expect(["state" in answered, answered.replies?.length]).toEqual([false, 2]);
 
-    // A question from the agent leaves a sent note open
+    // A question from the agent keeps the note sent: answered, it doesn't go again
     await store.send(PLAIN, { roundId: "fedcba9876543210", highlightIds: [a.id] });
     const asked = await store.reply(PLAIN, a.id, { author: CLAUDE, text: "Which section?" });
-    expect("state" in asked).toBe(false);
+    expect(asked.state).toBe("sent");
     expect((recordOf(PLAIN) as { highlights: Highlight[] }).highlights.find((h) => h.id === a.id)?.replies).toHaveLength(3);
   });
 
@@ -483,6 +483,8 @@ describe("threads", () => {
   it("edits the user's latest reply until someone answers it", async () => {
     const a = await store.addHighlight(PLAIN, highlight({ note: "Why?" }));
     const asked = await store.reply(PLAIN, a.id, { author: CLAUDE, text: "Which part?" });
+    // Copied without marking it sent: the agent's answer shows it has the note
+    expect(asked.state).toBe("sent");
     const answered = await store.reply(PLAIN, a.id, { author: { kind: "user" }, text: "The frist one." });
     const mine = answered.replies?.[1]?.id ?? "";
     await store.send(PLAIN, { roundId: ROUND, highlightIds: [a.id] });

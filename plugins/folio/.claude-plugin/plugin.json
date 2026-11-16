@@ -1,6 +1,6 @@
 {
   "name": "folio",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Address the review notes you left in Folio on your project's Markdown documents, and answer each one in Folio",
   "author": {
     "name": "crazzybot"

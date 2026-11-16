@@ -50,6 +50,16 @@ export function sendableNote<T extends Pick<DocumentNote, "text" | "requestedSta
   return text === null && requestedStatus === null ? null : { ...note, text, requestedStatus };
 }
 
+/**
+ * The agent that answered a sent note without addressing it ("Claude Code"):
+ * its reply is the thread's latest, so the note waits on the user, not the
+ * agent. Null otherwise.
+ */
+export function answeredBy(note: { state?: string | undefined; replies?: readonly { author: Author }[] | undefined }): string | null {
+  const last = note.replies?.[note.replies.length - 1];
+  return note.state === "sent" && last?.author.kind === "agent" ? last.author.name : null;
+}
+
 // ─── Formatting ───────────────────────────────────────────────────────────────
 
 /** A highlight as formatted: the app's and the store's both fit. */
