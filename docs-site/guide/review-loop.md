@@ -102,6 +102,9 @@ description.
 - **Inline notes.** With notes shown in the text (`⌥⌘N` / `Ctrl+Alt+N`),
   a note with replies has one line under it: how many, who wrote the latest
   and when, and **New** if some are unread. Click it to read the thread.
+- **Deleted passages.** When the agent removed the passage you noted, the
+  note is listed above the document under **Not found in the current
+  text**. Click it to read the agent's reply.
 - **Addressed or open.** When the agent changed the document for a note, its
   reply marks the note **Addressed**. A question, or an explanation of why
   it didn't change anything, leaves the note open, to go with the next round.

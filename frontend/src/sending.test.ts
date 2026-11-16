@@ -13,6 +13,7 @@ import {
   sendDocuments,
   sendGroups,
   shownStates,
+  unplacedFirst,
 } from "./sending";
 import type { DocumentMeta, DocumentNote, Highlight, Round } from "./types";
 
@@ -66,6 +67,24 @@ describe("privacy", () => {
     expect(filterOf(highlight("a", 0, null))).toBe("private");
     expect(filterOf(highlight("a", 0, "Why?", { state: "sent" }))).toBe("sent");
     expect(filterOf(highlight("a", 0, "Why?"))).toBe("open");
+  });
+});
+
+describe("unplacedFirst", () => {
+  it("shows notes still in the loop, and any with new replies", () => {
+    expect(unplacedFirst(highlight("a", 0, "Cut this"))).toBe(true);
+    expect(unplacedFirst(highlight("a", 0, "Cut this", { state: "addressed" }))).toBe(true);
+    expect(unplacedFirst(highlight("a", 0, "Mine", { private: true }))).toBe(true);
+    expect(unplacedFirst(highlight("a", 0, null, { private: false }))).toBe(true);
+    const reply = { id: "r", author: { kind: "agent" as const, name: "Claude Code" }, text: "Removed it", at: "2026-11-15T10:00:00Z" };
+    expect(unplacedFirst(highlight("a", 0, "Cut this", { state: "resolved", replies: [reply] }))).toBe(true);
+  });
+
+  it("keeps resolved notes and bare highlights for later", () => {
+    expect(unplacedFirst(highlight("a", 0, null))).toBe(false);
+    expect(unplacedFirst(highlight("a", 0, "Cut this", { state: "resolved" }))).toBe(false);
+    const seen = { id: "r", author: { kind: "agent" as const, name: "Claude Code" }, text: "Removed it", at: "2026-11-15T10:00:00Z" };
+    expect(unplacedFirst(highlight("a", 0, "Cut this", { state: "resolved", replies: [seen], seen: "2026-11-15T11:00:00Z" }))).toBe(false);
   });
 });
 

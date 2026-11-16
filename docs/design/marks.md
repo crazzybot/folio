@@ -125,8 +125,20 @@ Re-anchoring, in order:
    distance from `start`.
 3. **Fuzzy** — approximate match near `start` (`diff-match-patch` `match_main`,
    bounded threshold); prefix / suffix must still roughly agree.
-4. **Orphan** — not painted; listed under the document as "Not found in the
-   current text" with the quote and note kept, and a Delete action.
+4. **Orphan** — not painted; kept with its note and thread. Listed above the
+   document's text, under "Not found in the current text": a chip per
+   orphan (colour, note state, quote struck through, a dot for unread
+   replies) that opens the highlight's usual popover beneath it. Notes
+   still in the loop or with unread replies show first; resolved notes and
+   bare highlights wait behind "N more" (`unplacedFirst` in `sending.ts`),
+   so old marks don't fill the strip. The Marks view marks the row "Not
+   found in the current text"; clicking it, the status bar's replies link
+   or a reply notification opens the chip's popover.
+
+   Orphans are known only for the open document: anchoring needs its
+   rendered text, so finding them elsewhere would mean rendering every
+   document. The Markdown source isn't a stand-in (a quote across
+   formatting isn't in it as is), so other documents' rows aren't marked.
 
 Re-anchored highlights are not written back automatically; the stored
 position is updated the next time the highlight is edited.

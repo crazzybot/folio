@@ -289,11 +289,83 @@
   color: var(--color-accent);
 }
 
+/* ─── Highlights not found in the text ────────────────────────────────────── */
+/* Above the article, in its column (as DocumentProperties) */
+.unplaced {
+  width: 100%;
+  max-width: var(--reading-width, 880px);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-8) 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: calc(var(--reading-font-size, var(--text-content)) * 0.85);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.unplacedLabel {
+  margin-right: var(--space-1);
+}
+
+/* The highlight's colour on its left edge, its note's state, its passage struck through */
+.unplacedChip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 1px 8px 1px 6px;
+  border: 1px solid var(--color-border);
+  border-left-width: 3px;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.unplacedChip:hover {
+  color: var(--color-text);
+  background: var(--color-hover-bg);
+}
+
+.unplacedChip:focus-visible,
+.unplacedMore:focus-visible {
+  outline: 2px solid var(--color-accent);
+}
+
+.unplacedQuote {
+  min-width: 0;
+  max-width: 18em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, currentColor 50%, transparent);
+}
+
+.unplacedMore {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--color-link);
+  cursor: pointer;
+}
+
+.unplacedMore:hover {
+  text-decoration: underline;
+}
+
 @media print {
   .bubble,
   .noteMarker,
   .headingBookmark,
-  .blockNote {
+  .blockNote,
+  .unplaced {
     display: none;
   }
 }

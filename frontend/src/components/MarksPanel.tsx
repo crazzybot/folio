@@ -162,14 +162,15 @@ export default function MarksPanel({
     });
   }, []);
 
-  // A document row opens the document (and shows its marks); the others go to their mark
+  // A document row opens the document (and shows its marks); the others go to
+  // their mark. A highlight not found in the text opens from its chip above it
   const activate = (row: MarkRow) => {
     if (row.kind === "document") {
       onOpen(row.doc.id, null);
       if (row.count > 0) toggleCollapsed(row.doc.id, true);
     } else if (row.kind === "note") onOpen(row.doc.id, null);
     else if (row.kind === "bookmark") onOpen(row.doc.id, row.missing ? null : { heading: row.bookmark.heading });
-    else onOpen(row.doc.id, row.unplaced ? null : { highlight: row.highlight.id });
+    else onOpen(row.doc.id, { highlight: row.highlight.id });
   };
 
   const remove = (row: MarkRow) => {
