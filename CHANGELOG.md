@@ -8,6 +8,15 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Added
+
+- **Notes on deleted passages.** When a highlighted passage is no longer in
+  the document, for example because your agent removed it as you asked, the
+  highlight is listed above the text under **Not found in the current
+  text**. Click it to read the conversation, reply, resolve or remove it.
+  Clicking it in the **Marks** view, or the status bar's **… replied to**
+  link, opens it there too. Before, its replies couldn't be read.
+
 ## [0.8.0] — 2026-11-15
 
 ### Added

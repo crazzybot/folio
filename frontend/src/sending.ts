@@ -10,6 +10,7 @@
 
 import type { NoteIconKind } from "./noteIcons";
 import { isPrivate, sendableNote } from "../../packages/core/src/reviewNotes";
+import { newReplies } from "./threads";
 import type { DocumentMeta, DocumentNote, Highlight, NoteState, Round, SendDocument } from "./types";
 
 /** What the Marks view's state filter tells apart: the four states, and private marks. */
@@ -41,6 +42,17 @@ export { isPrivate, sendableNote };
 /** Where a highlight falls in the state filter. */
 export function filterOf(h: Highlight): StateFilter {
   return isPrivate(h) ? "private" : stateOf(h);
+}
+
+/**
+ * Of the highlights not found in the document's current text, those shown
+ * above it at once (docs/design/marks.md): notes still in the loop, or with
+ * replies the user hasn't seen. Resolved notes and bare highlights wait
+ * behind "N more", so the strip doesn't grow with every old mark.
+ */
+export function unplacedFirst(h: Highlight): boolean {
+  if (newReplies(h).length > 0) return true;
+  return (h.note !== null || h.private === false) && stateOf(h) !== "resolved";
 }
 
 /** Where a document's note falls in the state filter. */

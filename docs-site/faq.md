@@ -8,7 +8,9 @@ in Folio's own folder: `~/.folio`, or `%USERPROFILE%\.folio` on Windows.
 ## What happens to my marks when a document is edited?
 
 They follow the text. If the passage a highlight was on is deleted, the
-highlight is shown as not found in the Marks view, where you can remove it.
+highlight is listed above the document under **Not found in the current
+text**, with its note and replies. See
+[When a passage is deleted](./guide/marking-up#when-a-passage-is-deleted).
 
 ## Is Folio free?
 

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { describeSpan, locateAnchor } from "../anchoring";
 import { findBookmark, headingIdentities, sameHeading } from "../bookmarks";
 import { getItem, setItem } from "../storage";
@@ -6,7 +7,7 @@ import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
-import { isPrivate, lastSent, pickedUpBy, stateOf } from "../sending";
+import { isPrivate, lastSent, pickedUpBy, stateOf, unplacedFirst } from "../sending";
 import { buildTextModel } from "../textModel";
 import { newReplies, threadSummary } from "../threads";
 import { HIGHLIGHT_COLORS } from "../types";
@@ -149,7 +150,10 @@ function scrollToRect(container: HTMLElement, rect: DOMRect): void {
 /** A mark to scroll to once the document is shown; a new `nonce` asks again. */
 export interface MarkFocus {
   target: { highlight: string } | { heading: BookmarkHeading };
-  /** A highlight's popover opens too, with its thread (the status bar's new replies). */
+  /**
+   * A highlight's popover opens too, with its thread (the status bar's new
+   * replies). One not found in the text always opens, from its chip.
+   */
   open?: boolean;
   nonce: number;
 }
@@ -214,6 +218,8 @@ interface MarksLayerProps {
   onToggleBookmark: (heading: BookmarkHeading) => void;
   /** After painting: the highlights found in the text, by id, with their ranges. */
   onPainted?: (located: ReadonlyMap<string, Range>) => void;
+  /** Above the document: where highlights not found in its text are listed. */
+  unplacedSlot?: HTMLElement | null;
 }
 
 /**
@@ -248,8 +254,15 @@ export default function MarksLayer({
   onSeen,
   onToggleBookmark,
   onPainted,
+  unplacedSlot = null,
 }: MarksLayerProps): React.ReactElement | null {
   const located = useRef(new Map<string, Range>());
+  // Highlights not found in the text, listed above it; the ref as just painted
+  const [unplacedIds, setUnplacedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const unplacedNow = useRef<ReadonlySet<string>>(new Set());
+  // The strip shows resolved notes and bare highlights too
+  const [allUnplaced, setAllUnplaced] = useState(false);
+  const stripRef = useRef<HTMLDivElement>(null);
   // Their text positions, to find a highlight that already covers a block
   const spans = useRef(new Map<string, { start: number; end: number }>());
   const [toolbar, setToolbar] = useState<(Placement & Selected) | null>(null);
@@ -280,40 +293,51 @@ export default function MarksLayer({
   const keepInView = useRef<{ id: string; offset: number } | null>(null);
 
   // ── Paint ──────────────────────────────────────────────────────────────────
-  // Highlights that can't be found in the current text aren't painted
-  // (they're kept, and listed as such in the Marks view)
+  // Highlights that can't be found in the current text aren't painted:
+  // they're kept, and listed above the document and in the Marks view
   useEffect(() => {
     const article = articleRef.current;
     located.current = new Map();
     spans.current = new Map();
+    const unplaced = new Set<string>();
+    const report = () => {
+      unplacedNow.current = unplaced;
+      setUnplacedIds((prev) => (sameIds(prev, unplaced) ? prev : unplaced));
+      onPainted?.(located.current);
+    };
     if (!ready || article === null) {
       paint(new Map());
-      onPainted?.(located.current);
+      report();
       return;
     }
     const model = buildTextModel(article);
     const byLayer = new Map<string, Range[]>();
     for (const highlight of highlights) {
       const span = locateAnchor(model.text, highlight);
-      if (span === null) continue;
+      if (span === null) {
+        unplaced.add(highlight.id);
+        continue;
+      }
       const range = model.range(span.start, span.end);
       located.current.set(highlight.id, range);
       spans.current.set(highlight.id, span);
       for (const layer of layersOf(highlight)) byLayer.set(layer, [...(byLayer.get(layer) ?? []), range]);
     }
     paint(byLayer);
-    onPainted?.(located.current);
+    report();
     return () => paint(new Map());
   }, [articleRef, ready, renderKey, highlights, onPainted]);
 
-  // Markers beside the text follow its layout (reading width, font size, window size)
+  // Markers beside the text follow its layout (reading width, font size,
+  // window size), and the strip above it, which moves the text as it changes
   useEffect(() => {
     const article = articleRef.current;
     if (!ready || article === null) return;
     const observer = new ResizeObserver(() => setLayoutVersion((v) => v + 1));
     observer.observe(article);
+    if (unplacedSlot !== null) observer.observe(unplacedSlot);
     return () => observer.disconnect();
-  }, [articleRef, ready, renderKey]);
+  }, [articleRef, ready, renderKey, unplacedSlot]);
 
   // ── Note markers and heading bookmark buttons ──────────────────────────────
   // Measured after painting, so markers appear with the highlights
@@ -491,15 +515,34 @@ export default function MarksLayer({
     // After the viewer's own scrolling for the new document (top, anchor).
     // Only counted as done once it ran: a re-render may cancel the frame.
     const frame = requestAnimationFrame(() => {
-      handledFocus.current = nonce;
       if ("highlight" in target) {
-        const range = located.current.get(target.highlight);
-        if (range === undefined) return;
+        const id = target.highlight;
+        const range = located.current.get(id);
+        if (range === undefined) {
+          // Not in the text: its chip above it, with the thread open, once
+          // the strip shows it (the effect runs again when it changes)
+          if (!unplacedNow.current.has(id)) {
+            handledFocus.current = nonce;
+            return;
+          }
+          const chip = stripRef.current?.querySelector(`[data-highlight-id="${CSS.escape(id)}"]`);
+          if (chip == null) {
+            const highlight = highlights.find((h) => h.id === id);
+            if (highlight !== undefined && !unplacedFirst(highlight)) setAllUnplaced(true);
+            return;
+          }
+          handledFocus.current = nonce;
+          container.scrollTop += chip.getBoundingClientRect().top - container.getBoundingClientRect().top - 16;
+          openPopover(id, chip.getBoundingClientRect());
+          return;
+        }
+        handledFocus.current = nonce;
         scrollToRect(container, range.getBoundingClientRect());
         // Placed where the highlight is once scrolled
         if (focus.open === true) openPopover(target.highlight, range.getBoundingClientRect());
         return;
       }
+      handledFocus.current = nonce;
       const elements = [...article.querySelectorAll<HTMLElement>(HEADINGS)];
       const identities = headingIdentities(elements.map(headingOf));
       const element = elements[identities.findIndex((h) => sameHeading(h, target.heading))];
@@ -508,7 +551,7 @@ export default function MarksLayer({
       }
     });
     return () => cancelAnimationFrame(frame);
-  }, [articleRef, containerRef, ready, focus, renderKey, highlights, openPopover]);
+  }, [articleRef, containerRef, ready, focus, renderKey, highlights, openPopover, unplacedIds, allUnplaced]);
 
   // Another document: nothing of the previous one stays open. A reload of
   // the same one keeps the open highlight's popover, and its note being
@@ -521,6 +564,8 @@ export default function MarksLayer({
     if (shownFor.docKey !== docKey) {
       setPopover(null);
       setDraft(null);
+      setUnplacedIds(new Set());
+      setAllUnplaced(false);
     }
     setHoveredHeading(null);
     setHoveredBlock(null);
@@ -554,7 +599,8 @@ export default function MarksLayer({
 
   // After a reload: the open highlight back at the height it was (text the
   // agent added above it would push it, and its popover, out of view), and
-  // the popover beside it. Gone from the text: the popover closes
+  // the popover beside it. Gone from the text: the popover closes, unless
+  // the highlight was already listed above the text, where it stays
   useLayoutEffect(() => {
     const keep = keepInView.current;
     const article = articleRef.current;
@@ -564,6 +610,7 @@ export default function MarksLayer({
     const model = buildTextModel(article);
     const span = highlight === undefined ? null : locateAnchor(model.text, highlight);
     if (span === null) {
+      if (stripRef.current?.querySelector(`[data-highlight-id="${CSS.escape(popoverId)}"]`) != null) return;
       setPopover(null);
       setDraft(null);
       return;
@@ -841,6 +888,10 @@ export default function MarksLayer({
     );
   };
 
+  const unplaced = highlights.filter((h) => unplacedIds.has(h.id));
+  const unplacedShown = allUnplaced ? unplaced : unplaced.filter(unplacedFirst);
+  const unplacedMore = unplaced.length - unplaced.filter(unplacedFirst).length;
+
   const hovered = hoveredHeading === null ? undefined : headingSpots[hoveredHeading];
   const headingButtons = headingSpots.filter(
     (spot) => findBookmark(bookmarks, spot.heading) !== undefined || spot === hovered,
@@ -848,6 +899,49 @@ export default function MarksLayer({
 
   return (
     <>
+      {/* ── Highlights not found in the text: above it, each opening its popover ── */}
+      {unplacedSlot !== null &&
+        unplaced.length > 0 &&
+        createPortal(
+          <div className={styles.unplaced} ref={stripRef} role="group" aria-label="Not found in the current text">
+            <span className={styles.unplacedLabel}>Not found in the current text</span>
+            {unplacedShown.map((h) => {
+              const kind = noteIconOf(h);
+              const note = h.note ?? (h.private === false ? "(no comment)" : null);
+              const fresh = newReplies(h).length;
+              const news = fresh === 0 ? "" : ` · ${fresh === 1 ? "a new reply" : `${fresh} new replies`}`;
+              const about = note === null ? "Highlight" : `${NOTE_ICON_LABELS[kind]} note: ${note}`;
+              return (
+                <button
+                  key={h.id}
+                  type="button"
+                  data-highlight-id={h.id}
+                  className={`${styles.unplacedChip} ${fresh > 0 ? styles.noteMarkerNew : ""}`}
+                  style={{ borderLeftColor: `var(--mark-${h.color}-swatch)` }}
+                  onClick={(e) => openPopover(h.id, e.currentTarget.getBoundingClientRect())}
+                  aria-label={`${about}. On: ${h.quote.exact}${news}`}
+                  title={`${about}${news}`}
+                >
+                  {note !== null && <NoteStateIcon kind={kind} size={12} />}
+                  <span className={styles.unplacedQuote}>{h.quote.exact}</span>
+                </button>
+              );
+            })}
+            {unplacedMore > 0 && (
+              <button
+                type="button"
+                className={styles.unplacedMore}
+                onClick={() => setAllUnplaced((all) => !all)}
+                aria-expanded={allUnplaced}
+                title="Resolved notes and highlights without a note"
+              >
+                {allUnplaced ? "Show fewer" : unplacedShown.length === 0 ? `Show ${unplacedMore}` : `${unplacedMore} more`}
+              </button>
+            )}
+          </div>,
+          unplacedSlot,
+        )}
+
       {/* ── Heading bookmarks: bookmarked ones always, others on hover ── */}
       {headingButtons.map((spot) => {
         const marked = findBookmark(bookmarks, spot.heading) !== undefined;
@@ -1167,6 +1261,10 @@ function LoopRow({
       </button>
     </div>
   );
+}
+
+function sameIds(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  return a.size === b.size && [...a].every((id) => b.has(id));
 }
 
 /** A DOM range's text in the document, without whitespace at either end, as an anchor. */

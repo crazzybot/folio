@@ -1052,6 +1052,8 @@ export default function MarkdownViewer({
   // Highlights per outline entry (those after its heading and before the
   // next), counted from the document as just painted
   const [outlineCounts, setOutlineCounts] = useState<number[]>([]);
+  // Above the text: the marks layer lists the highlights it couldn't find in it there
+  const [unplacedSlot, setUnplacedSlot] = useState<HTMLDivElement | null>(null);
   const handlePainted = useCallback(
     (located: ReadonlyMap<string, Range>) => {
       const article = articleRef.current;
@@ -1152,6 +1154,7 @@ export default function MarkdownViewer({
                 onClearRequest={onClearNoteRequest}
               />
             )}
+            <div ref={setUnplacedSlot} />
             <article className={`${styles.article} folio-document`} aria-label="Rendered markdown" ref={articleRef}>
               <LinkContext.Provider value={linkHandlers}>
                 <ReactMarkdown
@@ -1192,6 +1195,7 @@ export default function MarkdownViewer({
               onSeen={markHandlers.markSeen}
               onToggleBookmark={markHandlers.toggleHeadingBookmark}
               onPainted={handlePainted}
+              unplacedSlot={unplacedSlot}
             />
           )}
         </div>

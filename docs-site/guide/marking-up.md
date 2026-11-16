@@ -53,6 +53,20 @@ workspace, grouped by document. Filter it to bookmarks, or highlights and
 notes, or by note state. **Only the open document** narrows it to the
 document you're reading.
 
+## When a passage is deleted
+
+A highlight whose text is no longer in the document isn't deleted. It's
+listed above the text under **Not found in the current text**, with its
+colour, its note's state and the start of the passage, struck through. A dot
+means the agent replied and you haven't read it yet. Click it to open its
+popover: read the conversation, reply, **Resolve** it, or remove it with the
+bin.
+
+Resolved notes and highlights without a note are counted at the end, such
+as **2 more**; click to show them. In the **Marks** view, these highlights
+say **Not found in the current text**, and clicking one opens it above the
+document.
+
 ## When documents move
 
 A document moved or renamed without edits keeps its marks. Otherwise its
