@@ -33,6 +33,14 @@ the status icons from `feat/status-lifecycle`).
   `page.screenshot` dismisses the hover card. `node shoot.mjs out status`
   takes only the named shots.
 
+- `workspace.mjs`: a fresh workspace for recording the desktop app with an
+  agent, `~/folio-video` by default (or the folder given): `demo/relay` as
+  its own git repository, with `docs/specs/delivery-queue.md` added on the
+  branch `spec/delivery-queue`. Run it again between takes: it first deletes
+  Folio's marks and read records for that folder from `~/.folio`, which are
+  keyed by path and would otherwise come back. Quit Folio before running it.
+  Doesn't need `npm install`.
+
 The scripts find elements by their accessible names (`aria-label`, roles).
 When a UI change breaks a step, the script stops with the failing selector
 and saves `out/fail.png`.
