@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route, useNavigate, useNavigationType, useParams, useLocation } from "react-router-dom";
-import { fetchAttachments, fetchDocumentContent, fetchDocuments, fetchLastRead } from "./api";
+import { fetchAttachments, fetchDocumentContent, fetchLastRead } from "./api";
 import { savedScrollPosition } from "./scrollHistory";
 import DocumentList from "./components/DocumentList";
 import DocumentNoteEditor from "./components/DocumentNoteEditor";
@@ -37,6 +37,9 @@ import { filterByMeta, filterOptions, hasFilters } from "./metaFilter";
 import { requestDone } from "./status";
 import { useMetaFilters } from "./useMetaFilters";
 import useMarks from "./useMarks";
+import { useDocuments } from "./useDocuments";
+import { useShownDocument } from "./useShownDocument";
+import { useStatusMessage } from "./useStatusMessage";
 import { unreadCount } from "./reads";
 import { useMarkReadWhenShown, useReads } from "./useReads";
 import DemoBanner from "./components/DemoBanner";
@@ -98,16 +101,6 @@ const BACK_SHORTCUT = IS_MAC_DESKTOP ? "⌘[" : "Alt+←";
 const EDITOR_SHORTCUT = IS_MAC_DESKTOP ? "⌘E" : "Ctrl+E";
 const FORWARD_SHORTCUT = IS_MAC_DESKTOP ? "⌘]" : "Alt+→";
 const REVIEW_SHORTCUT = IS_MAC_DESKTOP || navigator.platform.toUpperCase().includes("MAC") ? "⇧⌘C" : "Ctrl+Shift+C";
-// How long a status-bar message (e.g. "Copied 4 notes") shows
-const STATUS_SHOWN_MS = 4000;
-// A message with an action (Undo) stays longer
-const UNDO_SHOWN_MS = 8000;
-
-/** A message in the status bar, with an optional action (Undo). */
-interface StatusMessage {
-  text: string;
-  action?: { label: string; run: () => void };
-}
 
 /** What the Send dialog is opened on: a document, its source, and which of its notes. */
 interface SendScope {
@@ -119,12 +112,6 @@ interface SendScope {
   withNote: boolean;
 }
 
-type LoadState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "success"; id: string; content: string; sha1: string | null }
-  | { status: "error"; message: string };
-
 /** The version a changed document is compared with, while it's open. */
 interface ChangeBase {
   docId: string;
@@ -135,12 +122,6 @@ interface ChangeBase {
   /** The banner was closed. */
   closed: boolean;
 }
-
-/** The latest fetch result for a document. */
-type LoadedContent = { id: string } & (
-  | { status: "success"; content: string; sha1: string | null }
-  | { status: "error"; message: string }
-);
 
 // ─── Routing shell ────────────────────────────────────────────────────────────
 // AppRoutes is the default export consumed by main.tsx.
@@ -178,13 +159,22 @@ function AppInner(): React.ReactElement {
   // selectedId preserves the existing string | null contract for all children.
   const selectedId: string | null = docId !== undefined ? decodeURIComponent(docId) : null;
 
-  // ── Document list state ────────────────────────────────────────────────────
-  const [documents, setDocuments] = useState<DocumentMeta[]>([]);
-  const [listError, setListError] = useState<string | null>(null);
-  const [listLoading, setListLoading] = useState(true);
-
   // ── Focus on Folder: the list, search and count narrow to one folder ───────
   const [focus, setFocus] = useFolderFocus();
+
+  // ── The document list ─────────────────────────────────────────────────────
+  // Once loaded with no document in the URL, open one (replace: true, so the
+  // browser's Back stays clean): the one last shown in this workspace if it's
+  // still there, else the focused folder's first, if it has any. A reload
+  // that finds documents in a workspace that was empty opens its first.
+  const { documents, loading: listLoading, error: listError } = useDocuments((docs, first) => {
+    if (selectedId !== null) return;
+    const lastId = first ? recallForWorkspace(LAST_DOCUMENT_KEY) : null;
+    const start = first
+      ? (docs.find((doc) => doc.id === lastId) ?? documentsInFolder(docs, focus)[0] ?? docs[0])
+      : docs[0];
+    if (start !== undefined) navigate("/doc/" + encodeURIComponent(start.id), { replace: true });
+  });
   const focusedDocuments = useMemo(() => documentsInFolder(documents, focus), [documents, focus]);
   // ── New and changed documents (see reads.ts) ──────────────────────────────
   const reads = useReads();
@@ -214,16 +204,8 @@ function AppInner(): React.ReactElement {
   // Counted within the focused folder, so no choice leads to an empty list
   const metaOptions = useMemo(() => filterOptions(focusedDocuments, metaFilters), [focusedDocuments, metaFilters]);
 
-  // ── Content state ──────────────────────────────────────────────────────────
-  // Only the latest result is stored; whether it's the shown document's (else
-  // that one is still loading) is worked out here, during render.
-  const [loaded, setLoaded] = useState<LoadedContent | null>(null);
-  const contentState: LoadState =
-    selectedId === null
-      ? { status: "idle" }
-      : loaded === null || loaded.id !== selectedId
-        ? { status: "loading" }
-        : loaded;
+  // ── The shown document's content, refreshed in place on live reload ───────
+  const contentState = useShownDocument(selectedId);
 
   // ── Search (sidebar) → highlights and scrolling in the viewer ─────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -367,116 +349,6 @@ function AppInner(): React.ReactElement {
       unsubscribe?.();
     };
   }, []);
-
-  // ── Fetch document list on mount ───────────────────────────────────────────
-  // When the list loads and no docId is present in the URL, navigate to the
-  // first document using replace:true so the browser back-button stays clean.
-  useEffect(() => {
-    let cancelled = false;
-    fetchDocuments()
-      .then((docs) => {
-        if (cancelled) return;
-        setDocuments(docs);
-        setListError(null);
-        // Auto-select a document only when no URL param is present: the one
-        // last shown in this workspace if it's still there, else the focused
-        // folder's first, if it has any
-        const lastId = recallForWorkspace(LAST_DOCUMENT_KEY);
-        const start =
-          docs.find((doc) => doc.id === lastId) ?? documentsInFolder(docs, focus)[0] ?? docs[0];
-        if (start !== undefined && docId === undefined) {
-          navigate("/doc/" + encodeURIComponent(start.id), { replace: true });
-        }
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setListError(err instanceof Error ? err.message : "Failed to load documents");
-      })
-      .finally(() => {
-        if (!cancelled) setListLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // navigate is stable; docId intentionally omitted — we only want this to
-    // fire once on mount, not whenever the user navigates between documents.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Fetch content when selectedId (derived from URL) changes ──────────────
-  useEffect(() => {
-    if (selectedId === null) return;
-    let cancelled = false;
-    fetchDocumentContent(selectedId)
-      .then((doc) => {
-        if (cancelled) return;
-        setLoaded({ status: "success", id: selectedId, content: doc.content, sha1: doc.sha1 ?? null });
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setLoaded({
-          status: "error",
-          id: selectedId,
-          message: err instanceof Error ? err.message : "Failed to load content",
-        });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId]);
-
-  // ── Live reload (desktop app only) ───────────────────────────────────────
-  // When markdown files in the workspace change, refresh the list and the
-  // open document in place: no loading state, so the scroll position stays.
-  const selectedIdRef = useRef(selectedId);
-  useEffect(() => {
-    selectedIdRef.current = selectedId;
-  }, [selectedId]);
-
-  useEffect(() => {
-    const api = window.markdownApi;
-    if (!api) return;
-    // Only the latest refresh may update state; older ones finish late
-    let generation = 0;
-    const unsubscribe = api.onWorkspaceChange(() => {
-      const current = ++generation;
-      const id = selectedIdRef.current;
-
-      fetchDocuments()
-        .then((docs) => {
-          if (current !== generation) return;
-          setDocuments(docs);
-          setListError(null);
-          // The workspace was empty until now: open its first document
-          const first = docs[0];
-          if (first !== undefined && selectedIdRef.current === null) {
-            navigate("/doc/" + encodeURIComponent(first.id), { replace: true });
-          }
-        })
-        .catch(() => {
-          // Keep showing the last list; the next change retries
-        });
-
-      if (id === null) return;
-      fetchDocumentContent(id)
-        .then((doc) => {
-          if (current !== generation || selectedIdRef.current !== id) return;
-          setLoaded((prev) =>
-            prev !== null && prev.status === "success" && prev.id === id && prev.sha1 === (doc.sha1 ?? null) && prev.content === doc.content
-              ? prev
-              : { status: "success", id, content: doc.content, sha1: doc.sha1 ?? null },
-          );
-        })
-        .catch(() => {
-          if (current !== generation || selectedIdRef.current !== id) return;
-          setLoaded({ status: "error", id, message: "This document was moved or deleted." });
-        });
-    });
-    return () => {
-      generation++;
-      unsubscribe();
-    };
-  }, [navigate]);
 
   // ── Navigation handler passed to DocumentList ──────────────────────────────
   // Replaces the old setSelectedId callback; pushes a new history entry so
@@ -671,7 +543,7 @@ function AppInner(): React.ReactElement {
   }, [contentId]);
   const { add: addMark, recolor, setNote, remove: removeMark, setLoop, reply, editReply, deleteReply, markSeen, toggleBookmark, removeBookmark } = marks;
   const shownRounds = contentId === null ? undefined : marks.byDoc.get(contentId)?.rounds;
-  const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null);
+  const [statusMessage, setStatusMessage] = useStatusMessage();
   const [markSent, setMarkSent] = useMarkSent();
   // The agents in a review loop on the shown document: its note editors
   // offer Save and Send, which gives them one note without the Send dialog
@@ -698,7 +570,7 @@ function AppInner(): React.ReactElement {
           if (round !== null) setStatusMessage({ text: `Sent 1 note to ${agent}` });
         });
     },
-    [sendTo, recordSend, markSent],
+    [sendTo, recordSend, markSent, setStatusMessage],
   );
   // Changes to the shown document's marks, from the viewer
   const markHandlers = useMemo((): MarkHandlers | undefined => {
@@ -814,11 +686,6 @@ function AppInner(): React.ReactElement {
   // a round and, with Don't send these notes again, makes them sent
   // (docs/design/sending-notes.md) ──────────────────────────────────────────────
   const [sending, setSending] = useState<{ title: string; docs: readonly SendScope[] } | null>(null);
-  useEffect(() => {
-    if (statusMessage === null) return;
-    const timer = setTimeout(() => setStatusMessage(null), statusMessage.action ? UNDO_SHOWN_MS : STATUS_SHOWN_MS);
-    return () => clearTimeout(timer);
-  }, [statusMessage]);
   // The Marks view's state filter, set from the Send dialog's counts
   const [marksFilter, setMarksFilter] = useState<{ filter: readonly StateFilter[]; nonce: number } | null>(null);
 
@@ -892,7 +759,7 @@ function AppInner(): React.ReactElement {
         });
       });
     },
-    [recordSend, unsend],
+    [recordSend, unsend, setStatusMessage],
   );
 
   /** The open document, as the Send dialog's scope. */
@@ -930,7 +797,7 @@ function AppInner(): React.ReactElement {
         () => setStatusMessage({ text: "Couldn't read the documents to send" }),
       );
     },
-    [contentId, contentValue],
+    [contentId, contentValue, setStatusMessage],
   );
 
   // ⇧⌘C / Ctrl+Shift+C (or Edit → Copy Review Notes): the open document's
@@ -951,7 +818,7 @@ function AppInner(): React.ReactElement {
       if (ok) recordSent(picks, markSent);
       else setSending({ title: scope.doc.filename, docs: [scope] });
     });
-  }, [openScope, canCopyReview, groupsFor, formatPicks, recordSent, markSent]);
+  }, [openScope, canCopyReview, groupsFor, formatPicks, recordSent, markSent, setStatusMessage]);
 
   /** Only me, from the Send dialog: the note leaves it. */
   const { setLoop: setNoteLoop, setDocumentNoteLoop } = marks;
