@@ -20,7 +20,29 @@ Finder** (**Show in Folder** on Windows and Linux). A folder's menu has
 
 Folio reads a document's status from front matter `status:`, or a `Status:`
 line or `## Status` section at its start. The status replaces the document's
-icon in the list. Rejected, deprecated and superseded documents are dimmed.
+icon in the list. Folio knows these statuses, in this order:
+
+| Status | Means | Also read as |
+|---|---|---|
+| `draft` | Still being written | `wip` |
+| `proposed` | Ready, waiting for a decision | `review`, `open`, `pending` |
+| `accepted` | Decided, no work done yet | `approved`, `agreed` |
+| `in-progress` | Some of the work done | `implementing`, `partial`, `in progress` |
+| `implemented` | All of the work done | `done`, `complete`, `completed`, `final`, `shipped` |
+| `deferred` | Put off for now | `on hold`, `postponed`, `paused` |
+| `rejected` | Turned down or withdrawn | `declined`, `withdrawn` |
+| `deprecated` | No longer applies | `obsolete` |
+| `superseded` | Replaced by another document | `replaced` |
+
+The status is the first word; anything after it is shown as written:
+
+```markdown
+Status: in-progress: phases 1 and 2 of 4.
+Status: superseded by [ADR-0005](0005-kafka.md).
+```
+
+Other statuses are shown with an empty circle. Rejected, deprecated and
+superseded documents are dimmed.
 
 The funnel button in the sidebar header filters the list by status and tags.
 The filters are remembered for each workspace.

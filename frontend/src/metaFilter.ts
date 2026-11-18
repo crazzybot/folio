@@ -9,7 +9,7 @@
  * Remembered per workspace by useMetaFilters.ts.
  */
 
-import { KNOWN_STATUSES } from "./status";
+import { KNOWN_STATUSES, statusKind } from "./status";
 import type { DocumentMeta } from "./types";
 
 export interface MetaFilters {
@@ -62,7 +62,7 @@ export interface FilterOption {
 
 /**
  * What the filter menu offers for `documents` (the focused folder's): each
- * status and tag with its count. Statuses in MADR's order, then others A–Z;
+ * status and tag with its count. Statuses in lifecycle order, then others A–Z;
  * tags most used first. Chosen values are offered even with no documents, so
  * they can be unchecked.
  */
@@ -77,8 +77,12 @@ export function filterOptions(
     if (status != null) statuses.set(status, (statuses.get(status) ?? 0) + 1);
     for (const tag of doc.meta?.tags ?? []) tags.set(tag, (tags.get(tag) ?? 0) + 1);
   }
+  // Aliases sit with their kind: "approved" next to "accepted"
   const known = KNOWN_STATUSES as readonly string[];
-  const rank = (s: string) => (known.includes(s) ? known.indexOf(s) : known.length);
+  const rank = (s: string) => {
+    const kind = statusKind(s);
+    return kind === "other" ? known.length : known.indexOf(kind);
+  };
   const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   return {
     statuses: [...statuses]

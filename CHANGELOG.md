@@ -8,6 +8,15 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Changed
+
+- **Clearer statuses.** Folio knows three more statuses: `draft`,
+  `in-progress` and `deferred`. `implemented` has its own icon, so it's no
+  longer shown as `accepted`. `proposed` is now a circle with a dot, and the
+  half-filled circle means `in-progress`. Common other words, such as
+  `approved`, `done` or `on hold`, take the matching icon and are shown as
+  written.
+
 ## [0.9.0] — 2026-11-16
 
 ### Added

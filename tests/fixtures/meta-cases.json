@@ -46,6 +46,30 @@
     }
   },
   {
+    "name": "two-word status read as one",
+    "text": "---\nstatus: In progress\n---\n",
+    "meta": {
+      "status": "in-progress",
+      "statusDetail": null,
+      "date": null,
+      "people": [],
+      "tags": [],
+      "statusLine": 2
+    }
+  },
+  {
+    "name": "two-word status with detail",
+    "text": "# T\n\nStatus: on hold until the v2 API.\n",
+    "meta": {
+      "status": "on-hold",
+      "statusDetail": "on hold until the v2 API.",
+      "date": null,
+      "people": [],
+      "tags": [],
+      "statusLine": 3
+    }
+  },
+  {
     "name": "quoted status with a comment",
     "text": "---\nstatus: 'accepted' # since May\n---\n",
     "meta": {

@@ -7,12 +7,52 @@
 import { documentNumber } from "./docNumber";
 import type { DocumentMeta, Metadata } from "./types";
 
-/** MADR's statuses in its order, plus "implemented" (shown as accepted). */
-export const KNOWN_STATUSES = ["proposed", "accepted", "implemented", "rejected", "deprecated", "superseded"] as const;
+/**
+ * The statuses Folio knows, in lifecycle order: a decision (draft → proposed
+ * → accepted), then its delivery (in-progress → implemented), then the ways
+ * out. Each is a kind with its own glyph; the words in STATUS_ALIASES are
+ * shown as written but take their kind's glyph.
+ */
+export const KNOWN_STATUSES = [
+  "draft",
+  "proposed",
+  "accepted",
+  "in-progress",
+  "implemented",
+  "deferred",
+  "rejected",
+  "deprecated",
+  "superseded",
+] as const;
 export type StatusKind = (typeof KNOWN_STATUSES)[number] | "other";
 
+/** Other words for the known statuses, from MADR, PEPs, KEPs and common use. */
+const STATUS_ALIASES = new Map<string, StatusKind>([
+  ["wip", "draft"],
+  ["review", "proposed"],
+  ["open", "proposed"],
+  ["pending", "proposed"],
+  ["approved", "accepted"],
+  ["agreed", "accepted"],
+  ["implementing", "in-progress"],
+  ["partial", "in-progress"],
+  ["done", "implemented"],
+  ["complete", "implemented"],
+  ["completed", "implemented"],
+  ["final", "implemented"],
+  ["shipped", "implemented"],
+  ["on-hold", "deferred"],
+  ["postponed", "deferred"],
+  ["paused", "deferred"],
+  ["declined", "rejected"],
+  ["withdrawn", "rejected"],
+  ["obsolete", "deprecated"],
+  ["replaced", "superseded"],
+]);
+
 export function statusKind(status: string): StatusKind {
-  return (KNOWN_STATUSES as readonly string[]).includes(status) ? (status as StatusKind) : "other";
+  if ((KNOWN_STATUSES as readonly string[]).includes(status)) return status as StatusKind;
+  return STATUS_ALIASES.get(status) ?? "other";
 }
 
 // Shared with the MCP server, which asks for status changes the same way

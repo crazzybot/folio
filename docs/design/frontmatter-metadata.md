@@ -46,10 +46,34 @@ tags: [queue, postgres]
 | `date` | String, as written. Shown as is; it is not `created` (the file's creation time). |
 | `decision-makers`, or MADR 3's `deciders` | List of names, as written. |
 
-Known statuses, in MADR's order with `implemented` after `accepted`:
-`proposed`, `accepted`, `implemented`, `rejected`, `deprecated`,
-`superseded`. Any other value (`draft`, `wip`…) is kept as it is
-and shown as an unknown status — it is not mapped onto a known one.
+Known statuses follow one lifecycle: a decision, then its delivery, then
+the ways out. MADR covers only the decision, so `draft`, `in-progress`,
+`implemented` and `deferred` are added to its statuses:
+
+| Status | Means | Other words read as it |
+|---|---|---|
+| `draft` | Still being written, not ready to review | `wip` |
+| `proposed` | Ready, waiting for a decision | `review`, `open`, `pending` |
+| `accepted` | Decided, no work done yet | `approved`, `agreed` |
+| `in-progress` | Some phases done | `implementing`, `partial`, `in progress` |
+| `implemented` | All phases done | `done`, `complete`, `completed`, `final`, `shipped` |
+| `deferred` | Put off, neither going ahead nor retired | `on hold`, `postponed`, `paused` |
+| `rejected` | Turned down or withdrawn | `declined`, `withdrawn` |
+| `deprecated` | No longer applies | `obsolete` |
+| `superseded` | Replaced by another document | `replaced` |
+
+The other words get their status's glyph, filter order and dimming, but are
+shown as written: a document that says "Approved" reads "Approved". Any
+other value is kept as it is and shown as an unknown status. `in progress`
+and `on hold` are read as one word (`in-progress`, `on-hold`), so they
+aren't cut to `in` and `on`.
+
+Progress through phases goes in the detail, not in the status word:
+
+```markdown
+Status: in-progress: phases 1 (PR #117) and 2 (PR #122) of 4.
+Status: implemented (2026-11-14), released in 0.5.0.
+```
 
 ### Parsing
 
@@ -186,16 +210,24 @@ count, bookmark, highlights), as today on the right.
 **Status glyph.** For a document with a status, the glyph takes the Markdown
 icon's place — the icon is the same on every row, so it costs 22px and says
 nothing. Shape and colour both carry the status, so it doesn't rely on colour
-alone:
+alone. Colour says where the decision stands; along the accepted path the
+fill shows progress (outline check, half, full):
 
 | Status | Glyph | Colour | Title |
 |---|---|---|---|
-| proposed | half-filled circle | accent | normal |
-| accepted, implemented | check in a circle | green | normal |
+| draft | dashed circle | muted | normal |
+| proposed | circle with a dot | accent | normal |
+| accepted | check in a circle | green | normal |
+| in-progress | half-filled circle | green | normal |
+| implemented | filled circle, check cut out | green | normal |
+| deferred | pause bars | muted | normal |
 | rejected | cross | muted | dimmed |
 | deprecated | dash | muted | dimmed |
 | superseded | curved arrow | muted | dimmed |
 | anything else | hollow circle | muted | normal |
+
+`in-progress` stays green rather than amber: the work is going ahead, and
+amber would read as blocked.
 
 Clicking the glyph adds that status to the filters (section 4). The status
 glyph is on the left and the marks on the right, so the status never sits
