@@ -12,6 +12,7 @@ import path from "node:path";
 import { extractHeadings, FENCE, FRONT_MATTER, HEADING_LINE, plainHeading, splitFrontMatter } from "./headings";
 import type { Heading } from "./headings";
 import { IMAGE_TYPES } from "./imageTypes";
+import { normaliseStatus } from "./reviewNotes";
 
 export { extractHeadings, splitFrontMatter, wikiLinkText } from "./headings";
 export type { Heading } from "./headings";
@@ -158,12 +159,12 @@ function list(raw: string | string[] | undefined): string[] {
   return value.split(",").flatMap((item) => scalar(item) ?? []);
 }
 
-/** "superseded by ADR-0005" → status "superseded", detail as written; null when there's no word. */
+/** "superseded by ADR-0005" → status "superseded", detail as written; null when there's no word (normaliseStatus). */
 function parseStatus(raw: string): Pick<Metadata, "status" | "statusDetail"> | null {
   const value = raw.replace(/[*`]/g, "").trim();
-  const word = /^\S+/.exec(value)?.[0].replace(/[.,;:!]+$/, "").toLowerCase() ?? "";
+  const word = normaliseStatus(value);
   if (word === "") return null;
-  const bare = value.replace(/[.,;:!]+$/, "").toLowerCase() === word;
+  const bare = value.replace(/[.,;:!]+$/, "").toLowerCase().replace(/\s+/, "-") === word;
   return { status: word, statusDetail: bare ? null : value };
 }
 

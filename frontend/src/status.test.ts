@@ -22,26 +22,37 @@ const doc = (location: string, m?: Metadata): DocumentMeta => ({
 });
 
 describe("statusKind and isRetired", () => {
-  it("knows MADR's statuses", () => {
+  it("knows the lifecycle's statuses and their other words", () => {
     expect(statusKind("accepted")).toBe("accepted");
+    expect(statusKind("in-progress")).toBe("in-progress");
     expect(statusKind("implemented")).toBe("implemented");
     expect(statusKind("superseded")).toBe("superseded");
-    expect(statusKind("draft")).toBe("other");
+    expect(["wip", "approved", "partial", "done", "on-hold", "withdrawn"].map(statusKind)).toEqual([
+      "draft",
+      "accepted",
+      "in-progress",
+      "implemented",
+      "deferred",
+      "rejected",
+    ]);
+    expect(statusKind("phases")).toBe("other");
+    expect(statusKind("constructor")).toBe("other");
   });
 
   it("dims what no longer applies", () => {
-    expect(["proposed", "accepted", "implemented", "draft"].map(isRetired)).toEqual([false, false, false, false]);
-    expect(["rejected", "deprecated", "superseded"].map(isRetired)).toEqual([true, true, true]);
+    expect(["proposed", "accepted", "implemented", "draft", "deferred"].map(isRetired)).toEqual([false, false, false, false, false]);
+    expect(["rejected", "deprecated", "superseded", "withdrawn"].map(isRetired)).toEqual([true, true, true, true]);
   });
 });
 
 describe("normaliseStatus and requestDone", () => {
   it("reads a status as the scanners do", () => {
-    expect(["Accepted", " accepted. ", "**Approved**", "superseded by ADR-5", ""].map(normaliseStatus)).toEqual([
+    expect(["Accepted", " accepted. ", "**Approved**", "superseded by ADR-5", "In progress: phase 2", ""].map(normaliseStatus)).toEqual([
       "accepted",
       "accepted",
       "approved",
       "superseded",
+      "in-progress",
       "",
     ]);
   });

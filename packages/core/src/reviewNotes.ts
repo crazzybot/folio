@@ -20,9 +20,17 @@ const QUOTE_KEEP = 150;
 
 // ─── Which notes are feedback ─────────────────────────────────────────────────
 
-/** A status as the scanners read it: its first word, lowercased, without trailing punctuation ("Accepted." → "accepted"). */
+// Statuses people write as two words, read as one ("In progress" → "in-progress")
+const TWO_WORD_STATUS = /^(in|on)\s+(progress|hold)\b/i;
+
+/**
+ * A status as the scanners read it: its first word, lowercased, without
+ * trailing punctuation ("Accepted." → "accepted"), with "in progress" and
+ * "on hold" taken as one word.
+ */
 export function normaliseStatus(text: string): string {
-  return (/^\S+/.exec(text.replace(/[*`]/g, "").trim())?.[0] ?? "").replace(/[.,;:!]+$/, "").toLowerCase();
+  const value = text.replace(/[*`]/g, "").trim().replace(TWO_WORD_STATUS, "$1-$2");
+  return (/^\S+/.exec(value)?.[0] ?? "").replace(/[.,;:!]+$/, "").toLowerCase();
 }
 
 /** Whether a document note's requested status is already the document's status. */

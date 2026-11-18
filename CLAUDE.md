@@ -100,6 +100,10 @@ phone width (375px and 320px), with no horizontal scroll.
   `CHANGELOG.md`, and the user docs in `docs-site/` (the `sync-docs-site`
   skill). The README's Features list changes only for a core feature: keep
   it to one line each. Design changes update or add a doc in `docs/design/`.
+- **A design doc's `Status:` line** starts with one of `draft`, `proposed`,
+  `accepted`, `in-progress`, `implemented`, `deferred`, `rejected`,
+  `deprecated`, `superseded`; details follow it (`Status: in-progress:
+  phases 1 and 2 of 4.`). Folio reads the first word as the status.
 - **Keep PRs focused**: one feature or fix. Unrelated cleanups go in their
   own PR.
 

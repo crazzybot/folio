@@ -56,14 +56,22 @@ describe("filterByMeta", () => {
 });
 
 describe("filterOptions", () => {
-  it("counts statuses in MADR's order then A–Z, and tags most used first", () => {
-    const options = filterOptions([...docs, doc("g.md", "accepted", ["auth"]), doc("h.md", "beta")]);
+  it("counts statuses in lifecycle order, other words with theirs, then A–Z, and tags most used first", () => {
+    const options = filterOptions([
+      ...docs,
+      doc("g.md", "accepted", ["auth"]),
+      doc("h.md", "beta"),
+      doc("i.md", "approved"),
+      doc("j.md", "done"),
+    ]);
     expect(options.statuses).toEqual([
+      { value: "draft", count: 1 },
       { value: "proposed", count: 1 },
       { value: "accepted", count: 2 },
+      { value: "approved", count: 1 },
+      { value: "done", count: 1 },
       { value: "superseded", count: 1 },
       { value: "beta", count: 1 },
-      { value: "draft", count: 1 },
     ]);
     expect(options.tags).toEqual([
       { value: "auth", count: 3 },
