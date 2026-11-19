@@ -40,6 +40,9 @@ turns them into the next release's section.
   and tells you Folio was closed. Opening a workspace that doesn't hold the
   agent's folder ends it too. Before, the agent kept waiting for notes that
   could no longer come.
+- In the note on a document, the **Status** list no longer starts with "No
+  change (now accepted)". The document's own status is in its place,
+  marked **(current)**: pick it to leave the status as it is.
 - Editing a sent note makes it **Not sent** again, so the new wording goes
   with the next round. Before, it stayed **Sent**, and an agent that already
   had it never saw the change. The same goes for the comment or the status
