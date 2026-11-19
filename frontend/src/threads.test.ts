@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { newReplies, repliedNotes, repliesSummary, replyTime, threadSummary } from "./threads";
+import { newReplies, repliedNotes, repliesParts, repliesSummary, replyTime, threadSummary } from "./threads";
 import type { Reply, Thread } from "./types";
 
 const claude = (text: string, at: string): Reply => ({ id: text, author: { kind: "agent", name: "Claude Code" }, text, at });
@@ -34,6 +34,13 @@ describe("repliedNotes and repliesSummary", () => {
     expect(repliesSummary(notes.slice(2))).toBe("Codex replied to a note");
     expect(repliesSummary(notes)).toBe("Claude Code and Codex replied to 3 notes");
     expect(repliesSummary([])).toBeNull();
+  });
+
+  it("splits who from the notes, for the status bar's pill", () => {
+    const notes = repliedNotes(byDoc);
+    expect(repliesParts(notes)).toEqual({ who: "Claude Code and Codex", notes: "3 notes" });
+    expect(repliesParts(notes.slice(2))).toEqual({ who: "Codex", notes: "a note" });
+    expect(repliesParts([])).toBeNull();
   });
 });
 

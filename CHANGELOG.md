@@ -8,6 +8,11 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Changed
+
+- New replies stand out in the status bar: in "Claude Code replied to 3
+  notes", the count is a blue pill.
+
 ## [0.9.1] — 2026-11-18
 
 ### Changed
