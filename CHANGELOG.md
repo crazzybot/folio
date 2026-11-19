@@ -22,6 +22,8 @@ turns them into the next release's section.
   the document now has is no longer sent anyway.
 - The note-on-the-document button is a page with a speech bubble, so it no
   longer looks like the **Send review notes** button beside it.
+- New replies stand out in the status bar: in "Claude Code replied to 3
+  notes", the count is a blue pill.
 
 ## [0.9.1] — 2026-11-18
 

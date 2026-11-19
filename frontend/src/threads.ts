@@ -51,12 +51,18 @@ export function repliedNotes(
   return found;
 }
 
-/** "Claude Code replied to 3 notes", or null when there's nothing new. */
-export function repliesSummary(notes: readonly RepliedNote[]): string | null {
+/** Who replied, "Claude Code", and to what, "3 notes"; null when there's nothing new. */
+export function repliesParts(notes: readonly RepliedNote[]): { who: string; notes: string } | null {
   if (notes.length === 0) return null;
   const authors = [...new Set(notes.flatMap((n) => n.authors))];
-  const who = authors.length === 1 ? authors[0] : authors.length === 2 ? `${authors[0]} and ${authors[1]}` : "Agents";
-  return `${who} replied to ${notes.length === 1 ? "a note" : `${notes.length} notes`}`;
+  const who = authors.length === 1 ? (authors[0] ?? "") : authors.length === 2 ? `${authors[0]} and ${authors[1]}` : "Agents";
+  return { who, notes: notes.length === 1 ? "a note" : `${notes.length} notes` };
+}
+
+/** "Claude Code replied to 3 notes", or null when there's nothing new. */
+export function repliesSummary(notes: readonly RepliedNote[]): string | null {
+  const parts = repliesParts(notes);
+  return parts === null ? null : `${parts.who} replied to ${parts.notes}`;
 }
 
 const DAY = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });

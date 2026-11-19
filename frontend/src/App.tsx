@@ -54,7 +54,7 @@ import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
 import { defaultSelection, picked, pickedUpBy, sendDocuments, sendGroups } from "./sending";
-import { repliedNotes, repliesSummary } from "./threads";
+import { repliedNotes, repliesParts, repliesSummary } from "./threads";
 import type { Picked, SendItem, StateFilter } from "./sending";
 import styles from "./App.module.css";
 import type { DocumentMeta, HighlightColor, ReadVersion, TextAnchor } from "./types";
@@ -657,6 +657,7 @@ function AppInner(): React.ReactElement {
   // Opening it marks the replies seen, so the next click gets the next note
   const replied = useMemo(() => repliedNotes(marks.byDoc), [marks.byDoc]);
   const repliedText = repliesSummary(replied);
+  const repliedParts = repliesParts(replied);
   const showNextReplied = useCallback(() => {
     const note = replied[0];
     if (note === undefined) return;
@@ -1402,15 +1403,17 @@ function AppInner(): React.ReactElement {
             )}
           </span>
         )}
-        {repliedText !== null && (
+        {repliedText !== null && repliedParts !== null && (
           <span className={styles.statusItem} aria-live="polite">
             <button
               type="button"
               className={styles.statusAction}
               onClick={showNextReplied}
+              aria-label={repliedText}
               title={replied.length === 1 ? "Open the note" : "Open the first note with new replies"}
             >
-              {repliedText}
+              {/* The count in a pill, as the app's badge in the Dock: it waits on the user */}
+              {repliedParts.who} replied to <span className={styles.repliedPill}>{repliedParts.notes}</span>
             </button>
           </span>
         )}
