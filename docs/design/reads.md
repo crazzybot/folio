@@ -94,7 +94,8 @@ a version that wasn't shown is never recorded as read.
   an **Unread** chip while it's on. Remembered per workspace with the status
   and tag filters. The open document stays listed once it's read, so it
   doesn't vanish while being read.
-- **The banner** above a changed document: "Changed since you read it on 3
+- **The banner** in a changed document's header, a card between the note
+  on the document and the orphan highlights ([marks.md](marks.md)): "Changed since you read it on 3
   Nov · 4 sections", then the sections that changed or were added (links
   to them; added ones marked "(new)") and removed ones (struck through),
   five named and "and N more", then "the front matter" and "the opening"
@@ -103,6 +104,15 @@ a version that wasn't shown is never recorded as read.
   document was opened, and the banner stays until another document is
   opened: reading it for 3 seconds marks it read but doesn't hide what
   changed.
+- **Pinned summary.** Once the header is scrolled out of view, a line stays
+  over the top of the text: the status, the document note's icon (unless
+  it's resolved), "Changed: Design, Storage" and "2 notes not found" (notes
+  `unplacedFirst` counts), and a button that opens the whole header in its
+  place (the line would only repeat its first row). Any of these is enough for it, so the status of a document is always
+  in sight; a document with none of them has no bar. It lies over the text
+  rather than taking room, so nothing moves when it appears; the view's
+  `scroll-padding-top` keeps a heading scrolled to below it.
+  `frontend/src/components/DocumentHeader.tsx`.
 - **Context menus** (desktop): **Mark as Read** or **Mark as Unread** on a
   document, **Mark All as Read** on a folder with unread documents.
 

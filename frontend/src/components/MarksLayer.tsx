@@ -220,6 +220,8 @@ interface MarksLayerProps {
   onPainted?: (located: ReadonlyMap<string, Range>) => void;
   /** Above the document: where highlights not found in its text are listed. */
   unplacedSlot?: HTMLElement | null;
+  /** The same list in the pinned header's details, while they're open. */
+  pinnedSlot?: HTMLElement | null;
 }
 
 /**
@@ -255,6 +257,7 @@ export default function MarksLayer({
   onToggleBookmark,
   onPainted,
   unplacedSlot = null,
+  pinnedSlot = null,
 }: MarksLayerProps): React.ReactElement | null {
   const located = useRef(new Map<string, Range>());
   // Highlights not found in the text, listed above it; the ref as just painted
@@ -547,7 +550,9 @@ export default function MarksLayer({
       const identities = headingIdentities(elements.map(headingOf));
       const element = elements[identities.findIndex((h) => sameHeading(h, target.heading))];
       if (element !== undefined) {
-        container.scrollTop += element.getBoundingClientRect().top - container.getBoundingClientRect().top - 16;
+        // Below the document header's pinned bar, if any
+        const padding = parseFloat(getComputedStyle(container).scrollPaddingTop) || 0;
+        container.scrollTop += element.getBoundingClientRect().top - container.getBoundingClientRect().top - 16 - padding;
       }
     });
     return () => cancelAnimationFrame(frame);
@@ -892,6 +897,50 @@ export default function MarksLayer({
   const unplacedShown = allUnplaced ? unplaced : unplaced.filter(unplacedFirst);
   const unplacedMore = unplaced.length - unplaced.filter(unplacedFirst).length;
 
+  // The list of highlights not found in the text, above it and in the pinned header's details
+  const strip = (
+    <>
+      <span className={styles.unplacedLabel}>Not found in the current text</span>
+      <ul className={styles.unplacedList}>
+        {unplacedShown.map((h) => {
+          const kind = noteIconOf(h);
+          const note = h.note ?? (h.private === false ? "(no comment)" : null);
+          const fresh = newReplies(h).length;
+          const news = fresh === 0 ? "" : ` · ${fresh === 1 ? "a new reply" : `${fresh} new replies`}`;
+          const about = note === null ? "Highlight" : `${NOTE_ICON_LABELS[kind]} note: ${note}`;
+          return (
+            <li key={h.id}>
+              <button
+                type="button"
+                data-highlight-id={h.id}
+                className={`${styles.unplacedRow} ${fresh > 0 ? styles.noteMarkerNew : ""}`}
+                style={{ borderLeftColor: `var(--mark-${h.color}-swatch)` }}
+                onClick={(e) => openPopover(h.id, e.currentTarget.getBoundingClientRect())}
+                aria-label={`${about}. On: ${h.quote.exact}${news}`}
+                title={`${about}${news}`}
+              >
+                {note !== null && <NoteStateIcon kind={kind} size={12} />}
+                <span className={styles.unplacedQuote}>{h.quote.exact}</span>
+                {note !== null && <span className={styles.unplacedNote}>{note.split("\n")[0]}</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {unplacedMore > 0 && (
+        <button
+          type="button"
+          className={styles.unplacedMore}
+          onClick={() => setAllUnplaced((all) => !all)}
+          aria-expanded={allUnplaced}
+          title="Resolved notes and highlights without a note"
+        >
+          {allUnplaced ? "Show fewer" : unplacedShown.length === 0 ? `Show ${unplacedMore}` : `${unplacedMore} more`}
+        </button>
+      )}
+    </>
+  );
+
   const hovered = hoveredHeading === null ? undefined : headingSpots[hoveredHeading];
   const headingButtons = headingSpots.filter(
     (spot) => findBookmark(bookmarks, spot.heading) !== undefined || spot === hovered,
@@ -900,46 +949,21 @@ export default function MarksLayer({
   return (
     <>
       {/* ── Highlights not found in the text: above it, each opening its popover ── */}
-      {unplacedSlot !== null &&
-        unplaced.length > 0 &&
+      {unplaced.length > 0 &&
+        unplacedSlot !== null &&
         createPortal(
           <div className={styles.unplaced} ref={stripRef} role="group" aria-label="Not found in the current text">
-            <span className={styles.unplacedLabel}>Not found in the current text</span>
-            {unplacedShown.map((h) => {
-              const kind = noteIconOf(h);
-              const note = h.note ?? (h.private === false ? "(no comment)" : null);
-              const fresh = newReplies(h).length;
-              const news = fresh === 0 ? "" : ` · ${fresh === 1 ? "a new reply" : `${fresh} new replies`}`;
-              const about = note === null ? "Highlight" : `${NOTE_ICON_LABELS[kind]} note: ${note}`;
-              return (
-                <button
-                  key={h.id}
-                  type="button"
-                  data-highlight-id={h.id}
-                  className={`${styles.unplacedChip} ${fresh > 0 ? styles.noteMarkerNew : ""}`}
-                  style={{ borderLeftColor: `var(--mark-${h.color}-swatch)` }}
-                  onClick={(e) => openPopover(h.id, e.currentTarget.getBoundingClientRect())}
-                  aria-label={`${about}. On: ${h.quote.exact}${news}`}
-                  title={`${about}${news}`}
-                >
-                  {note !== null && <NoteStateIcon kind={kind} size={12} />}
-                  <span className={styles.unplacedQuote}>{h.quote.exact}</span>
-                </button>
-              );
-            })}
-            {unplacedMore > 0 && (
-              <button
-                type="button"
-                className={styles.unplacedMore}
-                onClick={() => setAllUnplaced((all) => !all)}
-                aria-expanded={allUnplaced}
-                title="Resolved notes and highlights without a note"
-              >
-                {allUnplaced ? "Show fewer" : unplacedShown.length === 0 ? `Show ${unplacedMore}` : `${unplacedMore} more`}
-              </button>
-            )}
+            {strip}
           </div>,
           unplacedSlot,
+        )}
+      {unplaced.length > 0 &&
+        pinnedSlot !== null &&
+        createPortal(
+          <div className={styles.unplaced} role="group" aria-label="Not found in the current text">
+            {strip}
+          </div>,
+          pinnedSlot,
         )}
 
       {/* ── Heading bookmarks: bookmarked ones always, others on hover ── */}

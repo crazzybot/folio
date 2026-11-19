@@ -1,20 +1,8 @@
-/* Same column as the article's text (MarkdownViewer.module.css .article), above the document's properties */
-.wrap {
-  width: 100%;
-  max-width: var(--reading-width, 880px);
-  margin: var(--space-4) auto 0;
-  padding: 0 var(--space-8);
-}
-
+/* A row of the document header's card (DocumentHeader.module.css) */
 .banner {
-  padding: var(--space-2) var(--space-3);
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  border: 1px solid var(--color-border);
-  border-left: 3px solid var(--color-accent);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
   font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--color-text-muted);
@@ -124,7 +112,7 @@
 }
 
 @media print {
-  .wrap {
+  .banner {
     display: none;
   }
 }

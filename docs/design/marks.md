@@ -128,14 +128,17 @@ Re-anchoring, in order:
 3. **Fuzzy** — approximate match near `start` (`diff-match-patch` `match_main`,
    bounded threshold); prefix / suffix must still roughly agree.
 4. **Orphan** — not painted; kept with its note and thread. Listed above the
-   document's text, under "Not found in the current text": a chip per
-   orphan (colour, note state, quote struck through, a dot for unread
-   replies) that opens the highlight's usual popover beneath it. Notes
-   still in the loop or with unread replies show first; resolved notes and
+   document's text, under "Not found in the current text": a line per
+   orphan (colour, note state, quote struck through, then the note's first
+   line, a dot for unread replies) that opens the highlight's usual popover
+   beneath it. The list is a card of the header, under the "changed since"
+   one ([reads.md](reads.md)), and is repeated in the pinned summary's
+   details, so a highlight that went missing is noticed from anywhere in
+   the document. Notes still in the loop or with unread replies show first; resolved notes and
    bare highlights wait behind "N more" (`unplacedFirst` in `sending.ts`),
    so old marks don't fill the strip. The Marks view marks the row "Not
    found in the current text"; clicking it, the status bar's replies link
-   or a reply notification opens the chip's popover.
+   or a reply notification opens the line's popover.
 
    Orphans are known only for the open document: anchoring needs its
    rendered text, so finding them elsewhere would mean rendering every

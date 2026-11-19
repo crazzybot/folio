@@ -10,6 +10,18 @@ turns them into the next release's section.
 
 ### Changed
 
+- **What changed stays in sight.** Above a document, under its status, your
+  note on it, the sections that changed since you read it, and the notes no
+  longer found in its text each have a card. Notes not found are listed
+  one per line, with the start of each note. Once you scroll past it, a summary line stays
+  at the top of the view: the status, your note's icon, the changed
+  sections and how many notes weren't found. Click the arrow at its end to
+  see the whole header there.
+- A resolved note on the document is no longer shown above it. It stays in
+  the **Marks** view. **Clear request** is gone: a status you asked for and
+  the document now has is no longer sent anyway.
+- The note-on-the-document button is a page with a speech bubble, so it no
+  longer looks like the **Send review notes** button beside it.
 - New replies stand out in the status bar: in "Claude Code replied to 3
   notes", the count is a blue pill.
 

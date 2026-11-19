@@ -1,0 +1,173 @@
+/* Same column as the article (MarkdownViewer.module.css .article) */
+.header {
+  width: 100%;
+}
+
+/* What happened to the document: the changes, then the highlights not
+   found, each a card of its own, as the note on it is (DocumentProperties) */
+.newsColumn {
+  max-width: var(--reading-width, 880px);
+  margin: 0 auto;
+  padding: 0 var(--space-8);
+}
+
+.news {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.news:has(> :not(:empty)) {
+  margin-top: 6px;
+}
+
+.news > :empty {
+  display: none;
+}
+
+.news > * {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+/* ─── Pinned to the top of the view once the header is scrolled past ────── */
+/* No height of its own: the bar lies over the text, which doesn't move */
+.pin {
+  position: sticky;
+  top: 0;
+  height: 0;
+  z-index: 5;
+}
+
+.bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+}
+
+.row {
+  max-width: var(--reading-width, 880px);
+  margin: 0 auto;
+  padding: 6px var(--space-8);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.status {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text);
+}
+
+.statusIcon {
+  flex-shrink: 0;
+}
+
+/* Shortened first, but never past "Changed…" */
+.changed {
+  min-width: 6em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.noteIcon {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--color-accent);
+}
+
+/* A changed document's dot, as in the document list */
+.dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.changedText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notFound {
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--color-link);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.notFound:hover {
+  text-decoration: underline;
+}
+
+.toggle {
+  position: absolute;
+  top: 5px;
+  right: var(--space-2);
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background: var(--color-hover-bg);
+  color: var(--color-text);
+}
+
+.notFound:focus-visible,
+.toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+}
+
+/* The header's card, under the bar */
+.details {
+  max-width: var(--reading-width, 880px);
+  max-height: 50vh;
+  overflow-y: auto;
+  margin: 0 auto;
+  padding: 0 var(--space-8) var(--space-3);
+}
+
+/* In the details' column rather than their own */
+.details .detailsProperties {
+  max-width: none;
+  padding: 6px 0 0;
+}
+
+
+@media print {
+  .pin,
+  .newsColumn {
+    display: none;
+  }
+}
