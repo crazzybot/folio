@@ -109,9 +109,10 @@ description.
   note, its reply marks the note **Addressed**. A question, or an
   explanation of why it didn't change anything, marks it **Answered by …**:
   it waits for you, and isn't sent again until you reply.
-- **Reply.** Click **Reply** under a note to answer, and **Save** (`⌘↩` /
+- **Reply.** Click **Reply** under the agent's answer, and **Save** (`⌘↩` /
   `Ctrl+Enter`). Your reply opens the note again, so it goes with the next
-  round. With an agent Live, **Save and Send** sends it at once.
+  round. With an agent Live, **Save and Send** sends it at once. **Reply**
+  shows only when the agent spoke last; until then, edit your own message.
 - **Edit your reply.** Until someone answers it, your latest reply has an
   **Edit** link. **Save** (`⌘↩` / `Ctrl+Enter`) opens the note again, so
   the new wording goes with the next round.

@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { newReplies, repliedNotes, repliesParts, repliesSummary, replyTime, threadSummary } from "./threads";
+import { canReply, newReplies, repliedNotes, repliesParts, repliesSummary, replyTime, threadSummary } from "./threads";
 import type { Reply, Thread } from "./types";
 
 const claude = (text: string, at: string): Reply => ({ id: text, author: { kind: "agent", name: "Claude Code" }, text, at });
 const mine = (text: string, at: string): Reply => ({ id: text, author: { kind: "user" }, text, at });
+
+describe("canReply", () => {
+  it("is for an answer: someone else spoke last", () => {
+    expect(canReply({})).toBe(false);
+    expect(canReply({ replies: [claude("a", "2026-11-12T10:00:00Z")] })).toBe(true);
+    expect(canReply({ replies: [claude("a", "2026-11-12T10:00:00Z"), mine("b", "2026-11-12T10:05:00Z")] })).toBe(false);
+    // An imported comment is someone else's note
+    expect(canReply({ author: { kind: "github", login: "octocat" } })).toBe(true);
+  });
+});
 
 describe("newReplies", () => {
   it("counts others' replies after the thread was last seen", () => {

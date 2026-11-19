@@ -416,17 +416,54 @@ describe("sending notes", () => {
     expect(rounds.map((r) => r.id.slice(-1))).toEqual(["2", "3", "4", "5", "6"]);
   });
 
-  it("sends the document's note and keeps its state over an edit", async () => {
+  it("sends the document's note, keeps its state over a lock and opens it again when edited", async () => {
     await store.setNote(BLANK_DOC, { text: "Overall fine.", requestedStatus: null });
     const sent = await store.send(BLANK_DOC, { roundId: ROUND, highlightIds: [], documentNote: true });
     expect(sent.documentNote).toBe(true);
-    const edited = await store.setNote(BLANK_DOC, { text: "Overall fine, mostly.", requestedStatus: null });
-    expect(edited?.state).toBe("sent");
-    const locked = await store.setNote(BLANK_DOC, { text: "Overall fine, mostly.", requestedStatus: null, private: true });
+    const locked = await store.setNote(BLANK_DOC, { text: "Overall fine.", requestedStatus: null, private: true });
     expect([locked?.state, locked?.private]).toEqual(["sent", true]);
+    const unlocked = await store.setNote(BLANK_DOC, { text: "Overall fine.", requestedStatus: null, private: null });
+    expect(unlocked?.state).toBe("sent");
     const listing = await listMarks(store, WORKSPACE, await scanWorkspace(WORKSPACE, SKIP));
     const listed = listing.documents.find((d) => d.docId === stableId("docs/blank.md"));
     expect([listed?.note?.state, listed?.rounds?.length]).toEqual(["sent", 1]);
+
+    // New wording, or a new status asked for, goes with the next round
+    const edited = await store.setNote(BLANK_DOC, { text: "Overall fine, mostly.", requestedStatus: null });
+    expect(edited !== null && "state" in edited).toBe(false);
+    await store.send(BLANK_DOC, { roundId: "fedcba9876543210", highlightIds: [], documentNote: true });
+    const asked = await store.setNote(BLANK_DOC, { text: "Overall fine, mostly.", requestedStatus: "accepted" });
+    expect(asked !== null && "state" in asked).toBe(false);
+  });
+
+  it("opens a sent highlight's note again when its wording changes", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "Why?" }));
+    await store.send(PLAIN, { roundId: ROUND, highlightIds: [a.id] });
+    // A colour or the same text isn't new feedback
+    expect((await store.updateHighlight(PLAIN, a.id, { color: "green" })).state).toBe("sent");
+    expect((await store.updateHighlight(PLAIN, a.id, { note: "Why?" })).state).toBe("sent");
+    const edited = await store.updateHighlight(PLAIN, a.id, { note: "Why 100?" });
+    expect([edited.note, "state" in edited]).toEqual(["Why 100?", false]);
+    // A state asked for with the edit wins
+    expect((await store.updateHighlight(PLAIN, a.id, { note: "Why 200?", state: "resolved" })).state).toBe("resolved");
+  });
+
+  it("remembers the state a note was resolved from", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "Why?" }));
+    await store.updateHighlight(PLAIN, a.id, { state: "addressed" });
+    const resolved = await store.updateHighlight(PLAIN, a.id, { state: "resolved" });
+    expect([resolved.state, resolved.resolvedFrom]).toEqual(["resolved", "addressed"]);
+    // Resolved again from open: nothing to go back to but open
+    await store.updateHighlight(PLAIN, a.id, { state: "open" });
+    const again = await store.updateHighlight(PLAIN, a.id, { state: "resolved" });
+    expect([again.state, "resolvedFrom" in again]).toEqual(["resolved", false]);
+
+    await store.setNote(BLANK_DOC, { text: "Overall fine.", requestedStatus: null });
+    await store.send(BLANK_DOC, { roundId: ROUND, highlightIds: [], documentNote: true });
+    const note = await store.setNote(BLANK_DOC, { text: "Overall fine.", requestedStatus: null, state: "resolved" });
+    expect(note?.resolvedFrom).toBe("sent");
+    const listing = await listMarks(store, WORKSPACE, await scanWorkspace(WORKSPACE, SKIP));
+    expect(listing.documents.find((d) => d.docId === stableId("docs/blank.md"))?.note?.resolvedFrom).toBe("sent");
   });
 
   it("refuses a malformed send", async () => {
@@ -512,6 +549,12 @@ describe("threads", () => {
 
     const back = await store.deleteReply(PLAIN, a.id, mine);
     expect([back.state, back.replies?.map((r) => r.text)]).toEqual(["addressed", ["Reworded."]]);
+
+    // Back to resolved: it still goes back to addressed when unresolved
+    await store.updateHighlight(PLAIN, a.id, { state: "resolved" });
+    const reopened = await store.reply(PLAIN, a.id, { author: { kind: "user" }, text: "One more thing." });
+    const resolved = await store.deleteReply(PLAIN, a.id, reopened.replies?.[1]?.id ?? "");
+    expect([resolved.state, resolved.resolvedFrom]).toEqual(["resolved", "addressed"]);
     // The agent's reply isn't the user's to delete
     expect(await refusal(() => store.deleteReply(PLAIN, a.id, back.replies?.[0]?.id ?? ""))).toBe(409);
 

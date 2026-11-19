@@ -59,7 +59,8 @@ record, [marks.md](marks.md) §2; see As built):
   seen it, so it isn't sent again; it waits on the user, who replies
   (open again, for the next round) or resolves it. See As built.
 - Moves back to **open**: **Reopen**, or **Mark not sent** (the note's
-  popover).
+  popover). Since [note-lifecycle.md](note-lifecycle.md): an edit, a reply,
+  or **Mark not sent** on a sent note nobody answered; Reopen is gone.
 - `private`: written only when the user chooses. Absent means: private if
   the highlight has no note, feedback if it has one. So:
   - a bare highlight is private;
@@ -96,6 +97,9 @@ answered, addressed) is loud; what's waiting (sent) or done (resolved) is quiet.
   - Sent: "Sent · Nov 11, 10:02 · **Mark not sent**";
   - Answered: "Answered by Claude Code · **Mark not sent** · **Resolve**";
   - Addressed: "Addressed · **Resolve** / **Reopen**";
+  - Since [note-lifecycle.md](note-lifecycle.md) §2: Answered and Addressed
+    offer **Resolve** only (the thread's **Reply** reopens), and Resolved
+    **Unresolve**;
   - Open and private: nothing. A bare highlight's popover has **Send to
     agent**.
 - **Marks view**: the state filter is Open · Sent · Addressed · Resolved ·

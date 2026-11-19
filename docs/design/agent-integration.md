@@ -43,7 +43,8 @@ it goes with the next round.
   math or highlighting. Sanitised as documents are. The user's messages are
   tinted, and the boxes keep a message's bold text from being taken for
   the next author's name, which stays bold.
-  **Reply** opens a box under them (`⌘↩` / `Ctrl+Enter` sends); the reply is
+  **Reply** (only when someone else spoke last, since
+  [note-lifecycle.md](note-lifecycle.md)) opens a box under them (`⌘↩` / `Ctrl+Enter` sends); the reply is
   the user's, and the note is open again. Only the MCP server writes an
   agent's replies: the app's IPC always signs them as the user.
 - **One conversation**: once a note has replies, the note is the thread's

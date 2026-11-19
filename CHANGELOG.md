@@ -27,8 +27,19 @@ turns them into the next release's section.
 - Once a document has the status your note asked for, its header no longer
   says "✓ Now accepted": the status has a **New** label until you open the
   note.
+- **Clearer note actions.** **Reply** shows only under the agent's answer;
+  until it answers, you edit your note or your latest reply. To take up an
+  addressed or answered note again, reply: **Reopen** is gone, and so is
+  **Mark not sent** on an answered note. **Unresolve** puts a resolved note
+  back where it was, **Addressed** for example, instead of making it **Not
+  sent**.
 
 ### Fixed
+
+- Editing a sent note makes it **Not sent** again, so the new wording goes
+  with the next round. Before, it stayed **Sent**, and an agent that already
+  had it never saw the change. The same goes for the comment or the status
+  asked for in the note on a document.
 
 - Clicking the note on a document in the **Marks** view goes to the top of
   the document and opens the note.

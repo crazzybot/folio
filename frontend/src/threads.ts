@@ -21,6 +21,16 @@ export function authorName(author: Author): string {
   }
 }
 
+/**
+ * Whether the user can reply: someone else spoke last. The user's own last
+ * message (the note, or their reply) is edited instead, until it's answered
+ * (docs/design/note-lifecycle.md).
+ */
+export function canReply(thread: Thread): boolean {
+  const last = thread.replies?.[thread.replies.length - 1];
+  return (last?.author ?? thread.author ?? { kind: "user" }).kind !== "user";
+}
+
 /** The replies the user hasn't seen. */
 export function newReplies(thread: Thread): Reply[] {
   return (thread.replies ?? []).filter((r) => r.author.kind !== "user" && (thread.seen === undefined || r.at > thread.seen));

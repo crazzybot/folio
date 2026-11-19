@@ -56,6 +56,8 @@ export interface Highlight extends Thread {
   updated: string;
   /** Absent: open. */
   state?: NoteState;
+  /** The state Resolve took the note from: Unresolve goes back to it. Absent: open. Read only while resolved. */
+  resolvedFrom?: NoteState;
   /**
    * Set only when the user chose: true keeps the mark out of the loop, false
    * sends a highlight without a note. Absent: private without a note,
@@ -86,6 +88,8 @@ export interface DocumentNote extends Thread {
   updated: string;
   /** Absent: open. */
   state?: NoteState;
+  /** The state Resolve took the note from: Unresolve goes back to it. Absent: open. Read only while resolved. */
+  resolvedFrom?: NoteState;
   /** true: kept out of the loop (a requested status is sent anyway). Absent: feedback. */
   private?: boolean;
   /** The document's status when the user last opened the note: a status reached since is new to them. */

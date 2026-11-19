@@ -20,15 +20,22 @@ it and click the note button in the margin.
 
 The bottom row of a note's popover says where the note is, with its icon:
 
-- **Not sent**: it goes with the next notes you send.
-- **Sent**: you sent it, and the agent hasn't answered yet. **Mark not
-  sent** puts it back with the next round.
+- **Not sent**: it goes with the next notes you send. Edit it as much as
+  you like until then.
+- **Sent**: you sent it, and the agent hasn't answered yet. Editing it
+  makes it **Not sent** again, so the new wording goes with the next round.
+  **Mark not sent** sends it again as it is, and **Resolve** drops it.
 - **Answered by …**: the agent replied without changing the document, with
   a question or why it left the text as it was. **Reply** to it, or
   **Resolve** it. It isn't sent again until you reply.
 - **Addressed**: the agent says it changed the document for it.
-  **Resolve** it, or **Reopen** it.
-- **Resolved**: you closed it.
+  **Resolve** it, or **Reply** to say what's still missing: your reply
+  goes with the next round.
+- **Resolved**: you closed it. **Unresolve** puts it back where it was,
+  **Addressed** for example. To take it up again, **Reply**.
+
+**Reply** shows only when the agent spoke last. Until it answers, you edit
+your note or your latest reply instead.
 
 **Only me**, the lock at the right of that row, keeps a note to yourself:
 it's never sent and has no state. A highlight without a note is yours too,
@@ -43,7 +50,8 @@ document as a whole: an overall comment and a status to ask for, such as
 `accepted` or `rejected`. It works as a highlight's note: the same bottom
 row with **Only me**, and replies under it. **Save** waits until you change
 something. With **Only me** on, the comment is never sent, but a status you
-ask for still is.
+ask for still is. Changing the comment or the status makes the note **Not
+sent** again.
 
 The note is shown above the text, under the document's status. Once the
 document has the status you asked for, that status is no longer sent, and

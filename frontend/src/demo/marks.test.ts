@@ -156,6 +156,26 @@ describe("DemoMarks", () => {
     expect([undone?.highlights[0]?.state, undone?.rounds]).toEqual([undefined, undefined]);
   });
 
+  it("opens a sent note again when its wording or the status asked for changes", () => {
+    const marks = new DemoMarks(listed, seed, memoryStorage());
+    marks.updateHighlight("b", "s1", { state: "sent" });
+    expect(marks.updateHighlight("b", "s1", { color: "green", note: "Seed" }).state).toBe("sent");
+    expect(marks.updateHighlight("b", "s1", { note: "Seed, again" }).state).toBeUndefined();
+
+    marks.setNote("a", { text: "Fine.", requestedStatus: null, state: "sent" });
+    expect(marks.setNote("a", { text: "Fine.", requestedStatus: null, private: true })?.state).toBe("sent");
+    expect(marks.setNote("a", { text: "Fine.", requestedStatus: "accepted" })?.state).toBeUndefined();
+  });
+
+  it("remembers the state a note was resolved from, through a deleted reply", () => {
+    const marks = new DemoMarks(listed, seed, memoryStorage());
+    marks.updateHighlight("b", "s1", { state: "addressed" });
+    expect(marks.updateHighlight("b", "s1", { state: "resolved" }).resolvedFrom).toBe("addressed");
+    const mine = marks.reply("b", "s1", "One more thing.").replies?.[0]?.id ?? "";
+    const back = marks.deleteReply("b", "s1", mine);
+    expect([back.state, back.resolvedFrom]).toEqual(["resolved", "addressed"]);
+  });
+
   it("locks and unlocks a note", () => {
     const marks = new DemoMarks(listed, seed, memoryStorage());
     expect(marks.updateHighlight("b", "s1", { private: true }).private).toBe(true);

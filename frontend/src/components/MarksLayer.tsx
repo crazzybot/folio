@@ -7,7 +7,7 @@ import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
-import { answeredBy, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, unplacedFirst } from "../sending";
+import { answeredBy, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
 import { buildTextModel } from "../textModel";
 import { newReplies, threadSummary } from "../threads";
 import { HIGHLIGHT_COLORS } from "../types";
@@ -1262,9 +1262,7 @@ function LoopRow({
         )}
         {!locked && answered !== null && (
           <>
-            <NoteStateIcon kind="answered" size={12} /> Answered by {answered} ·{" "}
-            {link("Mark not sent", { state: "open" }, "It will be sent again next time")} ·{" "}
-            {link("Resolve", { state: "resolved" })}
+            <NoteStateIcon kind="answered" size={12} /> Answered by {answered} · {link("Resolve", { state: "resolved" })}
           </>
         )}
         {!locked && state === "sent" && answered === null && (
@@ -1277,13 +1275,13 @@ function LoopRow({
         )}
         {!locked && state === "addressed" && (
           <>
-            <NoteStateIcon kind="addressed" size={12} /> Addressed · {link("Resolve", { state: "resolved" })} ·{" "}
-            {link("Reopen", { state: "open" })}
+            <NoteStateIcon kind="addressed" size={12} /> Addressed · {link("Resolve", { state: "resolved" })}
           </>
         )}
         {!locked && state === "resolved" && (
           <>
-            <NoteStateIcon kind="resolved" size={12} /> Resolved · {link("Reopen", { state: "open" })}
+            <NoteStateIcon kind="resolved" size={12} /> Resolved ·{" "}
+            {link("Unresolve", { state: highlight.resolvedFrom ?? "open" }, UNRESOLVE_TITLE)}
           </>
         )}
       </span>
