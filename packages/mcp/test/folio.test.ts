@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { requestStop, stopRequested } from "../../core/src/agents";
+import { requestStop, requestStopSync, stopRequested } from "../../core/src/agents";
 import { MarksStore, newRoundId, realPath } from "../../core/src/marks";
 import type { Highlight } from "../../core/src/marks";
 import { agentName, Folio, FolioError } from "../src/folio";
@@ -150,7 +150,7 @@ describe("waitForReview", () => {
   /** A wait that isn't stopped: its notes, or null at the timeout. */
   const wait = async (request: Parameters<Folio["waitForReview"]>[0]) => {
     const result = await folio.waitForReview(request, "Claude Code");
-    if (result === "stopped") throw new Error("Stopped");
+    if (typeof result === "string") throw new Error("Stopped");
     return result;
   };
   const presence = () => JSON.parse(readFileSync(path.join(dataDir, "agents", `${process.pid}.json`), "utf8")) as Record<string, unknown>;
@@ -214,13 +214,22 @@ describe("waitForReview", () => {
     const waiting = folio.waitForReview({ timeoutMs: 5_000 }, "Claude Code");
     await new Promise((resolve) => setTimeout(resolve, 100));
     await requestStop(dataDir, process.pid);
-    expect(await waiting).toBe("stopped");
+    expect(await waiting).toBe("ended");
     expect(() => presence()).toThrow();
 
     // Asked while the agent worked on notes: the next wait ends at once
     await requestStop(dataDir, process.pid);
-    expect(await folio.waitForReview({ timeoutMs: 5_000 }, "Claude Code")).toBe("stopped");
-    expect(await stopRequested(dataDir, process.pid)).toBe(false);
+    expect(await folio.waitForReview({ timeoutMs: 5_000 }, "Claude Code")).toBe("ended");
+    expect(await stopRequested(dataDir, process.pid)).toBeNull();
+  });
+
+  it("ends the loop when the app quits, and says so", async () => {
+    const waiting = folio.waitForReview({ timeoutMs: 5_000 }, "Claude Code");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    requestStopSync(dataDir, process.pid, "quit");
+    expect(await waiting).toBe("quit");
+    expect(() => presence()).toThrow();
+    expect(await stopRequested(dataDir, process.pid)).toBeNull();
   });
 
   it("stops when the call is cancelled, and refuses a since that isn't a time", async () => {

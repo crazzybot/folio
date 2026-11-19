@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { agentsFolder, isLive, liveAgents, requestStop, writePresence } from "../src/agents";
+import { agentsFolder, isLive, liveAgents, requestStop, requestStopSync, stopFile, stopRequested, writePresence } from "../src/agents";
 import type { AgentPresence } from "../src/agents";
 
 const NOW = Date.parse("2026-11-14T12:00:00Z");
@@ -46,5 +46,21 @@ describe("liveAgents", () => {
     // Asked to stop: gone before the session notices
     await requestStop(dataDir, 1);
     expect(await liveAgents(dataDir, NOW, alive)).toEqual([]);
+  });
+});
+
+describe("stopRequested", () => {
+  it("says why a session was asked to stop", async () => {
+    const dataDir = mkdtempSync(path.join(os.tmpdir(), "folio-agents-"));
+    expect(await stopRequested(dataDir, 1)).toBeNull();
+    await requestStop(dataDir, 1);
+    expect(await stopRequested(dataDir, 1)).toBe("ended");
+    requestStopSync(dataDir, 2, "quit");
+    expect(await stopRequested(dataDir, 2)).toBe("quit");
+    await requestStop(dataDir, 4, "closed");
+    expect(await stopRequested(dataDir, 4)).toBe("closed");
+    // An older app's stop file has no reason: the user ended the loop
+    writeFileSync(stopFile(dataDir, 3), "{}");
+    expect(await stopRequested(dataDir, 3)).toBe("ended");
   });
 });

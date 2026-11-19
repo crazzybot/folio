@@ -36,6 +36,10 @@ turns them into the next release's section.
 
 ### Fixed
 
+- Quitting Folio ends the review loop: an agent waiting for your notes stops
+  and tells you Folio was closed. Opening a workspace that doesn't hold the
+  agent's folder ends it too. Before, the agent kept waiting for notes that
+  could no longer come.
 - Editing a sent note makes it **Not sent** again, so the new wording goes
   with the next round. Before, it stayed **Sent**, and an agent that already
   had it never saw the change. The same goes for the comment or the status

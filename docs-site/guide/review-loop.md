@@ -77,7 +77,8 @@ it works in.
   then they're waiting for the agent.
 - **End Review Loop.** In the folder's context menu, or on the status bar's
   **Live** pill. The agent stops waiting and tells you the loop has ended.
-  You can also stop it in the agent itself.
+  You can also stop it in the agent itself. Quitting Folio ends the loop
+  too, and so does opening a workspace that doesn't hold the agent's folder.
 
 ### Know when the agent replied
 

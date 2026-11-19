@@ -47,7 +47,8 @@ a note, hands your notes straight to it. The agent addresses them, answers
 each one, and waits for the next round.
 
 While it waits, Folio's desktop app shows a **Live** pill on the agent's
-folder. **End Review Loop** there tells the agent to stop waiting.
+folder. **End Review Loop** there tells the agent to stop waiting, and so
+does quitting Folio or opening another workspace.
 
 ## Tools
 

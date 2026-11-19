@@ -18,7 +18,7 @@ again, so a round needs no switch to the agent.
 | How notes reach it | **Send** records a round `via: "send"`, as Copy does with `via: "copy"`; the waiting server picks up rounds sent after its `since` |
 | How the app knows an agent waits | Each waiting server writes a presence file in the data folder; the app watches the folder |
 | Which documents | Only those under the server's root, the folder the agent works in |
-| Stopping | The user tells the agent, or **End Review Loop** in the app writes a stop file the wait sees |
+| Stopping | The user tells the agent, or the app writes a stop file the wait sees: on **End Review Loop**, and for the sessions it shows when it closes their workspace or quits |
 | Telling the user it's taken | The round is marked `picked` when the wait returns it |
 
 ## 1. The wait
@@ -86,8 +86,18 @@ While a session waits or works, its server keeps
   enabled while the note has changes or hasn't been sent.
 - **End Review Loop**: in a folder's context menu and on the status bar's
   pill. It writes `agents/<pid>.stop`. The session's next check returns
-  "stopped", which tells the agent not to call again, and removes both files.
+  "ended", which tells the agent not to call again, and removes both files.
   The app hides a session with a stop file at once.
+- **Opening another workspace** writes the same file, with `reason:
+  "closed"`, for each session the app showed that the new workspace doesn't
+  overlap: the app no longer shows it, so it can't send it notes. A session
+  the new workspace still covers (a parent folder, or one inside the
+  session's) keeps its loop. The wait returns "closed".
+- **Quitting the app** does the same with `reason: "quit"` for each session
+  it shows, synchronously in `before-quit`. The wait returns "quit", and the
+  agent tells the user the loop ended because Folio was closed. Closing the
+  window on macOS leaves the app running on the same workspace, so loops go
+  on. A crash writes nothing; those sessions wait until the user stops them.
 
 ## 4. Picked up
 
