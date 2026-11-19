@@ -74,6 +74,7 @@ export function answeredBy(note: { state?: string | undefined; replies?: readonl
 export type ReviewHighlight = Pick<Highlight, "id" | "note" | "quote" | "position"> & {
   author?: Author | undefined;
   replies?: readonly Reply[] | undefined;
+  section?: readonly { text: string }[] | undefined;
 };
 
 /** A document's note as formatted. */
@@ -282,7 +283,16 @@ export function formatReviewNotes(
           : where.endLine > where.startLine
             ? `:${where.startLine}-${where.endLine}`
             : `:${where.startLine}`;
-      const section = where !== null && where.section.length > 0 ? ` · ${where.section.join(" › ")}` : "";
+      // Not in the source: the section the passage was in, as the viewer last found it
+      const kept = h.section?.map((heading) => heading.text) ?? [];
+      const section =
+        where !== null
+          ? where.section.length > 0
+            ? ` · ${where.section.join(" › ")}`
+            : ""
+          : kept.length > 0
+            ? ` · ${kept.join(" › ")} (passage not found)`
+            : "";
       const id = noteIds ? ` · note ${shortNoteId(h.id)}` : "";
       out.push(`${marker}${doc.path}${lines}${section}${id}`);
       for (const line of shorten(h.quote.exact).split(/\r?\n/)) {

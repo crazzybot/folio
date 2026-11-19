@@ -289,6 +289,35 @@
   color: var(--color-accent);
 }
 
+/* ─── Notes kept on their section's heading ──────────────────────────────── */
+/* The passage wasn't found (placing-notes.md): the marker is outlined, and
+   the popover shows the passage it was on, struck through */
+.noteMarkerDetached {
+  outline: 1px dashed var(--color-text-subtle);
+  outline-offset: -1px;
+}
+
+.detached {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 6px;
+  font-size: var(--text-xs);
+}
+
+.detachedLabel {
+  color: var(--color-text-muted);
+}
+
+.detachedQuote {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--color-text-subtle);
+  text-decoration-color: color-mix(in srgb, currentColor 50%, transparent);
+}
+
 /* ─── Highlights not found in the text ────────────────────────────────────── */
 /* A card of the document header (DocumentHeader.module.css): its label,
    then a line per highlight */

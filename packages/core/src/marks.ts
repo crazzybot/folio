@@ -354,6 +354,21 @@ function heading(value: unknown): BookmarkHeading | null {
   };
 }
 
+/** A highlight's section: the headings above it, outermost first, at most one per level. */
+function sectionPath(value: unknown): BookmarkHeading[] {
+  if (!Array.isArray(value) || value.length > 6) throw new MarkError(400, "section must be a list of at most 6 headings");
+  return value.map((h) => {
+    const found = heading(h);
+    if (found === null) throw new MarkError(400, "section must not contain null");
+    return found;
+  });
+}
+
+/** The section field for `path`: none before the first heading. */
+function withSection(path: BookmarkHeading[]): { section?: BookmarkHeading[] } {
+  return path.length === 0 ? {} : { section: path };
+}
+
 function sameHeading(a: BookmarkHeading | null, b: BookmarkHeading | null): boolean {
   return a === null || b === null ? a === b : a.text === b.text && a.level === b.level && a.occurrence === b.occurrence;
 }
@@ -389,6 +404,7 @@ function newHighlight(body: unknown): Highlight {
       suffix: string(quote["suffix"] ?? "", "quote.suffix", MAX_CONTEXT),
     },
     position: { start, end },
+    ...withSection(body["section"] === undefined ? [] : sectionPath(body["section"])),
     created: time,
     updated: time,
   };
@@ -546,13 +562,22 @@ export class MarksStore {
     const loop: { state?: NoteState; private?: boolean | null } = {};
     if ("state" in body) loop.state = noteState(body["state"]);
     if ("private" in body) loop.private = privacy(body["private"]);
+    // Where the passage is now: kept up to date by the viewer, not a change the user made
+    const section = "section" in body ? sectionPath(body["section"]) : undefined;
+    const edited = Object.keys(changes).length > 0 || Object.keys(loop).length > 0;
     const id = recordId(file);
     return this.serially(async () => {
       const record = await this.writable(id);
       const old = find(record, highlightId);
       // New wording is new feedback: it goes with the next round, whatever the note's state
       if (changes.note !== undefined && changes.note !== old.note && loop.state === undefined) loop.state = "open";
-      const highlight = { ...withLoop(old, loop), ...changes, updated: now() };
+      const { section: oldSection, ...rest } = withLoop(old, loop);
+      const highlight: Highlight = {
+        ...rest,
+        ...changes,
+        ...withSection(section ?? oldSection ?? []),
+        updated: edited ? now() : old.updated,
+      };
       const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? highlight : h));
       await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
       return highlight;

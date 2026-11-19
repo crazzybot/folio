@@ -52,6 +52,12 @@ export interface Highlight extends Thread {
   note: string | null;
   quote: { exact: string; prefix: string; suffix: string };
   position: { start: number; end: number };
+  /**
+   * The headings above the passage, outermost first: where the note stays
+   * when the passage can't be found (docs/design/placing-notes.md). Absent
+   * before the first heading, and until the viewer has found the passage.
+   */
+  section?: BookmarkHeading[];
   created: string;
   updated: string;
   /** Absent: open. */

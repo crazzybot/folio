@@ -56,6 +56,7 @@ import { formatReviewNotes, reviewPath } from "./reviewNotes";
 import { defaultSelection, picked, pickedUpBy, sendDocuments, sendGroups } from "./sending";
 import { newReplies, repliedNotes, repliesParts, repliesSummary } from "./threads";
 import type { Picked, SendItem, StateFilter } from "./sending";
+import type { Located } from "./marksView";
 import styles from "./App.module.css";
 import type { DocumentMeta, HighlightColor, ReadVersion, TextAnchor } from "./types";
 import { getItem, setItem } from "./storage";
@@ -240,8 +241,7 @@ function AppInner(): React.ReactElement {
     if (markFocus !== null && markFocus.docId === focusSeenIn) setMarkFocus(null);
   }
   // The open document's highlights found in its text (the viewer reports them)
-  const [located, setLocated] = useState<{ docId: string; ids: ReadonlySet<string> } | null>(null);
-  const handleLocatedChange = useCallback((docId: string, ids: ReadonlySet<string>) => setLocated({ docId, ids }), []);
+  const [located, setLocated] = useState<Located | null>(null);
 
   // ── Back / forward (desktop app only; null in the browser) ─────────────────
   const history = useDesktopHistory();
@@ -540,7 +540,7 @@ function AppInner(): React.ReactElement {
   useEffect(() => {
     if (contentId !== null) rememberForWorkspace(LAST_DOCUMENT_KEY, contentId);
   }, [contentId]);
-  const { add: addMark, recolor, setNote, remove: removeMark, setLoop, reply, editReply, deleteReply, markSeen, toggleBookmark, removeBookmark } = marks;
+  const { add: addMark, recolor, setNote, remove: removeMark, setLoop, setSection, reply, editReply, deleteReply, markSeen, toggleBookmark, removeBookmark } = marks;
   const shownRounds = contentId === null ? undefined : marks.byDoc.get(contentId)?.rounds;
   const [statusMessage, setStatusMessage] = useStatusMessage();
   const [markSent, setMarkSent] = useMarkSent();
@@ -580,6 +580,7 @@ function AppInner(): React.ReactElement {
       setNote: (id: string, note: string | null) => void setNote(contentId, id, note),
       remove: (id: string) => void removeMark(contentId, id),
       setLoop: (id, changes) => void setLoop(contentId, id, changes),
+      setSection: (id, section) => void setSection(contentId, id, section),
       reply: (id, text) => void reply(contentId, id, text),
       editReply: (id, replyId, text) => void editReply(contentId, id, replyId, text),
       deleteReply: (id, replyId) => void deleteReply(contentId, id, replyId),
@@ -596,7 +597,7 @@ function AppInner(): React.ReactElement {
           { highlightId: id },
         ),
     };
-  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, reply, editReply, deleteReply, markSeen, toggleBookmark, shownRounds, sendTo, sendNow]);
+  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, setSection, reply, editReply, deleteReply, markSeen, toggleBookmark, shownRounds, sendTo, sendNow]);
   const shownMarks = contentId === null ? undefined : marks.byDoc.get(contentId);
   const documentBookmarked = shownMarks !== undefined && findBookmark(shownMarks.bookmarks, null) !== undefined;
 
@@ -715,9 +716,10 @@ function AppInner(): React.ReactElement {
           const docMarks = marksByDoc.get(doc.id);
           const highlights = (docMarks?.highlights ?? []).filter((h) => only === undefined || only.has(h.id));
           // Highlights the viewer couldn't place in the open document's current text are out of date
+          // (a note kept on a heading of its section can still be sent: the agent gets the section)
           const unplaced =
             located !== null && located.docId === doc.id
-              ? new Set(highlights.filter((h) => !located.ids.has(h.id)).map((h) => h.id))
+              ? new Set(highlights.filter((h) => !located.ids.has(h.id) && !located.atSection.has(h.id)).map((h) => h.id))
               : undefined;
           return { doc, source, highlights, note: withNote ? docMarks?.note : undefined, unplaced };
         }),
@@ -1263,7 +1265,7 @@ function AppInner(): React.ReactElement {
             {...(shownMarks === undefined ? {} : { highlights: shownMarks.highlights, bookmarks: shownMarks.bookmarks })}
             {...(markHandlers === undefined ? {} : { markHandlers })}
             markFocus={markFocus}
-            onLocatedChange={handleLocatedChange}
+            onLocatedChange={setLocated}
           />
         </main>
       </div>

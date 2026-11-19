@@ -91,6 +91,12 @@ export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number];
 export interface TextAnchor {
   quote: { exact: string; prefix: string; suffix: string };
   position: { start: number; end: number };
+  /**
+   * The headings above the passage, outermost first: where its note stays
+   * when the passage can't be found (sectionAnchor.ts). Absent before the
+   * first heading.
+   */
+  section?: BookmarkHeading[];
 }
 
 /**

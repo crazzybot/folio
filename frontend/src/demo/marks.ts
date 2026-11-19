@@ -168,6 +168,7 @@ export class DemoMarks {
       note: note(body.note),
       quote: { ...body.quote },
       position: { ...body.position },
+      ...(body.section === undefined || body.section.length === 0 ? {} : { section: structuredClone(body.section) }),
       created: time,
       updated: time,
     };
@@ -183,7 +184,12 @@ export class DemoMarks {
     const edited = "note" in changes && note(changes.note) !== highlight.note;
     if ("note" in changes) highlight.note = note(changes.note);
     applyLoop(highlight, edited && changes.state === undefined ? { ...changes, state: "open" } : changes);
-    highlight.updated = now();
+    if (changes.section !== undefined) {
+      if (changes.section.length === 0) delete highlight.section;
+      else highlight.section = structuredClone(changes.section);
+    }
+    // Only the section: where the passage is, not a change the visitor made
+    if (Object.keys(changes).some((key) => key !== "section")) highlight.updated = now();
     this.changed(docId);
     return structuredClone(highlight);
   }

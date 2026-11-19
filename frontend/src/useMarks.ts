@@ -70,6 +70,8 @@ export interface Marks {
    * null: the default).
    */
   setLoop(docId: string, highlightId: string, changes: { state?: NoteState; private?: boolean | null }): Promise<void>;
+  /** Where a highlight's passage is now (placing-notes.md): saved quietly, as it isn't the user's change. */
+  setSection(docId: string, highlightId: string, section: BookmarkHeading[]): Promise<void>;
   /** The same for the note on the document as a whole. */
   setDocumentNoteLoop(docId: string, changes: { state?: NoteState; private?: boolean | null }): Promise<void>;
   /**
@@ -242,6 +244,14 @@ export default function useMarks(): Marks {
     [saved, failed],
   );
 
+  const setSection = useCallback(
+    (docId: string, highlightId: string, section: BookmarkHeading[]) =>
+      updateHighlight(docId, highlightId, { section }).then(saved(docId), (err: unknown) => {
+        console.error("Couldn't save the note's section", err);
+      }),
+    [saved],
+  );
+
   const setDocumentNoteLoop = useCallback(
     (docId: string, changes: { state?: NoteState; private?: boolean | null }) => {
       const note = byDoc.get(docId)?.note;
@@ -373,6 +383,7 @@ export default function useMarks(): Marks {
     setNote,
     remove,
     setLoop,
+    setSection,
     setDocumentNoteLoop,
     send,
     unsend,

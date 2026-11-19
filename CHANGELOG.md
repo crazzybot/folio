@@ -8,6 +8,14 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Added
+
+- **Notes stay in their section.** When an edit rewrites or removes the
+  passage a note is on, the note moves beside the heading of the section
+  the passage was in, instead of going under **Not found in the current
+  text**. Its popover shows the old passage struck through. Review notes
+  tell the agent which section such a note is in.
+
 ### Changed
 
 - **What changed stays in sight.** Above a document, under its status, your

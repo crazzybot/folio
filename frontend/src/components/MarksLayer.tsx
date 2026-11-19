@@ -9,6 +9,7 @@ import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
 import { answeredBy, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
 import { buildTextModel } from "../textModel";
+import { locateSection, sameSection, sectionPath } from "../sectionAnchor";
 import { newReplies, threadSummary } from "../threads";
 import { HIGHLIGHT_COLORS } from "../types";
 import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, NoteState, Round, TextAnchor } from "../types";
@@ -42,6 +43,9 @@ const BLOCKS = `${HEADINGS}, p, li, dt, dd, table, pre`;
 const NOTE_BUTTON_ROOM = 26;
 // Between a highlight and its popover
 const POPOVER_GAP = 6;
+// Notes kept on one heading sit one under another, this far apart
+const MARKER_STEP = 22;
+const DETACHED_LABEL = "The passage isn't in the text any more";
 
 const COLOR_NAMES: Record<HighlightColor, string> = { yellow: "Yellow", green: "Green", blue: "Blue", pink: "Pink" };
 
@@ -217,8 +221,14 @@ interface MarksLayerProps {
   /** The user saw a highlight's thread (its popover opened with new replies). */
   onSeen: (id: string) => void;
   onToggleBookmark: (heading: BookmarkHeading) => void;
-  /** After painting: the highlights found in the text, by id, with their ranges. */
-  onPainted?: (located: ReadonlyMap<string, Range>) => void;
+  /**
+   * After painting: the highlights found in the text, by id, with their
+   * ranges, and the notes whose passage wasn't found kept on a heading of its
+   * section, with that heading.
+   */
+  onPainted?: (located: ReadonlyMap<string, Range>, atSection: ReadonlyMap<string, HTMLElement>) => void;
+  /** Where a note's passage is now (placing-notes.md): saved whenever it changes. */
+  onSetSection?: ((id: string, section: BookmarkHeading[]) => void) | undefined;
   /** Above the document: where highlights not found in its text are listed. */
   unplacedSlot?: HTMLElement | null;
   /** The same list in the pinned header's details, while they're open. */
@@ -257,6 +267,7 @@ export default function MarksLayer({
   onSeen,
   onToggleBookmark,
   onPainted,
+  onSetSection,
   unplacedSlot = null,
   pinnedSlot = null,
 }: MarksLayerProps): React.ReactElement | null {
@@ -264,6 +275,16 @@ export default function MarksLayer({
   // Highlights not found in the text, listed above it; the ref as just painted
   const [unplacedIds, setUnplacedIds] = useState<ReadonlySet<string>>(() => new Set());
   const unplacedNow = useRef<ReadonlySet<string>>(new Set());
+  // Notes whose passage wasn't found, kept on a heading of its section: the
+  // heading's index among the document's headings; the ref as just painted
+  const [sectionIds, setSectionIds] = useState<ReadonlyMap<string, number>>(() => new Map());
+  const atSectionNow = useRef<ReadonlyMap<string, number>>(new Map());
+  // Sections being saved, so a repaint before the save lands doesn't save again
+  const sectionsSaving = useRef(new Map<string, string>());
+  const setSection = useRef(onSetSection);
+  useLayoutEffect(() => {
+    setSection.current = onSetSection;
+  }, [onSetSection]);
   // The strip shows resolved notes and bare highlights too
   const [allUnplaced, setAllUnplaced] = useState(false);
   const stripRef = useRef<HTMLDivElement>(null);
@@ -276,7 +297,10 @@ export default function MarksLayer({
   // A reply being written in the popover's thread
   const [replying, setReplying] = useState(false);
   const [lastColor, setLastColor] = useState<HighlightColor>(loadColor);
-  const [noteSpots, setNoteSpots] = useState<(Spot & { id: string })[]>([]);
+  // detached: kept on its section's heading, its passage not found
+  const [noteSpots, setNoteSpots] = useState<(Spot & { id: string; detached: boolean })[]>([]);
+  // The headings notes are kept on: no note button beside them
+  const [notedHeadings, setNotedHeadings] = useState<Element[]>([]);
   // The text of highlights that have a note: a block with some has no note button
   const [notedRanges, setNotedRanges] = useState<Range[]>([]);
   const [headingSpots, setHeadingSpots] = useState<HeadingSpot[]>([]);
@@ -297,17 +321,28 @@ export default function MarksLayer({
   const keepInView = useRef<{ id: string; offset: number } | null>(null);
 
   // ── Paint ──────────────────────────────────────────────────────────────────
-  // Highlights that can't be found in the current text aren't painted:
-  // they're kept, and listed above the document and in the Marks view
+  // Highlights that can't be found in the current text aren't painted. A
+  // note is kept on a heading of the section it was in, while there's one
+  // (placing-notes.md); others are listed above the document and in the
+  // Marks view
   useEffect(() => {
     const article = articleRef.current;
     located.current = new Map();
     spans.current = new Map();
     const unplaced = new Set<string>();
+    const atSection = new Map<string, number>();
+    let elements: HTMLElement[] = [];
     const report = () => {
       unplacedNow.current = unplaced;
+      atSectionNow.current = atSection;
       setUnplacedIds((prev) => (sameIds(prev, unplaced) ? prev : unplaced));
-      onPainted?.(located.current);
+      setSectionIds((prev) => (sameIndexes(prev, atSection) ? prev : atSection));
+      const headings = new Map<string, HTMLElement>();
+      for (const [id, at] of atSection) {
+        const element = elements[at];
+        if (element !== undefined) headings.set(id, element);
+      }
+      onPainted?.(located.current, headings);
     };
     if (!ready || article === null) {
       paint(new Map());
@@ -315,17 +350,31 @@ export default function MarksLayer({
       return;
     }
     const model = buildTextModel(article);
+    const outline = headingsOf(article);
+    elements = outline.elements;
     const byLayer = new Map<string, Range[]>();
     for (const highlight of highlights) {
       const span = locateAnchor(model.text, highlight);
       if (span === null) {
-        unplaced.add(highlight.id);
+        const at = hasMarker(highlight) && highlight.section !== undefined ? locateSection(outline.headings, highlight.section) : null;
+        if (at === null) unplaced.add(highlight.id);
+        else atSection.set(highlight.id, at);
         continue;
       }
       const range = model.range(span.start, span.end);
       located.current.set(highlight.id, range);
       spans.current.set(highlight.id, span);
       for (const layer of layersOf(highlight)) byLayer.set(layer, [...(byLayer.get(layer) ?? []), range]);
+      // Its section kept up to date, for when the passage goes (notes made
+      // before sections were kept get one here)
+      if (hasMarker(highlight)) {
+        const path = sectionPath(outline.headings, headingBefore(outline.elements, range.startContainer));
+        const key = JSON.stringify(path);
+        if (!sameSection(path, highlight.section) && sectionsSaving.current.get(highlight.id) !== key) {
+          sectionsSaving.current.set(highlight.id, key);
+          setSection.current?.(highlight.id, path);
+        }
+      }
     }
     paint(byLayer);
     report();
@@ -351,6 +400,7 @@ export default function MarksLayer({
     if (!ready || article === null || container === null) {
       setNoteSpots([]);
       setNotedRanges([]);
+      setNotedHeadings([]);
       setHeadingSpots([]);
       return;
     }
@@ -363,23 +413,35 @@ export default function MarksLayer({
     // In the right margin, level with the highlight's last line, so they
     // don't cover the text after it
     const textRight = article.getBoundingClientRect().right - parseFloat(getComputedStyle(article).paddingRight);
+    const elements = [...article.querySelectorAll<HTMLElement>(HEADINGS)];
+    // Notes kept on a heading: level with it, one under another (the margin has room for one across)
+    const onHeading = new Map<number, number>();
     setNoteSpots(
-      highlights.flatMap((h) => {
+      highlights.flatMap((h): (Spot & { id: string; detached: boolean })[] => {
+        const at = sectionIds.get(h.id);
+        const heading = at === undefined ? undefined : elements[at];
+        if (at !== undefined && heading !== undefined) {
+          const n = onHeading.get(at) ?? 0;
+          onHeading.set(at, n + 1);
+          const rect = heading.getBoundingClientRect();
+          const first = spot(rect, textRight - rect.left + NOTE_MARGIN);
+          return [{ id: h.id, detached: true, top: first.top + n * MARKER_STEP, left: first.left }];
+        }
         const rects = hasMarker(h) ? located.current.get(h.id)?.getClientRects() : undefined;
         const last = rects?.[rects.length - 1];
-        return last === undefined ? [] : [{ id: h.id, ...spot(last, textRight - last.left + NOTE_MARGIN) }];
+        return last === undefined ? [] : [{ id: h.id, detached: false, ...spot(last, textRight - last.left + NOTE_MARGIN) }];
       }),
     );
+    setNotedHeadings([...onHeading.keys()].flatMap((at) => [elements[at] ?? []].flat()));
 
     setNotedRanges(highlights.flatMap((h) => (h.note === null ? [] : [located.current.get(h.id) ?? []].flat())));
     notedIds.current = new Set(highlights.flatMap((h) => (h.note === null ? [] : [h.id])));
 
-    const elements = [...article.querySelectorAll<HTMLElement>(HEADINGS)];
     const identities = headingIdentities(elements.map(headingOf));
     setHeadingSpots(
       elements.map((el, i) => ({ heading: identities[i] as BookmarkHeading, ...spot(el.getBoundingClientRect(), -HEADING_ICON_OFFSET) })),
     );
-  }, [articleRef, containerRef, ready, renderKey, highlights, layoutVersion]);
+  }, [articleRef, containerRef, ready, renderKey, highlights, layoutVersion, sectionIds]);
 
   // Which heading the pointer is beside, for its bookmark button, and which
   // block, for the note button: anywhere in its row, including the margins
@@ -527,6 +589,16 @@ export default function MarksLayer({
       if ("highlight" in target) {
         const id = target.highlight;
         const range = located.current.get(id);
+        const at = atSectionNow.current.get(id);
+        const heading = at === undefined ? undefined : article.querySelectorAll<HTMLElement>(HEADINGS)[at];
+        if (range === undefined && heading !== undefined) {
+          // Kept on its section's heading: the heading, with the note open
+          handledFocus.current = nonce;
+          const padding = parseFloat(getComputedStyle(container).scrollPaddingTop) || 0;
+          container.scrollTop += heading.getBoundingClientRect().top - container.getBoundingClientRect().top - 16 - padding;
+          openPopover(id, heading.getBoundingClientRect());
+          return;
+        }
         if (range === undefined) {
           // Not in the text: its chip above it, with the thread open, once
           // the strip shows it (the effect runs again when it changes)
@@ -562,7 +634,7 @@ export default function MarksLayer({
       }
     });
     return () => cancelAnimationFrame(frame);
-  }, [articleRef, containerRef, ready, focus, renderKey, highlights, openPopover, unplacedIds, allUnplaced]);
+  }, [articleRef, containerRef, ready, focus, renderKey, highlights, openPopover, unplacedIds, sectionIds, allUnplaced]);
 
   // Another document: nothing of the previous one stays open. A reload of
   // the same one keeps the open highlight's popover, and its note being
@@ -576,6 +648,7 @@ export default function MarksLayer({
       setPopover(null);
       setDraft(null);
       setUnplacedIds(new Set());
+      setSectionIds(new Map());
       setAllUnplaced(false);
     }
     setHoveredHeading(null);
@@ -621,6 +694,14 @@ export default function MarksLayer({
     const model = buildTextModel(article);
     const span = highlight === undefined ? null : locateAnchor(model.text, highlight);
     if (span === null) {
+      // Kept on its section's heading: beside it
+      const { elements, headings } = headingsOf(article);
+      const at = highlight?.section === undefined || !hasMarker(highlight) ? null : locateSection(headings, highlight.section);
+      const heading = at === null ? undefined : elements[at];
+      if (heading !== undefined) {
+        setPopover({ ...placeBy(container, heading.getBoundingClientRect(), true), id: popoverId });
+        return;
+      }
       if (stripRef.current?.querySelector(`[data-highlight-id="${CSS.escape(popoverId)}"]`) != null) return;
       setPopover(null);
       setDraft(null);
@@ -893,6 +974,7 @@ export default function MarksLayer({
 
   /** A highlight with a note covers some of the block's text: its marker stands for the block's note. */
   const blockHasNote = (block: Element): boolean => {
+    if (notedHeadings.includes(block)) return true;
     const own = blockRange(block);
     return notedRanges.some(
       (range) => range.compareBoundaryPoints(Range.START_TO_END, own) > 0 && range.compareBoundaryPoints(Range.END_TO_START, own) < 0,
@@ -1013,15 +1095,16 @@ export default function MarksLayer({
         const note = highlight?.note ?? "(no comment)";
         const fresh = highlight === undefined ? 0 : newReplies(highlight).length;
         const news = fresh === 0 ? "" : ` · ${fresh === 1 ? "a new reply" : `${fresh} new replies`}`;
+        const detached = spot.detached ? ` · ${DETACHED_LABEL}` : "";
         return (
           <button
             key={spot.id}
             type="button"
-            className={`${styles.noteMarker} ${spot.id === hoveredNote ? styles.noteMarkerHovered : ""} ${fresh > 0 ? styles.noteMarkerNew : ""}`}
+            className={`${styles.noteMarker} ${spot.detached ? styles.noteMarkerDetached : ""} ${spot.id === hoveredNote ? styles.noteMarkerHovered : ""} ${fresh > 0 ? styles.noteMarkerNew : ""}`}
             style={{ top: spot.top, left: spot.left }}
             onClick={(e) => openPopover(spot.id, e.currentTarget.getBoundingClientRect())}
-            aria-label={`${NOTE_ICON_LABELS[kind]} note: ${note}${news}`}
-            title={(kind === "private" ? note : `${NOTE_ICON_LABELS[kind]} · ${note}`) + news}
+            aria-label={`${NOTE_ICON_LABELS[kind]} note: ${note}${news}${detached}`}
+            title={(kind === "private" ? note : `${NOTE_ICON_LABELS[kind]} · ${note}`) + news + detached}
           >
             <NoteStateIcon kind={kind} />
           </button>
@@ -1136,6 +1219,14 @@ export default function MarksLayer({
               </svg>
             </button>
           </div>
+
+          {/* Kept on its section's heading: the passage it was on */}
+          {sectionIds.has(current.id) && (
+            <div className={styles.detached}>
+              <span className={styles.detachedLabel}>{DETACHED_LABEL}</span>
+              <del className={styles.detachedQuote}>{current.quote.exact}</del>
+            </div>
+          )}
 
           {/* Answered: the note is the thread's first message, no longer editable */}
           {draft === null && current.note !== null && !answered && (
@@ -1303,6 +1394,25 @@ function sameIds(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
   return a.size === b.size && [...a].every((id) => b.has(id));
 }
 
+function sameIndexes(a: ReadonlyMap<string, number>, b: ReadonlyMap<string, number>): boolean {
+  return a.size === b.size && [...a].every(([id, at]) => b.get(id) === at);
+}
+
+/** The document's headings in order: the elements, and their level and text. */
+function headingsOf(article: HTMLElement): { elements: HTMLElement[]; headings: { level: number; text: string }[] } {
+  const elements = [...article.querySelectorAll<HTMLElement>(HEADINGS)];
+  return { elements, headings: elements.map(headingOf) };
+}
+
+/** The index of the last heading that `node` is in or after: -1 before the first. */
+function headingBefore(elements: readonly Element[], node: Node): number {
+  let found = -1;
+  elements.forEach((el, i) => {
+    if (el.contains(node) || el.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) found = i;
+  });
+  return found;
+}
+
 /** A DOM range's text in the document, without whitespace at either end, as an anchor. */
 function spanOf(
   article: HTMLElement,
@@ -1315,7 +1425,10 @@ function spanOf(
   while (start < end && /\s/.test(model.text[start] ?? "")) start++;
   while (end > start && /\s/.test(model.text[end - 1] ?? "")) end--;
   if (end <= start) return null;
-  return { anchor: describeSpan(model.text, start, end), start, end, model };
+  const { elements, headings } = headingsOf(article);
+  const section = sectionPath(headings, headingBefore(elements, range.startContainer));
+  const anchor = describeSpan(model.text, start, end);
+  return { anchor: section.length === 0 ? anchor : { ...anchor, section }, start, end, model };
 }
 
 /** A heading element's level and text, as the scanner reads headings (whitespace collapsed). */

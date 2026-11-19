@@ -206,11 +206,14 @@ export function HighlightCard({
   doc,
   highlight,
   unplaced,
+  atSection = null,
   rounds,
 }: {
   doc: DocumentMeta;
   highlight: Highlight;
   unplaced: boolean;
+  /** Its passage not found, the note kept on this heading. */
+  atSection?: string | null;
   rounds?: readonly Round[] | undefined;
 }): React.ReactElement {
   const kind: NoteIconKind = isPrivate(highlight) ? "private" : loopKind(highlight);
@@ -225,6 +228,7 @@ export function HighlightCard({
       />
       <div className={styles.path}>{doc.location}</div>
       {unplaced && <div className={styles.detail}>Not found in the current text</div>}
+      {atSection !== null && <div className={styles.detail}>Passage not found · on “{atSection}”</div>}
     </>
   );
 }

@@ -109,9 +109,15 @@ describe("buildMarkRows", () => {
   });
 
   it("marks the open document's highlights that aren't in its text", () => {
-    const rows = buildMarkRows({ ...base, located: { docId: "guide.md", ids: new Set(["h1"]) } });
+    const rows = buildMarkRows({ ...base, located: { docId: "guide.md", ids: new Set(["h1"]), atSection: new Map() } });
     const unplaced = rows.flatMap((r) => (r.kind === "highlight" && r.unplaced ? [r.highlight.id] : []));
     expect(unplaced).toEqual(["h2"]);
+  });
+
+  it("gives the heading a note is kept on when its passage isn't in the text", () => {
+    const rows = buildMarkRows({ ...base, located: { docId: "guide.md", ids: new Set(["h1"]), atSection: new Map([["h2", "Usage"]]) } });
+    const h2 = rows.find((r) => r.kind === "highlight" && r.highlight.id === "h2");
+    expect(h2?.kind === "highlight" && [h2.unplaced, h2.atSection]).toEqual([false, "Usage"]);
   });
 
   it("leaves out documents outside the list (a focused folder)", () => {
