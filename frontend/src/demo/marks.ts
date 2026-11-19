@@ -64,9 +64,21 @@ function note(value: string | null | undefined): string | null {
   return value == null || value.trim() === "" ? null : value;
 }
 
-/** `mark` with a state and privacy change applied: open and null are the defaults, so they're left out. */
-function applyLoop(mark: { state?: NoteState; private?: boolean }, changes: { state?: NoteState; private?: boolean | null }): void {
+/**
+ * `mark` with a state and privacy change applied: open and null are the
+ * defaults, so they're left out. Resolving remembers the state it came
+ * from, for Unresolve, as the desktop store does.
+ */
+function applyLoop(
+  mark: { state?: NoteState; resolvedFrom?: NoteState; private?: boolean },
+  changes: { state?: NoteState | undefined; private?: boolean | null | undefined },
+): void {
   if (changes.state !== undefined) {
+    const before = mark.state ?? "open";
+    if (changes.state === "resolved" && before !== "resolved") {
+      if (before === "open") delete mark.resolvedFrom;
+      else mark.resolvedFrom = before;
+    }
     if (changes.state === "open") delete mark.state;
     else mark.state = changes.state;
   }
@@ -167,8 +179,10 @@ export class DemoMarks {
   updateHighlight(docId: string, highlightId: string, changes: HighlightChanges): Highlight {
     const highlight = this.highlight(docId, highlightId);
     if (changes.color !== undefined) highlight.color = changes.color;
+    // New wording is new feedback: it goes with the next round
+    const edited = "note" in changes && note(changes.note) !== highlight.note;
     if ("note" in changes) highlight.note = note(changes.note);
-    applyLoop(highlight, changes);
+    applyLoop(highlight, edited && changes.state === undefined ? { ...changes, state: "open" } : changes);
     highlight.updated = now();
     this.changed(docId);
     return structuredClone(highlight);
@@ -212,8 +226,10 @@ export class DemoMarks {
       return null;
     }
     const time = now();
+    // A new comment or status asked for goes with the next round
+    const edited = marks.note !== undefined && (text !== marks.note.text || requestedStatus !== marks.note.requestedStatus);
     marks.note = { ...marks.note, text, requestedStatus, created: marks.note?.created ?? time, updated: time };
-    applyLoop(marks.note, changes);
+    applyLoop(marks.note, edited && changes.state === undefined ? { ...changes, state: "open" } : changes);
     this.changed(docId);
     return structuredClone(marks.note);
   }

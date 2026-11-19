@@ -4,14 +4,15 @@
  * a highlight's popover and the note on the document. Once a note has
  * replies, it's the thread's first message and scrolls with them: what was
  * answered can't be edited. Only the user's latest reply can, until someone
- * answers it, and deleted, until it's sent.
+ * answers it, and deleted, until it's sent. Reply is offered only on an
+ * answer: the user's own last word is edited instead (note-lifecycle.md).
  *
  * Messages are light Markdown (MessageText.tsx): formatting only, never
  * HTML, links that open or images that load.
  */
 
 import { useLayoutEffect, useRef, useState } from "react";
-import { authorName, newReplies, replyTime } from "../threads";
+import { authorName, canReply, newReplies, replyTime } from "../threads";
 import type { Author, NoteState, Thread } from "../types";
 import MessageText from "./MessageText";
 import styles from "./NoteThread.module.css";
@@ -149,6 +150,10 @@ export default function NoteThread({
       </div>
     );
 
+  // Only an answer is replied to: the user's own last word is edited instead
+  const replyable = canReply(thread);
+  if (note === undefined && replies.length === 0 && !replyable) return null;
+
   return (
     <div className={styles.thread}>
       {(note !== undefined || replies.length > 0) && (
@@ -205,13 +210,13 @@ export default function NoteThread({
         </ol>
       )}
 
-      {draft === null ? (
-        <button type="button" className={styles.replyBtn} onClick={() => write({ text: "", replyId: null })}>
-          Reply
-        </button>
-      ) : (
-        draft.replyId === null && editor(false)
-      )}
+      {draft === null
+        ? replyable && (
+            <button type="button" className={styles.replyBtn} onClick={() => write({ text: "", replyId: null })}>
+              Reply
+            </button>
+          )
+        : draft.replyId === null && editor(false)}
     </div>
   );
 }

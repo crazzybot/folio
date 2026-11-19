@@ -157,13 +157,23 @@ function privacy(value: unknown): boolean | null {
   throw new MarkError(400, "private must be true, false or null");
 }
 
-/** `mark` with `state` and `private` as given (open and null are left out: they're the defaults). */
-function withLoop<T extends { state?: NoteState; private?: boolean }>(
-  mark: T,
-  changes: { state?: NoteState; private?: boolean | null },
-): T {
+/** A mark in the review loop: its state, where Resolve took it from, and its privacy. */
+type Looped = { state?: NoteState; resolvedFrom?: NoteState; private?: boolean };
+
+/**
+ * `mark` with `state` and `private` as given (open and null are left out:
+ * they're the defaults). Resolving remembers the state it came from, so
+ * Unresolve can go back to it; leaving resolved keeps it, for a deleted
+ * reply that resolves the note again.
+ */
+function withLoop<T extends Looped>(mark: T, changes: { state?: NoteState; private?: boolean | null }): T {
   const next = { ...mark };
   if (changes.state !== undefined) {
+    const before = mark.state ?? "open";
+    if (changes.state === "resolved" && before !== "resolved") {
+      if (before === "open") delete next.resolvedFrom;
+      else next.resolvedFrom = before;
+    }
     if (changes.state === "open") delete next.state;
     else next.state = changes.state;
   }
@@ -203,7 +213,7 @@ function replyBody(body: unknown): { author: Author; text: string; addressed: bo
  * until the user replies. Any other reply opens the note again, to go with
  * the next round (a resolved one is reopened).
  */
-function withReply<T extends Thread & { state?: NoteState; private?: boolean }>(
+function withReply<T extends Thread & Looped>(
   mark: T,
   reply: Reply,
   addressed: boolean,
@@ -222,14 +232,17 @@ function withReply<T extends Thread & { state?: NoteState; private?: boolean }>(
  * note is still open). The note goes back to the state the reply took it
  * from: addressed, say, after the agent's answer.
  */
-function withoutReply<T extends Thread & { state?: NoteState; private?: boolean }>(mark: T, replyId: string): T {
+function withoutReply<T extends Thread & Looped>(mark: T, replyId: string): T {
   const replies = mark.replies ?? [];
   const last = replies[replies.length - 1];
   if (!replies.some((r) => r.id === replyId)) throw new MarkError(404, `Reply '${replyId}' not found`);
   if (last?.id !== replyId || last.author.kind !== "user" || (mark.state ?? "open") !== "open") {
     throw new MarkError(409, "Only your latest reply can be deleted, before it's sent");
   }
-  const next = withLoop(mark, { state: last.reopened ?? "open" });
+  // Set as it was, not resolved anew: the state it was resolved from stays
+  const next: T = { ...mark };
+  if (last.reopened === undefined || last.reopened === "open") delete next.state;
+  else next.state = last.reopened;
   if (replies.length === 1) {
     const { replies: _gone, ...rest } = next;
     return rest as T;
@@ -243,7 +256,7 @@ function withoutReply<T extends Thread & { state?: NoteState; private?: boolean 
  * stays as it was. The note is open again, so the new wording goes with the
  * next round.
  */
-function withEditedReply<T extends Thread & { state?: NoteState; private?: boolean }>(
+function withEditedReply<T extends Thread & Looped>(
   mark: T,
   replyId: string,
   text: string,
@@ -284,7 +297,7 @@ function documentNoteBody(
 /** A record's saved note, or null when it has none (or one this version can't read). */
 export function storedNote(value: unknown): DocumentNote | null {
   if (!isObject(value)) return null;
-  const { text, requestedStatus: status, created, updated, state, private: locked, statusSeen, ...unknown } = value;
+  const { text, requestedStatus: status, created, updated, state, resolvedFrom, private: locked, statusSeen, ...unknown } = value;
   const textOrNull = (v: unknown) => (typeof v === "string" && v.trim() !== "" ? v : null);
   if (typeof created !== "string" || typeof updated !== "string") return null;
   // Fields this version doesn't know are kept, as on a highlight
@@ -292,6 +305,8 @@ export function storedNote(value: unknown): DocumentNote | null {
   if (found.text === null && found.requestedStatus === null) return null;
   const known = NOTE_STATES.find((s) => s === state);
   if (known !== undefined && known !== "open") found.state = known;
+  const from = NOTE_STATES.find((s) => s === resolvedFrom);
+  if (from !== undefined && from !== "open") found.resolvedFrom = from;
   if (typeof locked === "boolean") found.private = locked;
   if (typeof statusSeen === "string") found.statusSeen = statusSeen;
   return found;
@@ -535,6 +550,8 @@ export class MarksStore {
     return this.serially(async () => {
       const record = await this.writable(id);
       const old = find(record, highlightId);
+      // New wording is new feedback: it goes with the next round, whatever the note's state
+      if (changes.note !== undefined && changes.note !== old.note && loop.state === undefined) loop.state = "open";
       const highlight = { ...withLoop(old, loop), ...changes, updated: now() };
       const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? highlight : h));
       await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
@@ -592,7 +609,10 @@ export class MarksStore {
       const record = (await this.writable(id)) ?? emptyRecord();
       const old = storedNote(record.documentNote);
       const time = now();
-      // The state and privacy carry over an edit
+      // Privacy carries over an edit, and so does the state, unless the comment or the status asked for changed:
+      // new feedback goes with the next round
+      const edited = old !== null && (text !== old.text || status !== old.requestedStatus);
+      if (edited && loop.state === undefined) loop.state = "open";
       const saved =
         text === null && status === null
           ? null

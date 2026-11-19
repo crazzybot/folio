@@ -36,6 +36,9 @@ export function stateOf(mark: { state?: NoteState | undefined }): NoteState {
   return mark.state ?? "open";
 }
 
+/** Unresolve's tooltip: it goes back to the state Resolve took the note from (`resolvedFrom`). */
+export const UNRESOLVE_TITLE = "Back to where it was before you resolved it";
+
 // Shared with the MCP server, which sends the same notes
 export { answeredBy, isPrivate, sendableNote };
 
@@ -126,7 +129,7 @@ export function loopSentence(kind: NoteIconKind, sent: string | null = null, pic
     case "answered":
       return `Answered by ${pickedBy ?? "the agent"} · reply or resolve it`;
     case "addressed":
-      return "Addressed by the agent · resolve or reopen it";
+      return "Addressed by the agent · resolve or reply to it";
     case "resolved":
       return "Resolved";
   }
@@ -184,7 +187,7 @@ export function sendGroups(sources: readonly SendSource[]): SendGroup[] {
     const offer = (item: SendItem) => {
       if (item.state === "open") items.push(item);
       else if (item.state === "sent") sentBefore.push(item);
-      // Addressed and resolved notes are reopened to be sent again
+      // Addressed and resolved notes go again once the user replies
     };
 
     const sendable = sendableNote(note, doc.meta?.status);

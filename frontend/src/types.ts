@@ -131,6 +131,8 @@ export interface Highlight extends TextAnchor, Thread {
   updated: string;
   /** Absent: open. */
   state?: NoteState;
+  /** The state Resolve took the note from: Unresolve goes back to it. Absent: open. Read only while resolved. */
+  resolvedFrom?: NoteState;
   /** Set only when the user chose (Only me, Send to agent); absent: private without a note, feedback with one. */
   private?: boolean;
 }
@@ -160,6 +162,8 @@ export interface DocumentNote extends Thread {
   updated: string;
   /** Absent: open. */
   state?: NoteState;
+  /** The state Resolve took the note from: Unresolve goes back to it. Absent: open. Read only while resolved. */
+  resolvedFrom?: NoteState;
   /** true: Only me. A requested status is sent anyway. */
   private?: boolean;
   /** The document's status when the user last opened the note: a status reached since is new to them. */

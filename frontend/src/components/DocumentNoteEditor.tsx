@@ -1,9 +1,9 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { NoteChanges } from "../dataSource";
-import { answeredBy } from "../sending";
+import { answeredBy, UNRESOLVE_TITLE } from "../sending";
 import { KNOWN_STATUSES, normaliseStatus, statusNew } from "../status";
-import { newReplies } from "../threads";
+import { canReply, newReplies } from "../threads";
 import type { DocumentNote, NoteState } from "../types";
 import LockIcon from "./LockIcon";
 import NoteStateIcon from "./NoteStateIcon";
@@ -246,8 +246,8 @@ export default function DocumentNoteEditor({
         </>
       )}
 
-      {/* The thread: the saved note's, while it's sent to the agent or has replies */}
-      {note !== undefined && (!locked || (note.replies?.length ?? 0) > 0) && (
+      {/* The thread: the saved note's replies, or a reply to an imported note */}
+      {note !== undefined && ((note.replies?.length ?? 0) > 0 || (!locked && canReply(note))) && (
         <div className={styles.thread}>
           <NoteThread
             thread={note}
@@ -313,10 +313,6 @@ export default function DocumentNoteEditor({
           {!locked && answerer !== null && (
             <>
               <NoteStateIcon kind="answered" size={12} /> Answered by {answerer} ·{" "}
-              <button type="button" className={styles.loopBtn} onClick={() => setState("open")}>
-                Mark not sent
-              </button>{" "}
-              ·{" "}
               <button type="button" className={styles.loopBtn} onClick={() => setState("resolved")}>
                 Resolve
               </button>
@@ -339,18 +335,19 @@ export default function DocumentNoteEditor({
               <NoteStateIcon kind="addressed" size={12} /> Addressed ·{" "}
               <button type="button" className={styles.loopBtn} onClick={() => setState("resolved")}>
                 Resolve
-              </button>{" "}
-              ·{" "}
-              <button type="button" className={styles.loopBtn} onClick={() => setState("open")}>
-                Reopen
               </button>
             </>
           )}
           {!locked && state === "resolved" && (
             <>
               <NoteStateIcon kind="resolved" size={12} /> Resolved ·{" "}
-              <button type="button" className={styles.loopBtn} onClick={() => setState("open")}>
-                Reopen
+              <button
+                type="button"
+                className={styles.loopBtn}
+                onClick={() => setState(note?.resolvedFrom ?? "open")}
+                title={UNRESOLVE_TITLE}
+              >
+                Unresolve
               </button>
             </>
           )}
