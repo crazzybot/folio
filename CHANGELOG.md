@@ -8,6 +8,8 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-11-19
+
 ### Added
 
 - **Notes stay in their section.** When an edit rewrites or removes the
@@ -441,6 +443,7 @@ the `folio-data` volume.
 First release: signed and notarized macOS builds (Apple Silicon and Intel),
 Windows and Linux builds, and in-app updates.
 
+[0.10.0]: https://github.com/crazzybot/folio/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/crazzybot/folio/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/crazzybot/folio/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/crazzybot/folio/compare/v0.7.0...v0.8.0
