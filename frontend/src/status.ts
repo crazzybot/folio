@@ -55,6 +55,18 @@ export function statusKind(status: string): StatusKind {
   return STATUS_ALIASES.get(status) ?? "other";
 }
 
+/**
+ * The statuses the note editor offers: the known ones in lifecycle order,
+ * then the others used in the workspace, sorted. The document's own status
+ * is always among them, where it falls: picking it asks for no change.
+ */
+export function statusChoices(workspaceStatuses: readonly string[], currentStatus: string | null): string[] {
+  const known: readonly string[] = KNOWN_STATUSES;
+  const others = new Set(workspaceStatuses.filter((s) => !known.includes(s)));
+  if (currentStatus !== null && !known.includes(currentStatus)) others.add(currentStatus);
+  return [...known, ...[...others].sort()];
+}
+
 // Shared with the MCP server, which asks for status changes the same way
 export { normaliseStatus, requestDone } from "../../packages/core/src/reviewNotes";
 import { requestDone } from "../../packages/core/src/reviewNotes";
