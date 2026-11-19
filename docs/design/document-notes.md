@@ -169,13 +169,18 @@ Overall: Fine once the rotation question below is answered.
 
 - **Header**: a card under the metadata — the note icon (a page with a
   speech bubble: a highlight's note is the bubble alone), `→ ✓ Accepted`
-  and the comment's first line, muted. Done: `✓ Now accepted`. A done
-  request stays in the note but isn't sent; there's no link to clear it,
-  as Resolve closes the note anyway (the editor can still remove it). A
-  resolved note isn't shown: the review of it is over. The Marks view
-  still lists it, and the status still opens it to reopen.
+  and the comment's first line, muted. Done: the card no longer repeats
+  the request; the status says it, with a **New** badge until the user
+  opens the note (the note keeps `statusSeen`, the document's status then,
+  recorded with `seen`). A done request stays in the note but isn't sent;
+  there's no link to clear it, as Resolve closes the note anyway (the
+  editor can still remove it). New replies put a dot on the note's icon,
+  in the header, its pinned bar and the toolbar button. A resolved note
+  isn't shown: the review of it is over. The Marks view still lists it
+  (`✓ Now accepted` there), and the status still opens it to reopen.
 - **Marks view**: a "Note" row first under its document — the request and
   the comment's first line; its hover card shows the comment in full.
+  Clicking it scrolls the document to its top and opens the editor.
   Notes only includes it; the filter matches its text. The document's copy
   button counts it.
 - **Hover card** (document list and Marks view): "Your note: → Accepted"

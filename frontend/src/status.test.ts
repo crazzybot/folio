@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isRetired, normaliseStatus, requestDone, statusKind, statusText, supersedingDocument } from "./status";
+import { isRetired, normaliseStatus, requestDone, statusKind, statusNew, statusText, supersedingDocument } from "./status";
 import type { DocumentMeta, Metadata } from "./types";
 
 const meta = (status: string | null, statusDetail: string | null = null): Metadata => ({
@@ -62,6 +62,24 @@ describe("normaliseStatus and requestDone", () => {
     expect(requestDone("proposed", "accepted")).toBe(false);
     expect(requestDone(null, "accepted")).toBe(false);
     expect(requestDone("accepted", null)).toBe(false);
+  });
+});
+
+describe("statusNew", () => {
+  const note = (statusSeen?: string) => ({
+    text: null,
+    requestedStatus: "Accepted",
+    created: "2026-11-01T00:00:00Z",
+    updated: "2026-11-01T00:00:00Z",
+    ...(statusSeen === undefined ? {} : { statusSeen }),
+  });
+
+  it("is new once the document has the requested status, until the note is opened with it", () => {
+    expect(statusNew("proposed", note())).toBe(false);
+    expect(statusNew("accepted", note())).toBe(true);
+    expect(statusNew("accepted", note("proposed"))).toBe(true);
+    expect(statusNew("accepted", note("accepted"))).toBe(false);
+    expect(statusNew("accepted", undefined)).toBe(false);
   });
 });
 

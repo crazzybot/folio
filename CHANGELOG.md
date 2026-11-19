@@ -24,6 +24,16 @@ turns them into the next release's section.
   longer looks like the **Send review notes** button beside it.
 - New replies stand out in the status bar: in "Claude Code replied to 3
   notes", the count is a blue pill.
+- Once a document has the status your note asked for, its header no longer
+  says "✓ Now accepted": the status has a **New** label until you open the
+  note.
+
+### Fixed
+
+- Clicking the note on a document in the **Marks** view goes to the top of
+  the document and opens the note.
+- New replies to the note on a document show a dot on its icon above the
+  text, and on the note button in the header.
 
 ## [0.9.1] — 2026-11-18
 

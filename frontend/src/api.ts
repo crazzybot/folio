@@ -48,7 +48,7 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
       reply: (docId, highlightId, text) => api.marks.reply(docId, highlightId, text),
       editReply: (docId, highlightId, replyId, text) => api.marks.editReply(docId, highlightId, replyId, text),
       deleteReply: (docId, highlightId, replyId) => api.marks.deleteReply(docId, highlightId, replyId),
-      markSeen: (docId, highlightId) => api.marks.markSeen(docId, highlightId),
+      markSeen: (docId, highlightId, status) => api.marks.markSeen(docId, highlightId, status ?? null),
     },
   };
 }
@@ -237,9 +237,9 @@ export async function deleteNoteReply(docId: string, highlightId: string | null,
   return source.marks.deleteReply(docId, highlightId, replyId);
 }
 
-/** Record that the user saw a note's thread. */
-export async function markNoteSeen(docId: string, highlightId: string | null): Promise<void> {
-  return source.marks.markSeen(docId, highlightId);
+/** Record that the user saw a note's thread; for the document's note, with the document's status then. */
+export async function markNoteSeen(docId: string, highlightId: string | null, status: string | null = null): Promise<void> {
+  return source.marks.markSeen(docId, highlightId, status);
 }
 
 /** Live demo: back to the marks a first visit starts with. Elsewhere, nothing. */

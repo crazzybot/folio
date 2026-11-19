@@ -2,7 +2,7 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { NoteChanges } from "../dataSource";
 import { answeredBy } from "../sending";
-import { KNOWN_STATUSES, normaliseStatus } from "../status";
+import { KNOWN_STATUSES, normaliseStatus, statusNew } from "../status";
 import { newReplies } from "../threads";
 import type { DocumentNote, NoteState } from "../types";
 import LockIcon from "./LockIcon";
@@ -49,6 +49,7 @@ interface DocumentNoteEditorProps {
   onReply: (text: string) => void;
   onEditReply: (replyId: string, text: string) => void;
   onDeleteReply: (replyId: string) => void;
+  /** The note was opened with new replies, or with the status it asked for newly reached. */
   onSeen: () => void;
   onClose: () => void;
 }
@@ -148,11 +149,13 @@ export default function DocumentNoteEditor({
 
   const shownStatus = choice === OTHER ? normaliseStatus(other) : choice;
 
-  // Opening the note shows its new replies: they're seen from then on
+  // Opening the note shows its new replies, and the status it asked for:
+  // they're seen from then on (the header's New goes)
   const fresh = note === undefined ? 0 : newReplies(note).length;
+  const reached = statusNew(currentStatus, note);
   useEffect(() => {
-    if (fresh > 0) onSeen();
-  }, [fresh, onSeen]);
+    if (fresh > 0 || reached) onSeen();
+  }, [fresh, reached, onSeen]);
 
   return createPortal(
     <div

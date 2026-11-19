@@ -1,5 +1,6 @@
 import React from "react";
-import { requestDone, statusText, supersedingDocument } from "../status";
+import { requestDone, statusNew, statusText, supersedingDocument } from "../status";
+import { newReplies } from "../threads";
 import type { DocumentMeta, DocumentNote } from "../types";
 import DocumentNoteIcon from "./DocumentNoteIcon";
 import NoteRequest from "./NoteRequest";
@@ -39,6 +40,16 @@ export default function DocumentProperties({
   const meta = doc.meta ?? NO_META;
   const { status, date, people, tags } = meta;
   const done = shownNote !== undefined && requestDone(status, shownNote.requestedStatus);
+  // Reached since the note was last opened: New beside the status, until it is
+  const fresh = statusNew(status, shownNote);
+  const newBadge = fresh && (
+    <span className={styles.new} title="The status your note asked for: open the note to clear">
+      New
+    </span>
+  );
+  // A request that's done is said by the status itself (and New): the row keeps the comment and the thread
+  const showRequest = shownNote?.requestedStatus != null && !done;
+  const repliesNew = shownNote === undefined ? 0 : newReplies(shownNote).length;
   const successor = onOpenDocument === undefined ? null : supersedingDocument(doc, documents);
   const described = [date, people.length > 0 ? people.join(", ") : null].filter((part): part is string => part !== null);
 
@@ -56,6 +67,7 @@ export default function DocumentProperties({
               ) : (
                 statusText(meta)
               )}
+              {newBadge}
             </>
           ) : successor !== null ? (
             // The text links to the successor; the glyph opens the note
@@ -73,6 +85,7 @@ export default function DocumentProperties({
               <button type="button" className={styles.link} onClick={() => onOpenDocument?.(successor.id, null)} title={successor.location}>
                 {statusText(meta)}
               </button>
+              {newBadge}
             </>
           ) : (
             <button
@@ -80,10 +93,11 @@ export default function DocumentProperties({
               className={styles.statusButton}
               onClick={(e) => onEditNote(e.currentTarget)}
               aria-haspopup="dialog"
-              title="Suggest a status change"
+              title={fresh ? "The status your note asked for: open the note" : "Suggest a status change"}
             >
               <StatusIcon status={status} className={styles.statusIcon} />
               {statusText(meta)}
+              {newBadge}
             </button>
           )}
         </span>
@@ -104,13 +118,16 @@ export default function DocumentProperties({
       )}
       {shownNote !== undefined && (
         <div className={styles.note}>
-          <span className={styles.noteIcon} title="Your note on this document">
+          <span
+            className={`${styles.noteIcon} ${repliesNew > 0 ? styles.noteIconNew : ""}`}
+            title={repliesNew > 0 ? `Your note on this document: ${repliesNew === 1 ? "a new reply" : `${repliesNew} new replies`}` : "Your note on this document"}
+          >
             <DocumentNoteIcon size={14} />
           </span>
-          {shownNote.requestedStatus !== null && (
+          {showRequest && shownNote.requestedStatus !== null && (
             <NoteRequest
               requested={shownNote.requestedStatus}
-              done={done}
+              done={false}
               className={styles.request}
               iconClassName={styles.statusIcon}
             />

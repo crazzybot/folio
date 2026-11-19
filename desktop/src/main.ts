@@ -506,10 +506,11 @@ function registerIpcHandlers(): void {
       return note;
     },
   );
-  ipcMain.handle("marks:seen", async (event, docId: unknown, highlightId: unknown): Promise<void> => {
+  ipcMain.handle("marks:seen", async (event, docId: unknown, highlightId: unknown, status: unknown = null): Promise<void> => {
     assertTrustedSender(event);
     if (highlightId !== null && typeof highlightId !== "string") throw new Error("Highlight id must be a string or null");
-    await marks.markSeen(await markedDocument(docId), highlightId);
+    if (status !== null && typeof status !== "string") throw new Error("Status must be a string or null");
+    await marks.markSeen(await markedDocument(docId), highlightId, status);
     notifyMarksChanged();
   });
   // A missing document's marks: moved to a document, or deleted

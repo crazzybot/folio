@@ -88,6 +88,8 @@ export interface DocumentNote extends Thread {
   state?: NoteState;
   /** true: kept out of the loop (a requested status is sent anyway). Absent: feedback. */
   private?: boolean;
+  /** The document's status when the user last opened the note: a status reached since is new to them. */
+  statusSeen?: string;
 }
 
 /** Notes sent together: copied, sent to an agent in a review loop, or fetched by an agent. */

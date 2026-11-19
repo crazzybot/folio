@@ -162,6 +162,23 @@
   color: var(--color-accent);
 }
 
+/* New replies on the note on the document: a dot, as on a highlight's note marker */
+.iconBtnNew {
+  position: relative;
+}
+
+.iconBtnNew::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 1.5px var(--color-bg);
+}
+
 /* A panel toggle that's on (the outline is shown): tinted, as the sidebar's Group by folder */
 .iconBtnPressed,
 .iconBtnPressed:hover {
