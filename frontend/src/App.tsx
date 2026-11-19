@@ -44,7 +44,6 @@ import { unreadCount } from "./reads";
 import { useMarkReadWhenShown, useReads } from "./useReads";
 import DemoBanner from "./components/DemoBanner";
 import DisplayMenu from "./components/DisplayMenu";
-import ChangesBanner from "./components/ChangesBanner";
 import { sectionChanges } from "../../packages/core/src/sections";
 import { slugify } from "./slug";
 import { BranchIcon, WorktreeIcon } from "./components/GitIcons";
@@ -1232,29 +1231,24 @@ function AppInner(): React.ReactElement {
             attachments={attachments}
             currentLocation={selectedDoc?.location ?? null}
             onOpenDocument={handleOpenDocument}
-            banner={
-              shownChangeBase !== null && contentId !== null ? (
-                <ChangesBanner
-                  readAt={shownChangeBase.read.at}
-                  baseline={shownChangeBase.baseline}
-                  changes={changes}
-                  unread={reads.unreadIds.has(contentId)}
-                  onOpenSection={(heading) => handleOpenDocument(contentId, slugify(heading.text))}
-                  onMarkRead={() => {
-                    if (contentSha1 !== null) reads.markRead(contentId, contentSha1);
-                    setChangeBase({ ...shownChangeBase, closed: true });
-                  }}
-                  onClose={() => setChangeBase({ ...shownChangeBase, closed: true })}
-                />
-              ) : undefined
+            changes={
+              shownChangeBase !== null && contentId !== null
+                ? {
+                    readAt: shownChangeBase.read.at,
+                    baseline: shownChangeBase.baseline,
+                    changes,
+                    unread: reads.unreadIds.has(contentId),
+                    onOpenSection: (heading) => handleOpenDocument(contentId, slugify(heading.text)),
+                    onMarkRead: () => {
+                      if (contentSha1 !== null) reads.markRead(contentId, contentSha1);
+                      setChangeBase({ ...shownChangeBase, closed: true });
+                    },
+                    onClose: () => setChangeBase({ ...shownChangeBase, closed: true }),
+                  }
+                : undefined
             }
             documentNote={documentNote}
             onEditDocumentNote={openNoteEditor}
-            onClearNoteRequest={() => {
-              if (contentId !== null && documentNote !== undefined) {
-                void marks.saveDocumentNote(contentId, { text: documentNote.text, requestedStatus: null });
-              }
-            }}
             searchQuery={searchQuery}
             searchFocus={searchFocus}
             showOutline={showOutline}

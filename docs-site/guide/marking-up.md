@@ -37,12 +37,18 @@ explains the rounds.
 
 ## A note on the whole document
 
-The note button in the header, beside the bookmark, opens a note on the
+The note button in the header (a page with a speech bubble), beside the
+bookmark, opens a note on the
 document as a whole: an overall comment and a status to ask for, such as
 `accepted` or `rejected`. It works as a highlight's note: the same bottom
 row with **Only me**, and replies under it. **Save** waits until you change
 something. With **Only me** on, the comment is never sent, but a status you
 ask for still is.
+
+The note is shown above the text, under the document's status. Once the
+document has the status you asked for, it says so ("✓ Now accepted"), and
+that status is no longer sent. A resolved note isn't shown there; it stays
+in the **Marks** view.
 
 ## Bookmarks
 
@@ -59,14 +65,17 @@ document you're reading.
 ## When a passage is deleted
 
 A highlight whose text is no longer in the document isn't deleted. It's
-listed above the text under **Not found in the current text**, with its
-colour, its note's state and the start of the passage, struck through. A dot
+listed above the text under **Not found in the current text**, one line
+each: its colour, its note's state, the start of the passage, struck
+through, then the start of your note. A dot
 means the agent replied and you haven't read it yet. Click it to open its
 popover: read the conversation, reply, **Resolve** it, or remove it with the
 bin.
 
 Resolved notes and highlights without a note are counted at the end, such
-as **2 more**; click to show them. In the **Marks** view, these highlights
+as **2 more**; click to show them. Further down the document, the summary
+line at the top of the view counts the notes not found, such as **2 notes
+not found**: click it to see them. In the **Marks** view, these highlights
 say **Not found in the current text**, and clicking one opens it above the
 document.
 

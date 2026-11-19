@@ -290,61 +290,90 @@
 }
 
 /* ─── Highlights not found in the text ────────────────────────────────────── */
-/* Above the article, in its column (as DocumentProperties) */
+/* A card of the document header (DocumentHeader.module.css): its label,
+   then a line per highlight */
 .unplaced {
-  width: 100%;
-  max-width: var(--reading-width, 880px);
-  margin: 0 auto;
-  padding: var(--space-5) var(--space-8) 0;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: calc(var(--reading-font-size, var(--text-content)) * 0.85);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--color-text-muted);
 }
 
-.unplacedLabel {
-  margin-right: var(--space-1);
+.unplacedList {
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-/* The highlight's colour on its left edge, its note's state, its passage struck through */
-.unplacedChip {
+.unplacedList:empty {
+  display: none;
+}
+
+/* The highlight's colour on its left edge, its note's state, its passage
+   struck through, then the note */
+.unplacedRow {
   position: relative;
-  display: inline-flex;
+  width: 100%;
+  display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  max-width: 100%;
-  padding: 1px 8px 1px 6px;
-  border: 1px solid var(--color-border);
-  border-left-width: 3px;
-  border-radius: var(--radius-sm);
+  padding: 2px 8px 2px 6px;
+  border: none;
+  border-left: 3px solid;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   background: none;
   font: inherit;
+  text-align: left;
   color: var(--color-text-muted);
   cursor: pointer;
 }
 
-.unplacedChip:hover {
+.unplacedRow:hover {
   color: var(--color-text);
   background: var(--color-hover-bg);
 }
 
-.unplacedChip:focus-visible,
+.unplacedRow:focus-visible,
 .unplacedMore:focus-visible {
   outline: 2px solid var(--color-accent);
 }
 
+.unplacedRow > svg {
+  flex-shrink: 0;
+}
+
+/* The passage gets up to half the line; the note has the rest */
 .unplacedQuote {
+  flex: 0 1 auto;
   min-width: 0;
-  max-width: 18em;
+  max-width: 50%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, currentColor 50%, transparent);
+}
+
+.unplacedNote {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+
+.unplacedNote::before {
+  content: "— ";
+  color: var(--color-text-subtle);
 }
 
 .unplacedMore {
