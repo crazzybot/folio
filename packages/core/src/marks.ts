@@ -284,7 +284,7 @@ function documentNoteBody(
 /** A record's saved note, or null when it has none (or one this version can't read). */
 export function storedNote(value: unknown): DocumentNote | null {
   if (!isObject(value)) return null;
-  const { text, requestedStatus: status, created, updated, state, private: locked, ...unknown } = value;
+  const { text, requestedStatus: status, created, updated, state, private: locked, statusSeen, ...unknown } = value;
   const textOrNull = (v: unknown) => (typeof v === "string" && v.trim() !== "" ? v : null);
   if (typeof created !== "string" || typeof updated !== "string") return null;
   // Fields this version doesn't know are kept, as on a highlight
@@ -293,6 +293,7 @@ export function storedNote(value: unknown): DocumentNote | null {
   const known = NOTE_STATES.find((s) => s === state);
   if (known !== undefined && known !== "open") found.state = known;
   if (typeof locked === "boolean") found.private = locked;
+  if (typeof statusSeen === "string") found.statusSeen = statusSeen;
   return found;
 }
 
@@ -691,8 +692,15 @@ export class MarksStore {
     });
   }
 
-  /** Record that the user saw the thread of `highlightId` (null: the document's note) now. */
-  markSeen(file: string, highlightId: string | null): Promise<void> {
+  /**
+   * Record that the user saw the thread of `highlightId` (null: the
+   * document's note) now; for the document's note, with the document's
+   * `status` then (null: none).
+   */
+  markSeen(file: string, highlightId: string | null, status: string | null = null): Promise<void> {
+    if (status !== null && (typeof status !== "string" || status.length > MAX_REQUESTED_STATUS)) {
+      throw new MarkError(400, "status must be a short string or null");
+    }
     const id = recordId(file);
     return this.serially(async () => {
       const record = await this.writable(id);
@@ -701,7 +709,10 @@ export class MarksStore {
       if (highlightId === null) {
         const old = storedNote(record?.documentNote);
         if (record === null || old === null) throw new MarkError(404, "The document has no note");
-        await this.write(id, await refreshed(withNote(record, { ...old, seen }), file));
+        const note: DocumentNote = { ...old, seen };
+        if (status === null) delete note.statusSeen;
+        else note.statusSeen = status;
+        await this.write(id, await refreshed(withNote(record, note), file));
         return;
       }
       const old = find(record, highlightId);

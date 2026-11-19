@@ -54,7 +54,7 @@ import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
 import { defaultSelection, picked, pickedUpBy, sendDocuments, sendGroups } from "./sending";
-import { repliedNotes, repliesParts, repliesSummary } from "./threads";
+import { newReplies, repliedNotes, repliesParts, repliesSummary } from "./threads";
 import type { Picked, SendItem, StateFilter } from "./sending";
 import styles from "./App.module.css";
 import type { DocumentMeta, HighlightColor, ReadVersion, TextAnchor } from "./types";
@@ -602,9 +602,13 @@ function AppInner(): React.ReactElement {
 
   // ── The note on the document as a whole (document-notes.md) ────────────────
   const documentNote = shownMarks?.note;
+  // New replies on it: a dot on the toolbar button, as on a highlight's note marker
+  const documentNoteNew = documentNote !== undefined && newReplies(documentNote).length > 0;
+  const shownStatus = documents.find((doc) => doc.id === contentId)?.meta?.status ?? null;
+  // With the status now: once seen, a status the note asked for is no longer New
   const seeDocumentNote = useCallback(() => {
-    if (contentId !== null) void markSeen(contentId, null);
-  }, [contentId, markSeen]);
+    if (contentId !== null) void markSeen(contentId, null, shownStatus);
+  }, [contentId, markSeen, shownStatus]);
   const noteButtonRef = useRef<HTMLButtonElement>(null);
   // Pressing the button while the editor is open saves and closes it (as any
   // click outside it does); the click that follows mustn't open it again
@@ -630,17 +634,22 @@ function AppInner(): React.ReactElement {
     () => [...new Set(documents.flatMap((doc) => (doc.meta?.status != null ? [doc.meta.status] : [])))],
     [documents],
   );
-  const shownStatus = documents.find((doc) => doc.id === contentId)?.meta?.status ?? null;
   const documentNotes = useMemo(
     () => new Map([...marks.byDoc].flatMap(([id, m]) => (m.note !== undefined ? [[id, m.note] as const] : []))),
     [marks.byDoc],
   );
 
   // Open a mark from the Marks view: its document (a history entry, so Back
-  // returns), scrolled to the highlight or heading
+  // returns), scrolled to the highlight or heading. The note on the document
+  // opens its editor, with the header in view at the top
   const openMark = useCallback(
     (docId: string, target: MarkTarget) => {
-      if (target !== null) setMarkFocus({ docId, target, nonce: Date.now() });
+      if (target !== null && "documentNote" in target) {
+        setMarkFocus({ docId, target: { top: true }, nonce: Date.now() });
+        // Under the toolbar button, which stays put across documents; shown once the document is
+        const box = noteButtonRef.current?.getBoundingClientRect();
+        if (box !== undefined) setNoteEditor({ docId, right: box.right, bottom: box.bottom });
+      } else if (target !== null) setMarkFocus({ docId, target, nonce: Date.now() });
       if (docId !== selectedId) navigate("/doc/" + encodeURIComponent(docId));
     },
     [navigate, selectedId],
@@ -663,13 +672,9 @@ function AppInner(): React.ReactElement {
     if (note === undefined) return;
     if (note.highlightId !== null) {
       setMarkFocus({ docId: note.docId, target: { highlight: note.highlightId }, open: true, nonce: Date.now() });
-    } else {
-      // Under the toolbar button, which stays put across documents; shown once the document is
-      const box = noteButtonRef.current?.getBoundingClientRect();
-      if (box !== undefined) setNoteEditor({ docId: note.docId, right: box.right, bottom: box.bottom });
-    }
-    if (note.docId !== selectedId) navigate("/doc/" + encodeURIComponent(note.docId));
-  }, [replied, selectedId, navigate]);
+      if (note.docId !== selectedId) navigate("/doc/" + encodeURIComponent(note.docId));
+    } else openMark(note.docId, { documentNote: true });
+  }, [replied, selectedId, navigate, openMark]);
   // A click on the desktop's reply notification does the same
   const showRepliedRef = useRef(showNextReplied);
   useEffect(() => {
@@ -1084,7 +1089,7 @@ function AppInner(): React.ReactElement {
             </button>
             <button
               ref={noteButtonRef}
-              className={`${styles.iconBtn} ${documentNote !== undefined ? styles.iconBtnOn : ""}`}
+              className={`${styles.iconBtn} ${documentNote !== undefined ? styles.iconBtnOn : ""} ${documentNoteNew ? styles.iconBtnNew : ""}`}
               onPointerDown={() => {
                 noteEditorWasOpen.current = noteEditor !== null;
               }}
@@ -1095,8 +1100,8 @@ function AppInner(): React.ReactElement {
               disabled={contentId === null}
               aria-haspopup="dialog"
               aria-expanded={noteEditor !== null}
-              aria-label={documentNote !== undefined ? "Edit the note on this document" : "Note on this document"}
-              title={documentNote !== undefined ? "Edit the note on this document" : "Note on this document"}
+              aria-label={documentNote !== undefined ? `Edit the note on this document${documentNoteNew ? " (new replies)" : ""}` : "Note on this document"}
+              title={documentNote !== undefined ? `Edit the note on this document${documentNoteNew ? ": new replies" : ""}` : "Note on this document"}
               type="button"
             >
               <DocumentNoteIcon />
@@ -1290,7 +1295,7 @@ function AppInner(): React.ReactElement {
           onClose={() => setSending(null)}
           onOpenNote={(docId, highlightId) => {
             setSending(null);
-            openMark(docId, highlightId === null ? null : { highlight: highlightId });
+            openMark(docId, highlightId === null ? { documentNote: true } : { highlight: highlightId });
           }}
           onMakePrivate={makePrivate}
           onShowPrivate={() => {

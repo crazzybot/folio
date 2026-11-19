@@ -324,10 +324,14 @@ export class DemoMarks {
     return structuredClone(target);
   }
 
-  markSeen(docId: string, highlightId: string | null): void {
+  markSeen(docId: string, highlightId: string | null, status: string | null = null): void {
     const target = highlightId === null ? this.documents[docId]?.note : this.highlight(docId, highlightId);
     if (target === undefined) throw new Error("The document has no note");
     target.seen = now();
+    if (highlightId === null && "requestedStatus" in target) {
+      if (status === null) delete target.statusSeen;
+      else target.statusSeen = status;
+    }
     this.changed(docId);
   }
 

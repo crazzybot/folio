@@ -5,7 +5,7 @@
  */
 
 import { documentNumber } from "./docNumber";
-import type { DocumentMeta, Metadata } from "./types";
+import type { DocumentMeta, DocumentNote, Metadata } from "./types";
 
 /**
  * The statuses Folio knows, in lifecycle order: a decision (draft → proposed
@@ -57,6 +57,16 @@ export function statusKind(status: string): StatusKind {
 
 // Shared with the MCP server, which asks for status changes the same way
 export { normaliseStatus, requestDone } from "../../packages/core/src/reviewNotes";
+import { requestDone } from "../../packages/core/src/reviewNotes";
+
+/**
+ * The document has the status its note asked for, and the user hasn't
+ * opened the note since it got it: the status is new to them.
+ */
+export function statusNew(status: string | null | undefined, note: DocumentNote | undefined): boolean {
+  if (note === undefined || !requestDone(status, note.requestedStatus)) return false;
+  return note.statusSeen !== status;
+}
 
 /** Rejected, deprecated and superseded documents no longer apply: their titles are dimmed. */
 export function isRetired(status: string): boolean {

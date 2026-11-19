@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { statusText } from "../status";
+import { statusNew, statusText } from "../status";
+import { newReplies } from "../threads";
 import type { DocumentMeta, DocumentNote } from "../types";
 import ChangesBanner, { changedParts } from "./ChangesBanner";
 import type { ChangesBannerProps } from "./ChangesBanner";
@@ -106,6 +107,7 @@ export default function DocumentHeader({
 
   const status = doc?.meta?.status ?? null;
   const openNote = shownNote(note);
+  const repliesNew = openNote === undefined ? 0 : newReplies(openNote).length;
   const { named, others } = changedParts(changes?.changes ?? null);
   const sections = [...named.map(({ heading }) => heading.text), ...others];
 
@@ -134,10 +136,14 @@ export default function DocumentHeader({
                   <span className={styles.status}>
                     <StatusIcon status={status} className={styles.statusIcon} />
                     {statusText(doc.meta)}
+                    {statusNew(status, openNote) && <span className={styles.new}>New</span>}
                   </span>
                 )}
                 {openNote !== undefined && (
-                  <span className={styles.noteIcon} title={openNote.text ?? "Your note on this document"}>
+                  <span
+                    className={`${styles.noteIcon} ${repliesNew > 0 ? styles.noteIconNew : ""}`}
+                    title={repliesNew > 0 ? (repliesNew === 1 ? "A new reply to your note" : `${repliesNew} new replies to your note`) : (openNote.text ?? "Your note on this document")}
+                  >
                     <DocumentNoteIcon size={14} />
                   </span>
                 )}

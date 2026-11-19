@@ -117,8 +117,8 @@ interface MarkdownDesktopApi {
     editReply(docId: string, highlightId: string | null, replyId: string, text: string): Promise<Highlight | DocumentNote>;
     /** Delete the user's latest reply to a note, before it's sent. */
     deleteReply(docId: string, highlightId: string | null, replyId: string): Promise<Highlight | DocumentNote>;
-    /** Record that the user saw a note's thread. */
-    markSeen(docId: string, highlightId: string | null): Promise<void>;
+    /** Record that the user saw a note's thread; for the document's note, with the document's status then. */
+    markSeen(docId: string, highlightId: string | null, status?: string | null): Promise<void>;
     /** Subscribe to marks changes from any window; returns an unsubscribe function. */
     onChange(callback: () => void): () => void;
   };

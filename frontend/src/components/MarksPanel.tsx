@@ -22,8 +22,12 @@ import styles from "./MarksPanel.module.css";
 
 const IS_MAC = navigator.platform.toUpperCase().includes("MAC");
 
-/** What opening a mark should scroll to: a highlight, a heading, or (null) the document's top. */
-export type MarkTarget = { highlight: string } | { heading: BookmarkHeading } | null;
+/**
+ * What opening a mark should scroll to: a highlight, a heading, the note on
+ * the document (its editor opens, the header in view), or (null) the
+ * document as it opens.
+ */
+export type MarkTarget = { highlight: string } | { heading: BookmarkHeading } | { documentNote: true } | null;
 
 /** A document's notes to send: the highlights shown, and whether its note on the whole is. */
 export interface ReviewSelection {
@@ -168,7 +172,7 @@ export default function MarksPanel({
     if (row.kind === "document") {
       onOpen(row.doc.id, null);
       if (row.count > 0) toggleCollapsed(row.doc.id, true);
-    } else if (row.kind === "note") onOpen(row.doc.id, null);
+    } else if (row.kind === "note") onOpen(row.doc.id, { documentNote: true });
     else if (row.kind === "bookmark") onOpen(row.doc.id, row.missing ? null : { heading: row.bookmark.heading });
     else onOpen(row.doc.id, { highlight: row.highlight.id });
   };

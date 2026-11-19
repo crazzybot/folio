@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { fingerprint, listMarks, MarkError, MarksStore, realPath, recordId } from "../src/marks";
-import type { Highlight } from "../src/marks";
+import type { DocumentNote, Highlight } from "../src/marks";
 import { scanWorkspace, stableId } from "../src/scanner";
 import { FIXTURES, SKIP, WORKSPACE } from "./fixtures";
 
@@ -543,6 +543,16 @@ describe("threads", () => {
     expect(typeof saved?.seen).toBe("string");
     expect(saved?.updated).toBe(a.updated);
     expect(await refusal(() => store.markSeen(PLAIN, "gone"))).toBe(404);
+  });
+
+  it("records the status the document had when its note was seen", async () => {
+    const note = await store.setNote(BLANK_DOC, { text: null, requestedStatus: "accepted" });
+    await store.markSeen(BLANK_DOC, null, "accepted");
+    const saved = recordOf(BLANK_DOC) as { documentNote: DocumentNote };
+    expect(saved.documentNote.statusSeen).toBe("accepted");
+    expect(saved.documentNote.updated).toBe(note?.updated);
+    await store.markSeen(BLANK_DOC, null);
+    expect("statusSeen" in (recordOf(BLANK_DOC) as { documentNote: DocumentNote }).documentNote).toBe(false);
   });
 
   it("refuses a malformed reply", async () => {

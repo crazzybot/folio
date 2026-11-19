@@ -89,8 +89,12 @@ export interface Marks {
   editReply(docId: string, highlightId: string | null, replyId: string, text: string): Promise<void>;
   /** Delete the user's latest reply to a note, before it's sent. The note goes back to its state before it. */
   deleteReply(docId: string, highlightId: string | null, replyId: string): Promise<void>;
-  /** Record that the user saw a note's thread: its new replies are no longer new. */
-  markSeen(docId: string, highlightId: string | null): Promise<void>;
+  /**
+   * Record that the user saw a note's thread: its new replies are no longer
+   * new. For the document's note, with the document's `status` then: a
+   * status it reaches later is new.
+   */
+  markSeen(docId: string, highlightId: string | null, status?: string | null): Promise<void>;
   /** Bookmark the document (`heading` null) or a heading, or remove that bookmark. */
   toggleBookmark(docId: string, heading: BookmarkHeading | null): Promise<void>;
   /** Remove a bookmark by id (e.g. one whose heading is gone). */
@@ -279,16 +283,15 @@ export default function useMarks(): Marks {
 
   // Seen is shown at once (the new-reply dots go), then saved
   const markSeen = useCallback(
-    (docId: string, highlightId: string | null) => {
+    (docId: string, highlightId: string | null, status: string | null = null) => {
       const seen = new Date().toISOString();
-      update(docId, (m) =>
-        highlightId === null
-          ? m.note === undefined
-            ? m
-            : { ...m, note: { ...m.note, seen } }
-          : { ...m, highlights: m.highlights.map((h) => (h.id === highlightId ? { ...h, seen } : h)) },
-      );
-      return markNoteSeen(docId, highlightId).catch(failed("mark the replies as read"));
+      update(docId, (m) => {
+        if (highlightId !== null) return { ...m, highlights: m.highlights.map((h) => (h.id === highlightId ? { ...h, seen } : h)) };
+        if (m.note === undefined) return m;
+        const { statusSeen: _, ...note } = m.note;
+        return { ...m, note: status === null ? { ...note, seen } : { ...note, seen, statusSeen: status } };
+      });
+      return markNoteSeen(docId, highlightId, status).catch(failed("mark the replies as read"));
     },
     [update, failed],
   );

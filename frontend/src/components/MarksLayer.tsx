@@ -149,7 +149,8 @@ function scrollToRect(container: HTMLElement, rect: DOMRect): void {
 
 /** A mark to scroll to once the document is shown; a new `nonce` asks again. */
 export interface MarkFocus {
-  target: { highlight: string } | { heading: BookmarkHeading };
+  /** top: the document's top, its header in view (the note on the document opens there). */
+  target: { highlight: string } | { heading: BookmarkHeading } | { top: true };
   /**
    * A highlight's popover opens too, with its thread (the status bar's new
    * replies). One not found in the text always opens, from its chip.
@@ -518,6 +519,11 @@ export default function MarksLayer({
     // After the viewer's own scrolling for the new document (top, anchor).
     // Only counted as done once it ran: a re-render may cancel the frame.
     const frame = requestAnimationFrame(() => {
+      if ("top" in target) {
+        handledFocus.current = nonce;
+        container.scrollTop = 0;
+        return;
+      }
       if ("highlight" in target) {
         const id = target.highlight;
         const range = located.current.get(id);

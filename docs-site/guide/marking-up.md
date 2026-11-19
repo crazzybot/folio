@@ -46,9 +46,11 @@ something. With **Only me** on, the comment is never sent, but a status you
 ask for still is.
 
 The note is shown above the text, under the document's status. Once the
-document has the status you asked for, it says so ("✓ Now accepted"), and
-that status is no longer sent. A resolved note isn't shown there; it stays
-in the **Marks** view.
+document has the status you asked for, that status is no longer sent, and
+it has a **New** label until you open the note. A dot on the note's icon,
+and on the header's note button, means the agent replied and you haven't
+read it yet. A resolved note isn't shown there; it stays in the **Marks**
+view.
 
 ## Bookmarks
 
@@ -60,7 +62,8 @@ Bookmark the open document with the header's bookmark button (`⌘D` /
 The sidebar's **Marks** tab lists the marks of every document in the
 workspace, grouped by document. Filter it to bookmarks, or highlights and
 notes, or by note state. **Only the open document** narrows it to the
-document you're reading.
+document you're reading. Click a mark to go to it; the note on a document
+opens at the top of the document, with its editor open.
 
 ## When a passage is deleted
 
