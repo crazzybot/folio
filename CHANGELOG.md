@@ -36,6 +36,10 @@ turns them into the next release's section.
 
 ### Fixed
 
+- Quitting Folio ends the review loop: an agent waiting for your notes stops
+  and tells you Folio was closed. Opening a workspace that doesn't hold the
+  agent's folder ends it too. Before, the agent kept waiting for notes that
+  could no longer come.
 - In the note on a document, the **Status** list no longer starts with "No
   change (now accepted)". The document's own status is in its place,
   marked **(current)**: pick it to leave the status as it is.

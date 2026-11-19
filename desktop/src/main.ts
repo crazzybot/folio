@@ -1691,9 +1691,11 @@ void app.whenReady().then(() => {
   });
 });
 
-// View preferences are saved with a short delay: write what's pending
+// View preferences are saved with a short delay: write what's pending.
+// Agents waiting for notes stop: none can come once the app is gone
 app.on("before-quit", () => {
   if (hasPendingViewState()) saveViewState();
+  agents.endAllOnQuit();
 });
 
 // A termination signal (logout, a process manager) quits like ⌘Q, so the

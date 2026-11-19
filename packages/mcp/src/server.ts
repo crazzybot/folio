@@ -115,7 +115,7 @@ export function createServer(folio: Folio): McpServer {
         `Wait until the user sends you review notes from Folio on documents under ${folio.root}, then get them as folio_get_review_notes does. ` +
         "Use it when the user asks you to wait for their review, or to keep reviewing in a loop. " +
         "Address the notes and answer each with folio_reply, then call this again with the since value it gave you, " +
-        "until the user tells you to stop or ends the loop in Folio. When it returns without notes, call it again with the same since.",
+        "until the user tells you to stop, ends the loop in Folio, closes the folder there or quits Folio. When it returns without notes, call it again with the same since.",
       inputSchema: z.object({
         since: z.string().optional().describe("The since value from the last call: notes sent after it. Leave it out the first time"),
         timeoutSeconds: z
@@ -151,10 +151,22 @@ export function createServer(folio: Folio): McpServer {
             { since, timeoutMs: (input.timeoutSeconds ?? DEFAULT_WAIT_SECONDS) * 1000, signal: ctx.mcpReq.signal },
             client(ctx),
           );
-          if (sent === "stopped") {
+          if (sent === "ended") {
             return text(
               "The user ended the review loop in Folio. Stop waiting: don't call folio_wait_for_review again unless the user asks you to. " +
                 "Tell them in one line that the loop has ended.",
+            );
+          }
+          if (sent === "closed") {
+            return text(
+              "The user closed this folder in Folio, which ends the review loop. Stop waiting: don't call folio_wait_for_review again unless the user asks you to. " +
+                "Tell them in one line that the loop ended because the folder was closed in Folio.",
+            );
+          }
+          if (sent === "quit") {
+            return text(
+              "Folio was closed, which ends the review loop. Stop waiting: don't call folio_wait_for_review again unless the user asks you to. " +
+                "Tell them in one line that the loop ended because Folio was closed.",
             );
           }
           if (sent === null) {

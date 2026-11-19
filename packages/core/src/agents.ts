@@ -8,10 +8,12 @@
  * the process still runs, and a wait hasn't passed its deadline.
  *
  * The app ends a loop by writing `<pid>.stop` beside it: the session's wait
- * returns, tells the agent to stop, and removes both files.
+ * returns, tells the agent to stop, and removes both files. It does so when
+ * the user ends the loop, and for the sessions it shows when it closes their
+ * workspace or quits: nothing can send them notes then.
  */
 
-import { promises as fs } from "node:fs";
+import { mkdirSync, promises as fs, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const VERSION = 1;
@@ -22,6 +24,9 @@ const WAIT_GRACE_MS = 60_000;
 const WORK_LIMIT_MS = 30 * 60_000;
 
 export type AgentState = "waiting" | "working";
+/** Why a loop ends: the user ended it, closed its workspace, or the app quit. */
+export type StopReason = "ended" | "closed" | "quit";
+const REASONS: readonly string[] = ["ended", "closed", "quit"] satisfies StopReason[];
 
 /** What a session writes. */
 export interface AgentPresence {
@@ -51,19 +56,38 @@ export function stopFile(dataDir: string, pid: number): string {
   return path.join(agentsFolder(dataDir), `${pid}.stop`);
 }
 
-/** Ask session `pid` to end its loop; it no longer counts as live. */
-export async function requestStop(dataDir: string, pid: number): Promise<void> {
-  const file = stopFile(dataDir, pid);
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, JSON.stringify({ requested: new Date().toISOString() }) + "\n", "utf8");
+function stopRecord(reason: StopReason): string {
+  return JSON.stringify({ requested: new Date().toISOString(), reason }) + "\n";
 }
 
-export async function stopRequested(dataDir: string, pid: number): Promise<boolean> {
+/** Ask session `pid` to end its loop; it no longer counts as live. */
+export async function requestStop(dataDir: string, pid: number, reason: StopReason = "ended"): Promise<void> {
+  const file = stopFile(dataDir, pid);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, stopRecord(reason), "utf8");
+}
+
+/** `requestStop`, for the app's last moments, when nothing async gets to finish. */
+export function requestStopSync(dataDir: string, pid: number, reason: StopReason): void {
+  const file = stopFile(dataDir, pid);
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, stopRecord(reason), "utf8");
+}
+
+/** Why session `pid` was asked to stop, or null when it wasn't. */
+export async function stopRequested(dataDir: string, pid: number): Promise<StopReason | null> {
+  let text: string;
   try {
-    await fs.access(stopFile(dataDir, pid));
-    return true;
+    text = await fs.readFile(stopFile(dataDir, pid), "utf8");
   } catch {
-    return false;
+    return null;
+  }
+  try {
+    const reason = (JSON.parse(text) as { reason?: unknown }).reason;
+    return typeof reason === "string" && REASONS.includes(reason) ? (reason as StopReason) : "ended";
+  } catch {
+    // Half written, or by an older app: a stop all the same
+    return "ended";
   }
 }
 

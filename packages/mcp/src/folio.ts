@@ -12,6 +12,7 @@ import type { FSWatcher } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { agentsFolder, presenceFile, stopFile, stopRequested, writePresence } from "../../core/src/agents";
+import type { StopReason } from "../../core/src/agents";
 import { filesOnOtherBranches } from "../../core/src/git";
 import { listMarks, MarkError, MarksStore, newRoundId, realPath } from "../../core/src/marks";
 import type { DocumentMarks, DocumentNote, Highlight, NoteState } from "../../core/src/marks";
@@ -285,19 +286,20 @@ export class Folio {
    * none is added here.
    *
    * Resolves to `null` at the timeout or when `signal` aborts; the agent
-   * calls again with the same `since`. Resolves to "stopped" when the user
-   * ended the loop in the app, now or while the agent worked on the last
-   * notes.
+   * calls again with the same `since`. Resolves to why the loop ended when
+   * the user ended it in the app, closed its workspace there, or quit the
+   * app, now or while the agent worked on the last notes.
    */
-  async waitForReview(request: WaitRequest, client: string): Promise<SentNotes | "stopped" | null> {
+  async waitForReview(request: WaitRequest, client: string): Promise<SentNotes | StopReason | null> {
     const since = request.since ?? new Date().toISOString();
     const after = Date.parse(since);
     if (Number.isNaN(after)) throw new FolioError(`${since} isn't a time: pass the since value Folio gave you, or leave it out`);
     const deadline = Date.now() + request.timeoutMs;
     for (let first = true; ; first = false) {
-      if (await stopRequested(this.dataDir, process.pid)) {
+      const stopped = await stopRequested(this.dataDir, process.pid);
+      if (stopped !== null) {
         this.leave();
-        return "stopped";
+        return stopped;
       }
       if (first) await this.announce({ state: "waiting", since, until: new Date(deadline).toISOString() }, client);
       const sent = await this.sentAfter(after);
