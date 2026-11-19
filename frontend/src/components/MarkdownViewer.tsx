@@ -48,6 +48,7 @@ import type { ChangesBannerProps } from "./ChangesBanner";
 import MermaidDiagram from "./MermaidDiagram";
 import DiagramViewer from "./DiagramViewer";
 import ExpandButton from "./ExpandButton";
+import type { Located } from "../marksView";
 import styles from "./MarkdownViewer.module.css";
 // After the module CSS: document styles override the base rules by order
 import "../documentStyles.css";
@@ -98,8 +99,8 @@ interface MarkdownViewerProps {
   markFocus?: (MarkFocus & { docId: string }) | null;
   /** Changes to the shown document's marks; without them, nothing can be highlighted or bookmarked. */
   markHandlers?: MarkHandlers;
-  /** The ids of the shown document's highlights found in its text (the rest can't be placed). */
-  onLocatedChange?: (docId: string, ids: ReadonlySet<string>) => void;
+  /** The shown document's highlights as the viewer placed them (the rest can't be). */
+  onLocatedChange?: (located: Located) => void;
 }
 
 export interface MarkHandlers {
@@ -115,6 +116,8 @@ export interface MarkHandlers {
   deleteReply: (id: string, replyId: string) => void;
   markSeen: (id: string) => void;
   toggleHeadingBookmark: (heading: BookmarkHeading) => void;
+  /** Where a note's passage is now: the headings above it (placing-notes.md). */
+  setSection?: (id: string, section: BookmarkHeading[]) => void;
   /** The document's latest rounds, for when a note was sent. */
   rounds?: readonly Round[] | undefined;
   /** The agents in a review loop on the document, by name ("Claude Code"); null when none is. */
@@ -1055,14 +1058,14 @@ export default function MarkdownViewer({
   // and in the pinned header's details while they're open
   const [unplacedSlot, setUnplacedSlot] = useState<HTMLDivElement | null>(null);
   const [pinnedSlot, setPinnedSlot] = useState<HTMLDivElement | null>(null);
-  // The highlights found in the text as just painted, to count the notes that weren't
+  // The highlights placed as just painted (in the text, or on a heading), to count the notes that weren't
   const [locatedIds, setLocatedIds] = useState<ReadonlySet<string>>(() => new Set());
   const notFound = useMemo(
     () => highlights.filter((h) => !locatedIds.has(h.id) && unplacedFirst(h)).length,
     [highlights, locatedIds],
   );
   const handlePainted = useCallback(
-    (located: ReadonlyMap<string, Range>) => {
+    (located: ReadonlyMap<string, Range>, atSection: ReadonlyMap<string, HTMLElement>) => {
       const article = articleRef.current;
       // The same headings as the outline lists
       const elements = article === null ? [] : [...article.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")].filter((el) => el.id !== "");
@@ -1076,9 +1079,17 @@ export default function MarkdownViewer({
         });
         if (section >= 0) counts[section] = (counts[section] ?? 0) + 1;
       }
+      // Notes kept on a heading count under it
+      for (const heading of atSection.values()) {
+        const section = elements.indexOf(heading);
+        if (section >= 0) counts[section] = (counts[section] ?? 0) + 1;
+      }
       setOutlineCounts(counts);
-      setLocatedIds(new Set(located.keys()));
-      if (ready && contentId !== null) onLocatedChange?.(contentId, new Set(located.keys()));
+      setLocatedIds(new Set([...located.keys(), ...atSection.keys()]));
+      if (ready && contentId !== null) {
+        const headings = new Map([...atSection].map(([id, el]) => [id, (el.textContent ?? "").replace(/\s+/g, " ").trim()]));
+        onLocatedChange?.({ docId: contentId, ids: new Set(located.keys()), atSection: headings });
+      }
     },
     [ready, contentId, onLocatedChange],
   );
@@ -1207,6 +1218,7 @@ export default function MarkdownViewer({
               onSeen={markHandlers.markSeen}
               onToggleBookmark={markHandlers.toggleHeadingBookmark}
               onPainted={handlePainted}
+              onSetSection={markHandlers.setSection}
               unplacedSlot={unplacedSlot}
               pinnedSlot={pinnedSlot}
             />

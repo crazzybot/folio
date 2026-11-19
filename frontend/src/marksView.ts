@@ -52,8 +52,10 @@ export type MarkRow =
       key: string;
       doc: DocumentMeta;
       highlight: Highlight;
-      /** Not found in the open document's current text. */
+      /** Not found in the open document's current text, nor kept on a heading. */
       unplaced: boolean;
+      /** Its passage not found, the note kept on this heading of its section (placing-notes.md). */
+      atSection: string | null;
     };
 
 /** What the filter menu's Show section picks: bookmarks, or highlights and notes. */
@@ -70,8 +72,17 @@ export interface MarkRowsInput {
   states?: ReadonlySet<StateFilter>;
   /** Documents whose marks are folded away. */
   collapsed: ReadonlySet<string>;
-  /** The open document's highlights found in its text; the others are shown as not found. */
-  located: { docId: string; ids: ReadonlySet<string> } | null;
+  /** The open document's highlights as the viewer placed them; the others are shown as not found. */
+  located: Located | null;
+}
+
+/** The open document's highlights as the viewer placed them. */
+export interface Located {
+  docId: string;
+  /** Found in its text. */
+  ids: ReadonlySet<string>;
+  /** Notes whose passage wasn't found, kept on a heading of their section: the heading's text. */
+  atSection: ReadonlyMap<string, string>;
 }
 
 const includes = (text: string | null | undefined, q: string) => text != null && text.toLowerCase().includes(q);
@@ -134,7 +145,9 @@ export function buildMarkRows(input: MarkRowsInput): MarkRow[] {
         key: `h:${doc.id}:${highlight.id}`,
         doc,
         highlight,
-        unplaced: located !== null && located.docId === doc.id && !located.ids.has(highlight.id),
+        unplaced:
+          located !== null && located.docId === doc.id && !located.ids.has(highlight.id) && !located.atSection.has(highlight.id),
+        atSection: located !== null && located.docId === doc.id ? (located.atSection.get(highlight.id) ?? null) : null,
       });
     }
   }

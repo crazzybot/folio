@@ -24,7 +24,14 @@ import type {
 /** A new highlight: where it is, its colour and an optional note. */
 export type NewHighlight = TextAnchor & { color: HighlightColor; note: string | null };
 /** `private` null: back to the default (private without a note, feedback with one). */
-export type HighlightChanges = { color?: HighlightColor; note?: string | null; state?: NoteState; private?: boolean | null };
+export type HighlightChanges = {
+  color?: HighlightColor;
+  note?: string | null;
+  state?: NoteState;
+  private?: boolean | null;
+  /** Where the passage is now: not an edit, so `updated` stays (empty: before the first heading). */
+  section?: BookmarkHeading[];
+};
 /** A document's note as set: both null (or blank) removes it. Privacy carries over unless given; so does the state, unless given or the text or status changed (open again). */
 export type NoteChanges = { text: string | null; requestedStatus: string | null; state?: NoteState; private?: boolean | null };
 

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { buildMarkRows } from "../marksView";
-import type { MarkKind, MarkRow } from "../marksView";
+import type { Located, MarkKind, MarkRow } from "../marksView";
 import { filterOf, noteFilterOf, shownStates, STATE_FILTERS } from "../sending";
 import type { StateFilter } from "../sending";
 import { newReplies } from "../threads";
@@ -48,8 +48,8 @@ interface MarksPanelProps {
   /** The open document, whose marks stand out. */
   current: DocumentMeta | null;
   byDoc: ReadonlyMap<string, DocMarks>;
-  /** The open document's highlights found in its text. */
-  located: { docId: string; ids: ReadonlySet<string> } | null;
+  /** The open document's highlights as the viewer placed them. */
+  located: Located | null;
   onOpen: (docId: string, target: MarkTarget) => void;
   onRemoveHighlight: (docId: string, highlightId: string) => void;
   onRemoveBookmark: (docId: string, bookmarkId: string) => void;
@@ -481,6 +481,7 @@ export default function MarksPanel({
                 doc={cardRow.doc}
                 highlight={cardRow.highlight}
                 unplaced={cardRow.unplaced}
+                atSection={cardRow.atSection}
                 rounds={byDoc.get(cardRow.doc.id)?.rounds}
               />
             )}
@@ -688,16 +689,17 @@ function MarkRowItem({
     );
   }
 
-  const { highlight, unplaced } = row;
+  const { highlight, unplaced, atSection } = row;
+  const detached = atSection === null ? "" : `Passage not found · on “${atSection}”`;
   return (
     <li
       {...common}
       className={`${styles.markRow} ${styles.highlightRow} ${selected ? styles.current : ""}`}
-      aria-label={`Highlight: ${highlight.quote.exact}${highlight.note === null ? "" : `. Note: ${highlight.note}`}${unplaced ? ". Not found in the current text" : ""}`}
+      aria-label={`Highlight: ${highlight.quote.exact}${highlight.note === null ? "" : `. Note: ${highlight.note}`}${unplaced ? ". Not found in the current text" : ""}${detached === "" ? "" : `. ${detached}`}`}
     >
       <span className={`${styles.colorBar} ${styles[highlight.color]}`} aria-hidden="true" />
       <span className={styles.highlightBody}>
-        <span className={`${styles.quote} ${unplaced ? styles.missing : ""}`}>{highlight.quote.exact}</span>
+        <span className={`${styles.quote} ${unplaced || atSection !== null ? styles.missing : ""}`}>{highlight.quote.exact}</span>
         {/* A note, or a bare highlight sent to the agent as "(no comment)" */}
         {(highlight.note !== null || highlight.private === false) && (
           <span className={styles.note}>
@@ -707,6 +709,7 @@ function MarkRowItem({
         )}
         <NewReplies count={newReplies(highlight).length} />
         {unplaced && <span className={styles.notFound}>Not found in the current text</span>}
+        {detached !== "" && <span className={styles.notFound}>{detached}</span>}
       </span>
       {removeButton("Remove highlight")}
     </li>

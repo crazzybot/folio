@@ -119,6 +119,21 @@ describe("MarksStore", () => {
     expect(recordOf(PLAIN)).toBeNull();
   });
 
+  it("keeps a highlight's section, updated without counting as an edit", async () => {
+    const section = [{ text: "First", level: 1, occurrence: 0 }];
+    const added = await store.addHighlight(PLAIN, highlight({ note: "Hm", section }));
+    expect(added.section).toEqual(section);
+
+    const moved = [...section, { text: "Second line", level: 2, occurrence: 1 }];
+    const updated = await store.updateHighlight(PLAIN, added.id, { section: moved });
+    expect([updated.section, updated.updated, updated.state]).toEqual([moved, added.updated, undefined]);
+    // Another change keeps it; an empty one (before the first heading) removes it
+    expect((await store.updateHighlight(PLAIN, added.id, { color: "blue" })).section).toEqual(moved);
+    expect("section" in (await store.updateHighlight(PLAIN, added.id, { section: [] }))).toBe(false);
+    expect(await refusal(() => store.updateHighlight(PLAIN, added.id, { section: [null] }))).toBe(400);
+    expect(await refusal(() => store.updateHighlight(PLAIN, added.id, { section: "First" }))).toBe(400);
+  });
+
   it("adds and deletes bookmarks", async () => {
     const heading = { text: "Second line", level: 2, occurrence: 1 };
     const bookmark = await store.addBookmark(PLAIN, { heading });

@@ -76,8 +76,17 @@ opens at the top of the document, with its editor open.
 
 ## When a passage is deleted
 
-A highlight whose text is no longer in the document isn't deleted. It's
-listed above the text under **Not found in the current text**, one line
+A highlight whose text is no longer in the document isn't deleted.
+
+A note stays in its section: when an edit rewrites or removes the passage,
+the note's icon moves beside the heading of the section the passage was in,
+with a dashed outline. If several notes lost their passage in one section,
+their icons are shown one under another. Click one to see the old passage, struck through,
+above the conversation. If that section's heading is gone too, the note
+goes to the heading above it.
+
+Highlights without a note, and notes whose section is gone, are listed
+above the text under **Not found in the current text**, one line
 each: its colour, its note's state, the start of the passage, struck
 through, then the start of your note. A dot
 means the agent replied and you haven't read it yet. Click it to open its

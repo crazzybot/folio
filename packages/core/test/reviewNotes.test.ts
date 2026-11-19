@@ -111,6 +111,19 @@ describe("formatReviewNotes", () => {
     expect(result.text.startsWith("1. docs/adr.md\n")).toBe(true);
   });
 
+  it("gives the section a note was in when its passage isn't in the source", () => {
+    const section = [
+      { text: "Event store", level: 1, occurrence: 0 },
+      { text: "Decision", level: 2, occurrence: 0 },
+    ];
+    const rewritten = highlight("Kafka was chosen", { section });
+    const found = highlight("one table per aggregate", { section: [{ text: "Elsewhere", level: 2, occurrence: 0 }] });
+    const { text } = formatReviewNotes([doc([rewritten])], null);
+    expect(text.startsWith("1. docs/adr.md · Event store › Decision (passage not found)\n")).toBe(true);
+    // Found in the source: its section there, not the stored one
+    expect(formatReviewNotes([doc([found])], null).text).toContain(` · Event store › Decision\n`);
+  });
+
   it("gives each of several documents a heading and numbers across them", () => {
     const a = doc([highlight("one table per aggregate")]);
     const b = doc([highlight("EventStoreDB was rejected")], { docId: "other", path: "docs/other.md", name: "other.md" });

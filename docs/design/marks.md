@@ -113,6 +113,11 @@ Books, so there is no third kind.
   one sent with **Send** to agents in a review loop has `via: "send"` and
   their names.
   The document note keeps fields it doesn't know too.
+- **Sections** ([placing-notes.md](placing-notes.md)) add a highlight's
+  optional `section`, still version 1: the headings above its passage,
+  outermost first, each as a bookmarked heading is (`text`, `level`,
+  `occurrence`). The viewer saves it while the passage is found, without
+  changing `updated`.
 
 ### Anchoring highlights
 
@@ -146,6 +151,10 @@ Re-anchoring, in order:
    rendered text, so finding them elsewhere would mean rendering every
    document. The Markdown source isn't a stand-in (a quote across
    formatting isn't in it as is), so other documents' rows aren't marked.
+
+   A note whose passage isn't found is kept beside a heading of the
+   section it was in before it becomes an orphan
+   ([placing-notes.md](placing-notes.md)).
 
 Re-anchored highlights are not written back automatically; the stored
 position is updated the next time the highlight is edited.
