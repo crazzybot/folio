@@ -2,7 +2,7 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { NoteChanges } from "../dataSource";
 import { answeredBy, UNRESOLVE_TITLE } from "../sending";
-import { KNOWN_STATUSES, normaliseStatus, statusNew } from "../status";
+import { normaliseStatus, statusChoices, statusNew } from "../status";
 import { canReply, newReplies } from "../threads";
 import type { DocumentNote, NoteState } from "../types";
 import LockIcon from "./LockIcon";
@@ -17,7 +17,8 @@ const SEND_SHORTCUT = IS_MAC ? "⇧⌘↩" : "Ctrl+Shift+Enter";
 // As a highlight's popover with a note (MarksLayer.module.css .popoverWide)
 const WIDTH = 420;
 const MARGIN = 8;
-// The status select's values besides the statuses themselves
+// The status select's values besides the statuses themselves: no change
+// (offered only when the document has no status; otherwise its own status is)
 const NO_CHANGE = "";
 const OTHER = "\u0000other";
 
@@ -28,7 +29,7 @@ export type NoteEditorAnchor = { bottom: number } & ({ right: number } | { left:
 interface DocumentNoteEditorProps {
   /** What it opens under (viewport pixels): right-aligned with the toolbar button, left-aligned with the status in the document. */
   anchor: NoteEditorAnchor;
-  /** The document's status now, if it has one: not offered as a change. */
+  /** The document's status now, if it has one: picking it asks for no change. */
   currentStatus: string | null;
   note: DocumentNote | undefined;
   /** Statuses used in the workspace, offered after the known ones. */
@@ -77,13 +78,12 @@ export default function DocumentNoteEditor({
   onSeen,
   onClose,
 }: DocumentNoteEditorProps): React.ReactElement {
-  const statuses = [
-    ...KNOWN_STATUSES,
-    ...workspaceStatuses.filter((s) => !(KNOWN_STATUSES as readonly string[]).includes(s)).sort(),
-  ].filter((s) => s !== currentStatus || normaliseStatus(note?.requestedStatus ?? "") === s);
+  const statuses = statusChoices(workspaceStatuses, currentStatus);
   const requested = note?.requestedStatus ?? null;
+  // No request shows as the document's own status, the "no change" choice
+  const unchanged = currentStatus ?? NO_CHANGE;
   const [choice, setChoice] = useState(
-    requested === null ? NO_CHANGE : statuses.includes(requested) ? requested : OTHER,
+    requested === null ? unchanged : statuses.includes(requested) ? requested : OTHER,
   );
   const [other, setOther] = useState(requested !== null && !statuses.includes(requested) ? requested : "");
   const [text, setText] = useState(note?.text ?? "");
@@ -97,7 +97,15 @@ export default function DocumentNoteEditor({
   const id = useId();
 
   const changes = (): NoteChanges => ({
-    requestedStatus: choice === NO_CHANGE ? null : choice === OTHER ? other.trim() || null : choice,
+    requestedStatus:
+      choice === OTHER
+        ? other.trim() || null
+        : choice === unchanged
+          ? // Asking for the status it has is no change, but a request it reached is kept
+            requested === currentStatus
+            ? requested
+            : null
+          : choice,
     text: text.trim() === "" ? null : text,
     private: locked ? true : null,
   });
@@ -202,10 +210,11 @@ export default function DocumentNoteEditor({
           onChange={(e) => setChoice(e.target.value)}
           autoFocus
         >
-          <option value={NO_CHANGE}>No change{currentStatus === null ? "" : ` (now ${currentStatus})`}</option>
+          {currentStatus === null && <option value={NO_CHANGE}>No change</option>}
           {statuses.map((s) => (
             <option key={s} value={s}>
               {capitalise(s)}
+              {s === currentStatus ? " (current)" : ""}
             </option>
           ))}
           <option value={OTHER}>Other…</option>

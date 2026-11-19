@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { isRetired, normaliseStatus, requestDone, statusKind, statusNew, statusText, supersedingDocument } from "./status";
+import {
+  KNOWN_STATUSES,
+  isRetired,
+  normaliseStatus,
+  requestDone,
+  statusChoices,
+  statusKind,
+  statusNew,
+  statusText,
+  supersedingDocument,
+} from "./status";
 import type { DocumentMeta, Metadata } from "./types";
 
 const meta = (status: string | null, statusDetail: string | null = null): Metadata => ({
@@ -80,6 +90,17 @@ describe("statusNew", () => {
     expect(statusNew("accepted", note("proposed"))).toBe(true);
     expect(statusNew("accepted", note("accepted"))).toBe(false);
     expect(statusNew("accepted", undefined)).toBe(false);
+  });
+});
+
+describe("statusChoices", () => {
+  it("offers the known statuses, then the workspace's others sorted, once each", () => {
+    expect(statusChoices(["wip", "accepted", "awaiting", "wip"], null)).toEqual([...KNOWN_STATUSES, "awaiting", "wip"]);
+  });
+
+  it("keeps the document's own status, known or not", () => {
+    expect(statusChoices([], "accepted")).toEqual([...KNOWN_STATUSES]);
+    expect(statusChoices(["wip"], "awaiting")).toEqual([...KNOWN_STATUSES, "awaiting", "wip"]);
   });
 });
 

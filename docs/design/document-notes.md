@@ -150,10 +150,12 @@ Overall: Fine once the rotation question below is answered.
 
 - **Toolbar**: a "Note on document" button beside the bookmark, filled when
   the document has a note. It opens a popover under it:
-  - **Status**: a select — "No change (now proposed)", the known statuses,
-    others used in the workspace, and "Other…" (a text field); the chosen
-    status's glyph shows beside it (a native select can't show icons), and
-    the document's current status isn't offered as a change;
+  - **Status**: a select — the known statuses, others used in the
+    workspace, and "Other…" (a text field); the chosen status's glyph shows
+    beside it (a native select can't show icons). The document's own status
+    is in its place, labelled "(current)": picking it asks for no change
+    (and keeps a request the document has since reached). A document with
+    no status has "No change" first instead;
   - **Comment**: a text area, as the highlight note editor (⌘↩ / Ctrl+Enter
     saves, Esc cancels);
   - Save, and Remove when there's a note. Clicking elsewhere saves what
