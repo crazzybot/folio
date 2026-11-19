@@ -188,8 +188,14 @@ export class DemoMarks {
       if (changes.section.length === 0) delete highlight.section;
       else highlight.section = structuredClone(changes.section);
     }
-    // Only the section: where the passage is, not a change the visitor made
-    if (Object.keys(changes).some((key) => key !== "section")) highlight.updated = now();
+    if (changes.replacement !== undefined && highlight.passage !== undefined) {
+      highlight.replaced = { exact: highlight.quote.exact, at: highlight.passage.at };
+      highlight.quote = { ...changes.replacement.quote };
+      highlight.position = { ...changes.replacement.position };
+      delete highlight.passage;
+    }
+    // Only where the passage is: not a change the visitor made
+    if (Object.keys(changes).some((key) => key !== "section" && key !== "replacement")) highlight.updated = now();
     this.changed(docId);
     return structuredClone(highlight);
   }

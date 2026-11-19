@@ -141,6 +141,10 @@ export interface Highlight extends TextAnchor, Thread {
   resolvedFrom?: NoteState;
   /** Set only when the user chose (Only me, Send to agent); absent: private without a note, feedback with one. */
   private?: boolean;
+  /** The text the agent says replaced the quote, until the viewer finds it and takes it as the quote (placing-notes.md). */
+  passage?: { exact: string; at: string };
+  /** The quote before the agent's passage took its place. */
+  replaced?: { exact: string; at: string };
 }
 
 /** A bookmarked heading: its text, level and which of the same-text, same-level headings (0 = first). */

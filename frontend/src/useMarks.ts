@@ -72,6 +72,8 @@ export interface Marks {
   setLoop(docId: string, highlightId: string, changes: { state?: NoteState; private?: boolean | null }): Promise<void>;
   /** Where a highlight's passage is now (placing-notes.md): saved quietly, as it isn't the user's change. */
   setSection(docId: string, highlightId: string, section: BookmarkHeading[]): Promise<void>;
+  /** The agent's passage, found in the text: it becomes the highlight's quote (placing-notes.md). Saved quietly. */
+  takePassage(docId: string, highlightId: string, replacement: Pick<TextAnchor, "quote" | "position">): Promise<void>;
   /** The same for the note on the document as a whole. */
   setDocumentNoteLoop(docId: string, changes: { state?: NoteState; private?: boolean | null }): Promise<void>;
   /**
@@ -252,6 +254,14 @@ export default function useMarks(): Marks {
     [saved],
   );
 
+  const takePassage = useCallback(
+    (docId: string, highlightId: string, replacement: Pick<TextAnchor, "quote" | "position">) =>
+      updateHighlight(docId, highlightId, { replacement }).then(saved(docId), (err: unknown) => {
+        console.error("Couldn't save the agent's passage", err);
+      }),
+    [saved],
+  );
+
   const setDocumentNoteLoop = useCallback(
     (docId: string, changes: { state?: NoteState; private?: boolean | null }) => {
       const note = byDoc.get(docId)?.note;
@@ -384,6 +394,7 @@ export default function useMarks(): Marks {
     remove,
     setLoop,
     setSection,
+    takePassage,
     setDocumentNoteLoop,
     send,
     unsend,

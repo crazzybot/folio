@@ -103,9 +103,14 @@ description.
 - **Inline notes.** With notes shown in the text (`⌥⌘N` / `Ctrl+Alt+N`),
   a note with replies has one line under it: how many, who wrote the latest
   and when, and **New** if some are unread. Click it to read the thread.
+- **Rewritten passages.** When the agent rewrites the passage you noted,
+  it can tell Folio which text replaced it. Folio then highlights the new
+  text, and the note's popover shows the old one under **Before the edit**,
+  struck through.
 - **Deleted passages.** When the agent removed the passage you noted, the
-  note is listed above the document under **Not found in the current
-  text**. Click it to read the agent's reply.
+  note moves beside the heading of its section. If that's gone too, it's
+  listed above the document under **Not found in the current text**. Click
+  it to read the agent's reply.
 - **Addressed or answered.** When the agent changed the document for a
   note, its reply marks the note **Addressed**. A question, or an
   explanation of why it didn't change anything, marks it **Answered by …**:

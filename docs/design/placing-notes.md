@@ -1,7 +1,8 @@
 # Placing notes after edits
 
-Status: in-progress: phase 1 of 3 (the section fallback). Builds on
-[marks.md](marks.md) (anchoring) and [review-loop.md](review-loop.md).
+Status: in-progress: phases 1 and 2 of 3 (the section fallback, the
+agent's passage). Builds on [marks.md](marks.md) (anchoring) and
+[review-loop.md](review-loop.md).
 
 In a review loop the agent rewrites the passages the user commented on.
 Anchoring ([marks.md](marks.md), "Anchoring highlights") finds a passage
@@ -21,7 +22,7 @@ to "Not found" only when all of them fail.
 | Which marks | Highlights with a margin marker: a note, or sent to the agent without one. A bare highlight has nothing to show at a heading |
 | How the section is kept | On the highlight: the headings it's under, outermost first, identified as bookmarks are (text, level, occurrence) |
 | A note on a heading | A marker in the margin beside the heading, not a highlight on the heading's text. Its popover shows the old passage struck through |
-| What's written back | The section, whenever the passage is found. Positions aren't, until phase 2 |
+| What's written back | The section, whenever the passage is found; the agent's passage as the new quote, once found |
 | Sending | A note placed at its section can be sent: the agent gets its section in place of a line |
 
 ## 1. The order of fallbacks
@@ -89,13 +90,32 @@ line gives the section, so the agent knows where the note was:
 
 ## 3. Phase 2: the agent's passage
 
-`folio_reply` gets an optional `passage`: the text that now stands where the
-quoted text was, copied exactly from the file. Folio uses it only if it's in
-the document's rendered text (a passage that's not there is ignored and the
-next fallback is tried). Then the highlight's quote and position become the
-new passage's, and the old quote is kept (`replaced: { exact, by, at }`) for
-the thread to show it struck through above the new one. The tool
-description asks for it when an edit replaced the quoted text.
+`folio_reply` takes an optional `passage`: the text that now stands where
+the quoted text was, copied exactly from the file. The tool description,
+the text after the review notes and the plugin's skills ask for it when an
+edit replaced the quoted text.
+
+- **Checked against the file.** The MCP server looks for the passage in the
+  document's source before saving anything (`findPassage` in `sourceMap.ts`:
+  both sides without Markdown punctuation, link destinations and whitespace,
+  case ignored). If it isn't there, the call fails and says so, and nothing is
+  saved, so the agent can send it again as it is in the file. A passage
+  with `path` (the note on a document as a whole) is refused.
+- **Kept until it's found.** The store keeps it on the highlight as
+  `passage: { exact, at }` with the reply. The agent usually replies after
+  editing, but the app may not have reloaded the document yet, so the
+  passage can't be taken at once.
+- **Taken by the viewer.** When painting, a highlight with a `passage` is
+  looked for by it first (the same `findPassage`, on the rendered text,
+  nearest the old position), then by its anchor as usual. Once found, the
+  viewer saves the found span as the quote and position
+  (`updateHighlight` with `replacement`). The store keeps the old quote as
+  `replaced: { exact, at }` and drops `passage`. It does this only while
+  `passage` is there, so two windows don't both take it. Neither
+  changes `updated`.
+- **Shown.** The popover shows **Before the edit** and the old quote,
+  struck through, above the thread. A later passage for the same note
+  replaces `replaced` with the quote it took over from.
 
 ## 4. Phase 3: the version sent
 

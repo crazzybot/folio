@@ -19,6 +19,7 @@ import type { DocumentMarks, DocumentNote, Highlight, NoteState } from "../../co
 import { answeredBy, formatReviewNotes, isPrivate, reviewPath, sendableNote, shortNoteId } from "../../core/src/reviewNotes";
 import type { ReviewDocument } from "../../core/src/reviewNotes";
 import { scanWorkspace } from "../../core/src/scanner";
+import { findPassage } from "../../core/src/sourceMap";
 import type { DocumentMeta, ScanOptions } from "../../core/src/scanner";
 import { maxDepthSetting, readAppSettings, reviewIntroSetting, skipDirsSetting } from "../../core/src/settings";
 
@@ -91,6 +92,8 @@ export interface ReplyRequest {
   path?: string | undefined;
   text: string;
   addressed?: boolean | undefined;
+  /** The text that replaced the note's quote, from the file as it is now (placing-notes.md). */
+  passage?: string | undefined;
 }
 
 export class Folio {
@@ -416,14 +419,25 @@ export class Folio {
    * a whole. Resolves to a sentence saying what happened.
    */
   async reply(request: ReplyRequest, client: string): Promise<string> {
-    const body = { author: { kind: "agent", name: client }, text: request.text, addressed: request.addressed === true };
+    const { passage } = request;
+    const body = { author: { kind: "agent", name: client }, text: request.text, addressed: request.addressed === true, passage };
     try {
       if (request.noteId !== undefined) {
         const { file, highlight } = await this.findNote(request.noteId);
+        // Checked before anything is saved, so the agent can send it again as it is in the file
+        if (passage !== undefined) {
+          const source = await readFile(file, "utf8").catch(() => null);
+          if (source === null || findPassage(source, passage) === null) {
+            throw new FolioError(
+              `The passage isn't in ${file}. Nothing was saved: copy the passage exactly from the file as it is now, or leave passage out.`,
+            );
+          }
+        }
         const note = (await this.store.reply(file, highlight.id, body)) as Highlight;
-        return replied(`note ${shortNoteId(note.id)}`, note);
+        return replied(`note ${shortNoteId(note.id)}`, note) + (passage === undefined ? "" : " Folio highlights the new passage.");
       }
       if (request.path !== undefined) {
+        if (passage !== undefined) throw new FolioError("passage is for a note on a passage: give noteId");
         const location = this.location(request.path);
         const file = path.join(this.root, ...location.split("/"));
         const note = (await this.store.reply(file, null, body)) as DocumentNote;

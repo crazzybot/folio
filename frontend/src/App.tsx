@@ -540,7 +540,7 @@ function AppInner(): React.ReactElement {
   useEffect(() => {
     if (contentId !== null) rememberForWorkspace(LAST_DOCUMENT_KEY, contentId);
   }, [contentId]);
-  const { add: addMark, recolor, setNote, remove: removeMark, setLoop, setSection, reply, editReply, deleteReply, markSeen, toggleBookmark, removeBookmark } = marks;
+  const { add: addMark, recolor, setNote, remove: removeMark, setLoop, setSection, takePassage, reply, editReply, deleteReply, markSeen, toggleBookmark, removeBookmark } = marks;
   const shownRounds = contentId === null ? undefined : marks.byDoc.get(contentId)?.rounds;
   const [statusMessage, setStatusMessage] = useStatusMessage();
   const [markSent, setMarkSent] = useMarkSent();
@@ -581,6 +581,7 @@ function AppInner(): React.ReactElement {
       remove: (id: string) => void removeMark(contentId, id),
       setLoop: (id, changes) => void setLoop(contentId, id, changes),
       setSection: (id, section) => void setSection(contentId, id, section),
+      takePassage: (id, replacement) => void takePassage(contentId, id, replacement),
       reply: (id, text) => void reply(contentId, id, text),
       editReply: (id, replyId, text) => void editReply(contentId, id, replyId, text),
       deleteReply: (id, replyId) => void deleteReply(contentId, id, replyId),
@@ -597,7 +598,7 @@ function AppInner(): React.ReactElement {
           { highlightId: id },
         ),
     };
-  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, setSection, reply, editReply, deleteReply, markSeen, toggleBookmark, shownRounds, sendTo, sendNow]);
+  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, setSection, takePassage, reply, editReply, deleteReply, markSeen, toggleBookmark, shownRounds, sendTo, sendNow]);
   const shownMarks = contentId === null ? undefined : marks.byDoc.get(contentId);
   const documentBookmarked = shownMarks !== undefined && findBookmark(shownMarks.bookmarks, null) !== undefined;
 

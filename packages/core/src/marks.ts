@@ -199,11 +199,13 @@ function author(value: unknown): Author {
 }
 
 /** A reply body: `{author, text, addressed?}`. */
-function replyBody(body: unknown): { author: Author; text: string; addressed: boolean } {
+function replyBody(body: unknown): { author: Author; text: string; addressed: boolean; passage: string | null } {
   if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
   const text = string(body["text"], "text", MAX_REPLY, 1);
   if (text.trim() === "") throw new MarkError(400, "text must not be blank");
-  return { author: author(body["author"]), text, addressed: body["addressed"] === true };
+  const passage = body["passage"] === undefined ? null : string(body["passage"], "passage", MAX_EXACT, 1);
+  if (passage !== null && passage.trim() === "") throw new MarkError(400, "passage must not be blank");
+  return { author: author(body["author"]), text, addressed: body["addressed"] === true, passage };
 }
 
 /**
@@ -386,25 +388,34 @@ function now(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
-function newHighlight(body: unknown): Highlight {
+/** A highlight's quote and position, validated. */
+function anchorOf(body: unknown): Pick<Highlight, "quote" | "position"> {
   if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
   const { quote, position } = body;
   if (!isObject(quote) || !isObject(position)) throw new MarkError(400, "quote and position must be objects");
   const start = offset(position["start"], "position.start");
   const end = offset(position["end"], "position.end");
   if (end <= start) throw new MarkError(400, "position.end must be after position.start");
-  const time = now();
   return {
-    id: randomBytes(8).toString("hex"),
-    color: color(body["color"]),
-    note: note(body["note"]),
     quote: {
       exact: string(quote["exact"], "quote.exact", MAX_EXACT, 1),
       prefix: string(quote["prefix"] ?? "", "quote.prefix", MAX_CONTEXT),
       suffix: string(quote["suffix"] ?? "", "quote.suffix", MAX_CONTEXT),
     },
     position: { start, end },
-    ...withSection(body["section"] === undefined ? [] : sectionPath(body["section"])),
+  };
+}
+
+function newHighlight(body: unknown): Highlight {
+  const anchor = anchorOf(body);
+  const fields = body as Record<string, unknown>;
+  const time = now();
+  return {
+    id: randomBytes(8).toString("hex"),
+    color: color(fields["color"]),
+    note: note(fields["note"]),
+    ...anchor,
+    ...withSection(fields["section"] === undefined ? [] : sectionPath(fields["section"])),
     created: time,
     updated: time,
   };
@@ -564,6 +575,8 @@ export class MarksStore {
     if ("private" in body) loop.private = privacy(body["private"]);
     // Where the passage is now: kept up to date by the viewer, not a change the user made
     const section = "section" in body ? sectionPath(body["section"]) : undefined;
+    // Where the agent's passage was found: it becomes the quote
+    const replacement = "replacement" in body ? anchorOf(body["replacement"]) : undefined;
     const edited = Object.keys(changes).length > 0 || Object.keys(loop).length > 0;
     const id = recordId(file);
     return this.serially(async () => {
@@ -578,6 +591,13 @@ export class MarksStore {
         ...withSection(section ?? oldSection ?? []),
         updated: edited ? now() : old.updated,
       };
+      // Taken once: another window may have found it first
+      if (replacement !== undefined && old.passage !== undefined) {
+        delete highlight.passage;
+        highlight.replaced = { exact: old.quote.exact, at: old.passage.at };
+        highlight.quote = replacement.quote;
+        highlight.position = replacement.position;
+      }
       const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? highlight : h));
       await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
       return highlight;
@@ -664,7 +684,8 @@ export class MarksStore {
    * the note with its replies.
    */
   reply(file: string, highlightId: string | null, body: unknown): Promise<Highlight | DocumentNote> {
-    const { author: by, text, addressed } = replyBody(body);
+    const { author: by, text, addressed, passage } = replyBody(body);
+    if (passage !== null && highlightId === null) throw new MarkError(400, "A passage goes with a note on a passage");
     const id = recordId(file);
     return this.serially(async () => {
       const record = await this.writable(id);
@@ -677,7 +698,12 @@ export class MarksStore {
         return note;
       }
       const old = find(record, highlightId);
-      const highlight = { ...withReply(old, reply, addressed), updated: reply.at };
+      // The new text, for the viewer to highlight once it finds it (placing-notes.md)
+      const highlight = {
+        ...withReply(old, reply, addressed),
+        ...(passage === null ? {} : { passage: { exact: passage, at: reply.at } }),
+        updated: reply.at,
+      };
       const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? highlight : h));
       await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
       return highlight;

@@ -58,6 +58,13 @@ export interface Highlight extends Thread {
    * before the first heading, and until the viewer has found the passage.
    */
   section?: BookmarkHeading[];
+  /**
+   * The text the agent says now stands where the quote was (its reply's
+   * `passage`), until the viewer finds it and takes it as the quote.
+   */
+  passage?: { exact: string; at: string };
+  /** The quote before the agent's passage took its place, shown struck through in the thread. */
+  replaced?: { exact: string; at: string };
   created: string;
   updated: string;
   /** Absent: open. */

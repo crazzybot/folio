@@ -62,6 +62,21 @@ describe("DemoMarks", () => {
     expect(marks.addHighlight("a", { ...anchor, color: "blue", note: "" }).note).toBeNull();
   });
 
+  it("keeps a section and takes an agent's passage without counting either as an edit", () => {
+    const passage = { exact: "TWO", at: "2026-11-02T00:00:00Z" };
+    const marks = new DemoMarks(listed, { b: { bookmarks: [], highlights: [{ ...seedHighlight("s1"), passage }] } }, memoryStorage());
+    const section = [{ text: "Intro", level: 2, occurrence: 0 }];
+    expect(marks.updateHighlight("b", "s1", { section }).section).toEqual(section);
+    const replacement = { quote: { exact: "TWO", prefix: "", suffix: "" }, position: { start: 10, end: 13 } };
+    const taken = marks.updateHighlight("b", "s1", { replacement });
+    expect([taken.quote, taken.replaced, "passage" in taken, taken.updated]).toEqual([
+      replacement.quote,
+      { exact: "two", at: passage.at },
+      false,
+      "2026-11-01T00:00:00Z",
+    ]);
+  });
+
   it("removes a highlight, and a document with no marks left", () => {
     const marks = new DemoMarks(listed, seed, memoryStorage());
     marks.deleteHighlight("b", "s1");

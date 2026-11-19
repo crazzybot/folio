@@ -57,7 +57,8 @@ does quitting Folio or opening another workspace.
 - `folio_get_review_notes`: the notes you haven't sent yet, as Folio's
   **Copy review notes** words them, with each note's id. They're marked sent.
 - `folio_reply`: answer a note, and say whether it's addressed. You resolve
-  or reopen it in Folio.
+  or reopen it in Folio. When the edit replaced the quoted text, the agent
+  gives the new text as `passage`, and Folio highlights it in its place.
 - `folio_wait_for_review`: wait until you send notes from Folio, then get
   them as `folio_get_review_notes` does. Without notes by the timeout
   (`timeoutSeconds`, default 240), it returns, and the agent calls again
