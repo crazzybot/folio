@@ -266,6 +266,20 @@ describe("reply", () => {
     expect((await folio.listDocuments({})).find((d) => d.path === file("docs/adr.md"))?.openNotes).toBe(0);
   });
 
+  it("keeps the passage that replaced the quote, when it's in the file", async () => {
+    const h = await note("Why?");
+    const said = await folio.reply({ noteId: h.id, text: "Reworded.", addressed: true, passage: "store events in **Postgres**," }, "Claude Code");
+    expect(said).toContain("Folio highlights the new passage");
+    expect((await records())[0]?.highlights.find((x) => x.id === h.id)?.passage?.exact).toBe("store events in **Postgres**,");
+
+    // Not in the file: refused, and nothing saved
+    const other = await note("And this?");
+    await expect(folio.reply({ noteId: other.id, text: "Done.", passage: "Words nobody wrote" }, "Claude Code")).rejects.toThrow(
+      /isn't in .*Nothing was saved/,
+    );
+    expect((await records())[0]?.highlights.find((x) => x.id === other.id)?.replies).toBeUndefined();
+  });
+
   it("answers the note on a document as a whole by its path", async () => {
     await store.setNote(adr(), { text: "Overall fine.", requestedStatus: null });
     await folio.reply({ path: adr(), text: "Thanks.", addressed: true }, "Claude Code");
@@ -280,6 +294,8 @@ describe("reply", () => {
     await refused({ text: "Hi" });
     await refused({ path: path.join(root, "README.md"), text: "Hi" }); // no note on it
     await refused({ path: os.tmpdir(), text: "Hi" });
+    await store.setNote(adr(), { text: "Overall fine.", requestedStatus: null });
+    await refused({ path: adr(), text: "Hi", passage: "Postgres" });
   });
 });
 

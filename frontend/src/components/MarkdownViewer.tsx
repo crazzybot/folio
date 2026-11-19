@@ -118,6 +118,8 @@ export interface MarkHandlers {
   toggleHeadingBookmark: (heading: BookmarkHeading) => void;
   /** Where a note's passage is now: the headings above it (placing-notes.md). */
   setSection?: (id: string, section: BookmarkHeading[]) => void;
+  /** The agent's passage, found in the text: the highlight's new quote. */
+  takePassage?: (id: string, replacement: Pick<TextAnchor, "quote" | "position">) => void;
   /** The document's latest rounds, for when a note was sent. */
   rounds?: readonly Round[] | undefined;
   /** The agents in a review loop on the document, by name ("Claude Code"); null when none is. */
@@ -1219,6 +1221,7 @@ export default function MarkdownViewer({
               onToggleBookmark={markHandlers.toggleHeadingBookmark}
               onPainted={handlePainted}
               onSetSection={markHandlers.setSection}
+              onTakePassage={markHandlers.takePassage}
               unplacedSlot={unplacedSlot}
               pinnedSlot={pinnedSlot}
             />

@@ -15,6 +15,9 @@ turns them into the next release's section.
   the passage was in, instead of going under **Not found in the current
   text**. Its popover shows the old passage struck through. Review notes
   tell the agent which section such a note is in.
+- **The agent can say what replaced a passage.** `folio_reply` takes the
+  new text as `passage`. Folio highlights it in place of the old one and
+  shows the old text under **Before the edit** in the note's popover.
 
 ### Changed
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { locateInSource, sectionAt } from "../src/sourceMap";
+import { findPassage, locateInSource, sectionAt } from "../src/sourceMap";
 import type { Anchor } from "../src/sourceMap";
 
 const SOURCE = `---
@@ -80,6 +80,23 @@ describe("locateInSource", () => {
   it("returns null when the quote isn't in the source", () => {
     expect(locateInSource(SOURCE, highlight("Kafka was chosen"))).toBeNull();
     expect(locateInSource(SOURCE, highlight("  "))).toBeNull();
+  });
+});
+
+describe("findPassage", () => {
+  const rendered = "Events are append-only. We keep them\nforever, in Postgres.";
+
+  it("finds Markdown copied from the source in the rendered text", () => {
+    const span = findPassage(rendered, "We keep them **forever**, in\n[Postgres](https://postgresql.org).");
+    expect(span === null ? null : rendered.slice(span.start, span.end)).toBe("We keep them\nforever, in Postgres.");
+  });
+
+  it("takes the occurrence nearest the old place, and is null when it isn't there", () => {
+    const twice = "keep it. More text here. keep it.";
+    expect(findPassage(twice, "keep it", 20)).toEqual({ start: 25, end: 32 });
+    expect(findPassage(twice, "keep it")).toEqual({ start: 0, end: 7 });
+    expect(findPassage(rendered, "We drop them")).toBeNull();
+    expect(findPassage(rendered, "**")).toBeNull();
   });
 });
 

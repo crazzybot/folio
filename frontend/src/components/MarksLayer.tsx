@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { findPassage } from "../../../packages/core/src/sourceMap";
 import { describeSpan, locateAnchor } from "../anchoring";
 import { findBookmark, headingIdentities, sameHeading } from "../bookmarks";
 import { getItem, setItem } from "../storage";
@@ -46,6 +47,7 @@ const POPOVER_GAP = 6;
 // Notes kept on one heading sit one under another, this far apart
 const MARKER_STEP = 22;
 const DETACHED_LABEL = "The passage isn't in the text any more";
+const REPLACED_LABEL = "Before the edit";
 
 const COLOR_NAMES: Record<HighlightColor, string> = { yellow: "Yellow", green: "Green", blue: "Blue", pink: "Pink" };
 
@@ -229,6 +231,8 @@ interface MarksLayerProps {
   onPainted?: (located: ReadonlyMap<string, Range>, atSection: ReadonlyMap<string, HTMLElement>) => void;
   /** Where a note's passage is now (placing-notes.md): saved whenever it changes. */
   onSetSection?: ((id: string, section: BookmarkHeading[]) => void) | undefined;
+  /** The agent's passage, found in the text: saved as the highlight's quote. */
+  onTakePassage?: ((id: string, replacement: Pick<TextAnchor, "quote" | "position">) => void) | undefined;
   /** Above the document: where highlights not found in its text are listed. */
   unplacedSlot?: HTMLElement | null;
   /** The same list in the pinned header's details, while they're open. */
@@ -268,6 +272,7 @@ export default function MarksLayer({
   onToggleBookmark,
   onPainted,
   onSetSection,
+  onTakePassage,
   unplacedSlot = null,
   pinnedSlot = null,
 }: MarksLayerProps): React.ReactElement | null {
@@ -282,9 +287,13 @@ export default function MarksLayer({
   // Sections being saved, so a repaint before the save lands doesn't save again
   const sectionsSaving = useRef(new Map<string, string>());
   const setSection = useRef(onSetSection);
+  // The agent's passages being taken as quotes, so a repaint before the save lands doesn't save again
+  const passagesTaking = useRef(new Set<string>());
+  const takePassage = useRef(onTakePassage);
   useLayoutEffect(() => {
     setSection.current = onSetSection;
-  }, [onSetSection]);
+    takePassage.current = onTakePassage;
+  }, [onSetSection, onTakePassage]);
   // The strip shows resolved notes and bare highlights too
   const [allUnplaced, setAllUnplaced] = useState(false);
   const stripRef = useRef<HTMLDivElement>(null);
@@ -354,7 +363,14 @@ export default function MarksLayer({
     elements = outline.elements;
     const byLayer = new Map<string, Range[]>();
     for (const highlight of highlights) {
-      const span = locateAnchor(model.text, highlight);
+      const span = locate(model.text, highlight);
+      // The agent's passage found: it becomes the quote
+      const taking = highlight.passage === undefined ? null : `${highlight.id} ${highlight.passage.at}`;
+      if (span !== null && taking !== null && !passagesTaking.current.has(taking)) {
+        passagesTaking.current.add(taking);
+        const { quote, position } = describeSpan(model.text, span.start, span.end);
+        takePassage.current?.(highlight.id, { quote, position });
+      }
       if (span === null) {
         const at = hasMarker(highlight) && highlight.section !== undefined ? locateSection(outline.headings, highlight.section) : null;
         if (at === null) unplaced.add(highlight.id);
@@ -692,7 +708,7 @@ export default function MarksLayer({
     if (popoverId === null || !ready || article === null || container === null) return;
     const highlight = highlights.find((h) => h.id === popoverId);
     const model = buildTextModel(article);
-    const span = highlight === undefined ? null : locateAnchor(model.text, highlight);
+    const span = highlight === undefined ? null : locate(model.text, highlight);
     if (span === null) {
       // Kept on its section's heading: beside it
       const { elements, headings } = headingsOf(article);
@@ -1228,6 +1244,14 @@ export default function MarksLayer({
             </div>
           )}
 
+          {/* The agent replaced the passage: what it was */}
+          {current.replaced !== undefined && (
+            <div className={styles.detached}>
+              <span className={styles.detachedLabel}>{REPLACED_LABEL}</span>
+              <del className={styles.detachedQuote}>{current.replaced.exact}</del>
+            </div>
+          )}
+
           {/* Answered: the note is the thread's first message, no longer editable */}
           {draft === null && current.note !== null && !answered && (
             <button type="button" className={styles.noteText} onClick={() => setDraft(current.note ?? "")} title="Edit note">
@@ -1392,6 +1416,15 @@ function LoopRow({
 
 function sameIds(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
   return a.size === b.size && [...a].every((id) => b.has(id));
+}
+
+/**
+ * Where a highlight is in the text: the passage the agent says replaced its
+ * quote, while that's waiting to be taken and is there, else its anchor.
+ */
+function locate(text: string, highlight: Highlight): { start: number; end: number } | null {
+  const passage = highlight.passage === undefined ? null : findPassage(text, highlight.passage.exact, highlight.position.start);
+  return passage ?? locateAnchor(text, highlight);
 }
 
 function sameIndexes(a: ReadonlyMap<string, number>, b: ReadonlyMap<string, number>): boolean {

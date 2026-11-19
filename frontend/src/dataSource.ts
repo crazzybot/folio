@@ -31,6 +31,8 @@ export type HighlightChanges = {
   private?: boolean | null;
   /** Where the passage is now: not an edit, so `updated` stays (empty: before the first heading). */
   section?: BookmarkHeading[];
+  /** Where the agent's passage was found: it becomes the quote, the old one kept as `replaced`. Ignored once taken. */
+  replacement?: Pick<TextAnchor, "quote" | "position">;
 };
 /** A document's note as set: both null (or blank) removes it. Privacy carries over unless given; so does the state, unless given or the text or status changed (open again). */
 export type NoteChanges = { text: string | null; requestedStatus: string | null; state?: NoteState; private?: boolean | null };

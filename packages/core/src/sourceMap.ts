@@ -53,6 +53,25 @@ function collapse(source: string): { text: string; offsets: number[] } {
 
 const plain = (text: string) => collapse(text).text;
 
+/**
+ * Where `passage` is in `text`, both compared without Markdown punctuation,
+ * link destinations and whitespace: so a passage an agent copied from the
+ * source is found in the source or in the rendered text. Its start and end
+ * in `text`, or null; of several, the one starting nearest `near`.
+ */
+export function findPassage(text: string, passage: string, near = 0): { start: number; end: number } | null {
+  const wanted = plain(passage);
+  if (wanted === "") return null;
+  const { text: collapsed, offsets } = collapse(text);
+  let best: { start: number; end: number } | null = null;
+  for (let at = collapsed.indexOf(wanted); at !== -1; at = collapsed.indexOf(wanted, at + 1)) {
+    const start = offsets[at] ?? 0;
+    if (best !== null && Math.abs(start - near) >= Math.abs(best.start - near)) continue;
+    best = { start, end: (offsets[at + wanted.length - 1] ?? start) + 1 };
+  }
+  return best;
+}
+
 /** How many characters `a` and `b` share at their ends (`fromEnd`) or starts. */
 function shared(a: string, b: string, fromEnd: boolean): number {
   let n = 0;

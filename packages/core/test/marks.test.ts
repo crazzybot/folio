@@ -522,6 +522,29 @@ describe("threads", () => {
     expect((recordOf(PLAIN) as { highlights: Highlight[] }).highlights.find((h) => h.id === a.id)?.replies).toHaveLength(3);
   });
 
+  it("keeps the agent's passage until the viewer takes it as the quote", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "Reword this" }));
+    const replied = await store.reply(PLAIN, a.id, { author: CLAUDE, text: "Reworded.", addressed: true, passage: "New words" });
+    expect(replied.passage).toEqual({ exact: "New words", at: replied.replies?.[0]?.at });
+
+    const replacement = { quote: { exact: "New words", prefix: "a ", suffix: " b" }, position: { start: 5, end: 14 } };
+    const taken = await store.updateHighlight(PLAIN, a.id, { replacement });
+    expect([taken.quote, taken.position, taken.replaced?.exact, "passage" in taken]).toEqual([
+      replacement.quote,
+      replacement.position,
+      a.quote.exact,
+      false,
+    ]);
+    expect(taken.updated).toBe(replied.updated);
+    // Taken already (another window): nothing changes
+    const again = await store.updateHighlight(PLAIN, a.id, { replacement: { ...replacement, position: { start: 50, end: 59 } } });
+    expect(again.position).toEqual(replacement.position);
+
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: CLAUDE, text: "x", passage: " " }))).toBe(400);
+    await store.setNote(BLANK_DOC, { text: "Overall", requestedStatus: null });
+    expect(await refusal(() => store.reply(BLANK_DOC, null, { author: CLAUDE, text: "x", passage: "y" }))).toBe(400);
+  });
+
   it("replies to the document's note", async () => {
     await store.setNote(BLANK_DOC, { text: "Overall fine.", requestedStatus: "accepted" });
     const note = await store.reply(BLANK_DOC, null, { author: CLAUDE, text: "Status changed.", addressed: true });

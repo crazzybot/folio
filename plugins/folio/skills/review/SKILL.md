@@ -21,7 +21,9 @@ Documents to review: $ARGUMENTS
    only what the notes ask for; when a note changes a document's status,
    change the status line in the document.
 3. Answer every note with `folio_reply`, in a sentence or two:
-   - what you changed, with `addressed: true`;
+   - what you changed, with `addressed: true`; when your edit replaced the
+     quoted text, also the text that now stands in its place as `passage`,
+     copied exactly from the file;
    - or why you didn't change it, with `addressed` left out;
    - or a question, with `addressed` left out; the user answers it in
      Folio, and the note comes back in a later round.

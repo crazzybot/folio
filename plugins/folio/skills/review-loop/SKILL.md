@@ -20,7 +20,8 @@ pick them up as they arrive.
      changes a document's status, change its status line.
    - Answer every note with `folio_reply`, in a sentence or two: what you
      changed, with `addressed: true`; or why you didn't, or a question, with
-     `addressed` left out.
+     `addressed` left out. When your edit replaced the quoted text, give the
+     new text as `passage`, copied exactly from the file.
    - Then say in one line what you changed, and call `folio_wait_for_review`
      again with the `since` it gave you.
 4. Stop when the user tells you to, or interrupts you.
