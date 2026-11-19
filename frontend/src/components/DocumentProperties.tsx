@@ -14,8 +14,7 @@ interface DocumentPropertiesProps {
   note?: DocumentNote | undefined;
   /** Open the note editor under `from` (clicking the status, or Edit). */
   onEditNote?: ((from: HTMLElement) => void) | undefined;
-  /** Remove the note's requested status, once the document has it. */
-  onClearRequest?: (() => void) | undefined;
+  className?: string | undefined;
 }
 
 const NO_META = { status: null, statusDetail: null, date: null, people: [], tags: [], statusLine: null };
@@ -23,7 +22,7 @@ const NO_META = { status: null, statusDetail: null, date: null, people: [], tags
 /**
  * The document's metadata (front matter, or its status line) above its
  * text: status, date and decision makers, then tags; and below them the
- * user's note on the document, if any. Outside the article, so highlights'
+ * user's note on the document, if any and not resolved. Outside the article, so highlights'
  * text positions don't count it.
  */
 export default function DocumentProperties({
@@ -32,17 +31,19 @@ export default function DocumentProperties({
   onOpenDocument,
   note,
   onEditNote,
-  onClearRequest,
+  className,
 }: DocumentPropertiesProps): React.ReactElement | null {
-  if (doc.meta === undefined && note === undefined) return null;
+  // A resolved note is done with: it stays in the Marks view, and the status still opens it
+  const shownNote = note?.state === "resolved" ? undefined : note;
+  if (doc.meta === undefined && shownNote === undefined) return null;
   const meta = doc.meta ?? NO_META;
   const { status, date, people, tags } = meta;
-  const done = note !== undefined && requestDone(status, note.requestedStatus);
+  const done = shownNote !== undefined && requestDone(status, shownNote.requestedStatus);
   const successor = onOpenDocument === undefined ? null : supersedingDocument(doc, documents);
   const described = [date, people.length > 0 ? people.join(", ") : null].filter((part): part is string => part !== null);
 
   return (
-    <div className={styles.properties} aria-label="Document properties" role="group">
+    <div className={`${styles.properties} ${className ?? ""}`} aria-label="Document properties" role="group">
       {status !== null && (
         <span className={styles.status}>
           {onEditNote === undefined ? (
@@ -101,27 +102,22 @@ export default function DocumentProperties({
           ))}
         </span>
       )}
-      {note !== undefined && (
+      {shownNote !== undefined && (
         <div className={styles.note}>
           <span className={styles.noteIcon} title="Your note on this document">
             <DocumentNoteIcon size={14} />
           </span>
-          {note.requestedStatus !== null && (
+          {shownNote.requestedStatus !== null && (
             <NoteRequest
-              requested={note.requestedStatus}
+              requested={shownNote.requestedStatus}
               done={done}
               className={styles.request}
               iconClassName={styles.statusIcon}
             />
           )}
-          {done && onClearRequest !== undefined && (
-            <button type="button" className={styles.link} onClick={onClearRequest}>
-              Clear request
-            </button>
-          )}
-          {note.text !== null && <span className={styles.noteText}>{note.text.split("\n")[0]}</span>}
+          {shownNote.text !== null && <span className={styles.noteText}>{shownNote.text.split("\n")[0]}</span>}
           {onEditNote !== undefined && (
-            <button type="button" className={styles.link} onClick={(e) => onEditNote(e.currentTarget)}>
+            <button type="button" className={`${styles.link} ${styles.noteAction}`} onClick={(e) => onEditNote(e.currentTarget)}>
               Edit
             </button>
           )}

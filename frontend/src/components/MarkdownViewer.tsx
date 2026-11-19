@@ -42,7 +42,9 @@ import remarkMathDollars from "../mathDollars";
 import { loadRehypeKatex, loadedRehypeKatex, mayContainMath } from "../katexLoader";
 import type { RehypeKatex } from "../katexLoader";
 import remarkObsidian from "../obsidian";
-import DocumentProperties from "./DocumentProperties";
+import { unplacedFirst } from "../sending";
+import DocumentHeader, { hasPinnedSummary } from "./DocumentHeader";
+import type { ChangesBannerProps } from "./ChangesBanner";
 import MermaidDiagram from "./MermaidDiagram";
 import DiagramViewer from "./DiagramViewer";
 import ExpandButton from "./ExpandButton";
@@ -77,10 +79,8 @@ interface MarkdownViewerProps {
   documentNote?: DocumentNote | undefined;
   /** Open the document note editor under `from` (clicking the status or the note in the header). */
   onEditDocumentNote?: (from: HTMLElement) => void;
-  /** Remove the note's requested status once the document has it. */
-  onClearNoteRequest?: () => void;
-  /** Shown above the document's properties: what changed since it was read. */
-  banner?: React.ReactNode;
+  /** What changed since the document was read, while that's shown in its header. */
+  changes?: ChangesBannerProps | undefined;
   /** Search text to highlight in the document ("" for none). */
   searchQuery?: string;
   /** A search match to scroll to once its document is shown. */
@@ -548,8 +548,7 @@ export default function MarkdownViewer({
   onOpenDocument,
   documentNote,
   onEditDocumentNote,
-  onClearNoteRequest,
-  banner,
+  changes,
   searchQuery = "",
   searchFocus = null,
   showOutline = false,
@@ -1052,8 +1051,16 @@ export default function MarkdownViewer({
   // Highlights per outline entry (those after its heading and before the
   // next), counted from the document as just painted
   const [outlineCounts, setOutlineCounts] = useState<number[]>([]);
-  // Above the text: the marks layer lists the highlights it couldn't find in it there
+  // Above the text: the marks layer lists the highlights it couldn't find in it there,
+  // and in the pinned header's details while they're open
   const [unplacedSlot, setUnplacedSlot] = useState<HTMLDivElement | null>(null);
+  const [pinnedSlot, setPinnedSlot] = useState<HTMLDivElement | null>(null);
+  // The highlights found in the text as just painted, to count the notes that weren't
+  const [locatedIds, setLocatedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const notFound = useMemo(
+    () => highlights.filter((h) => !locatedIds.has(h.id) && unplacedFirst(h)).length,
+    [highlights, locatedIds],
+  );
   const handlePainted = useCallback(
     (located: ReadonlyMap<string, Range>) => {
       const article = articleRef.current;
@@ -1070,6 +1077,7 @@ export default function MarkdownViewer({
         if (section >= 0) counts[section] = (counts[section] ?? 0) + 1;
       }
       setOutlineCounts(counts);
+      setLocatedIds(new Set(located.keys()));
       if (ready && contentId !== null) onLocatedChange?.(contentId, new Set(located.keys()));
     },
     [ready, contentId, onLocatedChange],
@@ -1090,7 +1098,11 @@ export default function MarkdownViewer({
             inputRef={findInputRef}
           />
         )}
-        <div className={styles.viewerRoot} ref={scrollRef} tabIndex={-1}>
+        <div
+          className={`${styles.viewerRoot} ${hasPinnedSummary(currentDoc, documentNote, changes, notFound) ? styles.withPinnedBar : ""}`}
+          ref={scrollRef}
+          tabIndex={-1}
+        >
           {/* ── Loading ── */}
           {loading && (
             <div className={styles.centeredState} aria-live="polite" aria-busy="true">
@@ -1143,18 +1155,18 @@ export default function MarkdownViewer({
           {/* ── Rendered markdown ── */}
           {!loading && error === null && content !== null && (
             <>
-            {banner}
-            {currentDoc !== undefined && (currentDoc.meta !== undefined || documentNote !== undefined) && (
-              <DocumentProperties
-                doc={currentDoc}
-                documents={documents}
-                onOpenDocument={onOpenDocument}
-                note={documentNote}
-                onEditNote={onEditDocumentNote}
-                onClearRequest={onClearNoteRequest}
-              />
-            )}
-            <div ref={setUnplacedSlot} />
+            <DocumentHeader
+              containerRef={scrollRef}
+              doc={currentDoc}
+              documents={documents}
+              onOpenDocument={onOpenDocument}
+              note={documentNote}
+              onEditNote={onEditDocumentNote}
+              changes={changes}
+              notFound={markHandlers === undefined ? 0 : notFound}
+              onUnplacedSlot={setUnplacedSlot}
+              onPinnedSlot={setPinnedSlot}
+            />
             <article className={`${styles.article} folio-document`} aria-label="Rendered markdown" ref={articleRef}>
               <LinkContext.Provider value={linkHandlers}>
                 <ReactMarkdown
@@ -1196,6 +1208,7 @@ export default function MarkdownViewer({
               onToggleBookmark={markHandlers.toggleHeadingBookmark}
               onPainted={handlePainted}
               unplacedSlot={unplacedSlot}
+              pinnedSlot={pinnedSlot}
             />
           )}
         </div>

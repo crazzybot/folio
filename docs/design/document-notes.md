@@ -167,10 +167,13 @@ Overall: Fine once the rotation question below is answered.
 
 ### Showing it
 
-- **Header**: a line under the metadata — the note icon, `→ ✓ Accepted`
-  and the comment's first line, muted. Done: `✓ Now accepted · Clear
-  request`; clearing a request leaves the comment (a note with neither is
-  removed).
+- **Header**: a card under the metadata — the note icon (a page with a
+  speech bubble: a highlight's note is the bubble alone), `→ ✓ Accepted`
+  and the comment's first line, muted. Done: `✓ Now accepted`. A done
+  request stays in the note but isn't sent; there's no link to clear it,
+  as Resolve closes the note anyway (the editor can still remove it). A
+  resolved note isn't shown: the review of it is over. The Marks view
+  still lists it, and the status still opens it to reopen.
 - **Marks view**: a "Note" row first under its document — the request and
   the comment's first line; its hover card shows the comment in full.
   Notes only includes it; the filter matches its text. The document's copy

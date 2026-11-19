@@ -28,6 +28,12 @@
   flex-direction: column;
 }
 
+/* The document header's summary can be pinned to the top of the view
+   (DocumentHeader): a heading scrolled to lands below it */
+.withPinnedBar {
+  scroll-padding-top: 44px;
+}
+
 /* ─── Centered states (loading / error / empty) ───────────────────────────── */
 .centeredState {
   flex: 1;

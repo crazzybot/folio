@@ -64,11 +64,17 @@ counts as read, so the list doesn't start out all new. A version you've read
 before counts as read when it comes back, so switching git branches doesn't
 mark documents unread.
 
-A changed document opens with a banner above it: since when, how many
-sections changed, and which ones, each a link to its section. Added sections
-are marked "(new)", and removed ones are struck through. The banner stays
-until you open another document, even once the document counts as read.
-**Mark as Read** is there while it's unread; ✕ closes the banner.
+A changed document opens with a card above it, under its status: since
+when, how many sections changed, and which ones, each a link to its
+section. Added sections are marked "(new)", and removed ones are struck
+through. It stays until you open another document, even once the document
+counts as read. **Mark as Read** is there while it's unread; ✕ closes it.
+
+Once you scroll past the header, a summary line stays at the top of the
+view: the status, an icon if you left a note on the document, the sections
+that changed, and how many of your notes aren't found in the text any
+more. Click the arrow at its end to see the whole header there; click it
+again or press `Esc` to close it.
 
 In the desktop app, right-click a document for **Mark as Read** or **Mark as
 Unread** (back to the version you read before), or a folder for **Mark All
