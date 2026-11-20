@@ -8,6 +8,11 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Resolve**, **Unresolve** and **Mark not sent** in a highlight's popover
+  now close it, as they do on the document's note.
+
 ## [0.10.0] — 2026-11-19
 
 ### Added

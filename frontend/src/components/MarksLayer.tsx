@@ -1324,7 +1324,17 @@ export default function MarksLayer({
             />
           )}
 
-          {draft === null && <LoopRow highlight={current} rounds={rounds} onSetLoop={(changes) => onSetLoop(current.id, changes)} />}
+          {draft === null && (
+            <LoopRow
+              highlight={current}
+              rounds={rounds}
+              onSetLoop={(changes) => {
+                onSetLoop(current.id, changes);
+                // Resolving, unresolving or marking not sent is done with the note, as on the document's note
+                if (changes.state !== undefined) closePopover();
+              }}
+            />
+          )}
         </div>
       )}
     </>
