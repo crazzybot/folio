@@ -876,6 +876,42 @@ function AppInner(): React.ReactElement {
     };
   }, [notePlace, setNotePlace]);
 
+  // The agent panel (desktop): View → Toggle Agent Panel (⌘J / Ctrl+J) or the
+  // status bar's button. A new session starts in the focused folder
+  const [agentPanelShown, setAgentPanelShown] = useState(false);
+  const footerRef = useRef<HTMLElement>(null);
+  const toggleAgentPanel = useCallback(() => void window.markdownApi?.agentPanel.toggle(focus), [focus]);
+  useEffect(() => {
+    const api = window.markdownApi?.agentPanel;
+    if (api === undefined) return;
+    let cancelled = false;
+    void api.isVisible().then((visible) => {
+      if (!cancelled) setAgentPanelShown(visible);
+    });
+    const unsubscribe = api.onVisibleChange(setAgentPanelShown);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+  useEffect(() => {
+    const unsubscribe = window.markdownApi?.onFindCommand((command) => {
+      if (command === "agent-panel") toggleAgentPanel();
+    });
+    return () => unsubscribe?.();
+  }, [toggleAgentPanel]);
+  // The panel sits above the status bar: tell the main process its height
+  useEffect(() => {
+    const footer = footerRef.current;
+    const api = window.markdownApi?.agentPanel;
+    if (footer === null || api === undefined) return;
+    const report = () => api.setBottomGap(footer.getBoundingClientRect().height);
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
+
   // ⌘D / Ctrl+D (or Edit → Bookmark Document): bookmark the shown document, or remove its bookmark
   useEffect(() => {
     const toggle = () => {
@@ -1340,7 +1376,8 @@ function AppInner(): React.ReactElement {
         />
       )}
 
-      <footer className={styles.statusBar}>
+      {window.markdownApi && <div className={styles.agentSlot} aria-hidden="true" />}
+      <footer className={styles.statusBar} ref={footerRef}>
         <button
           type="button"
           className={styles.statusBtn}
@@ -1437,6 +1474,22 @@ function AppInner(): React.ReactElement {
               ? `${listedDocuments.length} of ${documents.length} documents`
               : `${documents.length} document${documents.length !== 1 ? "s" : ""}`}
         </span>
+        {window.markdownApi && (
+          <button
+            type="button"
+            className={`${styles.statusBtn} ${styles.agentBtn}`}
+            onClick={toggleAgentPanel}
+            aria-pressed={agentPanelShown}
+            aria-label={`Agent Panel (${IS_MAC_DESKTOP ? "⌘J" : "Ctrl+J"})`}
+            title={agentPanelShown ? "Hide the agent panel" : focus !== null ? `Open the agent panel in ${focus}` : "Open the agent panel"}
+          >
+            {/* A terminal prompt */}
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
+              <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
+              <path d="M4.5 6.5l2 1.5-2 1.5M8 10h3.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
       </footer>
     </div>
   );

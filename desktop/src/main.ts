@@ -24,6 +24,8 @@
  *     Load the renderer from a running Vite dev server instead of the bundle.
  *     Ignored in packaged builds, so it can't hand the document API to an
  *     arbitrary page.
+ * FOLIO_AGENT_COMMAND
+ *     The agent panel's command line, in place of `claude` (agentLaunch.ts).
  */
 
 import {
@@ -54,6 +56,8 @@ import { serveImage } from "./images";
 import { canInstallCommand, installCommand } from "./cli";
 import { ensureCustomCss, readCustomCss, watchCustomCss } from "./customCss";
 import { AgentTracker } from "./agents";
+import { AgentPanel, registerAgentIpc } from "./agentPanel";
+import { DEFAULT_AGENT_COMMAND } from "./agentLaunch";
 import type { AgentSession } from "./agents";
 import { editorName, openInEditor } from "./editor";
 import { openLinkedFile } from "./files";
@@ -205,6 +209,11 @@ async function handleAppRequest(request: Request): Promise<Response> {
 
 function rendererUrl(): string {
   return DEV_SERVER_URL ?? `${APP_ORIGIN}/`;
+}
+
+/** The agent panel's page, a second entry of the frontend build. */
+function agentPanelUrl(): string {
+  return new URL("agent.html", rendererUrl()).href;
 }
 
 function isRendererUrl(url: string): boolean {
@@ -615,7 +624,7 @@ function registerIpcHandlers(): void {
           : undefined;
       const compare = repository === undefined ? [] : [null, compareWithItem(repository, await branchesOf(repository.root))];
       const endLoop = endLoopItems(agentPids);
-      const choice = await popupChoice<"focus" | "unfocus" | "mark-read" | "open" | "reveal">(
+      const choice = await popupChoice<"focus" | "unfocus" | "mark-read" | "agent" | "open" | "reveal">(
         win,
         [
           focused === true ? { label: "Show All Documents", choice: "unfocus" } : { label: "Focus on Folder", choice: "focus" },
@@ -623,6 +632,7 @@ function registerIpcHandlers(): void {
           ...compare,
           ...(endLoop.length > 0 ? [null, ...endLoop] : []),
           null,
+          { label: "Open Agent Here", choice: "agent" },
           { label: "Open Folder as Workspace", choice: "open" },
           { label: revealLabel(), choice: "reveal" },
         ],
@@ -630,7 +640,8 @@ function registerIpcHandlers(): void {
       );
       if (choice === "open") await openWorkspace(win, folder);
       if (choice === "reveal") shell.showItemInFolder(folder);
-      return choice === "open" || choice === "reveal" ? null : choice;
+      if (choice === "agent") agentPanel?.openIn(folder);
+      return choice === "open" || choice === "reveal" || choice === "agent" ? null : choice;
     },
   );
 
@@ -660,6 +671,32 @@ function registerIpcHandlers(): void {
     assertTrustedSender(event);
     if (typeof target !== "string" || !path.isAbsolute(target)) throw new Error("Path must be absolute");
     requestOpen([target]);
+  });
+
+  // The status bar's agent button: show or hide the panel, a new session in
+  // the focused folder (a workspace location). The page can't reach the
+  // session itself (agentPanel.ts)
+  ipcMain.handle("agent-panel:toggle", async (event, location: unknown): Promise<void> => {
+    assertTrustedSender(event);
+    if (agentPanel === null) return;
+    if (agentPanel.isVisible) {
+      agentPanel.hide();
+      return;
+    }
+    const folder =
+      settings.workspace !== null && typeof location === "string" && location !== ""
+        ? await folderInWorkspace(settings.workspace, location)
+        : null;
+    agentPanel.show(folder);
+  });
+  ipcMain.handle("agent-panel:visible", (event): boolean => {
+    assertTrustedSender(event);
+    return agentPanel?.isVisible ?? false;
+  });
+  // The page's status bar below the panel (CSS pixels)
+  ipcMain.on("agent-panel:gap", (event, gap: unknown) => {
+    if (!isRendererUrl(event.senderFrame?.url ?? "") || event.sender !== mainWindow?.webContents) return;
+    if (typeof gap === "number" && Number.isFinite(gap) && gap >= 0 && gap <= 200) agentPanel?.setBottomGap(gap);
   });
 
   // The header's Open in Editor button: its label, and the action
@@ -983,6 +1020,7 @@ async function openWorkspace(win: BrowserWindow, folder: string, docId?: string)
   rememberWorkspace(folder);
   updateWindowTitle(win);
   await loadWorkspaceRoot(win, docId);
+  agentPanel?.workspaceChanged();
 }
 
 // ---------------------------------------------------------------------------
@@ -1461,6 +1499,14 @@ function buildMenu(): Menu {
           registerAccelerator: false,
           click: withWindow((win) => win.webContents.send("find:command", "inline-notes")),
         },
+        // The page decides, to start a new session in its focused folder. Not
+        // registerAccelerator: false, as for Inline Notes: the key must work
+        // from the terminal too, which isn't the page
+        {
+          label: "Toggle Agent Panel",
+          accelerator: "CmdOrCtrl+J",
+          click: () => mainWindow?.webContents.send("find:command", "agent-panel"),
+        },
         { type: "separator" },
         // The rest of Electron's default View menu
         { role: "reload" },
@@ -1511,6 +1557,49 @@ function buildMenu(): Menu {
     },
   ];
   return Menu.buildFromTemplate(template);
+}
+
+// ─── Agent panel ─────────────────────────────────────────────────────────────
+
+let agentPanel: AgentPanel | null = null;
+
+/**
+ * The page makes room for the panel below it (App.module.css,
+ * --agent-panel-height). Inserted CSS goes with each load, so it's put back
+ * on dom-ready; the chain keeps a quick drag's inserts and removals in order.
+ */
+let agentPanelHeight = 0;
+let agentPanelGap = 0;
+let agentPanelCss: Promise<string | null> = Promise.resolve(null);
+
+function reserveAgentPanel(win: BrowserWindow, height: number, gap: number, reloaded = false): void {
+  agentPanelHeight = height;
+  agentPanelGap = gap;
+  agentPanelCss = agentPanelCss.then(async (previous) => {
+    if (win.isDestroyed()) return null;
+    if (previous !== null && !reloaded) await win.webContents.removeInsertedCSS(previous);
+    if (height === 0) return null;
+    // In the page's CSS pixels, which zooming makes larger than the window's.
+    // The inset (panel and status bar) is where the page's overlays end
+    const css = height / win.webContents.getZoomFactor();
+    return win.webContents.insertCSS(`:root { --agent-panel-height: ${css}px; --agent-panel-inset: ${css + gap}px; }`);
+  }).catch(() => null);
+}
+
+function createAgentPanel(win: BrowserWindow): AgentPanel {
+  win.webContents.on("dom-ready", () => reserveAgentPanel(win, agentPanelHeight, agentPanelGap, true));
+  return new AgentPanel(win, {
+    url: agentPanelUrl(),
+    preload: path.join(__dirname, "agentPreload.js"),
+    command: process.env["FOLIO_AGENT_COMMAND"] ?? DEFAULT_AGENT_COMMAND,
+    workspace: () => settings.workspace,
+    onLayout: (height, gap) => reserveAgentPanel(win, height, gap),
+    onVisible: (visible) => {
+      if (!win.isDestroyed()) win.webContents.send("agent-panel:visible", visible);
+    },
+    openExternal,
+    backgroundColor: windowBackgroundColor,
+  });
 }
 
 // ─── Third-party licenses ────────────────────────────────────────────────────
@@ -1594,6 +1683,7 @@ function createWindow(): BrowserWindow {
 
   updateWindowTitle(win);
   void win.loadURL(rendererUrl());
+  agentPanel = createAgentPanel(win);
 
   // A file or folder asked for at launch replaces the first-run folder prompt
   win.webContents.once("did-finish-load", () => {
@@ -1607,6 +1697,8 @@ function createWindow(): BrowserWindow {
     if (mainWindow === win) {
       mainWindow = null;
       windowReady = false;
+      agentPanel = null;
+      agentPanelHeight = 0;
     }
   });
   return win;
@@ -1671,6 +1763,7 @@ void app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => callback(allowed(permission)));
   session.defaultSession.setPermissionCheckHandler((_webContents, permission) => allowed(permission));
   registerIpcHandlers();
+  registerAgentIpc((sender) => (agentPanel?.handles(sender) ? agentPanel : null));
   watchSettings(applySettings);
   watchCustomCss((css) => {
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send("custom-css:changed", css);
@@ -1696,6 +1789,7 @@ void app.whenReady().then(() => {
 app.on("before-quit", () => {
   if (hasPendingViewState()) saveViewState();
   agents.endAllOnQuit();
+  agentPanel?.dispose();
 });
 
 // A termination signal (logout, a process manager) quits like ⌘Q, so the

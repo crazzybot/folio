@@ -18,7 +18,8 @@
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
-    "test": "vitest run"
+    "test": "vitest run",
+    "postinstall": "node scripts/fix-node-pty.mjs"
   },
   "build": {
     "appId": "dev.pogrebtsov.folio",
@@ -111,6 +112,7 @@
     "vitest": "^5.1.0"
   },
   "dependencies": {
-    "electron-updater": "^6.8.11"
+    "electron-updater": "^6.8.11",
+    "node-pty": "^1.1.0"
   }
 }

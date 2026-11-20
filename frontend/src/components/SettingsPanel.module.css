@@ -1,7 +1,8 @@
 /* ─── Settings panel (modal) ──────────────────────────────────────────────── */
 .backdrop {
   position: fixed;
-  inset: 0;
+  /* Ends above the desktop app's agent panel, which covers the page below it */
+  inset: 0 0 var(--agent-panel-inset, 0px);
   z-index: 50;
   display: flex;
   align-items: flex-start;
@@ -14,7 +15,7 @@
 
 .dialog {
   width: min(620px, 100%);
-  max-height: 86vh;
+  max-height: min(86vh, 100%);
   display: flex;
   flex-direction: column;
   background: var(--color-bg);

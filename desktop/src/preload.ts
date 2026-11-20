@@ -218,6 +218,20 @@ contextBridge.exposeInMainWorld("markdownApi", {
     focused = false,
     at: { x: number; y: number } | null = null,
   ) => ipcRenderer.invoke("folder:context-menu", location, hasUnread, repository, agentPids, focused, at),
+  /** The agent panel (agentPanel.ts): only showing and hiding it, never the session. */
+  agentPanel: {
+    toggle: (focusedFolder: string | null) => ipcRenderer.invoke("agent-panel:toggle", focusedFolder),
+    isVisible: () => ipcRenderer.invoke("agent-panel:visible"),
+    onVisibleChange: (callback: (visible: boolean) => void) => {
+      const listener = (_event: IpcRendererEvent, visible: boolean) => callback(visible);
+      ipcRenderer.on("agent-panel:visible", listener);
+      return () => {
+        ipcRenderer.removeListener("agent-panel:visible", listener);
+      };
+    },
+    /** The status bar's height, which the panel sits above. */
+    setBottomGap: (gap: number) => ipcRenderer.send("agent-panel:gap", gap),
+  },
   /** A document's context menu in the document list; resolves "read", "unread" or null. */
   showDocumentMenu: (docId: string, unread: boolean) => ipcRenderer.invoke("document:context-menu", docId, unread),
 });
