@@ -17,6 +17,10 @@ read it first. This skill is the procedure around them.
 - A change the video should *show* (a new feature) means editing
   `record.mjs`'s script, not only re-running it. Agree the new flow with the
   user before editing: the video is the site's main pitch.
+- The site's video (`site/img/demo.mp4`) is now a hand-edited screen
+  recording of the desktop app with Claude Code (see the README). Don't
+  replace it with `record.mjs`'s take unless the user asks; a new video
+  means a new recording.
 - Refresh only what's stale: `node shoot.mjs out <names…>` takes single
   stills.
 
@@ -75,7 +79,7 @@ copying.
 
 ```bash
 cd scripts/media
-cp out/demo.mp4 out/demo-poster.webp out/og.png ../../site/img/
+cp out/og.png ../../site/img/
 for f in app-light app-dark status search book marks; do cp out/$f.webp ../../site/img/; done
 ```
 
