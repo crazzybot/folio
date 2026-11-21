@@ -105,6 +105,9 @@ document.
 A document moved or renamed without edits keeps its marks. Otherwise its
 marks are listed under **Missing documents** in the Marks view, where you can
 move them to another document or delete them. Nothing is deleted on its own.
+With a folder focused, only that folder's missing documents are listed; a
+line under them says how many are in other folders, with **Show All
+Documents**.
 
 After you switch git branches, a document that exists only on another branch
 is listed under **On other branches** instead, with the branch's name. Its
