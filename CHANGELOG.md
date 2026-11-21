@@ -14,6 +14,9 @@ turns them into the next release's section.
   now close it, as they do on the document's note.
 - The find bar (⌘F / Ctrl+F) is no longer hidden under the document's
   summary pinned to the top of the view.
+- With a folder focused, the Marks view's **Missing documents** lists only
+  that folder's, like the rest of the view. A line under them says how
+  many are in other folders, with **Show All Documents**.
 
 ## [0.10.0] — 2026-11-19
 

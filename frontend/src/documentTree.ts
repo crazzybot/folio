@@ -102,9 +102,13 @@ export function foldersContaining(tree: readonly TreeNode[], location: string): 
   return [];
 }
 
+/** Whether a workspace location ("docs/api/v2.md") is inside `folder`, at any depth; always when null. */
+export function inFolder(location: string, folder: string | null): boolean {
+  return folder === null || location.startsWith(folder + "/");
+}
+
 /** Documents inside `folder` ("docs/api"), at any depth; all of them when null (Focus on Folder). */
 export function documentsInFolder(documents: DocumentMeta[], folder: string | null): DocumentMeta[] {
   if (folder === null) return documents;
-  const prefix = folder + "/";
-  return documents.filter((doc) => doc.location.startsWith(prefix));
+  return documents.filter((doc) => inFolder(doc.location, folder));
 }
