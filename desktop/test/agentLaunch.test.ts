@@ -38,4 +38,10 @@ describe("agentEnv", () => {
     expect(env).not.toHaveProperty("CLAUDE_CODE_SESSION_ID");
     expect(env["CLAUDE_CONFIG_DIR"]).toBe("/c");
   });
+
+  it("doesn't connect to the editor whose terminal started Folio", () => {
+    const env = agentEnv({ CLAUDE_CODE_SSE_PORT: "49996", ENABLE_IDE_INTEGRATION: "true" }, "s1");
+    expect(env).not.toHaveProperty("CLAUDE_CODE_SSE_PORT");
+    expect(env).not.toHaveProperty("ENABLE_IDE_INTEGRATION");
+  });
 });

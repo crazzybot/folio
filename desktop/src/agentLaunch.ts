@@ -46,6 +46,15 @@ const PARENT_SESSION_VARIABLES = [
 ];
 
 /**
+ * What an editor's terminal sets for the Claude Code there to connect to the
+ * editor (VS Code's extension sets the port). A Folio started from that
+ * terminal would pass them on, and the panel's session would show the
+ * editor's open file as its context. The panel is a terminal of its own;
+ * `/ide` in it still connects on purpose.
+ */
+const IDE_TERMINAL_VARIABLES = ["CLAUDE_CODE_SSE_PORT", "ENABLE_IDE_INTEGRATION"];
+
+/**
  * The session's environment: the app's own, as a terminal would get it, plus
  * what the agent panel needs. FOLIO_AGENT_SESSION is passed down to the
  * Folio MCP server the agent starts, so it can say which panel it's in.
@@ -58,7 +67,7 @@ export function agentEnv(env: NodeJS.ProcessEnv, session: string): Record<string
   // Electron's own: they would turn a node or electron the agent runs into something else
   delete result["ELECTRON_RUN_AS_NODE"];
   delete result["ELECTRON_NO_ATTACH_CONSOLE"];
-  for (const name of PARENT_SESSION_VARIABLES) delete result[name];
+  for (const name of [...PARENT_SESSION_VARIABLES, ...IDE_TERMINAL_VARIABLES]) delete result[name];
   return {
     ...result,
     TERM: "xterm-256color",
