@@ -1,0 +1,66 @@
+import { describe, expect, it } from "vitest";
+import { agentEnv, agentLaunch, isClaudeCommand, sessionCommand } from "../src/agentLaunch";
+
+describe("agentLaunch", () => {
+  it("runs the agent through the user's login shell, replacing it", () => {
+    expect(agentLaunch("claude", "darwin", { SHELL: "/opt/homebrew/bin/fish" })).toEqual({
+      file: "/opt/homebrew/bin/fish",
+      args: ["-l", "-i", "-c", "exec claude"],
+    });
+  });
+
+  it("falls back to the platform's shell", () => {
+    expect(agentLaunch("claude", "darwin", {}).file).toBe("/bin/zsh");
+    expect(agentLaunch("claude", "linux", {}).file).toBe("/bin/sh");
+  });
+
+  it("uses cmd on Windows", () => {
+    expect(agentLaunch("claude", "win32", { ComSpec: "C:\\Windows\\system32\\cmd.exe" })).toEqual({
+      file: "C:\\Windows\\system32\\cmd.exe",
+      args: ["/d", "/s", "/c", "claude"],
+    });
+  });
+});
+
+describe("agentEnv", () => {
+  it("passes the app's environment without Electron's own, and names the session", () => {
+    const env = agentEnv({ PATH: "/usr/bin", ELECTRON_RUN_AS_NODE: "1", EMPTY: undefined }, "s1");
+    expect(env["PATH"]).toBe("/usr/bin");
+    expect(env).not.toHaveProperty("ELECTRON_RUN_AS_NODE");
+    expect(env).not.toHaveProperty("EMPTY");
+    expect(env["FOLIO_AGENT_SESSION"]).toBe("s1");
+    expect(env["TERM"]).toBe("xterm-256color");
+  });
+
+  it("starts a session of its own, not the child of the Claude Code that started Folio", () => {
+    const env = agentEnv({ CLAUDECODE: "1", CLAUDE_CODE_SESSION_ID: "p", CLAUDE_CONFIG_DIR: "/c" }, "s1");
+    expect(env).not.toHaveProperty("CLAUDECODE");
+    expect(env).not.toHaveProperty("CLAUDE_CODE_SESSION_ID");
+    expect(env["CLAUDE_CONFIG_DIR"]).toBe("/c");
+  });
+
+  it("doesn't connect to the editor whose terminal started Folio", () => {
+    const env = agentEnv({ CLAUDE_CODE_SSE_PORT: "49996", ENABLE_IDE_INTEGRATION: "true" }, "s1");
+    expect(env).not.toHaveProperty("CLAUDE_CODE_SSE_PORT");
+    expect(env).not.toHaveProperty("ENABLE_IDE_INTEGRATION");
+  });
+});
+
+describe("sessionCommand", () => {
+  const id = "3f0c2a8e-1b2c-4d5e-8f90-123456789abc";
+
+  it("names a new Claude Code session, so the panel can resume it", () => {
+    expect(sessionCommand("claude", id, "new")).toBe(`claude --session-id ${id}`);
+  });
+
+  it("starts the review loop as the first prompt, in a new conversation or going on with this one", () => {
+    expect(sessionCommand("claude --model haiku", id, "loop")).toBe(`claude --model haiku --session-id ${id} "/folio:review-loop"`);
+    expect(sessionCommand("claude", id, "resume-loop")).toBe(`claude --resume ${id} "/folio:review-loop"`);
+  });
+
+  it("runs other agents as they are", () => {
+    expect(sessionCommand("codex", id, "resume-loop")).toBe("codex");
+    expect(isClaudeCommand("/opt/homebrew/bin/claude --verbose")).toBe(true);
+    expect(isClaudeCommand("claude-dev")).toBe(false);
+  });
+});

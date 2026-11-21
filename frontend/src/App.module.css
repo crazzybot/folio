@@ -30,7 +30,8 @@
 .drawer {
   position: fixed;
   top: 0;
-  bottom: 0;
+  /* Ends above the desktop app's agent panel, which covers the page below it */
+  bottom: var(--agent-panel-inset, 0px);
   left: 0;
   z-index: 31;
   width: min(85vw, 320px);
@@ -52,7 +53,7 @@
 /* Dims the document behind an open drawer */
 .scrim {
   position: fixed;
-  inset: 0;
+  inset: 0 0 var(--agent-panel-inset, 0px);
   z-index: 30;
   background: rgba(0, 0, 0, 0.35);
   opacity: 0;
@@ -193,6 +194,16 @@
 }
 
 /* ─── Status bar ──────────────────────────────────────────────────────────── */
+/* Room for the desktop app's agent panel, a view of its own laid over this
+   space by the main process (desktop/src/agentPanel.ts sets the height).
+   The view covers whatever the page draws there, so overlays fixed to the
+   window end above it: --agent-panel-inset is the panel and the status bar
+   below it, set only while the panel shows */
+.agentSlot {
+  flex-shrink: 0;
+  height: var(--agent-panel-height, 0px);
+}
+
 .statusBar {
   flex-shrink: 0;
   height: var(--statusbar-height);
@@ -274,6 +285,17 @@
   outline: 1px solid var(--color-accent);
 }
 
+/* The agent panel's button, at the right end: pressed while the panel shows */
+.statusBtn.agentBtn {
+  margin-left: 0;
+  margin-right: -4px;
+}
+
+.statusBtn[aria-pressed="true"] {
+  color: var(--color-text-strong);
+  background: var(--color-hover-bg);
+}
+
 /* The branch of the open document's repository (desktop), after the gear; opens the branch menu */
 .statusBranch {
   flex-shrink: 1;
@@ -341,7 +363,7 @@
 /* ─── Drop overlay (desktop: drag a file or folder onto the window) ───────── */
 .dropOverlay {
   position: fixed;
-  inset: 0;
+  inset: 0 0 var(--agent-panel-inset, 0px);
   z-index: 20;
   display: flex;
   align-items: center;

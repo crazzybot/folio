@@ -106,6 +106,9 @@ export default defineConfig(({ mode }) => ({
     // on demand (see MermaidDiagram.tsx, katexLoader.ts).
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
+      // The desktop app's agent panel is a page of its own (src/agent/); the
+      // live demo has no agent
+      input: mode === "demo" ? ["index.html"] : ["index.html", "agent.html"],
       output: {
         // Function form: Vite 8 (Rolldown) doesn't accept the object form
         manualChunks(id) {

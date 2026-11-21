@@ -2,7 +2,8 @@
 /* Covers the sidebar, header, outline and status bar */
 .overlay {
   position: fixed;
-  inset: 0;
+  /* Ends above the desktop app's agent panel, which covers the page below it */
+  inset: 0 0 var(--agent-panel-inset, 0px);
   z-index: 100;
   outline: none;
   display: flex;
