@@ -17,6 +17,31 @@ export interface AgentLaunch {
 /** The agent's command line; FOLIO_AGENT_COMMAND overrides it while trying others out. */
 export const DEFAULT_AGENT_COMMAND = "claude";
 
+/** The Folio plugin's skill that waits for the notes the user sends (plugins/folio). */
+export const REVIEW_LOOP_COMMAND = "/folio:review-loop";
+
+/** Whether the command runs Claude Code, whose sessions the panel can name and resume. */
+export function isClaudeCommand(command: string): boolean {
+  const program = command.trim().split(/\s+/)[0] ?? "";
+  return program.split(/[\\/]/).pop() === "claude";
+}
+
+/**
+ * How a panel session starts. Claude Code sessions carry Folio's own id
+ * (`--session-id`), so Start Review Loop can resume exactly this
+ * conversation: `--continue` would take the folder's latest, which may be
+ * another terminal's. "loop" starts a conversation with the review loop as
+ * its first prompt; "resume-loop" goes on with one, into the loop. Both are
+ * Claude Code's own command line with a prompt the user chose: Folio never
+ * types into the session. Other agents run as they are.
+ */
+export function sessionCommand(command: string, id: string, mode: "new" | "loop" | "resume-loop"): string {
+  if (!isClaudeCommand(command)) return command;
+  if (mode === "new") return `${command} --session-id ${id}`;
+  if (mode === "loop") return `${command} --session-id ${id} "${REVIEW_LOOP_COMMAND}"`;
+  return `${command} --resume ${id} "${REVIEW_LOOP_COMMAND}"`;
+}
+
 export function agentLaunch(command: string, platform: NodeJS.Platform, env: NodeJS.ProcessEnv): AgentLaunch {
   if (platform === "win32") {
     // cmd resolves claude.cmd / claude.exe from PATH, which Windows apps do get

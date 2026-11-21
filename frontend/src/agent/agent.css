@@ -42,6 +42,37 @@ body {
   cursor: pointer;
 }
 
+/* The review loop's state, a pill as the status bar's Live one */
+.loop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  background: var(--color-hover-bg);
+  color: var(--color-text-strong);
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+}
+
+.loop::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-status-accepted);
+}
+
+.loop[data-state="working"]::before {
+  background: var(--color-git-modified);
+}
+
+.loop[hidden],
+.bar button[hidden] {
+  display: none;
+}
+
 .bar button:hover {
   background: var(--color-hover-bg);
   color: var(--color-text-strong);

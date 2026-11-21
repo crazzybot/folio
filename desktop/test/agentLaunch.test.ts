@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentEnv, agentLaunch } from "../src/agentLaunch";
+import { agentEnv, agentLaunch, isClaudeCommand, sessionCommand } from "../src/agentLaunch";
 
 describe("agentLaunch", () => {
   it("runs the agent through the user's login shell, replacing it", () => {
@@ -43,5 +43,24 @@ describe("agentEnv", () => {
     const env = agentEnv({ CLAUDE_CODE_SSE_PORT: "49996", ENABLE_IDE_INTEGRATION: "true" }, "s1");
     expect(env).not.toHaveProperty("CLAUDE_CODE_SSE_PORT");
     expect(env).not.toHaveProperty("ENABLE_IDE_INTEGRATION");
+  });
+});
+
+describe("sessionCommand", () => {
+  const id = "3f0c2a8e-1b2c-4d5e-8f90-123456789abc";
+
+  it("names a new Claude Code session, so the panel can resume it", () => {
+    expect(sessionCommand("claude", id, "new")).toBe(`claude --session-id ${id}`);
+  });
+
+  it("starts the review loop as the first prompt, in a new conversation or going on with this one", () => {
+    expect(sessionCommand("claude --model haiku", id, "loop")).toBe(`claude --model haiku --session-id ${id} "/folio:review-loop"`);
+    expect(sessionCommand("claude", id, "resume-loop")).toBe(`claude --resume ${id} "/folio:review-loop"`);
+  });
+
+  it("runs other agents as they are", () => {
+    expect(sessionCommand("codex", id, "resume-loop")).toBe("codex");
+    expect(isClaudeCommand("/opt/homebrew/bin/claude --verbose")).toBe(true);
+    expect(isClaudeCommand("claude-dev")).toBe(false);
   });
 });

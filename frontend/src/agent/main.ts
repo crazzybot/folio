@@ -10,7 +10,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import "../index.css";
 import "./agent.css";
-import type { AgentApi } from "./agentApi";
+import type { AgentApi, LoopState } from "./agentApi";
 
 const lightQuery = window.matchMedia("(prefers-color-scheme: light)");
 
@@ -31,12 +31,29 @@ function applyTheme(terminal: Terminal | null): void {
   if (terminal !== null) terminal.options.theme = terminalTheme();
 }
 
-function header(api: AgentApi, terminal: Terminal): { root: HTMLElement; title: HTMLElement } {
+interface Header {
+  root: HTMLElement;
+  title: HTMLElement;
+  /** Show the review loop's state, or the button to start it. */
+  setLoop(state: LoopState, available: boolean): void;
+}
+
+function header(api: AgentApi, terminal: Terminal): Header {
   const root = document.createElement("header");
   root.className = "bar";
   const title = document.createElement("span");
   title.className = "title";
   title.textContent = "Agent";
+  // The review loop: Claude waits for the notes sent from Folio
+  const loop = document.createElement("span");
+  loop.className = "loop";
+  loop.hidden = true;
+  const startLoop = document.createElement("button");
+  startLoop.textContent = "Start Review Loop";
+  startLoop.setAttribute("aria-label", "Start Review Loop");
+  startLoop.title = "Restart Claude Code on this conversation, waiting for the notes you send from Folio";
+  startLoop.hidden = true;
+  startLoop.addEventListener("click", () => api.startReviewLoop());
   const restart = document.createElement("button");
   restart.textContent = "Restart";
   restart.setAttribute("aria-label", "Restart Agent Session");
@@ -48,7 +65,7 @@ function header(api: AgentApi, terminal: Terminal): { root: HTMLElement; title: 
   hide.textContent = "Hide";
   hide.setAttribute("aria-label", "Hide Agent Panel");
   hide.addEventListener("click", () => api.hide());
-  root.append(title, restart, hide);
+  root.append(title, loop, startLoop, restart, hide);
 
   // Dragging the bar resizes the panel. Screen coordinates: the view itself
   // moves while it's resized, so its own coordinates would drift.
@@ -65,7 +82,15 @@ function header(api: AgentApi, terminal: Terminal): { root: HTMLElement; title: 
     root.addEventListener("pointermove", move);
     root.addEventListener("pointerup", up);
   });
-  return { root, title };
+
+  const setLoop = (state: LoopState, available: boolean) => {
+    startLoop.hidden = !available || state !== "off";
+    loop.hidden = state === "off";
+    loop.dataset["state"] = state;
+    loop.textContent = state === "waiting" ? "Waiting for your notes" : "Working on your notes";
+    loop.title = state === "waiting" ? "Notes you send from Folio go to Claude. Press Esc in the panel to stop waiting." : "";
+  };
+  return { root, title, setLoop };
 }
 
 function start(api: AgentApi): void {
@@ -107,8 +132,16 @@ function start(api: AgentApi): void {
     ended = true;
     terminal.write(`\r\n\x1b[2m[The session ended (${code}). Press any key to start a new one.]\x1b[0m\r\n`);
   });
-  api.onInfo(({ title, folder }) => {
+  let loopAvailable = false;
+  let loopState: LoopState = "off";
+  api.onInfo(({ title, folder, reviewLoop }) => {
     bar.title.textContent = `${title} · ${folder}`;
+    loopAvailable = reviewLoop;
+    bar.setLoop(loopState, loopAvailable);
+  });
+  api.onLoop((state) => {
+    loopState = state;
+    bar.setLoop(loopState, loopAvailable);
   });
   api.onFocus(() => terminal.focus());
 
