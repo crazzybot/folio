@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDocumentTree, documentsInFolder, foldersContaining } from "./documentTree";
+import { buildDocumentTree, documentsInFolder, foldersContaining, inFolder } from "./documentTree";
 import type { TreeNode } from "./documentTree";
 import type { DocumentMeta } from "./types";
 
@@ -98,6 +98,15 @@ describe("foldersContaining", () => {
 const focusDocs = ["README.md", "docs/index.md", "docs/api/v2.md", "docs-old/notes.md", "guides/setup.md"].map(doc);
 
 const locations = (list: DocumentMeta[]) => list.map((d) => d.location);
+
+describe("inFolder", () => {
+  it("takes a location in the folder or below it, and everything without a focus", () => {
+    expect(inFolder("docs/api/v2.md", "docs")).toBe(true);
+    expect(inFolder("docs/api/v2.md", null)).toBe(true);
+    expect(inFolder("docs.md", "docs")).toBe(false);
+    expect(inFolder("doc/index.md", "docs")).toBe(false);
+  });
+});
 
 describe("documentsInFolder", () => {
   it("keeps every document without a focus", () => {

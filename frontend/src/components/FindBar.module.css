@@ -4,7 +4,9 @@
   position: absolute;
   top: 0;
   right: var(--space-6);
-  z-index: 5;
+  /* Above the document's pinned summary (DocumentHeader.module.css .pin, 5),
+     which comes later in the page */
+  z-index: 6;
   display: flex;
   align-items: center;
   gap: 2px;
