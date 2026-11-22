@@ -28,7 +28,12 @@ Documents to review: $ARGUMENTS
    - or a question, with `addressed` left out; the user answers it in
      Folio, and the note comes back in a later round.
 
-   Don't leave a note unanswered, even when the passage it quotes is gone.
+   A note that answers your question counts as addressed once you've
+   recorded the answer in the document (a decision filled in, an open
+   question closed). Say what you changed in the document ("Recorded in Open
+   Questions: keyboard-only for v1"), never that the note is resolved: the
+   user resolves notes in Folio. Don't leave a note unanswered, even when
+   the passage it quotes is gone.
 4. Finish with a short summary: the documents you changed, the notes you
    addressed, and the ones left open. Suggest the user review the changes
    in Folio, where they resolve or reopen each addressed note.

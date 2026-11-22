@@ -14,6 +14,9 @@ turns them into the next release's section.
   now close it, as they do on the document's note.
 - The find bar (⌘F / Ctrl+F) is no longer hidden under the document's
   summary pinned to the top of the view.
+- When you answer the agent's question and it records your answer in the
+  document, it now marks the note **Addressed**, and its reply says what
+  it changed. It no longer says "resolved", which only you do in Folio.
 
 ## [0.10.0] — 2026-11-19
 
