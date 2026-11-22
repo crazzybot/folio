@@ -249,10 +249,11 @@
 }
 
 /* Settings gear, at the start of the status bar (as in VS Code) */
+/* Icon buttons as VS Code's status bar has them: a 16px icon with room around it */
 .statusBtn {
   flex-shrink: 0;
-  width: 20px;
-  height: 18px;
+  width: 22px;
+  height: 20px;
   margin-left: -4px;
   padding: 0;
   border: none;
@@ -280,7 +281,7 @@
   min-width: 0;
   /* Room for "api · feature/x → main" */
   max-width: 40%;
-  height: 18px;
+  height: 20px;
   margin-left: calc(-1 * var(--space-3));
   padding: 0 var(--space-1);
   border: none;
