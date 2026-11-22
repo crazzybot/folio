@@ -8,6 +8,11 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Changed
+
+- The status bar is a little taller (28 px), with 16 px icons on its
+  buttons, as in VS Code.
+
 ### Fixed
 
 - **Resolve**, **Unresolve** and **Mark not sent** in a highlight's popover
@@ -17,6 +22,13 @@ turns them into the next release's section.
 - When you answer the agent's question and it records your answer in the
   document, it now marks the note **Addressed**, and its reply says what
   it changed. It no longer says "resolved", which only you do in Folio.
+- Interrupting the agent while it waits for your notes (Esc in Claude Code)
+  now ends the review loop in Folio at once: the **Live** pill goes away,
+  instead of staying for up to five minutes. Needs the new version of
+  Folio's MCP server.
+- With a folder focused, the Marks view's **Missing documents** lists only
+  that folder's, like the rest of the view. A line under them says how
+  many are in other folders, with **Show All Documents**.
 
 ## [0.10.0] — 2026-11-19
 
