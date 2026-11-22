@@ -235,8 +235,12 @@ describe("waitForReview", () => {
   it("stops when the call is cancelled, and refuses a since that isn't a time", async () => {
     const abort = new AbortController();
     const waiting = folio.waitForReview({ timeoutMs: 60_000, signal: abort.signal }, "Claude Code");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(presence()).toMatchObject({ state: "waiting" });
     abort.abort();
     expect(await waiting).toBeNull();
+    // Interrupted (Esc): no longer waiting in the app, not until the deadline
+    expect(() => presence()).toThrow();
     await expect(folio.waitForReview({ since: "yesterday", timeoutMs: 1_000 }, "Claude Code")).rejects.toBeInstanceOf(FolioError);
   });
 });

@@ -14,6 +14,10 @@ turns them into the next release's section.
   now close it, as they do on the document's note.
 - The find bar (⌘F / Ctrl+F) is no longer hidden under the document's
   summary pinned to the top of the view.
+- Interrupting the agent while it waits for your notes (Esc in Claude Code)
+  now ends the review loop in Folio at once: the **Live** pill goes away,
+  instead of staying for up to five minutes. Needs the new version of
+  Folio's MCP server.
 
 ## [0.10.0] — 2026-11-19
 
