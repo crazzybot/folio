@@ -102,7 +102,7 @@ export function createServer(folio: Folio): McpServer {
           `${notes.text}\n\n---\n` +
             "Answer each note with folio_reply: noteId as given after \"note\" on its location line; " +
             "for a document's overall note or status change, its path instead. " +
-            "Set addressed when you changed the document to address it; leave it out to ask a question or explain why not. " +
+            "Set addressed when you changed the document to address it, recording the user's answer to your question included; leave it out to ask a question or explain why not. " +
             "When your edit replaced a note's quoted text, give the new text as passage.",
         );
       }),
@@ -179,7 +179,7 @@ export function createServer(folio: Folio): McpServer {
             `${sent.text}\n\n---\n` +
               "Answer each note with folio_reply: noteId as given after \"note\" on its location line; " +
               "for a document's overall note or status change, its path instead. " +
-              "Set addressed when you changed the document to address it; leave it out to ask a question or explain why not. " +
+              "Set addressed when you changed the document to address it, recording the user's answer to your question included; leave it out to ask a question or explain why not. " +
               `Then call folio_wait_for_review with since: "${sent.since}" for the next round, unless the user asked you to stop.`,
           );
         } finally {
@@ -196,7 +196,8 @@ export function createServer(folio: Folio): McpServer {
         "Answer one of the user's review notes in Folio, where they read it next to the passage. " +
         "Say what you changed and set addressed: true, or explain why you didn't change it, or ask a question (addressed left out: the note waits for the user's answer). " +
         "If your edit replaced the quoted text, give the text that now stands in its place as passage, copied exactly from the file as it is now: Folio highlights it and keeps the note on it. " +
-        "The user resolves or reopens addressed notes; you can't resolve, edit or delete them. Keep replies short: a sentence or two.",
+        "Recording the user's answer to your question in the document is a change too: set addressed. " +
+        "Say what you changed, never that the note is resolved: the user resolves or reopens addressed notes; you can't resolve, edit or delete them. Keep replies short: a sentence or two.",
       inputSchema: z.object({
         noteId: z.string().optional().describe("The note's id from folio_get_review_notes (8 hex digits)"),
         path: z.string().optional().describe("Instead of noteId: the document whose overall note (or status change) you're answering"),

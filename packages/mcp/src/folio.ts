@@ -288,8 +288,10 @@ export class Folio {
    * pasting elsewhere, doesn't count. The round is already recorded, so
    * none is added here.
    *
-   * Resolves to `null` at the timeout or when `signal` aborts; the agent
-   * calls again with the same `since`. Resolves to why the loop ended when
+   * Resolves to `null` at the timeout, and the agent calls again with the
+   * same `since`. Also when `signal` aborts: the user interrupted the agent
+   * (Esc in Claude Code), which ends the loop, so the session stops counting
+   * as waiting in the app at once. Resolves to why the loop ended when
    * the user ended it in the app, closed its workspace there, or quit the
    * app, now or while the agent worked on the last notes.
    */
@@ -311,8 +313,13 @@ export class Folio {
         await this.announce({ state: "working", since: sent.since }, client);
         return sent;
       }
+      if (request.signal?.aborted === true) {
+        // Otherwise the app would show it waiting until the deadline had long passed
+        this.leave();
+        return null;
+      }
       const left = deadline - Date.now();
-      if (left <= 0 || request.signal?.aborted === true) return null;
+      if (left <= 0) return null;
       await this.marksChange(Math.min(left, RECHECK_MS), request.signal);
     }
   }
