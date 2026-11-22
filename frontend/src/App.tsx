@@ -1393,7 +1393,7 @@ function AppInner(): React.ReactElement {
           title="Settings"
         >
           {/* A gear */}
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden="true">
             <circle cx="8" cy="8" r="2.2" />
             <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4M12.6 12.6l-1.4-1.4M4.8 4.8L3.4 3.4" strokeLinecap="round" />
           </svg>
@@ -1415,9 +1415,9 @@ function AppInner(): React.ReactElement {
               .filter(Boolean)
               .join("\n")}
           >
-            <BranchIcon size={12} />
+            <BranchIcon size={14} />
             <span className={styles.statusBranchName}>{statusBranchText(gitRepo, gitRepoNamed)}</span>
-            {gitRepo.mainCheckout !== null && <WorktreeIcon size={12} />}
+            {gitRepo.mainCheckout !== null && <WorktreeIcon size={14} />}
           </button>
         )}
         {/* An agent on the whole workspace: no folder row to show it on, so its menu is here */}

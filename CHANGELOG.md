@@ -8,6 +8,11 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Changed
+
+- The status bar is a little taller (28 px), with 16 px icons on its
+  buttons, as in VS Code.
+
 ### Fixed
 
 - **Resolve**, **Unresolve** and **Mark not sent** in a highlight's popover

@@ -106,7 +106,7 @@
 
   /* Chrome sizes */
   --header-height:    35px;
-  --statusbar-height: 22px;
+  --statusbar-height: 28px;
   /* Room for the macOS window buttons when the title bar is inset */
   --traffic-lights-width: 78px;
 }
