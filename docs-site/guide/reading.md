@@ -116,8 +116,8 @@ Folio only reads git; it never changes anything in the repository.
 ## Focus on a folder
 
 To read only part of a large workspace, click the focus button on a folder
-row (it appears on hover), or a folder in the breadcrumb. The list, search
-and document count narrow to that folder. Clear it with ✕ on the folder bar,
+row (it appears on hover), or a folder in the breadcrumb. The list, search,
+the Marks view and document count narrow to that folder. Clear it with ✕ on the folder bar,
 or Escape in the list.
 
 ## Search

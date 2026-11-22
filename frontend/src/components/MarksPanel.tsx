@@ -55,8 +55,12 @@ interface MarksPanelProps {
   onRemoveBookmark: (docId: string, bookmarkId: string) => void;
   /** Remove the note on a document as a whole. */
   onRemoveDocumentNote: (docId: string) => void;
-  /** Marks of files in the workspace that no longer exist. */
+  /** Marks of files that no longer exist, in the listed folder (the focused one, if any). */
   missing: readonly MissingMarks[];
+  /** How many more such files are outside the focused folder (Focus on Folder hides them). */
+  missingElsewhere?: number;
+  /** Show All Documents: end the folder focus, which shows those too. */
+  onShowAllDocuments?: () => void;
   /** Every document in the workspace, to move a missing document's marks to. */
   allDocuments: readonly DocumentMeta[];
   onRelink: (recordId: string, docId: string) => void;
@@ -84,6 +88,8 @@ export default function MarksPanel({
   onRemoveBookmark,
   onRemoveDocumentNote,
   missing,
+  missingElsewhere = 0,
+  onShowAllDocuments,
   allDocuments,
   onRelink,
   onForget,
@@ -503,6 +509,20 @@ export default function MarksPanel({
             onRelink={onRelink}
             onForget={onForget}
           />
+        )}
+        {/* The focus hides other folders' missing files: say so, or they'd never be cleaned up */}
+        {!openOnly && missingElsewhere > 0 && (
+          <p className={styles.missingElsewhere}>
+            {missingElsewhere} missing {missingElsewhere === 1 ? "document" : "documents"} in other folders
+            {onShowAllDocuments !== undefined && (
+              <>
+                {" · "}
+                <button type="button" className={styles.missingShowAll} onClick={onShowAllDocuments}>
+                  Show All Documents
+                </button>
+              </>
+            )}
+          </p>
         )}
       </div>
     </div>
