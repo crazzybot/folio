@@ -53,7 +53,7 @@ import { branchSentence, changesById, folderName, isOnBase, repositoryOf, status
 import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
-import { defaultSelection, picked, pickedUpBy, sendDocuments, sendGroups } from "./sending";
+import { agentProgress, defaultSelection, picked, pickedUpBy, sendDocuments, sendGroups } from "./sending";
 import { newReplies, repliedNotes, repliesParts, repliesSummary } from "./threads";
 import type { Picked, SendItem, StateFilter } from "./sending";
 import type { Located } from "./marksView";
@@ -549,7 +549,7 @@ function AppInner(): React.ReactElement {
   const [statusMessage, setStatusMessage] = useStatusMessage();
   const [markSent, setMarkSent] = useMarkSent();
   // The agents in a review loop on the shown document: its note editors
-  // offer Save and Send, which gives them one note without the Send dialog
+  // offer Send, which gives them one note without the Send dialog
   const shownLocation = documents.find((doc) => doc.id === contentId)?.location ?? null;
   const sendTo = useMemo(() => {
     const live = shownLocation === null ? [] : agentsFor(agents, shownLocation);
@@ -1163,6 +1163,7 @@ function AppInner(): React.ReactElement {
                   sendNow(contentId, changes === null ? Promise.resolve() : marks.saveDocumentNote(contentId, changes), "document")
                 }
                 pickedBy={pickedUpBy(shownRounds, null)}
+                progress={documentNote === undefined ? null : agentProgress(documentNote, shownRounds, null, sendTo)}
                 onReplyAndSend={(r) =>
                   sendNow(
                     contentId,

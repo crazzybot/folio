@@ -10,6 +10,8 @@ follow the text when a document is edited.
 2. Pick one of four colours from the toolbar above the selection, or choose
    **Add note** to highlight it and write a note.
 3. Click a highlight later to change its colour, edit its note or remove it.
+   **×** at the top right of its popover, `Esc` or a click elsewhere closes
+   it; a note you're writing is kept.
 
 `⇧⌘H` / `Ctrl+Shift+H` highlights the selection in the last colour used.
 

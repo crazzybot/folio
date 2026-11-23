@@ -113,6 +113,46 @@ export function pickedUpBy(rounds: readonly Round[] | undefined, highlightId: st
   return round.via === "mcp" || round.picked !== undefined ? round.client : null;
 }
 
+/** How the agent a note was sent to is getting on with it: what the note's dialog shows below the thread. */
+export interface AgentProgress {
+  /** Sent, not taken yet; taken and being worked on; or the agent's loop ended before it answered. */
+  stage: "queued" | "working" | "stopped";
+  /** "Claude Code". */
+  agent: string;
+}
+
+/**
+ * Where the agent is with a note sent to it from a review loop (null: the
+ * note isn't waiting on one). `live` names the agents in a loop on the
+ * document now; none means the one it was sent to won't answer it.
+ */
+export function agentProgress(
+  mark: { state?: NoteState | undefined; replies?: Highlight["replies"] },
+  rounds: readonly Round[] | undefined,
+  highlightId: string | null,
+  live: string | null,
+): AgentProgress | null {
+  if (stateOf(mark) !== "sent" || answeredBy(mark) !== null) return null;
+  // Copied or fetched: no agent in a loop to wait for
+  const round = lastRound(rounds, highlightId);
+  if (round === undefined || round.via !== "send" || round.client === undefined) return null;
+  const agent = round.client;
+  if (live === null) return { stage: "stopped", agent };
+  return { stage: round.picked === undefined ? "queued" : "working", agent };
+}
+
+/** What the dialog says for each stage. */
+export function progressSentence({ stage, agent }: AgentProgress): string {
+  switch (stage) {
+    case "queued":
+      return `Sent to ${agent} · waiting for it to take the note`;
+    case "working":
+      return `${agent} is working on it`;
+    case "stopped":
+      return `${agent}'s review loop ended before it replied`;
+  }
+}
+
 /**
  * Where a note is in the review loop, in a sentence: "Sent Nov 11, 10:02 ·
  * waiting for the agent", or "… · Claude Code is working on it" once

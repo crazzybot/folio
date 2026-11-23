@@ -108,7 +108,7 @@
 .replyBtn:focus-visible,
 .editBtn:focus-visible,
 .deleteBtn:focus-visible,
-.sendBtn:focus-visible {
+.primaryBtn:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
@@ -151,7 +151,7 @@
   color: var(--color-text-subtle);
 }
 
-.sendBtn {
+.primaryBtn {
   padding: 2px 10px;
   border: none;
   border-radius: var(--radius-sm);
@@ -162,13 +162,13 @@
   cursor: pointer;
 }
 
-.sendBtn:disabled {
+.primaryBtn:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-/* Save and Send, beside Save: secondary, as in the note editor */
-.sendNowBtn {
+/* Beside the primary button: Save, while Send goes to an agent in the loop */
+.secondaryBtn {
   padding: 2px 10px;
   border: 1px solid var(--color-input-border);
   border-radius: var(--radius-sm);
@@ -179,14 +179,76 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.sendNowBtn:hover:not(:disabled) {
+.secondaryBtn:hover:not(:disabled) {
   background: var(--color-hover-bg);
 }
-.sendNowBtn:focus-visible {
+.secondaryBtn:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
-.sendNowBtn:disabled {
+.secondaryBtn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* The agent the note went to: after the last message, until it answers */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.progressStopped {
+  color: var(--color-text-subtle);
+}
+
+/* Sent, not taken yet: a slow pulse */
+.pulse {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* Taken: dots as in a chat, in a bubble like a message's */
+.typing {
+  display: inline-flex;
+  gap: 3px;
+  padding: 5px 8px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+}
+
+.typing span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  animation: typing 1.2s ease-in-out infinite;
+}
+
+.typing span:nth-child(2) { animation-delay: 0.15s; }
+.typing span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typing {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse,
+  .typing span {
+    animation: none;
+  }
 }

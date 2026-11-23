@@ -12,6 +12,7 @@
  */
 
 import { useLayoutEffect, useRef, useState } from "react";
+import { progressSentence, type AgentProgress } from "../sending";
 import { authorName, canReply, newReplies, replyTime } from "../threads";
 import type { Author, NoteState, Thread } from "../types";
 import MessageText from "./MessageText";
@@ -33,10 +34,12 @@ interface NoteThreadProps {
   onDeleteReply: (replyId: string) => void;
   /** Whether the reply box is open: the popover keeps Escape for it while it is. */
   onWritingChange?: (writing: boolean) => void;
-  /** The agents in a review loop on the document ("Claude Code"): the reply box offers Save and Send. */
+  /** The agents in a review loop on the document ("Claude Code"): the reply box offers Send. */
   sendTo?: string | null | undefined;
   /** Save a new reply (replyId null) or the edit of the latest, and send the note to `sendTo` on its own. */
   onSaveAndSend?: ((reply: { text: string; replyId: string | null }) => void) | undefined;
+  /** The agent the note was sent to, while the user waits on its answer: shown after the last message. */
+  progress?: AgentProgress | null | undefined;
 }
 
 export default function NoteThread({
@@ -48,6 +51,7 @@ export default function NoteThread({
   onWritingChange,
   sendTo = null,
   onSaveAndSend,
+  progress = null,
 }: NoteThreadProps): React.ReactElement | null {
   // A new reply (replyId null), or the user's latest one being edited
   const [draft, setDraft] = useState<{ text: string; replyId: string | null } | null>(null);
@@ -84,8 +88,8 @@ export default function NoteThread({
     }
     write(null);
   };
-  // Save and Send: with an agent in a loop on the document, the reply goes
-  // to it at once instead of with the next round
+  // Send: with an agent in a loop on the document, the reply goes to it at
+  // once instead of with the next round
   const canSend = sendTo !== null && onSaveAndSend !== undefined;
   const saveAndSend = () => {
     const text = draft?.text.trim() ?? "";
@@ -130,29 +134,36 @@ export default function NoteThread({
         />
         <div className={styles.actions}>
           <span className={styles.hint}>
-            {SAVE_SHORTCUT} to save · Esc to cancel
+            {canSend ? `${SEND_NOW_SHORTCUT} to send` : `${SAVE_SHORTCUT} to save`} · Esc to cancel
           </span>
+          {/* With an agent in the loop, sending is what the box is for: Save keeps it for the next round */}
+          <button
+            type="button"
+            className={canSend ? styles.secondaryBtn : styles.primaryBtn}
+            onClick={send}
+            disabled={unchanged}
+            title={canSend ? `Save, to send with the next round (${SAVE_SHORTCUT})` : undefined}
+          >
+            Save
+          </button>
           {canSend && (
             <button
               type="button"
-              className={styles.sendNowBtn}
+              className={styles.primaryBtn}
               onClick={saveAndSend}
               disabled={unchanged}
-              title={`Save, and send this note to ${sendTo} (${SEND_NOW_SHORTCUT})`}
+              title={`Save, and send it to ${sendTo} now (${SEND_NOW_SHORTCUT})`}
             >
-              Save and Send
+              Send
             </button>
           )}
-          <button type="button" className={styles.sendBtn} onClick={send} disabled={unchanged}>
-            Save
-          </button>
         </div>
       </div>
     );
 
   // Only an answer is replied to: the user's own last word is edited instead
   const replyable = canReply(thread);
-  if (note === undefined && replies.length === 0 && !replyable) return null;
+  if (note === undefined && replies.length === 0 && !replyable && progress === null) return null;
 
   return (
     <div className={styles.thread}>
@@ -210,6 +221,8 @@ export default function NoteThread({
         </ol>
       )}
 
+      {progress !== null && <Progress progress={progress} />}
+
       {draft === null
         ? replyable && (
             <button type="button" className={styles.replyBtn} onClick={() => write({ text: "", replyId: null })}>
@@ -217,6 +230,28 @@ export default function NoteThread({
             </button>
           )
         : draft.replyId === null && editor(false)}
+    </div>
+  );
+}
+
+/**
+ * The agent the note went to, after the last message: a pulsing dot while
+ * the note waits to be taken, dots as in a chat while the agent works on it,
+ * and why no answer is coming once its loop ended. The thread shows the
+ * answer in its place when it arrives.
+ */
+function Progress({ progress }: { progress: AgentProgress }): React.ReactElement {
+  return (
+    <div className={`${styles.progress} ${progress.stage === "stopped" ? styles.progressStopped : ""}`} role="status">
+      {progress.stage === "queued" && <span className={styles.pulse} aria-hidden="true" />}
+      {progress.stage === "working" && (
+        <span className={styles.typing} aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+      )}
+      <span>{progressSentence(progress)}</span>
     </div>
   );
 }

@@ -15,8 +15,37 @@
 }
 
 .heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: var(--space-1);
   font-weight: 600;
+}
+
+/* Close, at the heading's end: saves what changed, as a click elsewhere does */
+.closeBtn {
+  width: 22px;
+  height: 22px;
+  margin-right: -4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeBtn:hover {
+  color: var(--color-text);
+  background: var(--color-hover-bg);
+}
+
+.closeBtn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 
 .label {
@@ -161,37 +190,37 @@
   color: var(--color-text-subtle);
 }
 
-.saveBtn,
-.removeBtn {
+.primaryBtn,
+.secondaryBtn {
   padding: 2px 10px;
   border-radius: var(--radius-sm);
   font: inherit;
   cursor: pointer;
 }
 
-.saveBtn {
+.primaryBtn {
   border: none;
   background: var(--color-accent);
   color: #fff;
 }
 
-.saveBtn:hover:not(:disabled) {
+.primaryBtn:hover:not(:disabled) {
   filter: brightness(1.1);
 }
 
-.removeBtn {
+.secondaryBtn {
   border: 1px solid var(--color-input-border);
   background: none;
   color: var(--color-text);
 }
 
-.removeBtn:hover:not(:disabled) {
+.secondaryBtn:hover:not(:disabled) {
   background: var(--color-hover-bg);
 }
 
 /* Nothing changed yet: nothing to save */
-.saveBtn:disabled,
-.removeBtn:disabled {
+.primaryBtn:disabled,
+.secondaryBtn:disabled {
   opacity: 0.5;
   cursor: default;
 }
