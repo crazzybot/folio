@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  agentProgress,
   defaultSelection,
   feedbackSummary,
   filterOf,
@@ -9,6 +10,7 @@ import {
   noteKey,
   picked,
   pickedUpBy,
+  progressSentence,
   loopSentence,
   needsYou,
   sendableNote,
@@ -175,6 +177,35 @@ describe("pickedUpBy", () => {
   it("says so in the note's loop sentence", () => {
     expect(loopSentence("sent", null, "Claude Code")).toBe("Sent · Claude Code is working on it");
     expect(loopSentence("sent")).toBe("Sent · waiting for the agent");
+  });
+});
+
+describe("agentProgress", () => {
+  const round = (extra: Partial<Round>): Round => ({ id: "r1", at: "2026-11-14T10:00:00Z", via: "send", client: "Claude Code", sha1: "", notes: ["h1"], ...extra });
+  const sent = { state: "sent" as const };
+
+  it("follows a note sent from a review loop until the agent answers it", () => {
+    expect(agentProgress(sent, [round({})], "h1", "Claude Code")).toEqual({ stage: "queued", agent: "Claude Code" });
+    expect(agentProgress(sent, [round({ picked: "2026-11-14T10:00:01Z" })], "h1", "Claude Code")).toEqual({ stage: "working", agent: "Claude Code" });
+    // Answered, or addressed: nothing to wait for
+    expect(agentProgress({ state: "sent", replies: [agentReply] }, [round({ picked: "x" })], "h1", "Claude Code")).toBeNull();
+    expect(agentProgress({ state: "addressed" }, [round({ picked: "x" })], "h1", "Claude Code")).toBeNull();
+    // The user's reply sent again: waiting once more
+    expect(agentProgress({ state: "sent", replies: [agentReply, userReply] }, [round({})], "h1", "Claude Code")?.stage).toBe("queued");
+  });
+
+  it("says when the loop ended before an answer", () => {
+    expect(agentProgress(sent, [round({ picked: "x" })], "h1", null)).toEqual({ stage: "stopped", agent: "Claude Code" });
+  });
+
+  it("waits only on a loop: not for copied or fetched notes", () => {
+    expect(agentProgress(sent, [{ id: "r1", at: "", via: "copy", sha1: "", notes: ["h1"] }], "h1", "Claude Code")).toBeNull();
+    expect(agentProgress(sent, [round({ via: "mcp" })], "h1", "Claude Code")).toBeNull();
+    expect(agentProgress(sent, [round({ notes: [], documentNote: true })], null, "Claude Code")?.stage).toBe("queued");
+  });
+
+  it("says so in a sentence", () => {
+    expect(progressSentence({ stage: "working", agent: "Claude Code" })).toBe("Claude Code is working on it");
   });
 });
 

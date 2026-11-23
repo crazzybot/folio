@@ -114,7 +114,7 @@ await sleep(700);
 await m.click('[role="dialog"][aria-label="Note on this document"] textarea', 250);
 await m.typeSlowly("Accept once retries are capped and nothing is dropped.");
 await sleep(400);
-await m.click('[role="dialog"][aria-label="Note on this document"] button:last-child', 1300);
+await m.click('[role="dialog"][aria-label="Note on this document"] button:last-child:not([aria-label="Close"])', 1300);
 
 console.log('note saved', new Date().toISOString());
 // Send review notes: the list (the green highlight is private, so not in it),

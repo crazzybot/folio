@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { NoteChanges } from "../dataSource";
-import { answeredBy, UNRESOLVE_TITLE } from "../sending";
+import { answeredBy, UNRESOLVE_TITLE, type AgentProgress } from "../sending";
 import { normaliseStatus, statusChoices, statusNew } from "../status";
 import { canReply, newReplies } from "../threads";
 import type { DocumentNote, NoteState } from "../types";
@@ -35,7 +35,7 @@ interface DocumentNoteEditorProps {
   /** Statuses used in the workspace, offered after the known ones. */
   workspaceStatuses: readonly string[];
   onSave: (changes: NoteChanges) => void;
-  /** The agents in a review loop on the document ("Claude Code"): Save and Send is offered. */
+  /** The agents in a review loop on the document ("Claude Code"): Send is offered. */
   sendTo?: string | null;
   /** Save what changed (null: nothing) and send the note to `sendTo` on its own. */
   onSaveAndSend?: (changes: NoteChanges | null) => void;
@@ -43,6 +43,8 @@ interface DocumentNoteEditorProps {
   onReplyAndSend?: (reply: { text: string; replyId: string | null }) => void;
   /** The agent working on the sent note ("Claude Code"): it took it. Null while it waits. */
   pickedBy?: string | null;
+  /** The agent the note was sent to, while the user waits on its answer. */
+  progress?: AgentProgress | null;
   onRemove: () => void;
   /** Change where the note is in the review loop (docs/design/sending-notes.md). */
   onSetState: (state: NoteState) => void;
@@ -58,7 +60,8 @@ interface DocumentNoteEditorProps {
 /**
  * The note on the document as a whole (document-notes.md): a status to ask
  * for and a comment. As the highlight note editor: ⌘↩ / Ctrl+Enter saves,
- * Esc cancels, clicking elsewhere saves what changed.
+ * Esc cancels, clicking elsewhere or Close saves what changed. Send stays
+ * open, for the agent's answer.
  */
 export default function DocumentNoteEditor({
   anchor,
@@ -70,6 +73,7 @@ export default function DocumentNoteEditor({
   onSaveAndSend,
   onReplyAndSend,
   pickedBy = null,
+  progress = null,
   onRemove,
   onSetState,
   onReply,
@@ -131,12 +135,11 @@ export default function DocumentNoteEditor({
   const canSend = sendTo !== null && onSaveAndSend !== undefined && note?.private !== true;
   // Save waits for a change: a status, the comment or Only me
   const changed = dirty();
-  // Save and Send also sends a saved note that hasn't gone yet
+  // Send also sends a saved note that hasn't gone yet
   const unsent = changed || (note !== undefined && state === "open");
   const saveAndSend = () => {
     if (!canSend || !unsent) return;
     onSaveAndSend(dirty() ? changes() : null);
-    onClose();
   };
 
   // Clicking elsewhere saves what changed, as a highlight's note does
@@ -193,7 +196,14 @@ export default function DocumentNoteEditor({
         }
       }}
     >
-      <div className={styles.heading}>Note on this document</div>
+      <div className={styles.heading}>
+        Note on this document
+        <button type="button" className={styles.closeBtn} onClick={save} aria-label="Close" title="Close: what you changed is saved">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+            <path d="M4 4l8 8M12 4l-8 8" strokeWidth="1.3" />
+          </svg>
+        </button>
+      </div>
 
       <label className={styles.label} htmlFor={`${id}-status`}>
         Status
@@ -256,7 +266,7 @@ export default function DocumentNoteEditor({
       )}
 
       {/* The thread: the saved note's replies, or a reply to an imported note */}
-      {note !== undefined && ((note.replies?.length ?? 0) > 0 || (!locked && canReply(note))) && (
+      {note !== undefined && ((note.replies?.length ?? 0) > 0 || (!locked && canReply(note)) || progress !== null) && (
         <div className={styles.thread}>
           <NoteThread
             thread={note}
@@ -269,22 +279,20 @@ export default function DocumentNoteEditor({
             onSaveAndSend={
               onReplyAndSend === undefined
                 ? undefined
-                : (reply) => {
-                    onReplyAndSend(reply);
-                    onClose();
-                  }
+                : (reply) => onReplyAndSend(reply)
             }
+            progress={progress}
           />
         </div>
       )}
 
       {!replying && (
         <div className={styles.actions}>
-          <span className={styles.hint}>{SAVE_SHORTCUT} to save · Esc to cancel</span>
+          <span className={styles.hint}>{canSend ? `${SEND_SHORTCUT} to send` : `${SAVE_SHORTCUT} to save`} · Esc to cancel</span>
           {note !== undefined && (
             <button
               type="button"
-              className={styles.removeBtn}
+              className={styles.secondaryBtn}
               onClick={() => {
                 onRemove();
                 onClose();
@@ -293,20 +301,27 @@ export default function DocumentNoteEditor({
               Remove
             </button>
           )}
+          {/* With an agent in the loop, Send is the main action: Save keeps the note for the next round, and closes */}
+          <button
+            type="button"
+            className={canSend ? styles.secondaryBtn : styles.primaryBtn}
+            onClick={save}
+            disabled={!changed}
+            title={canSend ? `Save, to send with the next round (${SAVE_SHORTCUT})` : undefined}
+          >
+            Save
+          </button>
           {canSend && (
             <button
               type="button"
-              className={styles.removeBtn}
+              className={styles.primaryBtn}
               onClick={saveAndSend}
               disabled={!unsent}
-              title={`Save, and send this note to ${sendTo} (${SEND_SHORTCUT})`}
+              title={`Save, and send this note to ${sendTo} now (${SEND_SHORTCUT})`}
             >
-              Save and Send
+              Send
             </button>
           )}
-          <button type="button" className={styles.saveBtn} onClick={save} disabled={!changed}>
-            Save
-          </button>
         </div>
       )}
 
@@ -329,7 +344,8 @@ export default function DocumentNoteEditor({
           )}
           {!locked && state === "sent" && answerer === null && (
             <>
-              <NoteStateIcon kind="sent" size={12} /> Sent{pickedBy === null ? "" : ` · ${pickedBy} has it`} ·{" "}
+              {/* Said by the thread's waiting row while it shows */}
+              <NoteStateIcon kind="sent" size={12} /> Sent{pickedBy === null || progress !== null ? "" : ` · ${pickedBy} has it`} ·{" "}
               <button type="button" className={styles.loopBtn} onClick={() => setState("open")}>
                 Mark not sent
               </button>{" "}

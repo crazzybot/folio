@@ -67,11 +67,17 @@ it works in.
 - **Send.** With an agent Live, the **Send review notes** dialog names it,
   and **Send** hands the ticked notes straight to it; there's nothing to
   paste. **Copy** is still there, for pasting elsewhere.
-- **Save and Send** (desktop). With an agent Live on the document, the
-  note editor and the reply box have **Save and Send** (`⇧⌘↩` /
+- **Send from the note** (desktop). With an agent Live on the document,
+  the note editor and the reply box have **Send** (`⇧⌘↩` /
   `Ctrl+Shift+Enter`): that one note goes to the agent at once, without the
   dialog. On the note on the document, it's there while the note has
-  changes or hasn't been sent.
+  changes or hasn't been sent. **Save** beside it keeps the note for the
+  next round.
+- **Wait for the answer.** After **Send**, the popover stays open, as in a
+  chat. A pulsing dot shows the note waiting for the agent, then dots while
+  the agent works on it, and its reply takes their place when it comes. If
+  the loop ends first, the popover says so. Close it with **×** whenever
+  you like: the reply is there when you open the note again.
 - **Picked up.** Once the agent takes the notes you sent, they show it:
   "Sent · Claude Code has it" in the note's popover and on the note on the
   document, and "Claude Code is working on it" in the **Marks** view. Until
@@ -119,7 +125,7 @@ description.
   it waits for you, and isn't sent again until you reply.
 - **Reply.** Click **Reply** under the agent's answer, and **Save** (`⌘↩` /
   `Ctrl+Enter`). Your reply opens the note again, so it goes with the next
-  round. With an agent Live, **Save and Send** sends it at once. **Reply**
+  round. With an agent Live, **Send** sends it at once. **Reply**
   shows only when the agent spoke last; until then, edit your own message.
 - **Edit your reply.** Until someone answers it, your latest reply has an
   **Edit** link. **Save** (`⌘↩` / `Ctrl+Enter`) opens the note again, so

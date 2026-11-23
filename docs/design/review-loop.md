@@ -84,10 +84,13 @@ While a session waits or works, its server keeps
 - **Send** in the Send dialog: with a session live on the documents, **Send**
   comes first, records the round `via: "send"` with the agent's name, and
   marks the notes sent. **Copy** stays beside it for pasting elsewhere.
-- **Save and Send**: in a highlight's note editor, the reply box and the
-  note on the document, with a session live on the document. It saves, and
-  sends that one note in a round of its own. On the note on the document it's
-  enabled while the note has changes or hasn't been sent.
+- **Send**: in a highlight's note editor, the reply box and the note on
+  the document, with a session live on the document. It saves, and sends
+  that one note in a round of its own. On the note on the document it's
+  enabled while the note has changes or hasn't been sent. It was **Save and
+  Send**, beside a primary **Save**; with an agent live, sending is what
+  the user came to do, so **Send** is the primary button and **Save**,
+  which keeps the note for the next round, the secondary one.
 - **End Review Loop**: in the status bar pill's menu, and in a folder's
   context menu. It writes `agents/<pid>.stop`. The session's next check returns
   "ended", which tells the agent not to call again, and removes both files.
@@ -144,3 +147,17 @@ work the same way:
   reply box has its own.
 - A thread opens scrolled to its latest message, and scrolls down when a
   reply arrives.
+- **Send** leaves the dialog open, so the exchange reads as a chat. Below
+  the thread, a row follows the agent (`agentProgress` in
+  `frontend/src/sending.ts`), for a note whose last round went `via:
+  "send"` and that's still sent and unanswered: a pulsing dot while the
+  round isn't `picked`, chat dots once it is, and "Claude Code's review loop
+  ended before it replied" once no session is live on the document. The
+  answer replaces the row when it arrives. A copied or fetched note has no
+  row: no loop to wait on.
+- A popover a note was sent from stays open when a reload loses its
+  highlight (the agent rewrote the passage without saying what replaced
+  it): it keeps its place rather than closing as the reply arrives.
+- Both have a **×** to close them, which does what a click elsewhere does:
+  a highlight's note being written is kept, the document note's changes
+  are saved. Closing was only a click elsewhere, which users had to guess.

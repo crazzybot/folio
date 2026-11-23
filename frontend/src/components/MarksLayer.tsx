@@ -8,7 +8,7 @@ import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
-import { answeredBy, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
+import { agentProgress, type AgentProgress, answeredBy, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
 import { buildTextModel } from "../textModel";
 import { locateSection, sameSection, sectionPath } from "../sectionAnchor";
 import { newReplies, threadSummary } from "../threads";
@@ -208,7 +208,7 @@ interface MarksLayerProps {
   onSetLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
   /** The document's latest rounds, for when a note was sent. */
   rounds?: readonly Round[] | undefined;
-  /** The agents in a review loop on the document ("Claude Code"): the note editor offers Save and Send. */
+  /** The agents in a review loop on the document ("Claude Code"): the note editor offers Send. */
   sendTo?: string | null;
   /** Save a highlight's note (undefined: unchanged) and send it to `sendTo` on its own. */
   onSaveAndSend?: ((id: string, note: string | null | undefined) => void) | undefined;
@@ -328,6 +328,9 @@ export default function MarksLayer({
   const handledFocus = useRef<number | null>(null);
   // Across a reload: the open highlight, and its height in the view before it
   const keepInView = useRef<{ id: string; offset: number } | null>(null);
+  // The highlight whose note was sent from the open popover: it stays open
+  // for the answer, even if the agent's edit takes the passage away
+  const sentFrom = useRef<string | null>(null);
 
   // ── Paint ──────────────────────────────────────────────────────────────────
   // Highlights that can't be found in the current text aren't painted. A
@@ -719,6 +722,8 @@ export default function MarksLayer({
         return;
       }
       if (stripRef.current?.querySelector(`[data-highlight-id="${CSS.escape(popoverId)}"]`) != null) return;
+      // Waiting for the agent's answer: where it was, not gone mid-conversation
+      if (sentFrom.current === popoverId) return;
       setPopover(null);
       setDraft(null);
       return;
@@ -897,13 +902,15 @@ export default function MarksLayer({
     if (current !== undefined && draft !== null && draft.trim() !== (current.note ?? "")) {
       onSetNote(current.id, draft.trim() === "" ? null : draft);
     }
+    sentFrom.current = null;
     setPopover(null);
     setDraft(null);
     setReplying(false);
   }, [current, draft, onSetNote]);
 
-  // Save and Send: the note goes to the agents in a loop on the document at
-  // once, without the Send dialog. Not for a private note, which is never sent.
+  // Send: the note goes to the agents in a loop on the document at once,
+  // without the Send dialog, and the popover stays open for the answer, as
+  // in a chat. Not for a private note, which is never sent.
   // Decided on the draft: a new highlight has no note yet, so is private
   // until the note being written is saved
   const canSend =
@@ -915,10 +922,12 @@ export default function MarksLayer({
     if (!canSend || draft === null) return;
     const note = draft.trim() === "" ? null : draft;
     onSaveAndSend(current.id, draft.trim() === (current.note ?? "") ? undefined : note);
-    setPopover(null);
+    sentFrom.current = current.id;
     setDraft(null);
     setReplying(false);
   };
+  // The agent it went to, until it answers
+  const progress = current === undefined ? null : agentProgress(current, rounds, current.id, sendTo);
 
   // Escape (unless writing a note) or a click elsewhere closes the popover
   useEffect(() => {
@@ -1234,6 +1243,12 @@ export default function MarksLayer({
                 <path d="M2.5 4h11M6 4V2.5h4V4M4 4l.7 9.5h6.6L12 4M6.5 6.5v5M9.5 6.5v5" />
               </svg>
             </button>
+            {/* As a click elsewhere: a note being written is kept */}
+            <button type="button" className={`${styles.action} ${styles.close}`} onClick={closePopover} aria-label="Close" title="Close (Escape)">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">
+                <path d="M4 4l8 8M12 4l-8 8" strokeWidth="1.3" />
+              </svg>
+            </button>
           </div>
 
           {/* Kept on its section's heading: the passage it was on */}
@@ -1284,20 +1299,28 @@ export default function MarksLayer({
                 maxLength={10_000}
               />
               <div className={styles.noteActions}>
-                <span className={styles.noteHint}>{SAVE_SHORTCUT} to save · Esc to cancel</span>
+                <span className={styles.noteHint}>
+                  {canSend ? `${SEND_SHORTCUT} to send` : `${SAVE_SHORTCUT} to save`} · Esc to cancel
+                </span>
+                {/* With an agent in the loop, Send is the main action: Save keeps the note for the next round, and closes */}
+                <button
+                  type="button"
+                  className={canSend ? styles.secondaryBtn : styles.primaryBtn}
+                  onClick={closePopover}
+                  title={canSend ? `Save, to send with the next round (${SAVE_SHORTCUT})` : undefined}
+                >
+                  Save
+                </button>
                 {canSend && (
                   <button
                     type="button"
-                    className={styles.sendBtn}
+                    className={styles.primaryBtn}
                     onClick={saveAndSend}
-                    title={`Save, and send this note to ${sendTo} (${SEND_SHORTCUT})`}
+                    title={`Save, and send this note to ${sendTo} now (${SEND_SHORTCUT})`}
                   >
-                    Save and Send
+                    Send
                   </button>
                 )}
-                <button type="button" className={styles.saveBtn} onClick={closePopover}>
-                  Save
-                </button>
               </div>
             </div>
           )}
@@ -1318,9 +1341,10 @@ export default function MarksLayer({
                   ? undefined
                   : (reply) => {
                       onReplyAndSend(current.id, reply);
-                      closePopover();
+                      sentFrom.current = current.id;
                     }
               }
+              progress={progress}
             />
           )}
 
@@ -1328,6 +1352,7 @@ export default function MarksLayer({
             <LoopRow
               highlight={current}
               rounds={rounds}
+              progress={progress}
               onSetLoop={(changes) => {
                 onSetLoop(current.id, changes);
                 // Resolving, unresolving or marking not sent is done with the note, as on the document's note
@@ -1349,10 +1374,13 @@ export default function MarksLayer({
 function LoopRow({
   highlight,
   rounds,
+  progress,
   onSetLoop,
 }: {
   highlight: Highlight;
   rounds: readonly Round[] | undefined;
+  /** Shown above it: who has the note is said there. */
+  progress: AgentProgress | null;
   onSetLoop: (changes: { state?: NoteState; private?: boolean | null }) => void;
 }): React.ReactElement {
   const bare = highlight.note === null;
@@ -1360,7 +1388,7 @@ function LoopRow({
   const state = stateOf(highlight);
   const answered = answeredBy(highlight);
   const when = state === "sent" ? lastSent(rounds, highlight.id) : null;
-  const pickedBy = state === "sent" ? pickedUpBy(rounds, highlight.id) : null;
+  const pickedBy = state === "sent" && progress === null ? pickedUpBy(rounds, highlight.id) : null;
   const link = (label: string, changes: { state?: NoteState; private?: boolean | null }, title?: string) => (
     <button type="button" className={styles.loopBtn} onClick={() => onSetLoop(changes)} title={title}>
       {label}

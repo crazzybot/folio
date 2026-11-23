@@ -10,6 +10,14 @@ turns them into the next release's section.
 
 ### Changed
 
+- **Send** (was **Save and Send**) keeps a note's popover open, with the
+  note on the document, as in a chat: it shows the note waiting for the
+  agent, then the agent working on it, and its reply as soon as it comes.
+  With an agent Live, **Send** is the main button and **Save** keeps the
+  note for the next round.
+- A note's popover and the note on the document have a **×** to close
+  them, as a click elsewhere does.
+
 - **Live** has one place: the status bar's pill shows every agent waiting
   for your notes, whatever the sidebar shows, and its menu ends each loop,
   or all of them. A folder an agent works in gets a green dot instead of a
