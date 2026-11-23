@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentEnv, agentLaunch, isClaudeCommand } from "../src/agentLaunch";
+import { agentEnv, agentLaunch, CLAUDE_INSTALL_URL, isClaudeCommand, missingAgent } from "../src/agentLaunch";
 
 describe("agentLaunch", () => {
   it("runs the agent through the user's login shell, replacing it", () => {
@@ -52,5 +52,23 @@ describe("isClaudeCommand", () => {
     expect(isClaudeCommand("/opt/homebrew/bin/claude --verbose")).toBe(true);
     expect(isClaudeCommand("claude-dev")).toBe(false);
     expect(isClaudeCommand("codex")).toBe(false);
+  });
+});
+
+describe("missingAgent", () => {
+  it("points to Claude Code's install guide when the shell can't find claude", () => {
+    expect(missingAgent("claude --continue", 127, "darwin")).toEqual({ program: "claude", installUrl: CLAUDE_INSTALL_URL });
+    expect(missingAgent("claude", 9009, "win32")).toEqual({ program: "claude", installUrl: CLAUDE_INSTALL_URL });
+  });
+
+  it("names another agent's program, with no guide", () => {
+    expect(missingAgent("codex", 127, "linux")).toEqual({ program: "codex", installUrl: null });
+  });
+
+  it("is null for any other ending", () => {
+    expect(missingAgent("claude", 0, "darwin")).toBeNull();
+    expect(missingAgent("claude", 1, "darwin")).toBeNull();
+    // 127 means not found only from a POSIX shell
+    expect(missingAgent("claude", 127, "win32")).toBeNull();
   });
 });

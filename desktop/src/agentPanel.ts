@@ -30,7 +30,7 @@ import type { IPty } from "node-pty";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import { agentEnv, agentLaunch, isClaudeCommand, REVIEW_LOOP_COMMAND } from "./agentLaunch";
+import { agentEnv, agentLaunch, isClaudeCommand, missingAgent, REVIEW_LOOP_COMMAND } from "./agentLaunch";
 import { isDescendant, readProcessTable } from "./processTree";
 
 const DEFAULT_HEIGHT = 320;
@@ -275,7 +275,7 @@ export class AgentPanel {
       if (this.pty !== pty) return;
       this.pty = null;
       this.setLoop("off");
-      this.send("agent:exit", exitCode);
+      this.send("agent:exit", { code: exitCode, missing: missingAgent(this.options.command, exitCode, process.platform) });
     });
     this.sendInfo();
   }

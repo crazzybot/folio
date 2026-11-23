@@ -10,7 +10,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import "../index.css";
 import "./agent.css";
-import type { AgentApi, LoopState } from "./agentApi";
+import type { AgentApi, AgentExit, LoopState } from "./agentApi";
 
 const lightQuery = window.matchMedia("(prefers-color-scheme: light)");
 
@@ -108,6 +108,20 @@ function header(api: AgentApi, terminal: Terminal): Header {
   return { root, title, setLoop };
 }
 
+/** What the terminal says when the session ends: how to install the agent, when the shell couldn't find it. */
+function exitMessage({ code, missing }: AgentExit): string {
+  const dim = (text: string) => `\x1b[2m${text}\x1b[0m`;
+  if (missing === null) return `\r\n${dim(`[The session ended (${code}). Press any key to start a new one.]`)}\r\n`;
+  const lines =
+    missing.installUrl === null
+      ? [`Folio couldn't find ${missing.program}. Check that it's installed and on your shell's PATH.`]
+      : [
+          "Claude Code isn't installed, or your shell can't find claude.",
+          `Install it (${missing.installUrl}), then start a new session.`,
+        ];
+  return `\r\n${lines.join("\r\n")}\r\n${dim("[Press any key to try again.]")}\r\n`;
+}
+
 function start(api: AgentApi): void {
   applyTheme(null);
   const terminal = new Terminal({
@@ -143,9 +157,9 @@ function start(api: AgentApi): void {
   });
   terminal.onResize(({ cols, rows }) => api.resize(cols, rows));
   api.onData((data) => terminal.write(data));
-  api.onExit((code) => {
+  api.onExit((exit) => {
     ended = true;
-    terminal.write(`\r\n\x1b[2m[The session ended (${code}). Press any key to start a new one.]\x1b[0m\r\n`);
+    terminal.write(exitMessage(exit));
   });
   let loopCommand: string | null = null;
   let loopState: LoopState = "off";

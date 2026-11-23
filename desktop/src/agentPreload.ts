@@ -25,7 +25,8 @@ contextBridge.exposeInMainWorld("agentApi", {
   hide: () => ipcRenderer.send("agent:hide"),
   setHeight: (height: number) => ipcRenderer.send("agent:height", height),
   onData: (callback: (data: string) => void) => subscribe("agent:data", callback),
-  onExit: (callback: (code: number) => void) => subscribe("agent:exit", callback),
+  onExit: (callback: (exit: { code: number; missing: { program: string; installUrl: string | null } | null }) => void) =>
+    subscribe("agent:exit", callback),
   onInfo: (callback: (info: { title: string; folder: string; reviewLoop: string | null }) => void) => subscribe("agent:info", callback),
   onLoop: (callback: (state: "off" | "waiting" | "working") => void) => subscribe("agent:loop", callback),
   onFocus: (callback: () => void) => subscribe("agent:focus", callback),

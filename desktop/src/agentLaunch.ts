@@ -20,10 +20,33 @@ export const DEFAULT_AGENT_COMMAND = "claude";
 /** The Folio plugin's skill that waits for the notes the user sends (plugins/folio). */
 export const REVIEW_LOOP_COMMAND = "/folio:review-loop";
 
+/** Claude Code's install guide, for a session that couldn't find `claude`. */
+export const CLAUDE_INSTALL_URL = "https://code.claude.com/docs/en/setup";
+
+/** The program the command runs: its first word ("claude" in "claude --continue"). */
+export function commandProgram(command: string): string {
+  return command.trim().split(/\s+/)[0] ?? "";
+}
+
 /** Whether the command runs Claude Code, which the review loop's command is for. */
 export function isClaudeCommand(command: string): boolean {
-  const program = command.trim().split(/\s+/)[0] ?? "";
-  return program.split(/[\\/]/).pop() === "claude";
+  return commandProgram(command).split(/[\\/]/).pop() === "claude";
+}
+
+/** The agent's program wasn't found: what to tell the user, and Claude Code's install guide when it's the one missing. */
+export interface MissingAgent {
+  program: string;
+  installUrl: string | null;
+}
+
+/**
+ * Whether the session ended because the shell didn't find the agent's
+ * program, as when Claude Code isn't installed: a POSIX shell exits with 127
+ * then, cmd with 9009.
+ */
+export function missingAgent(command: string, exitCode: number, platform: NodeJS.Platform): MissingAgent | null {
+  if (exitCode !== (platform === "win32" ? 9009 : 127)) return null;
+  return { program: commandProgram(command), installUrl: isClaudeCommand(command) ? CLAUDE_INSTALL_URL : null };
 }
 
 export function agentLaunch(command: string, platform: NodeJS.Platform, env: NodeJS.ProcessEnv): AgentLaunch {
