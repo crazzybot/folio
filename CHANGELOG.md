@@ -8,6 +8,20 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Added
+
+- **Agent panel:** Claude Code in a terminal below your documents, started
+  in the workspace. Open it with **View → Toggle Agent Panel** (⌘J /
+  Ctrl+J) or the status bar's terminal button, or start it in one folder
+  with **Open Agent Here** in the folder's menu. Hiding the panel keeps the
+  session running; **Restart** starts a new one.
+- The agent panel offers the review loop's command (`/folio:review-loop`)
+  to copy and paste into the session; Folio never types into it. Its
+  header then shows when Claude is waiting for your notes or working on
+  them. On Windows, this needs the new version of Folio's MCP server.
+- When Claude Code isn't installed, or your shell can't find `claude`, the
+  agent panel says so and links to its install guide.
+
 ### Changed
 
 - **Send** (was **Save and Send**) keeps a note's popover open, with the
