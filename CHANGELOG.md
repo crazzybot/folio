@@ -10,6 +10,10 @@ turns them into the next release's section.
 
 ### Changed
 
+- **Live** has one place: the status bar's pill shows every agent waiting
+  for your notes, whatever the sidebar shows, and its menu ends each loop,
+  or all of them. A folder an agent works in gets a green dot instead of a
+  pill of its own.
 - The status bar is a little taller (28 px), with 16 px icons on its
   buttons, as in VS Code.
 

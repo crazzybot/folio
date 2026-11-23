@@ -596,7 +596,7 @@ export default function DocumentList({
             {focus.split("/").join(" / ")}
           </span>
           {focusRepository !== null && <RepositoryIcon repository={focusRepository} />}
-          <LivePill agents={focusAgents} />
+          <LivePill agents={focusAgents} dot />
           <span className={styles.focusSpacer} />
           {window.markdownApi !== undefined && (
             <button
@@ -1140,7 +1140,7 @@ function RowItem({
         </svg>
         <span className={styles.entryTitle}>{row.label}</span>
         {repository !== null && <RepositoryIcon repository={repository} />}
-        <LivePill agents={agents} />
+        <LivePill agents={agents} dot />
         {unread > 0 && (
           <span className={styles.folderUnread} aria-label={`${unread} unread`}>
             {unread}

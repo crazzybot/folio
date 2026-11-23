@@ -682,7 +682,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle("agents:menu", (event, pids: unknown, x: unknown, y: unknown): void => {
     assertTrustedSender(event);
     const win = BrowserWindow.fromWebContents(event.sender);
-    const items = endLoopItems(pids);
+    const items = liveMenuItems(pids);
     if (win === null || items.length === 0 || typeof x !== "number" || typeof y !== "number") return;
     Menu.buildFromTemplate(items).popup({ window: win, x: Math.round(x), y: Math.round(y) });
   });
@@ -836,12 +836,41 @@ const agents = new AgentTracker(defaultDataDir(), (sessions) => {
  * checked against the sessions we know): one item, or one per session.
  */
 function endLoopItems(pids: unknown): MenuItemConstructorOptions[] {
-  const wanted = new Set(Array.isArray(pids) ? pids.filter((p): p is number => typeof p === "number") : []);
-  const sessions = agents.current().filter((s) => wanted.has(s.pid));
+  const sessions = liveSessions(pids);
   return sessions.map((s) => ({
-    label: sessions.length === 1 ? "End Review Loop" : `End Review Loop: ${s.client} in ${path.basename(s.root)}`,
+    label: sessions.length === 1 ? "End Review Loop" : `End Review Loop: ${s.client} in ${loopFolder(s)}`,
     click: () => void agents.endLoop(s.pid),
   }));
+}
+
+/** The live sessions among `pids` (from the page, so checked against the sessions we know). */
+function liveSessions(pids: unknown): AgentSession[] {
+  const wanted = new Set(Array.isArray(pids) ? pids.filter((p): p is number => typeof p === "number") : []);
+  return agents.current().filter((s) => wanted.has(s.pid));
+}
+
+/** Where a session listens: its folder in the workspace, or the folder's name when it holds the workspace. */
+function loopFolder(session: AgentSession): string {
+  return session.location === "" ? path.basename(session.root) : session.location;
+}
+
+/**
+ * The status bar's Live pill, the one place for every review loop in the
+ * workspace: where each session is and what it's doing, then End Review
+ * Loop for each, and for all of them when there are several.
+ */
+function liveMenuItems(pids: unknown): MenuItemConstructorOptions[] {
+  const sessions = liveSessions(pids);
+  if (sessions.length === 0) return [];
+  const doing = (s: AgentSession) => (s.state === "waiting" ? "waiting for your notes" : "working on your notes");
+  return [
+    ...sessions.map((s): MenuItemConstructorOptions => ({ label: `${s.client} in ${loopFolder(s)}: ${doing(s)}`, enabled: false })),
+    { type: "separator" },
+    ...endLoopItems(pids),
+    ...(sessions.length > 1
+      ? [{ label: "End All Review Loops", click: () => sessions.forEach((s) => void agents.endLoop(s.pid)) }]
+      : []),
+  ];
 }
 
 // ---------------------------------------------------------------------------
