@@ -23,6 +23,17 @@
   background: var(--color-hover-bg);
 }
 
+/* The dot alone: a folder row's or the focus bar's hint */
+.dotOnly {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  color: var(--color-status-accepted);
+}
+
 .dot {
   width: 6px;
   height: 6px;
