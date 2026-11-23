@@ -26,6 +26,8 @@ export interface AgentSession {
   root: string;
   client: string;
   state: AgentState;
+  /** The agent panel session it runs in, when it runs in one (agentPanel.ts). */
+  panelSession?: string;
 }
 
 /**
@@ -38,7 +40,10 @@ export function sessionsFor(workspace: string, presences: readonly AgentPresence
   for (const p of presences) {
     const root = realPath(p.root);
     const location = locate(ws, root, platform);
-    if (location !== null) sessions.push({ pid: p.pid, location, root, client: p.client, state: p.state });
+    if (location === null) continue;
+    const session: AgentSession = { pid: p.pid, location, root, client: p.client, state: p.state };
+    if (p.panelSession !== undefined) session.panelSession = p.panelSession;
+    sessions.push(session);
   }
   return sessions;
 }

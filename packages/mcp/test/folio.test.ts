@@ -161,6 +161,7 @@ describe("waitForReview", () => {
     const waiting = wait({ since, timeoutMs: 5_000 });
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(presence()).toMatchObject({ root: realPath(root), client: "Claude Code", state: "waiting", since });
+    expect(presence()).not.toHaveProperty("panelSession");
 
     await send(adr(), [h.id]);
     const sent = await waiting;
@@ -230,6 +231,20 @@ describe("waitForReview", () => {
     expect(await waiting).toBe("quit");
     expect(() => presence()).toThrow();
     expect(await stopRequested(dataDir, process.pid)).toBeNull();
+  });
+
+  it("names the agent panel session it runs in, so the panel knows its loop", async () => {
+    process.env["FOLIO_AGENT_SESSION"] = "s1";
+    try {
+      const abort = new AbortController();
+      const waiting = folio.waitForReview({ timeoutMs: 5_000, signal: abort.signal }, "Claude Code");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(presence()).toMatchObject({ state: "waiting", panelSession: "s1" });
+      abort.abort();
+      await waiting;
+    } finally {
+      delete process.env["FOLIO_AGENT_SESSION"];
+    }
   });
 
   it("stops when the call is cancelled, and refuses a since that isn't a time", async () => {

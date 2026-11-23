@@ -297,6 +297,8 @@ export interface AgentSession {
   client: string;
   /** Waiting for notes, or working on the last ones (it takes new ones next). */
   state: "waiting" | "working";
+  /** The agent panel session it runs in, when it runs in one. */
+  panelSession?: string;
 }
 
 export interface GitState {

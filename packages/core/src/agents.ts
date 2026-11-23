@@ -41,6 +41,11 @@ export interface AgentPresence {
   since: string;
   /** While waiting: when this wait ends. */
   until?: string;
+  /**
+   * The Folio agent panel session the agent runs in (FOLIO_AGENT_SESSION),
+   * so the panel knows its own loop; absent elsewhere.
+   */
+  panelSession?: string;
   updated: string;
 }
 
@@ -157,5 +162,6 @@ function parsePresence(value: unknown): AgentPresence | null {
   if (v["version"] !== VERSION || typeof v["pid"] !== "number" || !strings) return null;
   if (v["state"] !== "waiting" && v["state"] !== "working") return null;
   if (v["until"] !== undefined && typeof v["until"] !== "string") return null;
+  if (v["panelSession"] !== undefined && typeof v["panelSession"] !== "string") return null;
   return value as AgentPresence;
 }

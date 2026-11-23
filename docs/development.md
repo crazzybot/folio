@@ -27,6 +27,13 @@ holds two sample documents (`welcome.md` and `samples/code-demo.md`).
 `npm run dev:demo` in `frontend/`. It's the quickest way to work on the
 frontend in a browser.
 
+**Another agent in the agent panel:** `FOLIO_AGENT_COMMAND` replaces the
+panel's `claude` command, for trying out other agents or flags
+(`FOLIO_AGENT_COMMAND="claude --continue" npm start`). A command that isn't
+installed, such as `/nonexistent/claude`, shows the panel's "not found"
+message. There's no setting for it on purpose: the document view can change
+settings, and must not be able to choose what the panel runs.
+
 > **Note:** builds are unsigned unless a valid "Developer ID Application"
 > certificate is in the keychain. If you launch Electron from a process that
 > sets `ELECTRON_RUN_AS_NODE=1` (some editor extensions do), unset it first.
