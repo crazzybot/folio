@@ -59,10 +59,11 @@ your review notes with `folio_wait_for_review`, address them, and keep going
 until you stop them. The agent only takes notes on documents in the folder
 it works in.
 
-- **Live** (desktop). A green **Live** pill shows where an agent is waiting
-  for your notes: on its folder in the document list, on a focused folder,
-  or in the status bar when it works on the whole workspace. Point at it to
-  see whether the agent is waiting or working on notes.
+- **Live** (desktop). A green **Live** pill in the status bar shows that an
+  agent is waiting for your notes, whatever the sidebar shows. Point at it
+  to see which agents, in which folders, and whether each is waiting or
+  working on notes; click it for the same in a menu. A green dot marks the
+  agent's folder in the document list and on a focused folder.
 - **Send.** With an agent Live, the **Send review notes** dialog names it,
   and **Send** hands the ticked notes straight to it; there's nothing to
   paste. **Copy** is still there, for pasting elsewhere.
@@ -75,8 +76,9 @@ it works in.
   "Sent · Claude Code has it" in the note's popover and on the note on the
   document, and "Claude Code is working on it" in the **Marks** view. Until
   then they're waiting for the agent.
-- **End Review Loop.** In the folder's context menu, or on the status bar's
-  **Live** pill. The agent stops waiting and tells you the loop has ended.
+- **End Review Loop.** In the status bar's **Live** pill menu, one for each
+  agent, and **End All Review Loops** when there are several. Also in the
+  context menu of the agent's folder. The agent stops waiting and tells you the loop has ended.
   You can also stop it in the agent itself. Quitting Folio ends the loop
   too, and so does opening a workspace that doesn't hold the agent's folder.
 

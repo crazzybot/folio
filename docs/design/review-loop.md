@@ -74,9 +74,13 @@ While a session waits or works, its server keeps
 
 - **Live** (`LivePill.tsx`): the desktop app watches `agents/`
   (`desktop/src/agents.ts`) and matches sessions to the workspace: a root
-  inside it shows on that folder in the document list, and on a focused
-  folder; a root holding the workspace shows in the status bar. The pill's
-  dot pulses while an agent waits; its title says which.
+  inside it or holding it. Every session shows in one place, the status
+  bar's pill, whatever the sidebar shows (folders or not, a search, the
+  Marks view). Its menu lists where each session is and what it's doing,
+  then End Review Loop for each, and End All Review Loops for several. A
+  session's folder row and a focused folder get the dot alone, with the same
+  title: a hint of where, not a second control. The dot pulses while an
+  agent waits.
 - **Send** in the Send dialog: with a session live on the documents, **Send**
   comes first, records the round `via: "send"` with the agent's name, and
   marks the notes sent. **Copy** stays beside it for pasting elsewhere.
@@ -84,8 +88,8 @@ While a session waits or works, its server keeps
   note on the document, with a session live on the document. It saves, and
   sends that one note in a round of its own. On the note on the document it's
   enabled while the note has changes or hasn't been sent.
-- **End Review Loop**: in a folder's context menu and on the status bar's
-  pill. It writes `agents/<pid>.stop`. The session's next check returns
+- **End Review Loop**: in the status bar pill's menu, and in a folder's
+  context menu. It writes `agents/<pid>.stop`. The session's next check returns
   "ended", which tells the agent not to call again, and removes both files.
   The app hides a session with a stop file at once.
 - **Opening another workspace** writes the same file, with `reason:
