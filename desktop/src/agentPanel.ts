@@ -48,6 +48,15 @@ const LOOP_POLL_FOR_MS = 120_000;
 /** The review loop of the panel's session, from its Presence file. */
 export type LoopState = "off" | "waiting" | "working";
 
+/** A review loop running now (AgentTracker's sessions). */
+export interface RunningLoop {
+  /** Its MCP server's process. */
+  pid: number;
+  state: "waiting" | "working";
+  /** The panel session it runs in: written by MCP servers since FOLIO_AGENT_SESSION. */
+  panelSession?: string;
+}
+
 export interface AgentPanelOptions {
   /** The panel's page (frontend/agent.html). */
   url: string;
@@ -66,13 +75,15 @@ export interface AgentPanelOptions {
   onVisible: (visible: boolean) => void;
   openExternal: (url: string) => void;
   backgroundColor: () => string;
-  /** The review loops running now (AgentTracker), by their MCP server's pid. */
-  loops: () => readonly { pid: number; state: "waiting" | "working" }[];
+  /** The review loops running now (AgentTracker). */
+  loops: () => readonly RunningLoop[];
 }
 
 export class AgentPanel {
   private view: WebContentsView | null = null;
   private pty: IPty | null = null;
+  /** The running session's FOLIO_AGENT_SESSION, which its review loop's Presence file names. */
+  private session: string | null = null;
   private sessionFolder: string | null = null;
   /** The folder asked for, or null for the workspace. */
   private requestedFolder: string | null = null;
@@ -206,18 +217,21 @@ export class AgentPanel {
   }
 
   /**
-   * The review loops running now (their MCP server's pid): the panel's
-   * session is in one when its server descends from the panel's process.
+   * The review loops running now: the panel's session is in the one that
+   * names it. An MCP server too old to name it is the session's when it
+   * descends from the panel's process (not on Windows, without `ps`).
    */
-  async updateLoop(sessions: readonly { pid: number; state: "waiting" | "working" }[]): Promise<void> {
+  async updateLoop(sessions: readonly RunningLoop[]): Promise<void> {
     const check = ++this.loopCheck;
     const pty = this.pty;
-    let state: LoopState = "off";
-    if (pty !== null && sessions.length > 0) {
+    const session = this.session;
+    let ours = sessions.find((s) => session !== null && s.panelSession === session);
+    const unnamed = sessions.filter((s) => s.panelSession === undefined);
+    if (ours === undefined && pty !== null && unnamed.length > 0) {
       const table = await readProcessTable();
-      const ours = table === null ? undefined : sessions.find((s) => isDescendant(table, s.pid, pty.pid));
-      if (ours !== undefined) state = ours.state;
+      ours = table === null ? undefined : unnamed.find((s) => isDescendant(table, s.pid, pty.pid));
     }
+    const state: LoopState = pty === null || ours === undefined ? "off" : ours.state;
     // A later check, or another session since, has the say
     if (check !== this.loopCheck || pty !== this.pty) return;
     this.setLoop(state);
@@ -232,6 +246,7 @@ export class AgentPanel {
   end(): void {
     const pty = this.pty;
     this.pty = null;
+    this.session = null;
     this.replay = "";
     this.setLoop("off");
     if (pty === null) return;
@@ -256,14 +271,16 @@ export class AgentPanel {
   private start(): void {
     const folder = this.folder();
     const launch = agentLaunch(this.options.command, process.platform, process.env);
+    const session = randomUUID();
     const pty = spawn(launch.file, launch.args, {
       name: "xterm-256color",
       cols: this.size.cols,
       rows: this.size.rows,
       cwd: folder,
-      env: agentEnv(process.env, randomUUID()),
+      env: agentEnv(process.env, session),
     });
     this.pty = pty;
+    this.session = session;
     this.sessionFolder = folder;
     // A session that was ended or replaced may still report; only the current one counts
     pty.onData((data) => {

@@ -31,6 +31,13 @@ describe("sessionsFor", () => {
     expect(sessionsFor(path.join(work, "projects"), [presence(work)]).map((s) => s.location)).toEqual([""]);
   });
 
+  it("passes on the agent panel session a session runs in", () => {
+    const [inPanel] = sessionsFor(work, [{ ...presence(work), panelSession: "s1" }]);
+    expect(inPanel?.panelSession).toBe("s1");
+    const [elsewhere] = sessionsFor(work, [presence(work)]);
+    expect(elsewhere).not.toHaveProperty("panelSession");
+  });
+
   it("leaves out sessions elsewhere", () => {
     expect(sessionsFor(path.join(work, "projects"), [presence(path.join(work, "projectsX"))])).toEqual([]);
     expect(sessionsFor(work, [presence(path.join(os.tmpdir(), "folio-agents-elsewhere"))])).toEqual([]);

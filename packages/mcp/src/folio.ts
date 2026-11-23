@@ -330,7 +330,15 @@ export class Folio {
    */
   private async announce(status: { state: "waiting" | "working"; since: string; until?: string }, client: string): Promise<void> {
     try {
-      await writePresence(this.dataDir, { pid: process.pid, root: this.root, client, ...status });
+      // Set by Folio's agent panel for the agent it starts, which passes it on to us
+      const panelSession = process.env["FOLIO_AGENT_SESSION"];
+      await writePresence(this.dataDir, {
+        pid: process.pid,
+        root: this.root,
+        client,
+        ...status,
+        ...(panelSession !== undefined && panelSession !== "" ? { panelSession } : {}),
+      });
     } catch {
       // Unwritable data folder: the app just won't know a session is waiting
     }

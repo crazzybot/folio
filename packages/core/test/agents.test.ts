@@ -49,6 +49,19 @@ describe("liveAgents", () => {
   });
 });
 
+describe("liveAgents and the agent panel", () => {
+  it("keeps the panel session a session names, and skips a file with a malformed one", async () => {
+    const dataDir = mkdtempSync(path.join(os.tmpdir(), "folio-agents-"));
+    await writePresence(dataDir, { pid: 1, root: "/repo", client: "Claude Code", state: "waiting", since: at(0), until: at(240_000), panelSession: "s1" });
+    writeFileSync(
+      path.join(agentsFolder(dataDir), "2.json"),
+      JSON.stringify({ version: 1, pid: 2, root: "/repo", client: "Claude Code", state: "working", since: at(0), updated: at(0), panelSession: 7 }),
+    );
+    const live = await liveAgents(dataDir, NOW, alive);
+    expect(live.map((a) => [a.pid, a.panelSession])).toEqual([[1, "s1"]]);
+  });
+});
+
 describe("stopRequested", () => {
   it("says why a session was asked to stop", async () => {
     const dataDir = mkdtempSync(path.join(os.tmpdir(), "folio-agents-"));
