@@ -41,7 +41,10 @@ environment (tags `v*` only): `CSC_LINK` (the Developer ID `.p12`,
 base64-encoded), `CSC_KEY_PASSWORD`, `APPLE_API_KEY_P8` (the App Store
 Connect API key's `.p8` text), `APPLE_API_KEY_ID` and `APPLE_API_ISSUER`.
 `.github/workflows/ci.yml` lints, type-checks and tests every push to `main`
-and every pull request.
+and every pull request. When a change touches the app's dependencies or how
+it's built, its `package` job also packages the app on macOS, Windows and
+Linux, unsigned and unpublished, so a build that would break the release
+fails on the pull request instead.
 
 ## The MCP server
 
