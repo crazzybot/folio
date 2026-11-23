@@ -22,6 +22,7 @@ jobs:
       desktop: ${{ steps.filter.outputs.desktop }}
       mcp: ${{ steps.filter.outputs.mcp }}
       demo: ${{ steps.filter.outputs.demo }}
+      package: ${{ steps.filter.outputs.package }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -62,6 +63,16 @@ jobs:
               - packages/core/src/**
               - desktop/scripts/demo-bundle.mjs
               - desktop/package*.json
+            # What can break packaging: dependencies (native ones are rebuilt
+            # for Electron), install scripts, the renderer's build and the
+            # release workflow it mirrors
+            package:
+              - *ci
+              - .github/workflows/release.yml
+              - desktop/package*.json
+              - desktop/scripts/**
+              - frontend/package*.json
+              - frontend/vite.config.ts
 
   # The desktop app and frontend share one version number
   # (scripts/release.mjs sets it); a hand edit that misses a file fails here
@@ -182,3 +193,44 @@ jobs:
         working-directory: desktop
       - run: npm run build:demo
         working-directory: frontend
+
+  # The release builds (release.yml) still package on every platform, without
+  # signing or publishing: a native dependency (node-pty, for the agent panel)
+  # is rebuilt for Electron here, and a broken build fails on the PR instead
+  # of on the release tag.
+  package:
+    needs: changes
+    if: needs.changes.outputs.package == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            # Both architectures, like the release: native modules are
+            # rebuilt for each
+            target: --mac --x64 --arm64
+          - os: windows-latest
+            target: --win
+          - os: ubuntu-latest
+            target: --linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm ci
+        working-directory: desktop
+      - run: npm run build
+        working-directory: desktop
+      # --dir: the unpacked app, without the installers
+      - run: npx electron-builder ${{ matrix.target }} --dir --publish never
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"

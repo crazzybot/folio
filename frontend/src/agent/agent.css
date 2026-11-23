@@ -1,0 +1,112 @@
+/* The agent panel (agent.html): a header bar over a terminal. Global, as
+   the page has no React components to scope a CSS module to. */
+
+body {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  height: 28px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: ns-resize;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar button {
+  padding: 2px var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+
+/* The review loop's state, a pill as the status bar's Live one */
+.loop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px var(--space-2);
+  border-radius: 999px;
+  background: var(--color-hover-bg);
+  color: var(--color-text-strong);
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+}
+
+.loop::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-status-accepted);
+}
+
+.loop[data-state="working"]::before {
+  background: var(--color-git-modified);
+}
+
+/* Off: the command to paste, and Copy */
+.loopOffer {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.loopOffer code {
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-inline-code-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.loop[hidden],
+.loopOffer[hidden],
+.bar button[hidden] {
+  display: none;
+}
+
+.bar button:hover {
+  background: var(--color-hover-bg);
+  color: var(--color-text-strong);
+}
+
+.terminal {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-1) 0 0 var(--space-2);
+  background: var(--color-bg);
+}
+
+/* xterm paints its viewport black until the theme reaches it; the panel's
+   background shows through instead */
+.terminal .xterm,
+.terminal .xterm-viewport {
+  background-color: var(--color-bg) !important;
+}

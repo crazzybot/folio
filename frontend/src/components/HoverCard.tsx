@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { placeCard } from "../hoverCard";
 import type { CardAnchor } from "../hoverCard";
 import styles from "./HoverCard.module.css";
+import { visibleHeight } from "../viewport";
 
 interface HoverCardProps {
   anchor: CardAnchor;
@@ -23,7 +24,7 @@ export default function HoverCard({ anchor, children }: HoverCardProps): React.R
     const el = ref.current;
     if (el === null) return;
     setPosition(
-      placeCard(anchor, { width: el.offsetWidth, height: el.offsetHeight }, { width: window.innerWidth, height: window.innerHeight }),
+      placeCard(anchor, { width: el.offsetWidth, height: el.offsetHeight }, { width: window.innerWidth, height: visibleHeight() }),
     );
   }, [anchor]);
 

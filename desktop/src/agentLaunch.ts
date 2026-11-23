@@ -1,0 +1,110 @@
+/**
+ * agentLaunch.ts — How the agent panel starts the user's coding agent.
+ *
+ * An app started from Finder or the Dock doesn't get the shell's PATH, and
+ * agents installed with npm under nvm, asdf or Homebrew are only on that
+ * PATH. So on macOS and Linux the agent runs through the user's login,
+ * interactive shell, which reads their profile and rc files and then
+ * replaces itself with the agent (`exec`): the session ends when the agent
+ * does.
+ */
+
+export interface AgentLaunch {
+  file: string;
+  args: string[];
+}
+
+/** The agent's command line; FOLIO_AGENT_COMMAND overrides it while trying others out. */
+export const DEFAULT_AGENT_COMMAND = "claude";
+
+/** The Folio plugin's skill that waits for the notes the user sends (plugins/folio). */
+export const REVIEW_LOOP_COMMAND = "/folio:review-loop";
+
+/** Claude Code's install guide, for a session that couldn't find `claude`. */
+export const CLAUDE_INSTALL_URL = "https://code.claude.com/docs/en/setup";
+
+/** The program the command runs: its first word ("claude" in "claude --continue"). */
+export function commandProgram(command: string): string {
+  return command.trim().split(/\s+/)[0] ?? "";
+}
+
+/** Whether the command runs Claude Code, which the review loop's command is for. */
+export function isClaudeCommand(command: string): boolean {
+  return commandProgram(command).split(/[\\/]/).pop() === "claude";
+}
+
+/** The agent's program wasn't found: what to tell the user, and Claude Code's install guide when it's the one missing. */
+export interface MissingAgent {
+  program: string;
+  installUrl: string | null;
+}
+
+/**
+ * Whether the session ended because the shell didn't find the agent's
+ * program, as when Claude Code isn't installed: a POSIX shell exits with 127
+ * then, cmd with 9009.
+ */
+export function missingAgent(command: string, exitCode: number, platform: NodeJS.Platform): MissingAgent | null {
+  if (exitCode !== (platform === "win32" ? 9009 : 127)) return null;
+  return { program: commandProgram(command), installUrl: isClaudeCommand(command) ? CLAUDE_INSTALL_URL : null };
+}
+
+export function agentLaunch(command: string, platform: NodeJS.Platform, env: NodeJS.ProcessEnv): AgentLaunch {
+  if (platform === "win32") {
+    // cmd resolves claude.cmd / claude.exe from PATH, which Windows apps do get
+    return { file: env["ComSpec"] ?? "cmd.exe", args: ["/d", "/s", "/c", command] };
+  }
+  const shell = env["SHELL"] ?? (platform === "darwin" ? "/bin/zsh" : "/bin/sh");
+  return { file: shell, args: ["-l", "-i", "-c", `exec ${command}`] };
+}
+
+/**
+ * What a running Claude Code session hands its children. A Folio started from
+ * one (`npm start`, the `folio` command, by an agent) would pass them on, and
+ * the panel's session would take itself for that session's child. The user's
+ * own settings (CLAUDE_CONFIG_DIR, CLAUDE_CODE_USE_BEDROCK, …) stay.
+ */
+const PARENT_SESSION_VARIABLES = [
+  "CLAUDECODE",
+  "CLAUDE_PID",
+  "CLAUDE_AGENT_SDK_VERSION",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+];
+
+/**
+ * What an editor's terminal sets for the Claude Code there to connect to the
+ * editor (VS Code's extension sets the port). A Folio started from that
+ * terminal would pass them on, and the panel's session would show the
+ * editor's open file as its context. The panel is a terminal of its own;
+ * `/ide` in it still connects on purpose.
+ */
+const IDE_TERMINAL_VARIABLES = ["CLAUDE_CODE_SSE_PORT", "ENABLE_IDE_INTEGRATION"];
+
+/**
+ * The session's environment: the app's own, as a terminal would get it, plus
+ * what the agent panel needs. FOLIO_AGENT_SESSION is passed down to the
+ * Folio MCP server the agent starts, so it can say which panel it's in.
+ */
+export function agentEnv(env: NodeJS.ProcessEnv, session: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (value !== undefined) result[key] = value;
+  }
+  // Electron's own: they would turn a node or electron the agent runs into something else
+  delete result["ELECTRON_RUN_AS_NODE"];
+  delete result["ELECTRON_NO_ATTACH_CONSOLE"];
+  for (const name of [...PARENT_SESSION_VARIABLES, ...IDE_TERMINAL_VARIABLES]) delete result[name];
+  return {
+    ...result,
+    TERM: "xterm-256color",
+    COLORTERM: "truecolor",
+    TERM_PROGRAM: "Folio",
+    FOLIO_AGENT_SESSION: session,
+  };
+}
