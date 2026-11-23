@@ -182,7 +182,6 @@ function AppInner(): React.ReactElement {
   // folder icons, and the documents changed on the branch
   const git = useGitState();
   const agents = useAgents();
-  const workspaceAgents = useMemo(() => agents.filter((a) => a.location === ""), [agents]);
   const branchChanges = useMemo(() => changesById(git, documents), [git, documents]);
   const changedIds = useMemo(() => (branchChanges === null ? null : new Set(branchChanges.keys())), [branchChanges]);
   const changedInFocus = useMemo(
@@ -1420,13 +1419,14 @@ function AppInner(): React.ReactElement {
             {gitRepo.mainCheckout !== null && <WorktreeIcon size={14} />}
           </button>
         )}
-        {/* An agent on the whole workspace: no folder row to show it on, so its menu is here */}
+        {/* Every review loop in the workspace, in one place whatever the list shows
+            (folders, a search, the Marks view): its menu says where each is and ends it */}
         <LivePill
-          agents={workspaceAgents}
+          agents={agents}
           onClick={(e) => {
             const box = e.currentTarget.getBoundingClientRect();
             void window.markdownApi?.agents.showMenu(
-              workspaceAgents.map((a) => a.pid),
+              agents.map((a) => a.pid),
               box.left,
               box.top,
             );

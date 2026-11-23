@@ -47,7 +47,8 @@ export function agentsAtFolder(sessions: readonly AgentSession[], folderKey: str
 
 /**
  * The agents on a focused folder: listening on it or on a folder that holds
- * it. Not those on the whole workspace, which the status bar shows.
+ * it, for the focus bar's dot. Not those on the whole workspace, which hold
+ * every folder. The status bar's pill shows them all.
  */
 export function agentsOnFolder(sessions: readonly AgentSession[], folder: string): AgentSession[] {
   return sessions.filter((s) => s.location !== "" && (folder === s.location || folder.startsWith(`${s.location}/`)));
