@@ -23,14 +23,14 @@
  * context menu, or the focused folder when the status bar's button opens it).
  */
 
-import { ipcMain, WebContentsView } from "electron";
+import { clipboard, ipcMain, WebContentsView } from "electron";
 import type { BrowserWindow, IpcMainEvent, WebContents } from "electron";
 import { spawn } from "node-pty";
 import type { IPty } from "node-pty";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import { agentEnv, agentLaunch, isClaudeCommand, sessionCommand } from "./agentLaunch";
+import { agentEnv, agentLaunch, isClaudeCommand, REVIEW_LOOP_COMMAND } from "./agentLaunch";
 import { isDescendant, readProcessTable } from "./processTree";
 
 const DEFAULT_HEIGHT = 320;
@@ -39,21 +39,14 @@ const MIN_HEIGHT = 120;
 const MIN_DOCUMENTS_HEIGHT = 200;
 // Output kept for the page to replay when it reloads
 const REPLAY_LIMIT = 512 * 1024;
-// Claude Code redraws its spinner while it works: output this recent means
-// it's probably mid-turn (a guess until the state hooks exist)
-const BUSY_OUTPUT_MS = 1500;
-// What Claude Code says when --resume finds no saved conversation
-const NO_CONVERSATION = "No conversation found";
-// After Start Review Loop, look for the loop this often until it shows: a
-// Presence change can be missed (the process table read while it changes)
+// After the review loop's command is copied, look for the loop this often
+// until it shows, for as long as pasting it might take: a Presence change
+// can be missed (the process table read while it changes)
 const LOOP_POLL_MS = 2000;
-const LOOP_POLL_FOR_MS = 60_000;
+const LOOP_POLL_FOR_MS = 120_000;
 
 /** The review loop of the panel's session, from its Presence file. */
 export type LoopState = "off" | "waiting" | "working";
-
-/** Why Start Review Loop asks before restarting a running session. */
-export type RestartReason = "working" | "draft" | "plain";
 
 export interface AgentPanelOptions {
   /** The panel's page (frontend/agent.html). */
@@ -73,8 +66,6 @@ export interface AgentPanelOptions {
   onVisible: (visible: boolean) => void;
   openExternal: (url: string) => void;
   backgroundColor: () => string;
-  /** Ask before Start Review Loop restarts a running session; true to go ahead. */
-  confirmRestart: (reason: RestartReason) => Promise<boolean>;
   /** The review loops running now (AgentTracker), by their MCP server's pid. */
   loops: () => readonly { pid: number; state: "waiting" | "working" }[];
 }
@@ -93,15 +84,6 @@ export class AgentPanel {
   private height = DEFAULT_HEIGHT;
   private reserved = 0;
   private reservedGap = 0;
-  /** The conversation's id (Claude Code's --session-id), new with each new session. */
-  private conversation = randomUUID();
-  /** Whether it has been saved: something was sent in it, so --resume finds it. */
-  private hasConversation = false;
-  /** Keys typed since the last Enter: a message not sent yet. */
-  private draft = false;
-  private lastOutputAt = 0;
-  /** This session is a --resume that found no conversation: start it fresh once it exits. */
-  private resumeFailed = false;
   private loop: LoopState = "off";
   private loopCheck = 0;
 
@@ -180,7 +162,7 @@ export class AgentPanel {
   ready(cols: number, rows: number): void {
     this.size = { cols, rows };
     if (this.pty === null) {
-      this.start("new");
+      this.start();
       return;
     }
     this.pty.resize(cols, rows);
@@ -189,20 +171,9 @@ export class AgentPanel {
     this.send("agent:loop", this.loop);
   }
 
+  /** The user's keys: the only thing that goes into the session. */
   input(data: string): void {
-    if (this.pty === null) return;
-    this.pty.write(data);
-    // Only the user's keys come here. Enter after typing sends a message,
-    // which saves the conversation; Ctrl+C and Ctrl+U clear the input
-    if (data.includes("\r")) {
-      if (this.draft) this.hasConversation = true;
-      this.draft = false;
-    } else if (data === "\x03" || data === "\x15") {
-      this.draft = false;
-    } else if (data.startsWith("\x1b[200~") || (!data.startsWith("\x1b") && /[^\x00-\x1f\x7f]/.test(data))) {
-      // Typed text, or a paste; not arrows, Esc or other keys' sequences
-      this.draft = true;
-    }
+    this.pty?.write(data);
   }
 
   resize(cols: number, rows: number): void {
@@ -210,31 +181,20 @@ export class AgentPanel {
     this.pty?.resize(cols, rows);
   }
 
-  /** A new session: a new conversation, not the one before. */
   restart(): void {
     this.end();
-    this.conversation = randomUUID();
-    this.hasConversation = false;
-    this.start("new");
+    this.start();
   }
 
   /**
-   * Start Review Loop: Claude Code again on this conversation, with the
-   * review loop as its first prompt. A running session is ended first,
-   * which stops a turn in progress and drops what lives in the process
-   * (session approvals, permission mode, shells Claude started); the
-   * user is asked before that.
+   * Copy the review loop's command for the user to paste into the session.
+   * Folio never types into it, nor starts it with a prompt of its own: the
+   * user sends the command, so no prompt reaches Claude without them. Then
+   * watch for the loop, so the header shows it once it's waiting.
    */
-  async startReviewLoop(): Promise<void> {
-    if (!isClaudeCommand(this.options.command) || this.loop !== "off") return;
-    if (this.pty !== null) {
-      const reason: RestartReason =
-        Date.now() - this.lastOutputAt < BUSY_OUTPUT_MS ? "working" : this.draft ? "draft" : "plain";
-      if (!(await this.options.confirmRestart(reason))) return;
-      this.end();
-    }
-    this.start(this.hasConversation ? "resume-loop" : "loop");
-    this.view?.webContents.focus();
+  copyReviewLoopCommand(): void {
+    if (!isClaudeCommand(this.options.command)) return;
+    clipboard.writeText(REVIEW_LOOP_COMMAND);
     const pty = this.pty;
     const until = Date.now() + LOOP_POLL_FOR_MS;
     const poll = async () => {
@@ -273,7 +233,6 @@ export class AgentPanel {
     const pty = this.pty;
     this.pty = null;
     this.replay = "";
-    this.draft = false;
     this.setLoop("off");
     if (pty === null) return;
     try {
@@ -294,10 +253,9 @@ export class AgentPanel {
     return this.requestedFolder ?? this.options.workspace() ?? os.homedir();
   }
 
-  private start(mode: "new" | "loop" | "resume-loop"): void {
+  private start(): void {
     const folder = this.folder();
-    const command = sessionCommand(this.options.command, this.conversation, mode);
-    const launch = agentLaunch(command, process.platform, process.env);
+    const launch = agentLaunch(this.options.command, process.platform, process.env);
     const pty = spawn(launch.file, launch.args, {
       name: "xterm-256color",
       cols: this.size.cols,
@@ -307,17 +265,9 @@ export class AgentPanel {
     });
     this.pty = pty;
     this.sessionFolder = folder;
-    this.lastOutputAt = 0;
-    this.resumeFailed = false;
-    // The loop's first prompt is a message: the conversation is saved
-    if (mode !== "new") this.hasConversation = true;
     // A session that was ended or replaced may still report; only the current one counts
     pty.onData((data) => {
       if (this.pty !== pty) return;
-      this.lastOutputAt = Date.now();
-      // Folio's guess that something was sent can be wrong (an Enter that
-      // answered a prompt): then the resume finds nothing
-      if (mode === "resume-loop" && data.includes(NO_CONVERSATION)) this.resumeFailed = true;
       this.replay = (this.replay + data).slice(-REPLAY_LIMIT);
       this.send("agent:data", data);
     });
@@ -325,12 +275,6 @@ export class AgentPanel {
       if (this.pty !== pty) return;
       this.pty = null;
       this.setLoop("off");
-      if (this.resumeFailed) {
-        // Nothing to resume: the same id is free, start the loop in a new conversation
-        this.hasConversation = false;
-        this.start("loop");
-        return;
-      }
       this.send("agent:exit", exitCode);
     });
     this.sendInfo();
@@ -341,7 +285,8 @@ export class AgentPanel {
     this.send("agent:info", {
       title: claude ? "Claude Code" : this.options.command,
       folder: path.basename(this.sessionFolder ?? this.folder()),
-      reviewLoop: claude,
+      // The command the header offers to copy; none for other agents
+      reviewLoop: claude ? REVIEW_LOOP_COMMAND : null,
     });
   }
 
@@ -422,7 +367,7 @@ export function registerAgentIpc(find: (sender: WebContents) => AgentPanel | nul
     if (isSize(cols) && isSize(rows)) panel.resize(cols, rows);
   });
   on("agent:restart", (panel) => panel.restart());
-  on("agent:review-loop", (panel) => void panel.startReviewLoop());
+  on("agent:copy-review-loop", (panel) => panel.copyReviewLoopCommand());
   on("agent:hide", (panel) => panel.hide());
   on("agent:height", (panel, height) => {
     if (isSize(height)) panel.setHeight(height);

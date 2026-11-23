@@ -35,7 +35,7 @@ interface Header {
   root: HTMLElement;
   title: HTMLElement;
   /** Show the review loop's state, or the button to start it. */
-  setLoop(state: LoopState, available: boolean): void;
+  setLoop(state: LoopState, command: string | null): void;
 }
 
 function header(api: AgentApi, terminal: Terminal): Header {
@@ -48,12 +48,25 @@ function header(api: AgentApi, terminal: Terminal): Header {
   const loop = document.createElement("span");
   loop.className = "loop";
   loop.hidden = true;
-  const startLoop = document.createElement("button");
-  startLoop.textContent = "Start Review Loop";
-  startLoop.setAttribute("aria-label", "Start Review Loop");
-  startLoop.title = "Restart Claude Code on this conversation, waiting for the notes you send from Folio";
-  startLoop.hidden = true;
-  startLoop.addEventListener("click", () => api.startReviewLoop());
+  // Off: the command that starts it, to copy and paste into the session.
+  // Folio doesn't send it: only the user's keys go in
+  const offer = document.createElement("span");
+  offer.className = "loopOffer";
+  offer.hidden = true;
+  offer.title = "Paste it in the panel and press Enter: Claude waits for the notes you send from Folio. Esc stops it.";
+  const command = document.createElement("code");
+  const copy = document.createElement("button");
+  copy.textContent = "Copy";
+  let copied: number | undefined;
+  copy.addEventListener("click", () => {
+    api.copyReviewLoopCommand();
+    copy.textContent = "Copied";
+    window.clearTimeout(copied);
+    copied = window.setTimeout(() => (copy.textContent = "Copy"), 2000);
+    // Ready for ⌘V / Ctrl+V and Enter
+    terminal.focus();
+  });
+  offer.append(command, copy);
   const restart = document.createElement("button");
   restart.textContent = "Restart";
   restart.setAttribute("aria-label", "Restart Agent Session");
@@ -65,7 +78,7 @@ function header(api: AgentApi, terminal: Terminal): Header {
   hide.textContent = "Hide";
   hide.setAttribute("aria-label", "Hide Agent Panel");
   hide.addEventListener("click", () => api.hide());
-  root.append(title, loop, startLoop, restart, hide);
+  root.append(title, loop, offer, restart, hide);
 
   // Dragging the bar resizes the panel. Screen coordinates: the view itself
   // moves while it's resized, so its own coordinates would drift.
@@ -83,8 +96,10 @@ function header(api: AgentApi, terminal: Terminal): Header {
     root.addEventListener("pointerup", up);
   });
 
-  const setLoop = (state: LoopState, available: boolean) => {
-    startLoop.hidden = !available || state !== "off";
+  const setLoop = (state: LoopState, loopCommand: string | null) => {
+    offer.hidden = loopCommand === null || state !== "off";
+    command.textContent = loopCommand ?? "";
+    copy.setAttribute("aria-label", `Copy ${loopCommand ?? ""}`);
     loop.hidden = state === "off";
     loop.dataset["state"] = state;
     loop.textContent = state === "waiting" ? "Waiting for your notes" : "Working on your notes";
@@ -132,16 +147,16 @@ function start(api: AgentApi): void {
     ended = true;
     terminal.write(`\r\n\x1b[2m[The session ended (${code}). Press any key to start a new one.]\x1b[0m\r\n`);
   });
-  let loopAvailable = false;
+  let loopCommand: string | null = null;
   let loopState: LoopState = "off";
   api.onInfo(({ title, folder, reviewLoop }) => {
     bar.title.textContent = `${title} · ${folder}`;
-    loopAvailable = reviewLoop;
-    bar.setLoop(loopState, loopAvailable);
+    loopCommand = reviewLoop;
+    bar.setLoop(loopState, loopCommand);
   });
   api.onLoop((state) => {
     loopState = state;
-    bar.setLoop(loopState, loopAvailable);
+    bar.setLoop(loopState, loopCommand);
   });
   api.onFocus(() => terminal.focus());
 

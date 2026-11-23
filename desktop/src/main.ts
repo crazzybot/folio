@@ -86,7 +86,6 @@ import {
 } from "./settings";
 import type { Settings, Theme } from "./settings";
 import { hasPendingViewState, loadViewState, saveViewState, setViewState, viewStateSnapshot } from "./viewState";
-import type { RestartReason } from "./agentPanel";
 import { checkForUpdatesNow, initUpdater } from "./updater";
 import { alertText, ReplyAlerts, unseenNotes } from "./replyAlerts";
 import { watchMarks, watchWorkspace } from "./watcher";
@@ -1589,49 +1588,6 @@ function reserveAgentPanel(win: BrowserWindow, height: number, gap: number, relo
   }).catch(() => null);
 }
 
-// Start Review Loop's question before restarting a session; "no" after Don't Ask Again
-const ASK_LOOP_RESTART_KEY = "folio.agentPanel.askBeforeLoopRestart";
-
-/**
- * Start Review Loop restarts Claude Code on the same conversation. Asked
- * every time when that would cut something off (a turn in progress, a
- * message being typed); otherwise until the user says not to.
- */
-async function confirmLoopRestart(win: BrowserWindow, reason: RestartReason): Promise<boolean> {
-  if (reason === "plain" && viewStateSnapshot()[ASK_LOOP_RESTART_KEY] === "no") return true;
-  const lost =
-    "A restart also ends what lives in the process: approvals given for this session, the permission mode, and shells or servers Claude started.";
-  const text = {
-    working: {
-      message: "Claude Code seems to be working",
-      detail: `Restarting it into the review loop stops what it's doing. The conversation stays.\n\n${lost}`,
-      button: "Restart Anyway",
-    },
-    draft: {
-      message: "You have a message in the agent panel you haven't sent",
-      detail: `Restarting Claude Code into the review loop discards it. The conversation stays.\n\n${lost}`,
-      button: "Restart Anyway",
-    },
-    plain: {
-      message: "Restart Claude Code into the review loop?",
-      detail: `It goes on with this conversation and waits for the notes you send from Folio. Press Esc in the panel to stop waiting.\n\n${lost}`,
-      button: "Restart",
-    },
-  }[reason];
-  const { response, checkboxChecked } = await dialog.showMessageBox(win, {
-    type: reason === "plain" ? "question" : "warning",
-    message: text.message,
-    detail: text.detail,
-    buttons: [text.button, "Cancel"],
-    defaultId: reason === "plain" ? 0 : 1,
-    cancelId: 1,
-    ...(reason === "plain" ? { checkboxLabel: "Don't ask again" } : {}),
-  });
-  if (response !== 0) return false;
-  if (reason === "plain" && checkboxChecked) setViewState(ASK_LOOP_RESTART_KEY, "no");
-  return true;
-}
-
 function createAgentPanel(win: BrowserWindow): AgentPanel {
   win.webContents.on("dom-ready", () => reserveAgentPanel(win, agentPanelHeight, agentPanelGap, true));
   return new AgentPanel(win, {
@@ -1645,7 +1601,6 @@ function createAgentPanel(win: BrowserWindow): AgentPanel {
     },
     openExternal,
     backgroundColor: windowBackgroundColor,
-    confirmRestart: (reason) => confirmLoopRestart(win, reason),
     loops: () => agents.current(),
   });
 }
