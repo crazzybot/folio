@@ -59,6 +59,8 @@ does quitting Folio or opening another workspace.
 - `folio_reply`: answer a note, and say whether it's addressed. You resolve
   or reopen it in Folio. When the edit replaced the quoted text, the agent
   gives the new text as `passage`, and Folio highlights it in its place.
+  A question that's a choice can give 2 to 4 `options`, which you pick
+  from with a click, as on a decision.
 - `folio_add_notes`: put the agent's questions on the passages they're
   about, as notes you answer in Folio. A `question` takes an answer in
   words, a `decision` 2 to 4 options you pick from, and a `comment` needs

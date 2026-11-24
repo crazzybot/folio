@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DocumentNote, Highlight } from "../src/marks";
-import { answeredBy, formatReviewNotes, pickedOption, reviewPath, statusRequest } from "../src/reviewNotes";
+import { answeredBy, formatReviewNotes, openOptions, optionsBefore, pickedOption, reviewPath, statusRequest } from "../src/reviewNotes";
 import type { ReviewDocument } from "../src/reviewNotes";
 
 const SOURCE = `---
@@ -306,6 +306,30 @@ describe("formatReviewNotes for an agent", () => {
     ]);
     expect(formatReviewNotes([doc([commented])], null).text.split("\n").slice(-2)).toEqual(["   My choice: 2. SQLite", "   Small enough."]);
     expect([pickedOption(decision), pickedOption(question)]).toEqual([1, undefined]);
+  });
+
+  it("numbers the options an agent's reply offers, and words the user's pick of them", () => {
+    const claude = { kind: "agent" as const, name: "Claude Code" };
+    const h = highlight("one table per aggregate", {
+      note: "Add more examples?",
+      replies: [
+        { id: "r1", author: claude, text: "Which ones?", at: "2026-11-10T10:02:00Z", options: ["TypeScript", "Shell"] },
+        { id: "r2", author: { kind: "user" }, text: "Shell", at: "2026-11-10T10:05:00Z", choice: 1 },
+      ],
+    });
+    expect(formatReviewNotes([doc([h])], null).text.split("\n").slice(-7)).toEqual([
+      "",
+      "   Reply from Claude Code: Which ones?",
+      "",
+      "   1. TypeScript",
+      "   2. Shell",
+      "",
+      "   My choice: 2. Shell",
+    ]);
+    expect([openOptions(h), pickedOption(h)]).toEqual([["TypeScript", "Shell"], 1]);
+    // The agent answers: nothing open any more
+    const answered = { ...h, replies: [...(h.replies ?? []), { id: "r3", author: claude, text: "Added.", at: "2026-11-10T10:07:00Z" }] };
+    expect([openOptions(answered), pickedOption(answered), optionsBefore(answered)[1]]).toEqual([undefined, undefined, ["TypeScript", "Shell"]]);
   });
 
   it("names an imported comment's author", () => {

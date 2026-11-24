@@ -203,21 +203,66 @@ function byline(author: Author): string {
  * `indent`. The user's answer to a decision says the option it picked ("My
  * choice: 2. SQLite"), then their comment, if it isn't just the option.
  */
-function replyLines(replies: readonly Reply[] | undefined, indent: string, options: readonly string[] = []): string[] {
-  return (replies ?? []).flatMap((reply) => {
-    const option = reply.choice === undefined ? undefined : options[reply.choice];
+function replyLines(note: Offering, indent: string): string[] {
+  const offered = optionsBefore(note);
+  return (note.replies ?? []).flatMap((reply, i) => {
+    const option = reply.choice === undefined ? undefined : offered[i]?.[reply.choice];
     const text = option !== undefined && reply.text.trim() === option ? "" : reply.text.trim();
     const [first = "", ...rest] = text.split(/\r?\n/);
     const indented = rest.map((line) => (line.trim() === "" ? "" : `${indent}${line}`));
-    if (option === undefined || reply.choice === undefined) return ["", `${indent}${byline(reply.author)}: ${first}`, ...indented];
+    // An agent's reply that asks the user to pick: its options numbered, as a decision's
+    const asked = reply.author.kind === "agent" && reply.options !== undefined ? ["", ...reply.options.map((o, n) => `${indent}${n + 1}. ${o}`)] : [];
+    if (option === undefined || reply.choice === undefined) return ["", `${indent}${byline(reply.author)}: ${first}`, ...indented, ...asked];
     const picked = `${indent}My choice: ${reply.choice + 1}. ${option}`;
     return text === "" ? ["", picked] : ["", picked, `${indent}${first}`, ...indented];
   });
 }
 
-/** The option the user has picked on an agent's decision: the latest of their replies that picks one. Undefined: none. */
-export function pickedOption(note: { replies?: readonly Reply[] | undefined }): number | undefined {
-  return [...(note.replies ?? [])].reverse().find((r) => r.author.kind === "user" && r.choice !== undefined)?.choice;
+/** A note as the options it offers are read: an agent's decision, or a thread whose agent replies offer some. */
+type Offering = {
+  author?: Author | undefined;
+  kind?: NoteKind | undefined;
+  options?: readonly string[] | undefined;
+  replies?: readonly Reply[] | undefined;
+};
+
+/** The options a note itself offers: an agent's decision's. */
+function noteOptions(note: Offering): readonly string[] | undefined {
+  return note.kind === "decision" && note.author?.kind === "agent" ? note.options : undefined;
+}
+
+/**
+ * For each reply, the options it can pick from: those of the agent's latest
+ * message before it, the decision note or an agent's reply that offers some.
+ */
+export function optionsBefore(note: Offering): (readonly string[] | undefined)[] {
+  let offered = noteOptions(note);
+  return (note.replies ?? []).map((reply) => {
+    const before = offered;
+    if (reply.author.kind === "agent") offered = reply.options;
+    return before;
+  });
+}
+
+/**
+ * The options open to the user now: the agent's latest message offers
+ * them (the decision note, or its reply). Undefined once the agent has
+ * spoken since without offering any.
+ */
+export function openOptions(note: Offering): readonly string[] | undefined {
+  const replies = note.replies ?? [];
+  const agent = [...replies].reverse().find((r) => r.author.kind === "agent");
+  return agent === undefined ? noteOptions(note) : agent.options;
+}
+
+/** The option the user has picked from the open options: their latest reply since the agent offered them that picks one. */
+export function pickedOption(note: Offering): number | undefined {
+  if (openOptions(note) === undefined) return undefined;
+  for (const reply of [...(note.replies ?? [])].reverse()) {
+    if (reply.author.kind === "agent") return undefined;
+    if (reply.choice !== undefined) return reply.choice;
+  }
+  return undefined;
 }
 
 const KIND_LABELS: Record<NoteKind, string> = { question: "Question", decision: "Decision", comment: "Comment" };
@@ -301,7 +346,7 @@ export function formatReviewNotes(
     if (comment !== null) {
       const [first = "", ...rest] = comment.split(/\r?\n/);
       out.push(`Overall: ${first}`, ...rest);
-      out.push(...replyLines(doc.note?.replies, ""));
+      out.push(...replyLines({ replies: doc.note?.replies }, ""));
       out.push("");
     }
 
@@ -337,7 +382,7 @@ export function formatReviewNotes(
       out.push("");
       out.push(...noteLines(h, indent));
       if (h.author?.kind === "github") out.push(`${indent}— @${h.author.login}`);
-      out.push(...replyLines(h.replies, indent, h.options));
+      out.push(...replyLines(h, indent));
 
       notes.push({ docId: doc.docId, highlightId: h.id, lines: { start, end: out.length }, located: where !== null });
       out.push("");

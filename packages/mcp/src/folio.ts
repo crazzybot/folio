@@ -94,6 +94,8 @@ export interface ReplyRequest {
   addressed?: boolean | undefined;
   /** The text that replaced the note's quote, from the file as it is now (placing-notes.md). */
   passage?: string | undefined;
+  /** 2 to 4 options for the user to pick from: a question asked as a decision. */
+  options?: string[] | undefined;
 }
 
 export interface AddNotesRequest {
@@ -439,8 +441,11 @@ export class Folio {
    * a whole. Resolves to a sentence saying what happened.
    */
   async reply(request: ReplyRequest, client: string): Promise<string> {
-    const { passage } = request;
-    const body = { author: { kind: "agent", name: client }, text: request.text, addressed: request.addressed === true, passage };
+    const { passage, options } = request;
+    if (options !== undefined && request.addressed === true) {
+      throw new FolioError("options ask the user to pick: leave addressed out, and set it once you've recorded their choice");
+    }
+    const body = { author: { kind: "agent", name: client }, text: request.text, addressed: request.addressed === true, passage, options };
     try {
       if (request.noteId !== undefined) {
         const { file, highlight } = await this.findNote(request.noteId);
@@ -454,10 +459,15 @@ export class Folio {
           }
         }
         const note = (await this.store.reply(file, highlight.id, body)) as Highlight;
-        return replied(`note ${shortNoteId(note.id)}`, note) + (passage === undefined ? "" : " Folio highlights the new passage.");
+        return (
+          replied(`note ${shortNoteId(note.id)}`, note) +
+          (options === undefined ? "" : " The user picks one of your options, or answers in words.") +
+          (passage === undefined ? "" : " Folio highlights the new passage.")
+        );
       }
       if (request.path !== undefined) {
         if (passage !== undefined) throw new FolioError("passage is for a note on a passage: give noteId");
+        if (options !== undefined) throw new FolioError("options are for a note on a passage: give noteId");
         const location = this.location(request.path);
         const file = path.join(this.root, ...location.split("/"));
         const note = (await this.store.reply(file, null, body)) as DocumentNote;

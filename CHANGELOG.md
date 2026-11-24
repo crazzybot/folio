@@ -13,7 +13,8 @@ turns them into the next release's section.
 - **Questions from the agent:** a coding agent can put its questions on the
   passages they're about, as notes, with Folio's MCP server
   (`folio_add_notes`). A decision shows its options as buttons: pick one
-  or not, write a reply if you like, and **Save** or **Send** it.
+  or not, write a reply if you like, and **Save** or **Send** it. The
+  agent can also ask you to choose in a reply, on any note.
 - New questions from the agent show in the status bar ("Claude Code asked
   3 questions": click to open each in turn), on the Dock icon and in a
   notification. The **Documents** list counts the questions waiting on you,

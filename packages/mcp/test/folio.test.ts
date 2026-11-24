@@ -299,6 +299,17 @@ describe("reply", () => {
     expect((await records())[0]?.highlights.find((x) => x.id === other.id)?.replies).toBeUndefined();
   });
 
+  it("asks the user to pick from options, and gets their pick back", async () => {
+    const h = await note("Add more examples?");
+    await folio.reviewNotes({}, "Claude Code");
+    const said = await folio.reply({ noteId: h.id, text: "Which ones?", options: ["TypeScript", "Shell"] }, "Claude Code");
+    expect(said).toContain("picks one of your options");
+    await store.reply(adr(), h.id, { author: { kind: "user" }, text: "Shell", choice: 1 });
+    const sent = await folio.reviewNotes({}, "Claude Code");
+    expect(sent?.text).toContain("   1. TypeScript\n   2. Shell\n\n   My choice: 2. Shell");
+    await expect(folio.reply({ noteId: h.id, text: "Done.", addressed: true, options: ["A", "B"] }, "X")).rejects.toThrow(/leave addressed out/);
+  });
+
   it("answers the note on a document as a whole by its path", async () => {
     await store.setNote(adr(), { text: "Overall fine.", requestedStatus: null });
     await folio.reply({ path: adr(), text: "Thanks.", addressed: true }, "Claude Code");

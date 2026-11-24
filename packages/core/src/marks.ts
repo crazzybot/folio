@@ -32,6 +32,7 @@ import type {
   Round,
   Thread,
 } from "./markTypes";
+import { openOptions } from "./reviewNotes";
 import { findPassage } from "./sourceMap";
 
 export { COLORS, NOTE_KINDS, NOTE_STATES };
@@ -213,15 +214,27 @@ function author(value: unknown): Author {
   }
 }
 
-/** A reply body: `{author, text, addressed?, passage?, choice?}`. */
-function replyBody(body: unknown): { author: Author; text: string; addressed: boolean; passage: string | null; choice: number | null } {
+/** A reply body: `{author, text, addressed?, passage?, choice?, options?}`. */
+function replyBody(body: unknown): {
+  author: Author;
+  text: string;
+  addressed: boolean;
+  passage: string | null;
+  choice: number | null;
+  options: string[] | null;
+} {
   if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
   const text = string(body["text"], "text", MAX_REPLY, 1);
   if (text.trim() === "") throw new MarkError(400, "text must not be blank");
   const passage = body["passage"] === undefined ? null : string(body["passage"], "passage", MAX_EXACT, 1);
   if (passage !== null && passage.trim() === "") throw new MarkError(400, "passage must not be blank");
   const choice = body["choice"] === undefined || body["choice"] === null ? null : optionIndex(body["choice"]);
-  return { author: author(body["author"]), text, addressed: body["addressed"] === true, passage, choice };
+  const options = body["options"] === undefined || body["options"] === null ? null : optionList(body["options"], "options");
+  const by = author(body["author"]);
+  const addressed = body["addressed"] === true;
+  // Options ask the user to pick: the agent's, on a reply that doesn't say it's done
+  if (options !== null && (by.kind !== "agent" || addressed)) throw new MarkError(400, "options go on an agent's question, not with addressed");
+  return { author: by, text, addressed, passage, choice, options };
 }
 
 function optionIndex(value: unknown): number {
@@ -229,11 +242,13 @@ function optionIndex(value: unknown): number {
   return value;
 }
 
-/** Checks that `choice` picks one of the decision's options, and that it's the user who picks. */
+/** Checks that `choice` picks one of the options the agent offers now (openOptions), and that it's the user who picks. */
 function checkChoice(mark: Highlight | DocumentNote, choice: number | null, by: Author): void {
   if (choice === null) return;
-  const options = "kind" in mark && mark.kind === "decision" ? (mark.options ?? []) : [];
-  if (by.kind !== "user" || choice >= options.length) throw new MarkError(400, "choice must be one of a decision's options, picked by the user");
+  const options = openOptions(mark) ?? [];
+  if (by.kind !== "user" || choice >= options.length) {
+    throw new MarkError(400, "choice must be one of the options the agent offers, picked by the user");
+  }
 }
 
 /**
@@ -503,12 +518,15 @@ function newAgentNotes(source: string, agent: Author, requests: unknown): Highli
 }
 
 function decisionOptions(value: unknown, i: number): string[] {
-  if (!Array.isArray(value) || value.length < 2 || value.length > 4) {
-    throw new MarkError(400, `notes[${i}].options: a decision has 2 to 4 options`);
-  }
+  return optionList(value, `notes[${i}].options`);
+}
+
+/** 2 to 4 options, each one line of text: a decision's, or an agent's reply's. */
+function optionList(value: unknown, name: string): string[] {
+  if (!Array.isArray(value) || value.length < 2 || value.length > 4) throw new MarkError(400, `${name}: 2 to 4 options`);
   return value.map((option: unknown, n) => {
-    const text = string(option, `notes[${i}].options[${n}]`, MAX_OPTION, 1).trim();
-    if (text === "" || /[\r\n]/.test(text)) throw new MarkError(400, `notes[${i}].options[${n}] must be one line of text`);
+    const text = string(option, `${name}[${n}]`, MAX_OPTION, 1).trim();
+    if (text === "" || /[\r\n]/.test(text)) throw new MarkError(400, `${name}[${n}] must be one line of text`);
     return text;
   });
 }
@@ -795,13 +813,20 @@ export class MarksStore {
    * the note with its replies.
    */
   reply(file: string, highlightId: string | null, body: unknown): Promise<Highlight | DocumentNote> {
-    const { author: by, text, addressed, passage, choice } = replyBody(body);
+    const { author: by, text, addressed, passage, choice, options } = replyBody(body);
     if (passage !== null && highlightId === null) throw new MarkError(400, "A passage goes with a note on a passage");
-    if (choice !== null && highlightId === null) throw new MarkError(400, "A choice goes with a decision");
+    if ((choice !== null || options !== null) && highlightId === null) throw new MarkError(400, "Options and choices go with a note on a passage");
     const id = recordId(file);
     return this.serially(async () => {
       const record = await this.writable(id);
-      const reply: Reply = { id: randomBytes(8).toString("hex"), author: by, text, at: now(), ...(choice === null ? {} : { choice }) };
+      const reply: Reply = {
+        id: randomBytes(8).toString("hex"),
+        author: by,
+        text,
+        at: now(),
+        ...(choice === null ? {} : { choice }),
+        ...(options === null ? {} : { options }),
+      };
       if (highlightId === null) {
         const old = storedNote(record?.documentNote);
         if (record === null || old === null) throw new MarkError(404, "The document has no note");

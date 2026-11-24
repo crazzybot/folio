@@ -42,8 +42,12 @@ interface NoteThreadProps {
   progress?: AgentProgress | null | undefined;
   /** Offer Reply when the user can reply; false when the popover has its own (an agent's decision). */
   offerReply?: boolean;
-  /** An agent's decision's options: a reply that picks one shows it. */
-  options?: readonly string[] | undefined;
+  /** For each reply, the options it could pick from (optionsBefore): a reply that picks one shows it. */
+  optionsBefore?: readonly (readonly string[] | undefined)[];
+  /** The message whose options are open now, shown as buttons under the thread (a reply's id, or "note"): not listed in it again. */
+  openFrom?: string | null;
+  /** The decision note's own options, listed in its message once they're no longer open. */
+  noteOptions?: readonly string[] | undefined;
 }
 
 export default function NoteThread({
@@ -57,7 +61,9 @@ export default function NoteThread({
   onSaveAndSend,
   progress = null,
   offerReply = true,
-  options = [],
+  optionsBefore = [],
+  openFrom = null,
+  noteOptions,
 }: NoteThreadProps): React.ReactElement | null {
   // A new reply (replyId null), or the user's latest one being edited
   const [draft, setDraft] = useState<{ text: string; replyId: string | null } | null>(null);
@@ -184,9 +190,10 @@ export default function NoteThread({
                 </time>
               </div>
               <MessageText text={note.text} />
+              {noteOptions !== undefined && openFrom !== "note" && <OptionList options={noteOptions} />}
             </li>
           )}
-          {replies.map((reply) => (
+          {replies.map((reply, i) => (
             <li key={reply.id} className={`${styles.reply} ${reply.author.kind === "user" ? styles.mine : ""}`}>
               <div className={styles.byline}>
                 <span className={styles.author}>{authorName(reply.author)}</span>
@@ -221,7 +228,8 @@ export default function NoteThread({
                   </button>
                 )}
               </div>
-              {draft !== null && draft.replyId === reply.id ? editor(true) : <ReplyText reply={reply} options={options} />}
+              {draft !== null && draft.replyId === reply.id ? editor(true) : <ReplyText reply={reply} options={optionsBefore[i] ?? []} />}
+              {reply.options !== undefined && openFrom !== reply.id && <OptionList options={reply.options} />}
             </li>
           ))}
         </ol>
@@ -237,6 +245,17 @@ export default function NoteThread({
           )
         : draft.replyId === null && editor(false)}
     </div>
+  );
+}
+
+/** The options an agent offered, once no longer open: numbered, as the agent was told them. */
+function OptionList({ options }: { options: readonly string[] }): React.ReactElement {
+  return (
+    <ol className={styles.optionList} aria-label="Options">
+      {options.map((option, i) => (
+        <li key={i}>{option}</li>
+      ))}
+    </ol>
   );
 }
 

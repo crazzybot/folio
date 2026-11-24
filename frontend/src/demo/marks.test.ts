@@ -79,7 +79,8 @@ describe("DemoMarks", () => {
 
   it("places an agent's note without replacing anything, and takes the user's pick of a decision", () => {
     const passage = { exact: "TWO", at: "2026-11-02T00:00:00Z", first: true as const };
-    const decision = { ...seedHighlight("s1"), passage, kind: "decision" as const, options: ["A", "B"], state: "sent" as const };
+    const author = { kind: "agent" as const, name: "Claude Code" };
+    const decision = { ...seedHighlight("s1"), passage, author, kind: "decision" as const, options: ["A", "B"], state: "sent" as const };
     const marks = new DemoMarks(listed, { b: { bookmarks: [], highlights: [decision] } }, memoryStorage());
     const replacement = { quote: { exact: "TWO", prefix: "", suffix: "" }, position: { start: 10, end: 13 } };
     const placed = marks.updateHighlight("b", "s1", { replacement });

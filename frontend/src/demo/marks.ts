@@ -14,6 +14,7 @@
  * and last until the page is closed.
  */
 
+import { openOptions } from "../../../packages/core/src/reviewNotes";
 import type { HighlightChanges, NewHighlight, NoteChanges } from "../dataSource";
 import type {
   Bookmark,
@@ -381,9 +382,9 @@ export class DemoMarks {
   }
 }
 
-/** A pick must be one of a decision's options, as the desktop store checks. */
+/** A pick must be one of the options the agent offers now, as the desktop store checks. */
 function checkChoice(target: Highlight | DocumentNote, choice: number | undefined): void {
   if (choice === undefined) return;
-  const options = "kind" in target && target.kind === "decision" ? (target.options ?? []) : [];
+  const options = openOptions(target) ?? [];
   if (!Number.isInteger(choice) || choice < 0 || choice >= options.length) throw new Error("Not one of the decision's options");
 }

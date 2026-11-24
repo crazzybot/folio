@@ -587,6 +587,21 @@ describe("threads", () => {
     expect(await refusal(() => store.reply(PLAIN, question?.id ?? "", { author: user, text: "x", choice: 0 }))).toBe(400);
   });
 
+  it("takes an agent's reply that offers options, and the user's pick of them", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "Add more examples?" }));
+    const asked = await store.reply(PLAIN, a.id, { author: CLAUDE, text: "Which ones?", options: ["TypeScript", " Shell "] });
+    expect([asked.replies?.[0]?.options, asked.state]).toEqual([["TypeScript", "Shell"], "sent"]);
+    const picked = await store.reply(PLAIN, a.id, { author: { kind: "user" }, text: "Shell", choice: 1 });
+    expect(picked.replies?.[1]?.choice).toBe(1);
+    // Options only from the agent, asking; a pick only of the options open now
+    const user = { kind: "user" };
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: user, text: "x", options: ["A", "B"] }))).toBe(400);
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: CLAUDE, text: "x", options: ["A", "B"], addressed: true }))).toBe(400);
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: CLAUDE, text: "x", options: ["A"] }))).toBe(400);
+    await store.reply(PLAIN, a.id, { author: CLAUDE, text: "Added the shell example.", addressed: true });
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: user, text: "x", choice: 0 }))).toBe(400);
+  });
+
   it("adds none of an agent's notes when one is refused", async () => {
     const source = "No headings here.\nSecond line.\n";
     const note = { passage: "Second line.", text: "Why?", kind: "question" };

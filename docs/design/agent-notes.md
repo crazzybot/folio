@@ -84,6 +84,20 @@ decision's options numbered; the user's reply that picks one says so:
 Its other replies are worded as on any note. The agent records the decision in the
 document and answers with `folio_reply`, `addressed: true`.
 
+## Choices in a reply
+
+The agent can ask the user to pick later in a conversation too, on any
+note: `folio_reply` takes `options` (2–4, as a decision's), not together
+with `addressed`. They're stored on the agent's reply.
+
+What's open is the latest agent message's options (reviewNotes.ts
+`openOptions`): the decision note's while the agent hasn't replied, else
+its latest reply's, if it has any. A user's reply picks with `choice`
+among the options of the agent's message before it (`optionsBefore`); the
+store checks a new pick against those open now. Review notes number a
+reply's options under it, and word the pick that answers them as "My
+choice: …".
+
 ## In the viewer
 
 - The note is the first message of its thread, with the agent's name, and
@@ -100,6 +114,9 @@ document and answers with `folio_reply`, `addressed: true`.
   out of it). In the thread, a reply that picks shows the option in bold,
   then the comment. Once the agent has replied, the decision is settled:
   the buttons and its reply box go, and the thread's **Reply** is back.
+  The same goes for options in the agent's reply: the buttons are those
+  of its latest message that offers some. Options no longer open are
+  listed, numbered, in the message that offered them.
 - The hover card and the inline note name the agent the same way.
 
 ## Finding them

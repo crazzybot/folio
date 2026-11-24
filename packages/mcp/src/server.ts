@@ -195,6 +195,7 @@ export function createServer(folio: Folio): McpServer {
       description:
         "Answer one of the user's review notes in Folio, where they read it next to the passage. " +
         "Say what you changed and set addressed: true, or explain why you didn't change it, or ask a question (addressed left out: the note waits for the user's answer). " +
+        "When the question is a choice, give 2 to 4 options: the user picks one with a click, or answers in words. " +
         "If your edit replaced the quoted text, give the text that now stands in its place as passage, copied exactly from the file as it is now: Folio highlights it and keeps the note on it. " +
         "Recording the user's answer to your question in the document is a change too: set addressed. " +
         "Say what you changed, never that the note is resolved: the user resolves or reopens addressed notes; you can't resolve, edit or delete them. Keep replies short: a sentence or two.",
@@ -209,6 +210,12 @@ export function createServer(folio: Folio): McpServer {
           .max(20_000)
           .optional()
           .describe("The text that replaced the quoted passage, copied exactly from the file after your edit (a note on a passage only)"),
+        options: z
+          .array(z.string().min(1).max(200))
+          .min(2)
+          .max(4)
+          .optional()
+          .describe("For a question that's a choice: 2 to 4 options, one line each; leave addressed out (a note on a passage only)"),
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },

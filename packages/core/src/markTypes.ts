@@ -46,6 +46,8 @@ export interface Reply {
    * The text is their comment, or the option's when they wrote none.
    */
   choice?: number;
+  /** An agent's reply that asks the user to pick: 2 to 4 options, as a decision's. */
+  options?: string[];
 }
 
 /** A note's thread (agent-integration): absent fields mean none yet. */

@@ -184,6 +184,10 @@ on the spec as notes".
   `Ctrl+Shift+Enter`) sends it at once. **Esc** cancels. Your answer shows
   in the conversation as your reply, the option you picked first. Once the
   agent answers, the options go: the note is a conversation like any other.
+- **Choices in a reply.** On any note, the agent can answer with a
+  question and options to pick from, such as "TypeScript and shell, or
+  all five languages?". The options show as buttons under the
+  conversation, and you answer as on a decision.
 - **Comments** tell you something, such as an assumption the agent made,
   and need no answer. **Resolve** them once read.
 - **Finding them.** The status bar says "Claude Code asked 3 questions";

@@ -257,3 +257,10 @@
 .choice {
   font-weight: 600;
 }
+
+/* An agent's options, no longer open: listed in its message */
+.optionList {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  color: var(--color-text-muted);
+}

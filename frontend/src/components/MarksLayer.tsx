@@ -8,7 +8,7 @@ import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
-import { agentNoteLabel, agentProgress, type AgentProgress, answeredBy, pickedOption, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
+import { agentNoteLabel, agentProgress, type AgentProgress, answeredBy, openOptions, optionsBefore, pickedOption, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
 import { buildTextModel } from "../textModel";
 import { locateSection, sameSection, sectionPath } from "../sectionAnchor";
 import { canReply, newsOf, threadSummary } from "../threads";
@@ -933,14 +933,18 @@ export default function MarksLayer({
     setDraft(null);
     setReplying(false);
   };
-  // A decision is open until the agent has answered: then it's an ordinary thread
-  const deciding =
-    current?.kind === "decision" && current.options !== undefined && !(current.replies ?? []).some((r) => r.author.kind === "agent");
+  // The options the agent offers now: its decision's, or those of its latest
+  // reply. Once it answers without any, the thread is an ordinary one
+  const offered = current === undefined ? undefined : openOptions(current);
+  const deciding = offered !== undefined;
+  // The message offering them, whose options are the buttons: a reply's id, or "note"
+  const openFrom =
+    offered === undefined ? null : ([...(current?.replies ?? [])].reverse().find((r) => r.author.kind === "agent")?.id ?? "note");
   const picking = deciding && pick !== null && pick.id === current?.id ? pick : null;
   // The user's answer so far, while unanswered: the box edits it rather than adding another
   const lastReply = current?.replies?.[current.replies.length - 1];
   const mine = deciding && lastReply?.author.kind === "user" ? lastReply : null;
-  const optionText = (choice: number | null | undefined) => (choice == null ? undefined : current?.options?.[choice]);
+  const optionText = (choice: number | null | undefined) => (choice == null ? undefined : offered?.[choice]);
   // The reply's text: the comment, or the option's when there's none
   const answerText = picking === null ? "" : picking.comment.trim() || (optionText(picking.choice) ?? "");
   const pickReady =
@@ -1392,14 +1396,16 @@ export default function MarksLayer({
               progress={progress}
               // A decision being made has its own reply box, under its options
               offerReply={!deciding}
-              options={current.options}
+              optionsBefore={optionsBefore(current)}
+              openFrom={openFrom}
+              noteOptions={current.kind === "decision" && current.author?.kind === "agent" ? current.options : undefined}
             />
           )}
 
           {/* An agent's decision: the user picks one of its options, then saves or sends it as a reply */}
-          {draft === null && deciding && current.options !== undefined && (
+          {draft === null && offered !== undefined && (
             <div className={styles.options} role="group" aria-label="Options">
-              {current.options.map((option, i) => {
+              {offered.map((option, i) => {
                 const on = (picking === null ? (pickedOption(current) ?? null) : picking.choice) === i;
                 return (
                   <button

@@ -121,6 +121,8 @@ export interface Reply {
   reopened?: NoteState;
   /** The user's answer to an agent's decision: the option picked (its index). The text is their comment, or the option's. */
   choice?: number;
+  /** An agent's reply that asks the user to pick: 2 to 4 options. */
+  options?: string[];
 }
 
 /** A note's thread; absent fields mean none yet. */
