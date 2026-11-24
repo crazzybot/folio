@@ -72,7 +72,8 @@ Bookmark the open document with the header's bookmark button (`⌘D` /
 
 The sidebar's **Marks** tab lists the marks of every document in the
 workspace, grouped by document. Filter it to bookmarks, or highlights and
-notes, or by note state. **Only the open document** narrows it to the
+notes, or by note state, or to **The agent's notes** when an agent wrote
+some. **Only the open document** narrows it to the
 document you're reading. Click a mark to go to it; the note on a document
 opens at the top of the document, with its editor open.
 

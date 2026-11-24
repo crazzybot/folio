@@ -14,6 +14,15 @@ turns them into the next release's section.
   passages they're about, as notes, with Folio's MCP server
   (`folio_add_notes`). A decision shows its options as buttons: pick one
   with a click. Your answer goes with your next notes, like a reply.
+- New questions from the agent show in the status bar ("Claude Code asked
+  3 questions": click to open each in turn), on the Dock icon and in a
+  notification. The **Documents** list counts the questions waiting on you,
+  and the **Marks** view's filter has **The agent's notes**.
+
+### Fixed
+
+- The window no longer goes blank when the agent replies to a note whose
+  popover is open, as after **Send** in a review loop.
 
 ## [0.11.0] — 2026-11-23
 

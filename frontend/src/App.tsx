@@ -53,7 +53,7 @@ import { branchSentence, changesById, folderName, isOnBase, repositoryOf, status
 import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
-import { agentProgress, countsByDoc, defaultSelection, isCounted, picked, pickedUpBy, sendDocuments, sendGroups } from "./sending";
+import { agentProgress, countsByDoc, defaultSelection, isCounted, isOpenQuestion, picked, pickedUpBy, sendDocuments, sendGroups } from "./sending";
 import { newReplies, repliedNotes, repliesParts, repliesSummary } from "./threads";
 import type { Picked, SendItem, StateFilter } from "./sending";
 import type { Located } from "./marksView";
@@ -221,6 +221,7 @@ function AppInner(): React.ReactElement {
   // mentioned in a document's hover card
   const highlightCounts = useMemo(() => countsByDoc(marks.byDoc, isCounted), [marks.byDoc]);
   const resolvedCounts = useMemo(() => countsByDoc(marks.byDoc, (h) => !isCounted(h)), [marks.byDoc]);
+  const questionCounts = useMemo(() => countsByDoc(marks.byDoc, isOpenQuestion), [marks.byDoc]);
   const bookmarkedIds = useMemo(
     () => new Set([...marks.byDoc].flatMap(([id, m]) => (findBookmark(m.bookmarks, null) ? [id] : []))),
     [marks.byDoc],
@@ -1029,6 +1030,7 @@ function AppInner(): React.ReactElement {
             onFiltersChange={setMetaFilters}
             highlightCounts={highlightCounts}
             resolvedCounts={resolvedCounts}
+            questionCounts={questionCounts}
             git={git}
             agents={agents}
             branchChanges={branchChanges}
@@ -1461,10 +1463,10 @@ function AppInner(): React.ReactElement {
               className={styles.statusAction}
               onClick={showNextReplied}
               aria-label={repliedText}
-              title={replied.length === 1 ? "Open the note" : "Open the first note with new replies"}
+              title={replied.length === 1 ? "Open the note" : "Open the first of them"}
             >
               {/* The count in a pill, as the app's badge in the Dock: it waits on the user */}
-              {repliedParts.who} replied to <span className={styles.repliedPill}>{repliedParts.notes}</span>
+              {repliedParts.who} {repliedParts.did} <span className={styles.repliedPill}>{repliedParts.notes}</span>
             </button>
           </span>
         )}

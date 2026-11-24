@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   agentNoteLabel,
+  isOpenQuestion,
   agentProgress,
   countsByDoc,
   defaultSelection,
@@ -245,6 +246,9 @@ describe("answered notes", () => {
     expect([loopKind(question), agentNoteLabel(question)]).toEqual(["answered", "Question from Claude Code"]);
     expect(loopKind({ ...question, replies: [userReply] })).toBe("sent");
     expect(agentNoteLabel(highlight("a", 0, "Why?"))).toBeNull();
+    // Open questions, for the Documents list: until the user answers
+    expect([isOpenQuestion(question), isOpenQuestion({ ...question, state: "open", choice: 0 })]).toEqual([true, false]);
+    expect(isOpenQuestion(highlight("a", 0, "Why?", { state: "sent", replies: [agentReply] }))).toBe(false);
   });
 
   it("wait on the user", () => {

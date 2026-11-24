@@ -1,6 +1,7 @@
 # Notes from the agent
 
-Status: implemented: the MCP tool, and agent notes in the viewer.
+Status: implemented: the MCP tool, agent notes in the viewer, and where
+to find them.
 Builds on [agent-integration.md](agent-integration.md) (threads, replies),
 [placing-notes.md](placing-notes.md) (the agent's passage) and
 [note-lifecycle.md](note-lifecycle.md).
@@ -87,3 +88,26 @@ document and answers with `folio_reply`, `addressed: true`.
   until someone replies, then the usual states.
 - A decision's options are buttons under the thread, the pick pressed.
 - The hover card and the inline note name the agent the same way.
+
+## Finding them
+
+An agent's note the user hasn't opened is new, as an agent's reply is
+(threads.ts `isNewAgentNote`): its `seen` is absent. Opening its popover
+sets `seen`, as it does for new replies. So the existing paths for new
+replies carry the questions too:
+
+- The status bar's link (`repliedNotes`): "Claude Code asked 3
+  questions" when all the new notes are the agent's own, "Claude Code
+  wrote on 4 notes" when replies are mixed in. Each click opens the next.
+- The desktop's Dock badge and notification (replyAlerts.ts), with the
+  same wording; a click opens the first.
+- The margin marker's dot and labels ("a new question"), and **New
+  question** in the Marks view.
+
+Besides those:
+
+- The **Documents** list counts each document's open questions (agent
+  notes the user hasn't answered: `isOpenQuestion`) in a pill before the
+  highlight count.
+- The **Marks** view's filter has a **From** section, **The agent's
+  notes**, shown while there are any.

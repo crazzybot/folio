@@ -11,7 +11,7 @@ import type { NoteIconKind } from "../noteIcons";
 import { agentNoteLabel, agentProgress, type AgentProgress, answeredBy, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
 import { buildTextModel } from "../textModel";
 import { locateSection, sameSection, sectionPath } from "../sectionAnchor";
-import { newReplies, threadSummary } from "../threads";
+import { newsOf, threadSummary } from "../threads";
 import { HIGHLIGHT_COLORS } from "../types";
 import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, NoteState, Round, TextAnchor } from "../types";
 import LockIcon from "./LockIcon";
@@ -946,11 +946,17 @@ export default function MarksLayer({
     };
   }, [popover, draft, replying, closePopover]);
 
-  // Opening a note's thread shows its new replies: they're seen from then on
-  const currentNew = current === undefined ? 0 : newReplies(current).length;
+  // Opening a note's thread shows its new replies: they're seen from then on.
+  // Once for each latest message: marking seen changes the marks, which can
+  // give onSeen a new identity, and must not mark it again
+  const currentNews =
+    current === undefined || newsOf(current) === "" ? null : `${current.id} ${current.replies?.[current.replies.length - 1]?.id ?? ""}`;
+  const markedSeen = useRef<string | null>(null);
   useEffect(() => {
-    if (popover !== null && currentNew > 0) onSeen(popover.id);
-  }, [popover, currentNew, onSeen]);
+    if (popover === null || currentNews === null || markedSeen.current === currentNews) return;
+    markedSeen.current = currentNews;
+    onSeen(popover.id);
+  }, [popover, currentNews, onSeen]);
 
   // The popover takes keyboard focus, so its buttons are reachable
   useEffect(() => {
@@ -1018,15 +1024,15 @@ export default function MarksLayer({
         {unplacedShown.map((h) => {
           const kind = noteIconOf(h);
           const note = h.note ?? (h.private === false ? "(no comment)" : null);
-          const fresh = newReplies(h).length;
-          const news = fresh === 0 ? "" : ` · ${fresh === 1 ? "a new reply" : `${fresh} new replies`}`;
+          const fresh = newsOf(h);
+          const news = fresh === "" ? "" : ` · ${fresh}`;
           const about = note === null ? "Highlight" : `${NOTE_ICON_LABELS[kind]} note: ${note}`;
           return (
             <li key={h.id}>
               <button
                 type="button"
                 data-highlight-id={h.id}
-                className={`${styles.unplacedRow} ${fresh > 0 ? styles.noteMarkerNew : ""}`}
+                className={`${styles.unplacedRow} ${fresh !== "" ? styles.noteMarkerNew : ""}`}
                 style={{ borderLeftColor: `var(--mark-${h.color}-swatch)` }}
                 onClick={(e) => openPopover(h.id, e.currentTarget.getBoundingClientRect())}
                 aria-label={`${about}. On: ${h.quote.exact}${news}`}
@@ -1118,14 +1124,14 @@ export default function MarksLayer({
         const highlight = highlights.find((h) => h.id === spot.id);
         const kind = highlight === undefined ? "private" : noteIconOf(highlight);
         const note = highlight?.note ?? "(no comment)";
-        const fresh = highlight === undefined ? 0 : newReplies(highlight).length;
-        const news = fresh === 0 ? "" : ` · ${fresh === 1 ? "a new reply" : `${fresh} new replies`}`;
+        const fresh = highlight === undefined ? "" : newsOf(highlight);
+        const news = fresh === "" ? "" : ` · ${fresh}`;
         const detached = spot.detached ? ` · ${DETACHED_LABEL}` : "";
         return (
           <button
             key={spot.id}
             type="button"
-            className={`${styles.noteMarker} ${spot.detached ? styles.noteMarkerDetached : ""} ${spot.id === hoveredNote ? styles.noteMarkerHovered : ""} ${fresh > 0 ? styles.noteMarkerNew : ""}`}
+            className={`${styles.noteMarker} ${spot.detached ? styles.noteMarkerDetached : ""} ${spot.id === hoveredNote ? styles.noteMarkerHovered : ""} ${fresh !== "" ? styles.noteMarkerNew : ""}`}
             style={{ top: spot.top, left: spot.left }}
             onClick={(e) => openPopover(spot.id, e.currentTarget.getBoundingClientRect())}
             aria-label={`${NOTE_ICON_LABELS[kind]} note: ${note}${news}${detached}`}

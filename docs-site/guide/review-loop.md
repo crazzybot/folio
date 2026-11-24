@@ -113,9 +113,10 @@ it works in.
 ### Know when the agent replied
 
 While you're in another app, a system notification says when an agent
-answers your notes, such as "Claude Code replied to 4 notes" (desktop).
-Click it to come back to Folio with the first of those notes open. The Dock
-icon shows how many notes have replies you haven't read yet.
+answers your notes, such as "Claude Code replied to 4 notes", or asks you
+something, such as "Claude Code asked 2 questions" (desktop). Click it to
+come back to Folio with the first of those notes open. The Dock icon shows
+how many notes have replies or questions you haven't read yet.
 
 ## Replies
 
@@ -180,6 +181,12 @@ on the spec as notes".
   next notes, and you can add a reply to explain it.
 - **Comments** tell you something, such as an assumption the agent made,
   and need no answer. **Resolve** them once read.
+- **Finding them.** The status bar says "Claude Code asked 3 questions";
+  click it to open each in turn. A question you haven't opened has a dot on
+  its margin icon, as a new reply does. The **Documents** list shows how
+  many questions wait on you in each document, in a blue pill (such as
+  **?2**). In the **Marks** view, the filter's **The agent's notes** lists
+  only them.
 
 The agent records your answers in the document, and marks each note
 **Addressed**. You can't edit the agent's notes, but you can delete them

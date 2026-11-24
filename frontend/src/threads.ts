@@ -7,7 +7,7 @@
  * last saw the thread (or never did). The user's own replies are never new.
  */
 
-import type { Author, Reply, Thread } from "./types";
+import type { Author, NoteKind, Reply, Thread } from "./types";
 
 /** Who wrote a reply, as the thread shows it. */
 export function authorName(author: Author): string {
@@ -31,28 +31,51 @@ export function canReply(thread: Thread): boolean {
   return (last?.author ?? thread.author ?? { kind: "user" }).kind !== "user";
 }
 
-/** The replies the user hasn't seen. */
+/**
+ * The replies the user hasn't seen. Compared as times, not as text: the
+ * store writes whole seconds ("…:35Z") and the app marks seen with
+ * milliseconds ("…:35.412Z"), which sorts before it as text.
+ */
 export function newReplies(thread: Thread): Reply[] {
-  return (thread.replies ?? []).filter((r) => r.author.kind !== "user" && (thread.seen === undefined || r.at > thread.seen));
+  const seen = thread.seen === undefined ? null : Date.parse(thread.seen);
+  return (thread.replies ?? []).filter((r) => r.author.kind !== "user" && (seen === null || Date.parse(r.at) > seen));
 }
 
-/** A note with new replies, by where it is. */
+/**
+ * An agent's own note (agent-notes.md) the user hasn't opened yet: new, as
+ * an agent's reply is. Opening it marks the thread seen.
+ */
+export function isNewAgentNote(thread: Thread & { kind?: NoteKind | undefined }): boolean {
+  return thread.kind !== undefined && thread.author?.kind === "agent" && thread.seen === undefined;
+}
+
+/** What's new on a note, for its labels: "a new question", "a new reply", "3 new replies"; "" when nothing is. */
+export function newsOf(thread: Thread & { kind?: NoteKind | undefined }): string {
+  const fresh = newReplies(thread).length;
+  if (isNewAgentNote(thread)) return fresh === 0 ? "a new question" : `a new question, ${fresh === 1 ? "a reply" : `${fresh} replies`}`;
+  return fresh === 0 ? "" : fresh === 1 ? "a new reply" : `${fresh} new replies`;
+}
+
+/** A note with new replies, or the agent's own note not opened yet, by where it is. */
 export interface RepliedNote {
   docId: string;
   /** null: the note on the document as a whole. */
   highlightId: string | null;
   /** Who replied, in order, each once. */
   authors: string[];
+  /** The agent's own note, not opened yet: it asked rather than replied. */
+  asked?: boolean;
 }
 
 /** The workspace's notes with new replies, in document order. */
 export function repliedNotes(
-  byDoc: Iterable<[string, { highlights: readonly Thread[]; note?: Thread | undefined }]>,
+  byDoc: Iterable<[string, { highlights: readonly (Thread & { kind?: NoteKind | undefined })[]; note?: Thread | undefined }]>,
 ): RepliedNote[] {
   const found: RepliedNote[] = [];
-  const add = (docId: string, highlightId: string | null, thread: Thread) => {
-    const replies = newReplies(thread);
-    if (replies.length > 0) found.push({ docId, highlightId, authors: [...new Set(replies.map((r) => authorName(r.author)))] });
+  const add = (docId: string, highlightId: string | null, thread: Thread & { kind?: NoteKind | undefined }) => {
+    const asked = isNewAgentNote(thread) && thread.author !== undefined;
+    const authors = [...(asked && thread.author !== undefined ? [thread.author] : []), ...newReplies(thread).map((r) => r.author)].map(authorName);
+    if (authors.length > 0) found.push({ docId, highlightId, authors: [...new Set(authors)], ...(asked ? { asked } : {}) });
   };
   for (const [docId, marks] of byDoc) {
     if (marks.note !== undefined) add(docId, null, marks.note);
@@ -61,18 +84,24 @@ export function repliedNotes(
   return found;
 }
 
-/** Who replied, "Claude Code", and to what, "3 notes"; null when there's nothing new. */
-export function repliesParts(notes: readonly RepliedNote[]): { who: string; notes: string } | null {
+/**
+ * Who wrote, "Claude Code", what they did, "replied to", and to what, "3
+ * notes"; null when there's nothing new. The agent's own new notes are
+ * questions it asked; with replies too, they're all "new on" notes.
+ */
+export function repliesParts(notes: readonly RepliedNote[]): { who: string; did: string; notes: string } | null {
   if (notes.length === 0) return null;
   const authors = [...new Set(notes.flatMap((n) => n.authors))];
   const who = authors.length === 1 ? (authors[0] ?? "") : authors.length === 2 ? `${authors[0]} and ${authors[1]}` : "Agents";
-  return { who, notes: notes.length === 1 ? "a note" : `${notes.length} notes` };
+  const asked = notes.filter((n) => n.asked === true).length;
+  if (asked === notes.length) return { who, did: "asked", notes: asked === 1 ? "a question" : `${asked} questions` };
+  return { who, did: asked === 0 ? "replied to" : "wrote on", notes: notes.length === 1 ? "a note" : `${notes.length} notes` };
 }
 
-/** "Claude Code replied to 3 notes", or null when there's nothing new. */
+/** "Claude Code replied to 3 notes", "Claude Code asked 2 questions", or null when there's nothing new. */
 export function repliesSummary(notes: readonly RepliedNote[]): string | null {
   const parts = repliesParts(notes);
-  return parts === null ? null : `${parts.who} replied to ${parts.notes}`;
+  return parts === null ? null : `${parts.who} ${parts.did} ${parts.notes}`;
 }
 
 const DAY = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });

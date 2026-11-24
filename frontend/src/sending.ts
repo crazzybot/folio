@@ -10,7 +10,7 @@
 
 import type { NoteIconKind } from "./noteIcons";
 import { answeredBy, isPrivate, sendableNote } from "../../packages/core/src/reviewNotes";
-import { newReplies } from "./threads";
+import { newsOf } from "./threads";
 import type { DocumentMeta, DocumentNote, Highlight, NoteKind, NoteState, Round, SendDocument } from "./types";
 
 /** What the Marks view's state filter tells apart: the four states, and private marks. */
@@ -54,6 +54,11 @@ export function agentNoteLabel(h: Pick<Highlight, "kind" | "author">): string | 
   return h.kind === undefined || h.author?.kind !== "agent" ? null : `${NOTE_KIND_LABELS[h.kind]} from ${h.author.name}`;
 }
 
+/** An agent's own note waiting on the user's answer: nobody has replied yet, or the agent spoke last. */
+export function isOpenQuestion(h: Highlight): boolean {
+  return agentNoteLabel(h) !== null && answeredBy(h) !== null;
+}
+
 /** Where a highlight falls in the state filter. */
 export function filterOf(h: Highlight): StateFilter {
   return isPrivate(h) ? "private" : stateOf(h);
@@ -87,7 +92,7 @@ export function countsByDoc(
  * behind "N more", so the strip doesn't grow with every old mark.
  */
 export function unplacedFirst(h: Highlight): boolean {
-  if (newReplies(h).length > 0) return true;
+  if (newsOf(h) !== "") return true;
   return (h.note !== null || h.private === false) && stateOf(h) !== "resolved";
 }
 
