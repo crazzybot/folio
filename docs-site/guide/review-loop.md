@@ -178,15 +178,15 @@ questions on the spec as notes".
 - **In the text.** The agent's notes are highlighted like yours. The
   popover and the inline note name it: **Question from Claude Code**,
   **Decision from Claude Code** or **Comment from Claude Code**.
-- **Questions.** Click **Reply**, write your answer and **Save**. The
-  answer goes with your next notes, or at once with **Send** while the
-  agent is Live.
+- **Questions.** Click **Reply**, write your answer and **Save**: it goes
+  with your next notes, and the note closes. While the agent is Live,
+  **Send** sends it at once and keeps the note open for the answer.
 - **Decisions.** The note shows the agent's options as buttons, and
   **Reply**. Click an option, or **Reply** to answer in your own words,
   or both: pick an option and add a comment. Click the picked option again
   to take it back. **Save** (`⌘↩` / `Ctrl+Enter`) keeps your answer for
-  your next notes; with the agent Live, **Send** (`⇧⌘↩` /
-  `Ctrl+Shift+Enter`) sends it at once. **Esc** cancels. Your answer shows
+  your next notes and closes the note; with the agent Live, **Send**
+  (`⇧⌘↩` / `Ctrl+Shift+Enter`) sends it at once. **Esc** cancels. Your answer shows
   in the conversation as your reply, the option you picked first. Once the
   agent answers, the options go: the note is a conversation like any other.
 - **Choices in a reply.** On any note, the agent can answer with a

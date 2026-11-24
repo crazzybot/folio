@@ -30,7 +30,8 @@ Folio is for anyone who has to read documents closely rather than write them:
 - Lets you highlight passages, write notes, give a verdict on a whole
   document and bookmark sections, then find every mark in one list.
 - Copies your notes as Markdown for a coding agent, each with its file path
-  and line.
+  and line, or sends them to the agent, and shows its replies and its own
+  questions next to the passages they're about.
 
 ## What it doesn't do
 

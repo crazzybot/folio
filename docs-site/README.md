@@ -1,6 +1,6 @@
 # Folio user docs
 
-Synced with: the Unreleased section of CHANGELOG.md as of 2026-11-23, for 0.11.0 (the agent panel). The docs describe the latest release; the
+Synced with: 0.12.0 (questions from the agent), 2026-11-24. The docs describe the latest release; the
 `sync-docs-site` skill (`.claude/skills/`) brings them up to date.
 
 The user documentation at <https://crazzybot.github.io/folio/docs/>, built
