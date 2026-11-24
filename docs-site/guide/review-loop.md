@@ -50,6 +50,28 @@ them; the agent edits them with its own tools.
 **Settings → Coding agents** (`⌘,` / `Ctrl+,`) has both setups, each with
 a **Copy** button.
 
+## The agent panel
+
+In the desktop app, Claude Code can run in a panel below your documents,
+so you don't need a separate terminal. Open it with **View → Toggle Agent
+Panel** (`⌘J` / `Ctrl+J`) or the terminal button in the status bar. The
+session starts in the workspace, or in the focused folder. To start it in
+another folder, choose **Open Agent Here** in the folder's context menu.
+
+- **Hide** closes the panel and keeps the session running; open it again to
+  pick up where you were. **Restart** ends the session and starts a new
+  one. Drag the panel's top bar to resize it.
+- **The review loop.** The header shows `/folio:review-loop` with a
+  **Copy** button: paste it in the panel and press Enter, and Claude waits
+  for the notes you send from Folio. Folio never types into the session.
+  The header then shows **Waiting for your notes** or **Working on your
+  notes**. Press Esc in the panel to stop waiting. The command needs
+  Folio's plugin (above). On Windows, the header needs version 0.4.2 or
+  later of Folio's MCP server.
+- **Claude Code not found.** If Claude Code isn't installed, or your shell
+  can't find `claude`, the panel says so and links to its install guide.
+  Press any key to try again once it's installed.
+
 ## Review in a loop
 
 Rather than going back to the agent after each round, you can leave it

@@ -9,6 +9,7 @@
 | Print | `⌘P` | `Ctrl+P` |
 | Export as PDF | `⇧⌘E` | `Ctrl+Shift+E` |
 | Toggle the sidebar | `⌘B` | `Ctrl+B` |
+| Toggle the agent panel | `⌘J` | `Ctrl+J` |
 | Back / Forward | `⌘[` / `⌘]` | `Alt+Left` / `Alt+Right` |
 
 ## Reading
