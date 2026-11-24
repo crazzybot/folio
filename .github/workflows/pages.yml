@@ -31,11 +31,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     env:
       # The demo bundle needs the desktop scanner, not Electron
       ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
@@ -71,5 +68,15 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
+
+  # A job of its own: deploy-pages run straight after the upload, in the same
+  # job, can look for the artifact before GitHub lists it, and fails
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v5
