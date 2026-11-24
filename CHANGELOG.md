@@ -18,7 +18,7 @@ turns them into the next release's section.
 - The agent panel offers the review loop's command (`/folio:review-loop`)
   to copy and paste into the session; Folio never types into it. Its
   header then shows when Claude is waiting for your notes or working on
-  them. On Windows, this needs the new version of Folio's MCP server.
+  them. On Windows, this needs Folio's MCP server 0.4.2 or later.
 - When Claude Code isn't installed, or your shell can't find `claude`, the
   agent panel says so and links to its install guide.
 
@@ -31,7 +31,6 @@ turns them into the next release's section.
   note for the next round.
 - A note's popover and the note on the document have a **×** to close
   them, as a click elsewhere does.
-
 - **Live** has one place: the status bar's pill shows every agent waiting
   for your notes, whatever the sidebar shows, and its menu ends each loop,
   or all of them. A folder an agent works in gets a green dot instead of a
@@ -53,8 +52,8 @@ turns them into the next release's section.
   it changed. It no longer says "resolved", which only you do in Folio.
 - Interrupting the agent while it waits for your notes (Esc in Claude Code)
   now ends the review loop in Folio at once: the **Live** pill goes away,
-  instead of staying for up to five minutes. Needs the new version of
-  Folio's MCP server.
+  instead of staying for up to five minutes. Needs Folio's MCP server
+  0.4.1 or later.
 - With a folder focused, the Marks view's **Missing documents** lists only
   that folder's, like the rest of the view. A line under them says how
   many are in other folders, with **Show All Documents**.
