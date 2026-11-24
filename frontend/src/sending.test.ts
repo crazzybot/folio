@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  agentNoteLabel,
   agentProgress,
   countsByDoc,
   defaultSelection,
@@ -236,6 +237,14 @@ describe("answered notes", () => {
     expect(loopKind(highlight("a", 0, "Why?", { state: "sent" }))).toBe("sent");
     expect(loopKind(highlight("a", 0, "Why?", { state: "addressed", replies: [agentReply] }))).toBe("addressed");
     expect(loopKind(docNote({ state: "sent", replies: [agentReply] }))).toBe("answered");
+  });
+
+  it("include the agent's own questions, which wait on the user until they answer", () => {
+    const claude = { kind: "agent" as const, name: "Claude Code" };
+    const question = highlight("a", 0, "Postgres?", { state: "sent", author: claude, kind: "question" });
+    expect([loopKind(question), agentNoteLabel(question)]).toEqual(["answered", "Question from Claude Code"]);
+    expect(loopKind({ ...question, replies: [userReply] })).toBe("sent");
+    expect(agentNoteLabel(highlight("a", 0, "Why?"))).toBeNull();
   });
 
   it("wait on the user", () => {

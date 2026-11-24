@@ -109,7 +109,7 @@ export interface MarkHandlers {
   setNote: (id: string, note: string | null) => void;
   remove: (id: string) => void;
   /** A note's place in the review loop (docs/design/sending-notes.md). */
-  setLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
+  setLoop: (id: string, changes: { state?: NoteState; private?: boolean | null; choice?: number }) => void;
   /** The user's reply to a note, and that they saw its thread (docs/design/agent-integration.md). */
   reply: (id: string, text: string) => void;
   editReply: (id: string, replyId: string, text: string) => void;

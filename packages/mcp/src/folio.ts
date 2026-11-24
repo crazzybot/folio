@@ -15,7 +15,7 @@ import { agentsFolder, presenceFile, stopFile, stopRequested, writePresence } fr
 import type { StopReason } from "../../core/src/agents";
 import { filesOnOtherBranches } from "../../core/src/git";
 import { listMarks, MarkError, MarksStore, newRoundId, realPath } from "../../core/src/marks";
-import type { DocumentMarks, DocumentNote, Highlight, NoteState } from "../../core/src/marks";
+import type { AgentNoteRequest, DocumentMarks, DocumentNote, Highlight, NoteState } from "../../core/src/marks";
 import { answeredBy, formatReviewNotes, isPrivate, reviewPath, sendableNote, shortNoteId } from "../../core/src/reviewNotes";
 import type { ReviewDocument } from "../../core/src/reviewNotes";
 import { scanWorkspace } from "../../core/src/scanner";
@@ -94,6 +94,11 @@ export interface ReplyRequest {
   addressed?: boolean | undefined;
   /** The text that replaced the note's quote, from the file as it is now (placing-notes.md). */
   passage?: string | undefined;
+}
+
+export interface AddNotesRequest {
+  path: string;
+  notes: AgentNoteRequest[];
 }
 
 export class Folio {
@@ -463,6 +468,42 @@ export class Folio {
       throw err;
     }
     throw new FolioError("Give noteId for a note on a passage, or path for the note on a document as a whole");
+  }
+
+  // ── The agent's own notes ────────────────────────────────────────────────
+
+  /**
+   * Put the agent's notes on passages of a document: questions and
+   * decisions for the user to answer, comments to read. All of them, or
+   * none when a passage isn't in the file. Resolves to a sentence saying
+   * what happened, with the notes' ids.
+   */
+  async addNotes(request: AddNotesRequest, client: string): Promise<string> {
+    const location = this.location(request.path);
+    const doc = (await this.documents()).find((d) => key(d.location) === key(location));
+    if (doc === undefined) throw new FolioError(`Not a Markdown document Folio lists: ${request.path}`);
+    const file = path.join(this.root, ...doc.location.split("/"));
+    const source = await readFile(file, "utf8");
+    let added: Highlight[];
+    try {
+      added = await this.store.addAgentNotes(file, source, { kind: "agent", name: client }, request.notes);
+    } catch (err) {
+      if (err instanceof MarkError) {
+        throw new FolioError(
+          `${err.message.replace(/^notes\[(\d+)\]/, (_m, i: string) => `Note ${Number(i) + 1}`)}. Nothing was saved` +
+            (err.status === 404 ? ": copy each passage exactly from the file as it is now." : "."),
+        );
+      }
+      throw err;
+    }
+    const asks = added.filter((h) => h.kind !== "comment").length;
+    const ids = added.map((h) => shortNoteId(h.id)).join(", ");
+    return (
+      `Added ${added.length === 1 ? "1 note" : `${added.length} notes`} on ${this.absolute(doc.location)} (${ids}). ` +
+      (asks === 0
+        ? "The user reads them in Folio; comments need no answer."
+        : "The user answers in Folio; their answers come to you with their next review notes, like any note.")
+    );
   }
 
   /** The highlight whose id starts with `noteId`, among the root's documents. */

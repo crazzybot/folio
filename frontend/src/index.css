@@ -322,6 +322,10 @@ li > .folio-inline-notes,
 }
 
 /* "↳ 3 replies · latest from Claude Code, 10:02": the thread is in the popover */
+.folio-inline-note-by {
+  font-weight: 600;
+}
+
 .folio-inline-note-replies {
   margin-top: 0.1em;
   font-size: 0.9em;

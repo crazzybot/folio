@@ -318,6 +318,42 @@ describe("reply", () => {
   });
 });
 
+describe("addNotes", () => {
+  it("puts the agent's questions on passages, and sends them back once the user answers", async () => {
+    const said = await folio.addNotes(
+      {
+        path: "docs/adr.md",
+        notes: [
+          { passage: "store events in Postgres", text: "Postgres or SQLite?", kind: "decision", options: ["Postgres", "SQLite"] },
+          { passage: "one table per aggregate", text: "Assumed one schema.", kind: "comment" },
+        ],
+      },
+      "Claude Code",
+    );
+    expect(said).toMatch(/^Added 2 notes on .*adr\.md \([0-9a-f]{8}, [0-9a-f]{8}\)\. The user answers in Folio/);
+    const [decision, comment] = (await records())[0]?.highlights ?? [];
+    expect([decision?.author, decision?.state, comment?.state]).toEqual([{ kind: "agent", name: "Claude Code" }, "sent", "addressed"]);
+    // Waiting on the user: not sent, nor counted as waiting on the agent
+    expect(await folio.reviewNotes({}, "Claude Code")).toBeNull();
+    expect((await folio.listDocuments({ withOpenNotes: true })).length).toBe(0);
+
+    // The user picks: the answer goes with the next notes
+    await store.updateHighlight(adr(), decision?.id ?? "", { choice: 0 });
+    const sent = await folio.reviewNotes({}, "Claude Code");
+    expect(sent?.text).toContain("Decision from Claude Code: Postgres or SQLite?");
+    expect(sent?.text).toContain("My choice: 1. Postgres");
+    expect(readFileSync(adr(), "utf8")).toBe(ADR);
+  });
+
+  it("saves nothing when a passage isn't in the document", async () => {
+    const add = (p: string, passage: string) => folio.addNotes({ path: p, notes: [{ passage, text: "Why?", kind: "question" }] }, "X");
+    await expect(add(adr(), "Postgres, two tables")).rejects.toThrow("Note 1: the passage isn't in the document. Nothing was saved: copy");
+    await expect(add(path.join(root, "node_modules", "dep.md"), "Not listed")).rejects.toThrow(/Not a Markdown document Folio lists/);
+    await expect(add(os.tmpdir(), "x")).rejects.toBeInstanceOf(FolioError);
+    expect(await records()).toEqual([]);
+  });
+});
+
 describe("documents on another branch", () => {
   it("keeps the marks of a document that's only on another branch where they are", async () => {
     const env = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };

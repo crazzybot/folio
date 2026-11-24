@@ -203,6 +203,44 @@
   outline-offset: 2px;
 }
 
+/* An agent's decision: one button per option, the user's pick pressed */
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.option {
+  max-width: 100%;
+  padding: 3px 10px;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-ui);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--color-hover-bg);
+}
+
+.option:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.optionOn,
+.optionOn:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+}
+
 /* The review loop: the note's state and what can be done, and the lock */
 .loopRow {
   display: flex;

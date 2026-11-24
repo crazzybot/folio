@@ -162,6 +162,29 @@ description.
   change the **Status**. A conversation opens at its latest message, and
   scrolls down when a reply comes in.
 
+## Questions from the agent
+
+An agent can ask its questions in Folio instead of in its terminal: it puts
+each one on the passage it's about, as a note. Claude Code does this with
+Folio's MCP server when you ask it to, for example "put your open questions
+on the spec as notes".
+
+- **In the text.** The agent's notes are highlighted like yours. The
+  popover and the inline note name it: **Question from Claude Code**,
+  **Decision from Claude Code** or **Comment from Claude Code**.
+- **Questions.** Click **Reply**, write your answer and **Save**. The
+  answer goes with your next notes, or at once with **Send** while the
+  agent is Live.
+- **Decisions.** The note shows the agent's options as buttons. Click one
+  to pick it; click another to change your mind. Your pick goes with your
+  next notes, and you can add a reply to explain it.
+- **Comments** tell you something, such as an assumption the agent made,
+  and need no answer. **Resolve** them once read.
+
+The agent records your answers in the document, and marks each note
+**Addressed**. You can't edit the agent's notes, but you can delete them
+with the bin, like your own.
+
 ## What the agent receives
 
 The copied text is Markdown. Each note has the document's file path and line

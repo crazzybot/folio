@@ -11,7 +11,7 @@
  * Node imports: the frontend compiles this for the browser too.
  */
 
-import type { Author, DocumentNote, Highlight, Reply } from "./markTypes";
+import type { Author, DocumentNote, Highlight, NoteKind, Reply } from "./markTypes";
 import { locateInSource } from "./sourceMap";
 
 // Quotes longer than this are shortened to their first and last QUOTE_KEEP
@@ -60,12 +60,16 @@ export function sendableNote<T extends Pick<DocumentNote, "text" | "requestedSta
 
 /**
  * The agent that answered a sent note without addressing it ("Claude Code"):
- * its reply is the thread's latest, so the note waits on the user, not the
- * agent. Null otherwise.
+ * its reply is the thread's latest, or it wrote the note and nobody has
+ * replied, so the note waits on the user, not the agent. Null otherwise.
  */
-export function answeredBy(note: { state?: string | undefined; replies?: readonly { author: Author }[] | undefined }): string | null {
-  const last = note.replies?.[note.replies.length - 1];
-  return note.state === "sent" && last?.author.kind === "agent" ? last.author.name : null;
+export function answeredBy(note: {
+  state?: string | undefined;
+  author?: Author | undefined;
+  replies?: readonly { author: Author }[] | undefined;
+}): string | null {
+  const last = note.replies?.[note.replies.length - 1]?.author ?? note.author;
+  return note.state === "sent" && last?.kind === "agent" ? last.name : null;
 }
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
@@ -73,6 +77,9 @@ export function answeredBy(note: { state?: string | undefined; replies?: readonl
 /** A highlight as formatted: the app's and the store's both fit. */
 export type ReviewHighlight = Pick<Highlight, "id" | "note" | "quote" | "position"> & {
   author?: Author | undefined;
+  kind?: NoteKind | undefined;
+  options?: readonly string[] | undefined;
+  choice?: number | undefined;
   replies?: readonly Reply[] | undefined;
   section?: readonly { text: string }[] | undefined;
 };
@@ -200,6 +207,26 @@ function replyLines(replies: readonly Reply[] | undefined, indent: string): stri
   });
 }
 
+const KIND_LABELS: Record<NoteKind, string> = { question: "Question", decision: "Decision", comment: "Comment" };
+
+/**
+ * A highlight's note, indented: the user's comment, or "(no comment)". An
+ * agent's note says it's the agent's ("Question from Claude Code: …"), with
+ * a decision's options numbered and the user's pick.
+ */
+function noteLines(h: ReviewHighlight, indent: string): string[] {
+  const text = h.note?.trim() ? h.note.trim() : "(no comment)";
+  const [first = "", ...rest] = text.split(/\r?\n/);
+  const lines = h.kind !== undefined && h.author?.kind === "agent" ? [`${KIND_LABELS[h.kind]} from ${h.author.name}: ${first}`, ...rest] : [first, ...rest];
+  const out = lines.map((line) => (line.trim() === "" ? "" : `${indent}${line}`));
+  if (h.kind === "decision" && h.options !== undefined) {
+    out.push("", ...h.options.map((option, i) => `${indent}${i + 1}. ${option}`));
+    const picked = h.choice === undefined ? undefined : h.options[h.choice];
+    if (picked !== undefined && h.choice !== undefined) out.push("", `${indent}My choice: ${h.choice + 1}. ${picked}`);
+  }
+  return out;
+}
+
 /** The id the agent is given for a note: its first 8 hex digits, as `folio_reply` takes it. */
 export function shortNoteId(highlightId: string): string {
   return highlightId.slice(0, 8);
@@ -299,8 +326,7 @@ export function formatReviewNotes(
         out.push(line.trim() === "" ? `${indent}>` : `${indent}> ${line}`);
       }
       out.push("");
-      const note = h.note?.trim() ? h.note.trim() : "(no comment)";
-      for (const line of note.split(/\r?\n/)) out.push(line.trim() === "" ? "" : `${indent}${line}`);
+      out.push(...noteLines(h, indent));
       if (h.author?.kind === "github") out.push(`${indent}— @${h.author.login}`);
       out.push(...replyLines(h.replies, indent));
 

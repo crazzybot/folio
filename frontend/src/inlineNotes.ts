@@ -29,6 +29,8 @@ export interface InlineNote {
   /** The highlight's colour, for the rule beside the note. */
   color: string;
   note: string;
+  /** Who wrote it, for an agent's own note: "Question from Claude Code". */
+  by?: string | null;
   /** Its place in the review loop, shown as the margin icon is (noteIcons.ts). */
   icon?: NoteIconKind;
   /** Its replies in one line, under the note; the whole thread is in the popover. */
@@ -149,6 +151,11 @@ export function placeInlineNotes(article: HTMLElement, notes: readonly InlineNot
         const label = skipped("em", "folio-inline-note-where");
         label.textContent = `${where}: `;
         item.append(label);
+      }
+      if (note.by) {
+        const by = skipped("strong", "folio-inline-note-by");
+        by.textContent = `${note.by}: `;
+        item.append(by);
       }
       item.append(note.note);
       if (note.replies) {

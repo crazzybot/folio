@@ -188,8 +188,14 @@ export class DemoMarks {
       if (changes.section.length === 0) delete highlight.section;
       else highlight.section = structuredClone(changes.section);
     }
+    if (changes.choice !== undefined && highlight.kind === "decision" && changes.choice < (highlight.options ?? []).length) {
+      // The visitor's answer: it goes with the next round
+      if (changes.choice !== highlight.choice && changes.state === undefined) delete highlight.state;
+      highlight.choice = changes.choice;
+    }
     if (changes.replacement !== undefined && highlight.passage !== undefined) {
-      highlight.replaced = { exact: highlight.quote.exact, at: highlight.passage.at };
+      // An agent's note placed for the first time replaced nothing
+      if (highlight.passage.first !== true) highlight.replaced = { exact: highlight.quote.exact, at: highlight.passage.at };
       highlight.quote = { ...changes.replacement.quote };
       highlight.position = { ...changes.replacement.position };
       delete highlight.passage;

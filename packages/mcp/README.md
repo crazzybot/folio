@@ -59,6 +59,11 @@ does quitting Folio or opening another workspace.
 - `folio_reply`: answer a note, and say whether it's addressed. You resolve
   or reopen it in Folio. When the edit replaced the quoted text, the agent
   gives the new text as `passage`, and Folio highlights it in its place.
+- `folio_add_notes`: put the agent's questions on the passages they're
+  about, as notes you answer in Folio. A `question` takes an answer in
+  words, a `decision` 2 to 4 options you pick from, and a `comment` needs
+  no answer. Each passage is copied from the file; if one isn't there,
+  nothing is saved. Up to 20 notes at a time.
 - `folio_wait_for_review`: wait until you send notes from Folio, then get
   them as `folio_get_review_notes` does. Without notes by the timeout
   (`timeoutSeconds`, default 240), it returns, and the agent calls again

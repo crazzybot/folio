@@ -545,6 +545,53 @@ describe("threads", () => {
     expect(await refusal(() => store.reply(BLANK_DOC, null, { author: CLAUDE, text: "x", passage: "y" }))).toBe(400);
   });
 
+  it("adds an agent's notes on passages of the source, to be placed by the viewer", async () => {
+    const source = "No *headings* here.\nSecond line.\n";
+    const [question, decision, comment] = await store.addAgentNotes(PLAIN, source, CLAUDE, [
+      { passage: "No *headings* here.", text: "Should it have one?", kind: "question" },
+      { passage: "Second line.", text: "Keep it?", kind: "decision", options: ["Keep", " Drop "] },
+      { passage: "Second line.", text: "Assumed plain text.", kind: "comment" },
+    ]);
+    expect(question).toMatchObject({
+      author: CLAUDE,
+      kind: "question",
+      note: "Should it have one?",
+      state: "sent",
+      quote: { exact: "No *headings* here.", prefix: "", suffix: "" },
+      position: { start: 0, end: 19 },
+      passage: { exact: "No *headings* here.", first: true },
+    });
+    expect([decision?.options, decision?.state, comment?.state]).toEqual([["Keep", "Drop"], "sent", "addressed"]);
+
+    // Placed by the viewer: nothing was replaced
+    const replacement = { quote: { exact: "No headings here.", prefix: "", suffix: " Second" }, position: { start: 0, end: 17 } };
+    const placed = await store.updateHighlight(PLAIN, question?.id ?? "", { replacement });
+    expect([placed.quote, "passage" in placed, "replaced" in placed]).toEqual([replacement.quote, false, false]);
+
+    // The user's pick opens the decision, to go with the next round
+    const picked = await store.updateHighlight(PLAIN, decision?.id ?? "", { choice: 1 });
+    expect([picked.choice, "state" in picked]).toEqual([1, false]);
+    expect(await refusal(() => store.updateHighlight(PLAIN, decision?.id ?? "", { choice: 2 }))).toBe(400);
+    expect(await refusal(() => store.updateHighlight(PLAIN, question?.id ?? "", { choice: 0 }))).toBe(400);
+  });
+
+  it("adds none of an agent's notes when one is refused", async () => {
+    const source = "No headings here.\nSecond line.\n";
+    const note = { passage: "Second line.", text: "Why?", kind: "question" };
+    const before = recordOf(PLAIN);
+    const refused = async (notes: unknown, author: unknown = CLAUDE) =>
+      refusal(() => store.addAgentNotes(PLAIN, source, author as typeof CLAUDE, notes));
+    expect(await refused([note, { ...note, passage: "Third line." }])).toBe(404);
+    expect(await refused([{ ...note, kind: "decision", options: ["Only one"] }])).toBe(400);
+    expect(await refused([{ ...note, kind: "decision", options: ["A", "B\nC"] }])).toBe(400);
+    expect(await refused([{ ...note, options: ["A", "B"] }])).toBe(400);
+    expect(await refused([{ ...note, kind: "todo" }])).toBe(400);
+    expect(await refused(Array.from({ length: 21 }, () => note))).toBe(400);
+    expect(await refused([], CLAUDE)).toBe(400);
+    expect(await refused([note], { kind: "user" })).toBe(400);
+    expect(recordOf(PLAIN)).toEqual(before);
+  });
+
   it("replies to the document's note", async () => {
     await store.setNote(BLANK_DOC, { text: "Overall fine.", requestedStatus: "accepted" });
     const note = await store.reply(BLANK_DOC, null, { author: CLAUDE, text: "Status changed.", addressed: true });

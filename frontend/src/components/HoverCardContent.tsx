@@ -2,7 +2,7 @@ import React from "react";
 import { documentsInFolder } from "../documentTree";
 import { branchSentence, commitSentence, folderName, isOnBase } from "../git";
 import { requestDone, statusText } from "../status";
-import { answeredBy, isPrivate, lastSent, loopKind, loopSentence, needsYou, pickedUpBy, sendableNote } from "../sending";
+import { agentNoteLabel, answeredBy, isPrivate, lastSent, loopKind, loopSentence, needsYou, pickedUpBy, sendableNote } from "../sending";
 import type { NoteIconKind } from "../noteIcons";
 import type { DocumentMeta, DocumentNote, GitChange, GitLastCommit, GitRepository, Highlight, Round } from "../types";
 import { BranchIcon, WorktreeIcon } from "./GitIcons";
@@ -225,10 +225,16 @@ export function HighlightCard({
   rounds?: readonly Round[] | undefined;
 }): React.ReactElement {
   const kind: NoteIconKind = isPrivate(highlight) ? "private" : loopKind(highlight);
+  const by = agentNoteLabel(highlight);
   return (
     <>
       <blockquote className={`${styles.quote} ${styles[highlight.color] ?? ""}`}>{highlight.quote.exact}</blockquote>
-      {highlight.note !== null && <div className={styles.note}>{highlight.note}</div>}
+      {highlight.note !== null && (
+        <div className={styles.note}>
+          {by !== null && <strong>{by}: </strong>}
+          {highlight.note}
+        </div>
+      )}
       <LoopLine
         kind={kind}
         sent={kind === "sent" ? lastSent(rounds, highlight.id) : null}

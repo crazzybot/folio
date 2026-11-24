@@ -18,11 +18,24 @@ import { createHash, randomBytes } from "node:crypto";
 import { existsSync, promises as fs, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { COLORS, NOTE_STATES } from "./markTypes";
-import type { Author, Bookmark, BookmarkHeading, Color, DocumentNote, Highlight, NoteState, Reply, Round, Thread } from "./markTypes";
+import { COLORS, NOTE_KINDS, NOTE_STATES } from "./markTypes";
+import type {
+  Author,
+  Bookmark,
+  BookmarkHeading,
+  Color,
+  DocumentNote,
+  Highlight,
+  NoteKind,
+  NoteState,
+  Reply,
+  Round,
+  Thread,
+} from "./markTypes";
+import { findPassage } from "./sourceMap";
 
-export { COLORS, NOTE_STATES };
-export type { Author, Bookmark, BookmarkHeading, Color, DocumentNote, Highlight, NoteState, Reply, Round };
+export { COLORS, NOTE_KINDS, NOTE_STATES };
+export type { Author, Bookmark, BookmarkHeading, Color, DocumentNote, Highlight, NoteKind, NoteState, Reply, Round };
 
 // Note states, privacy and rounds (docs/design/sending-notes.md) are optional
 // fields a version-1 app keeps as they are, so they don't need a new version:
@@ -39,6 +52,8 @@ const MAX_ROUNDS = 5; // per document, the latest kept
 const MAX_REPLIES = 100; // per note
 const MAX_REPLY = 10_000; // characters
 const MAX_NAME = 100; // an author's name or login
+const MAX_AGENT_NOTES = 20; // per call: a runaway agent can't bury the document
+const MAX_OPTION = 200; // characters
 
 // Paths differ only by case on these platforms' default file systems
 const CASE_INSENSITIVE = process.platform === "darwin" || process.platform === "win32";
@@ -406,6 +421,11 @@ function anchorOf(body: unknown): Pick<Highlight, "quote" | "position"> {
   };
 }
 
+function optionIndex(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) throw new MarkError(400, "choice must be an option's index");
+  return value;
+}
+
 function newHighlight(body: unknown): Highlight {
   const anchor = anchorOf(body);
   const fields = body as Record<string, unknown>;
@@ -419,6 +439,65 @@ function newHighlight(body: unknown): Highlight {
     created: time,
     updated: time,
   };
+}
+
+/** An agent's note as asked for: the passage it's on, copied from the source, and what it asks. */
+export interface AgentNoteRequest {
+  passage: string;
+  text: string;
+  kind: NoteKind;
+  options?: string[] | undefined;
+}
+
+/**
+ * Agent notes on `source`, validated together: each passage must be in the
+ * source, so nothing is saved when one isn't. The quote is the passage and
+ * the position its place in the source until the viewer finds it in the
+ * rendered text (placing-notes.md).
+ */
+function newAgentNotes(source: string, agent: Author, requests: unknown): Highlight[] {
+  if (agent.kind !== "agent") throw new MarkError(400, "Agent notes are written by an agent");
+  if (!Array.isArray(requests) || requests.length === 0) throw new MarkError(400, "notes must be a non-empty array");
+  if (requests.length > MAX_AGENT_NOTES) throw new MarkError(400, `At most ${MAX_AGENT_NOTES} notes at a time`);
+  const time = now();
+  return requests.map((request: unknown, i) => {
+    if (!isObject(request)) throw new MarkError(400, `notes[${i}] must be an object`);
+    const passage = string(request["passage"], `notes[${i}].passage`, MAX_EXACT, 1);
+    const text = string(request["text"], `notes[${i}].text`, MAX_NOTE, 1);
+    if (passage.trim() === "" || text.trim() === "") throw new MarkError(400, `notes[${i}]: passage and text must not be blank`);
+    const kind = request["kind"];
+    if (!(NOTE_KINDS as readonly unknown[]).includes(kind)) throw new MarkError(400, `notes[${i}].kind must be ${NOTE_KINDS.join(", ")}`);
+    const options = (kind as NoteKind) === "decision" ? decisionOptions(request["options"], i) : undefined;
+    if (options === undefined && request["options"] !== undefined) throw new MarkError(400, `notes[${i}]: options go with a decision`);
+    const span = findPassage(source, passage);
+    if (span === null) throw new MarkError(404, `notes[${i}]: the passage isn't in the document`);
+    return {
+      id: randomBytes(8).toString("hex"),
+      color: "blue",
+      note: text,
+      quote: { exact: passage, prefix: "", suffix: "" },
+      position: span,
+      passage: { exact: passage, at: time, first: true },
+      author: agent,
+      kind: kind as NoteKind,
+      ...(options === undefined ? {} : { options }),
+      // A question waits on the user, as the agent's question in a reply does; a comment needs nothing
+      state: (kind as NoteKind) === "comment" ? "addressed" : "sent",
+      created: time,
+      updated: time,
+    };
+  });
+}
+
+function decisionOptions(value: unknown, i: number): string[] {
+  if (!Array.isArray(value) || value.length < 2 || value.length > 4) {
+    throw new MarkError(400, `notes[${i}].options: a decision has 2 to 4 options`);
+  }
+  return value.map((option: unknown, n) => {
+    const text = string(option, `notes[${i}].options[${n}]`, MAX_OPTION, 1).trim();
+    if (text === "" || /[\r\n]/.test(text)) throw new MarkError(400, `notes[${i}].options[${n}] must be one line of text`);
+    return text;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -564,6 +643,24 @@ export class MarksStore {
     });
   }
 
+  /**
+   * Add an agent's notes (AgentNoteRequest[]) on the document `file`, whose
+   * text is `source`: all of them, or none when one is refused.
+   */
+  addAgentNotes(file: string, source: string, agent: Author, requests: unknown): Promise<Highlight[]> {
+    const added = newAgentNotes(source, agent, requests);
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = (await this.writable(id)) ?? emptyRecord();
+      if (record.highlights.length + added.length > MAX_HIGHLIGHTS) {
+        throw new MarkError(409, `A document can have at most ${MAX_HIGHLIGHTS} highlights`);
+      }
+      record.highlights.push(...added);
+      await this.write(id, await refreshed(record, file));
+      return added;
+    });
+  }
+
   updateHighlight(file: string, highlightId: string, body: unknown): Promise<Highlight> {
     if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
     // Validate before changing anything
@@ -577,11 +674,19 @@ export class MarksStore {
     const section = "section" in body ? sectionPath(body["section"]) : undefined;
     // Where the agent's passage was found: it becomes the quote
     const replacement = "replacement" in body ? anchorOf(body["replacement"]) : undefined;
-    const edited = Object.keys(changes).length > 0 || Object.keys(loop).length > 0;
+    const choice = "choice" in body ? optionIndex(body["choice"]) : undefined;
+    const edited = Object.keys(changes).length > 0 || Object.keys(loop).length > 0 || choice !== undefined;
     const id = recordId(file);
     return this.serially(async () => {
       const record = await this.writable(id);
       const old = find(record, highlightId);
+      if (choice !== undefined) {
+        if (old.kind !== "decision" || choice >= (old.options ?? []).length) {
+          throw new MarkError(400, "choice must be one of a decision's options");
+        }
+        // The user's answer: it goes to the agent with the next round
+        if (choice !== old.choice && loop.state === undefined) loop.state = "open";
+      }
       // New wording is new feedback: it goes with the next round, whatever the note's state
       if (changes.note !== undefined && changes.note !== old.note && loop.state === undefined) loop.state = "open";
       const { section: oldSection, ...rest } = withLoop(old, loop);
@@ -589,12 +694,14 @@ export class MarksStore {
         ...rest,
         ...changes,
         ...withSection(section ?? oldSection ?? []),
+        ...(choice === undefined ? {} : { choice }),
         updated: edited ? now() : old.updated,
       };
       // Taken once: another window may have found it first
       if (replacement !== undefined && old.passage !== undefined) {
         delete highlight.passage;
-        highlight.replaced = { exact: old.quote.exact, at: old.passage.at };
+        // An agent's note placed for the first time replaced nothing
+        if (old.passage.first !== true) highlight.replaced = { exact: old.quote.exact, at: old.passage.at };
         highlight.quote = replacement.quote;
         highlight.position = replacement.position;
       }

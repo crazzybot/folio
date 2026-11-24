@@ -1,5 +1,5 @@
 /**
- * server.ts — The MCP server: four tools over Folio (folio.ts) for a coding
+ * server.ts — The MCP server: five tools over Folio (folio.ts) for a coding
  * agent. The descriptions are the agent's instructions, so they say what to
  * do with the notes as well as what each tool returns.
  */
@@ -213,6 +213,44 @@ export function createServer(folio: Folio): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
     (input, ctx) => answer(async () => text(await folio.reply(input, client(ctx)))),
+  );
+
+  server.registerTool(
+    "folio_add_notes",
+    {
+      title: "Add notes for the user",
+      description:
+        "Put your questions about a document on the passages they're about, as notes the user answers in Folio next to the text, " +
+        "instead of asking in the conversation. Use it for decisions about the content (\"Should the export include private marks?\", " +
+        "\"Postgres or SQLite?\"), not to ask permission for an action. " +
+        "kind: question for an answer in words; decision for a choice between 2 to 4 options, which the user picks with one click; " +
+        "comment to tell them something that needs no answer (\"Assumed X here\"). " +
+        "Each passage is copied exactly from the file as it is now, short and specific: a sentence or a phrase, unique in the document. " +
+        "If one isn't in the file, nothing is saved. The user's answers come with their next review notes (folio_get_review_notes or folio_wait_for_review): " +
+        "record each decision in the document and answer the note with folio_reply, addressed: true.",
+      inputSchema: z.object({
+        path: z.string().describe("The document: absolute, or relative to the project"),
+        notes: z
+          .array(
+            z.object({
+              passage: z.string().min(1).max(20_000).describe("The text the note is on, copied exactly from the file"),
+              text: z.string().min(1).max(10_000).describe("Your question or comment, in Markdown"),
+              kind: z.enum(["question", "decision", "comment"]),
+              options: z
+                .array(z.string().min(1).max(200))
+                .min(2)
+                .max(4)
+                .optional()
+                .describe("A decision's options, one line each; only for kind: decision"),
+            }),
+          )
+          .min(1)
+          .max(20)
+          .describe("Up to 20 notes on this document"),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    (input, ctx) => answer(async () => text(await folio.addNotes(input, client(ctx)))),
   );
 
   return server;

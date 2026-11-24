@@ -8,7 +8,7 @@ import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
-import { agentProgress, type AgentProgress, answeredBy, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
+import { agentNoteLabel, agentProgress, type AgentProgress, answeredBy, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
 import { buildTextModel } from "../textModel";
 import { locateSection, sameSection, sectionPath } from "../sectionAnchor";
 import { newReplies, threadSummary } from "../threads";
@@ -205,7 +205,7 @@ interface MarksLayerProps {
   onSetNote: (id: string, note: string | null) => void;
   onRemove: (id: string) => void;
   /** A note's place in the review loop: its state, or `private` (null: the default). */
-  onSetLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
+  onSetLoop: (id: string, changes: { state?: NoteState; private?: boolean | null; choice?: number }) => void;
   /** The document's latest rounds, for when a note was sent. */
   rounds?: readonly Round[] | undefined;
   /** The agents in a review loop on the document ("Claude Code"): the note editor offers Send. */
@@ -553,7 +553,7 @@ export default function MarksLayer({
         const range = h.note === null ? undefined : located.current.get(h.id);
         return range === undefined || h.note === null
           ? []
-          : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: h.note, icon: noteIconOf(h), replies: threadSummary(h) }];
+          : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: h.note, by: agentNoteLabel(h), icon: noteIconOf(h), replies: threadSummary(h) }];
       });
     const relayout = () => setLayoutVersion((v) => v + 1);
     let stop = () => {};
@@ -894,8 +894,8 @@ export default function MarksLayer({
   }, [articleRef, ready, renderKey, openPopover]);
 
   const current = popover === null ? undefined : highlights.find((h) => h.id === popover.id);
-  // Replied to: the note is part of the conversation, and stays as it was answered
-  const answered = (current?.replies?.length ?? 0) > 0;
+  // Replied to, or the agent's own: the note is part of the conversation, and stays as it was written
+  const answered = (current?.replies?.length ?? 0) > 0 || current?.author?.kind === "agent";
 
   /** Close the popover, keeping a note being written. */
   const closePopover = useCallback(() => {
@@ -1348,6 +1348,25 @@ export default function MarksLayer({
             />
           )}
 
+          {/* An agent's decision: the user picks one of its options */}
+          {draft === null && current.kind === "decision" && current.options !== undefined && (
+            <div className={styles.options} role="group" aria-label="Options">
+              {current.options.map((option, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={`${styles.option} ${current.choice === i ? styles.optionOn : ""}`}
+                  onClick={() => {
+                    if (current.choice !== i) onSetLoop(current.id, { choice: i });
+                  }}
+                  aria-pressed={current.choice === i}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          )}
+
           {draft === null && (
             <LoopRow
               highlight={current}
@@ -1387,6 +1406,8 @@ function LoopRow({
   const locked = isPrivate(highlight);
   const state = stateOf(highlight);
   const answered = answeredBy(highlight);
+  // The agent's own note, not answered yet: who's asking, rather than who answered
+  const asked = (highlight.replies?.length ?? 0) === 0 ? agentNoteLabel(highlight) : null;
   const when = state === "sent" ? lastSent(rounds, highlight.id) : null;
   const pickedBy = state === "sent" && progress === null ? pickedUpBy(rounds, highlight.id) : null;
   const link = (label: string, changes: { state?: NoteState; private?: boolean | null }, title?: string) => (
@@ -1415,7 +1436,7 @@ function LoopRow({
         )}
         {!locked && answered !== null && (
           <>
-            <NoteStateIcon kind="answered" size={12} /> Answered by {answered} · {link("Resolve", { state: "resolved" })}
+            <NoteStateIcon kind="answered" size={12} /> {asked ?? `Answered by ${answered}`} · {link("Resolve", { state: "resolved" })}
           </>
         )}
         {!locked && state === "sent" && answered === null && (
@@ -1428,7 +1449,7 @@ function LoopRow({
         )}
         {!locked && state === "addressed" && (
           <>
-            <NoteStateIcon kind="addressed" size={12} /> Addressed · {link("Resolve", { state: "resolved" })}
+            <NoteStateIcon kind="addressed" size={12} /> {asked ?? "Addressed"} · {link("Resolve", { state: "resolved" })}
           </>
         )}
         {!locked && state === "resolved" && (

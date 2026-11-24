@@ -11,7 +11,7 @@
 import type { NoteIconKind } from "./noteIcons";
 import { answeredBy, isPrivate, sendableNote } from "../../packages/core/src/reviewNotes";
 import { newReplies } from "./threads";
-import type { DocumentMeta, DocumentNote, Highlight, NoteState, Round, SendDocument } from "./types";
+import type { DocumentMeta, DocumentNote, Highlight, NoteKind, NoteState, Round, SendDocument } from "./types";
 
 /** What the Marks view's state filter tells apart: the four states, and private marks. */
 export type StateFilter = NoteState | "private";
@@ -45,6 +45,13 @@ export { answeredBy, isPrivate, sendableNote };
 /** A note's icon, for a note in the loop: answered when the agent's reply is the latest on a sent note, else its state. */
 export function loopKind(mark: { state?: NoteState | undefined; replies?: Highlight["replies"] }): Exclude<NoteIconKind, "private"> {
   return answeredBy(mark) === null ? stateOf(mark) : "answered";
+}
+
+const NOTE_KIND_LABELS: Record<NoteKind, string> = { question: "Question", decision: "Decision", comment: "Comment" };
+
+/** An agent's own note (agent-notes.md): "Question from Claude Code". Null for the user's notes. */
+export function agentNoteLabel(h: Pick<Highlight, "kind" | "author">): string | null {
+  return h.kind === undefined || h.author?.kind !== "agent" ? null : `${NOTE_KIND_LABELS[h.kind]} from ${h.author.name}`;
 }
 
 /** Where a highlight falls in the state filter. */

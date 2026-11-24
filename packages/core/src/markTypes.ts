@@ -8,6 +8,7 @@
 
 export const COLORS = ["yellow", "green", "blue", "pink"] as const;
 export const NOTE_STATES = ["open", "sent", "addressed", "resolved"] as const;
+export const NOTE_KINDS = ["question", "decision", "comment"] as const;
 
 export type Color = (typeof COLORS)[number];
 
@@ -17,6 +18,12 @@ export type Color = (typeof COLORS)[number];
  * agrees). Absent means open.
  */
 export type NoteState = (typeof NOTE_STATES)[number];
+
+/**
+ * What an agent's note asks of the user: an answer in words, a pick of its
+ * options, or nothing (it tells them something). Absent: the user's note.
+ */
+export type NoteKind = (typeof NOTE_KINDS)[number];
 
 /** Who wrote a note or reply. Absent on a note: the user. */
 export type Author =
@@ -61,8 +68,10 @@ export interface Highlight extends Thread {
   /**
    * The text the agent says now stands where the quote was (its reply's
    * `passage`), until the viewer finds it and takes it as the quote.
+   * `first`: the passage an agent put its own note on; until it's found, the
+   * quote is the passage and the position its place in the source.
    */
-  passage?: { exact: string; at: string };
+  passage?: { exact: string; at: string; first?: true };
   /** The quote before the agent's passage took its place, shown struck through in the thread. */
   replaced?: { exact: string; at: string };
   created: string;
@@ -77,6 +86,12 @@ export interface Highlight extends Thread {
    * feedback with one.
    */
   private?: boolean;
+  /** An agent's note: what it asks of the user. Absent: the user's note. */
+  kind?: NoteKind;
+  /** A decision's options, 2 to 4. */
+  options?: string[];
+  /** The option the user picked: its index in `options`. */
+  choice?: number;
 }
 
 /** A bookmarked heading: its text, level and which of the same-text, same-level headings. */
