@@ -30,6 +30,9 @@ The bottom row of a note's popover says where the note is, with its icon:
 - **Answered by …**: the agent replied without changing the document, with
   a question or why it left the text as it was. **Reply** to it, or
   **Resolve** it. It isn't sent again until you reply.
+- **Question from …**, **Decision from …**, **Comment from …**: the
+  agent's own note, not answered yet. See
+  [Questions from the agent](./review-loop#questions-from-the-agent).
 - **Addressed**: the agent says it changed the document for it.
   **Resolve** it, or **Reply** to say what's still missing: your reply
   goes with the next round.
@@ -80,7 +83,9 @@ opens at the top of the document, with its editor open.
 The **Documents** list shows how many highlights each document has, and
 the outline how many each section has. Resolved notes aren't counted, as
 the **Marks** view hides them until you pick **Resolved**; a document's
-hover card still mentions them ("2 highlights · 3 resolved").
+hover card still mentions them ("2 highlights · 3 resolved"). A blue pill
+before the count, such as **?2**, shows the agent's questions waiting on
+your answer.
 
 ## When a passage is deleted
 
