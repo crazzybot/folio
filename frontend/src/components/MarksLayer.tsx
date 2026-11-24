@@ -8,7 +8,7 @@ import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
-import { agentNoteLabel, agentProgress, type AgentProgress, answeredBy, openOptions, optionsBefore, pickedOption, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
+import { agentNoteLabel, noteText, agentProgress, type AgentProgress, answeredBy, openOptions, optionsBefore, pickedOption, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
 import { buildTextModel } from "../textModel";
 import { locateSection, sameSection, sectionPath } from "../sectionAnchor";
 import { canReply, newsOf, threadSummary } from "../threads";
@@ -554,7 +554,7 @@ export default function MarksLayer({
         const range = h.note === null ? undefined : located.current.get(h.id);
         return range === undefined || h.note === null
           ? []
-          : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: h.note, by: agentNoteLabel(h), icon: noteIconOf(h), replies: threadSummary(h) }];
+          : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: noteText(h) ?? "", by: agentNoteLabel(h), icon: noteIconOf(h), replies: threadSummary(h) }];
       });
     const relayout = () => setLayoutVersion((v) => v + 1);
     let stop = () => {};

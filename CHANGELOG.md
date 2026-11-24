@@ -15,6 +15,10 @@ turns them into the next release's section.
   (`folio_add_notes`). A decision shows its options as buttons: pick one
   or not, write a reply if you like, and **Save** or **Send** it. The
   agent can also ask you to choose in a reply, on any note.
+- Folio's Claude Code plugin has `/folio:draft`: the agent writes the
+  documents you ask for and puts every open question on its passage, then
+  waits for your review. `/folio:review` and `/folio:review-loop` ask their
+  questions the same way.
 - New questions from the agent show in the status bar ("Claude Code asked
   3 questions": click to open each in turn), on the Dock icon and in a
   notification. The **Documents** list counts the questions waiting on you,

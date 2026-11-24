@@ -58,6 +58,7 @@ const seedId = (...parts) => createHash("sha1").update(parts.join("\0")).digest(
 const sha1 = (text) => createHash("sha1").update(text, "utf8").digest("hex");
 // Notes in the seeded round: sent, and either still waiting or answered
 const ROUND_STATES = new Set(["sent", "addressed"]);
+const NOTE_KINDS = new Set(["question", "decision", "comment"]);
 
 function fail(message) {
   console.error(`demo-bundle: ${message}`);
@@ -89,7 +90,7 @@ const attachments = await scanAttachments(workspace);
 
 /** A highlight from its quote: the viewer finds the quote in the rendered text. */
 function highlight(location, content, entry, index, round) {
-  const { quote, color, note = null, state, replies = [] } = entry;
+  const { quote, color, note = null, state, replies = [], kind, options } = entry;
   if (typeof quote !== "string" || quote.trim() === "") fail(`${location}: a highlight needs a quote`);
   if (!COLORS.has(color)) fail(`${location}: "${quote}": color must be one of ${[...COLORS].join(", ")}`);
   if (quote.includes("\n") || MARKDOWN_SYNTAX.test(quote)) {
@@ -100,6 +101,16 @@ function highlight(location, content, entry, index, round) {
     fail(`${location}: "${quote}": only a note can have a state, "sent" or "addressed", and only with a "round"`);
   }
   if (replies.length > 0 && state === undefined) fail(`${location}: "${quote}": replies need the note to be in the round`);
+  // The agent's own note (docs/design/agent-notes.md): written by the round's agent, waiting on the visitor
+  if (kind !== undefined) {
+    if (!NOTE_KINDS.has(kind) || round === null || note === null || state !== undefined || replies.length > 0) {
+      fail(`${location}: "${quote}": an agent's note has a kind (${[...NOTE_KINDS].join(", ")}), a note and a "round", and no state or replies`);
+    }
+    const valid = Array.isArray(options) && options.length >= 2 && options.length <= 4 && options.every((o) => typeof o === "string" && o.trim() !== "");
+    if ((kind === "decision") !== valid || (kind !== "decision" && options !== undefined)) {
+      fail(`${location}: "${quote}": a decision has 2 to 4 options, and only a decision has options`);
+    }
+  }
   const id = seedId(location, "highlight", index, quote);
   // No position or surrounding text: the viewer's anchoring finds the quote
   // by its text (frontend/src/anchoring.ts), the first occurrence when there
@@ -113,6 +124,15 @@ function highlight(location, content, entry, index, round) {
     created: SEED_TIME,
     updated: SEED_TIME,
     ...(state === undefined ? {} : { state }),
+    ...(kind === undefined
+      ? {}
+      : {
+          author: { kind: "agent", name: round.agent },
+          kind,
+          ...(options === undefined ? {} : { options }),
+          // Asking waits on the visitor; a comment needs nothing
+          state: kind === "comment" ? "addressed" : "sent",
+        }),
     // The agent's answers, simulated: never seen, so they show as new
     ...(replies.length === 0
       ? {}
@@ -165,7 +185,8 @@ for (const [location, entry] of Object.entries(seed.documents ?? {})) {
   for (const h of highlights) {
     if (read !== undefined && !read.includes(h.quote.exact)) fail(`${location}: "${h.quote.exact}" isn't in its read version`);
   }
-  const sent = highlights.filter((h) => h.state !== undefined);
+  // The visitor's notes in the round, not the agent's own
+  const sent = highlights.filter((h) => h.state !== undefined && h.kind === undefined);
   seedMarks[meta.id] = {
     bookmarks: (entry.bookmarks ?? []).map((b, i) => bookmark(location, meta, b, i)),
     highlights,

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { buildMarkRows } from "../marksView";
 import type { Located, MarkKind, MarkRow } from "../marksView";
-import { agentNoteLabel, filterOf, isCounted, noteFilterOf, shownStates, STATE_FILTERS } from "../sending";
+import { agentNoteLabel, noteText, filterOf, isCounted, noteFilterOf, shownStates, STATE_FILTERS } from "../sending";
 import type { StateFilter } from "../sending";
 import { isNewAgentNote, newReplies } from "../threads";
 import { noteIconOf } from "./MarksLayer";
@@ -747,7 +747,7 @@ function MarkRowItem({
     <li
       {...common}
       className={`${styles.markRow} ${styles.highlightRow} ${selected ? styles.current : ""}`}
-      aria-label={`Highlight: ${highlight.quote.exact}${highlight.note === null ? "" : `. Note: ${highlight.note}`}${unplaced ? ". Not found in the current text" : ""}${detached === "" ? "" : `. ${detached}`}`}
+      aria-label={`Highlight: ${highlight.quote.exact}${highlight.note === null ? "" : `. Note: ${noteText(highlight)}`}${unplaced ? ". Not found in the current text" : ""}${detached === "" ? "" : `. ${detached}`}`}
     >
       <span className={`${styles.colorBar} ${styles[highlight.color]}`} aria-hidden="true" />
       <span className={styles.highlightBody}>
@@ -756,7 +756,7 @@ function MarkRowItem({
         {(highlight.note !== null || highlight.private === false) && (
           <span className={styles.note}>
             <NoteStateIcon kind={noteIconOf(highlight)} size={12} />
-            <span className={styles.noteText}>{highlight.note ?? "(no comment)"}</span>
+            <span className={styles.noteText}>{noteText(highlight) ?? "(no comment)"}</span>
           </span>
         )}
         {isNewAgentNote(highlight) ? <span className={styles.newReplies}>New question</span> : <NewReplies count={newReplies(highlight).length} />}

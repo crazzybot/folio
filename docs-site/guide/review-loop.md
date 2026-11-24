@@ -166,9 +166,13 @@ description.
 ## Questions from the agent
 
 An agent can ask its questions in Folio instead of in its terminal: it puts
-each one on the passage it's about, as a note. Claude Code does this with
-Folio's MCP server when you ask it to, for example "put your open questions
-on the spec as notes".
+each one on the passage it's about, as a note. In Claude Code, with Folio's
+plugin, run `/folio:draft` with what to write, such as `/folio:draft a spec
+for the export feature in docs/specs/`: the agent writes it, puts every open
+question on its passage, and waits for your review. In a review, the
+plugin's agent asks its questions the same way. Other agents do it with
+Folio's MCP server when you ask them to, for example "put your open
+questions on the spec as notes".
 
 - **In the text.** The agent's notes are highlighted like yours. The
   popover and the inline note name it: **Question from Claude Code**,

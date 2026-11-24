@@ -20,7 +20,9 @@ pick them up as they arrive.
      changes a document's status, change its status line.
    - Answer every note with `folio_reply`, in a sentence or two: what you
      changed, with `addressed: true`; or why you didn't, or a question, with
-     `addressed` left out. When your edit replaced the quoted text, give the
+     `addressed` left out. A question that's a choice gives 2 to 4 short
+     `options`; a question about another passage goes on that passage with
+     `folio_add_notes`. When your edit replaced the quoted text, give the
      new text as `passage`, copied exactly from the file. An answer you
      recorded in the document counts as a change: set `addressed: true`, and
      say what you changed, never that the note is resolved (the user

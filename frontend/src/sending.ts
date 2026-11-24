@@ -54,9 +54,32 @@ export function agentNoteLabel(h: Pick<Highlight, "kind" | "author">): string | 
   return h.kind === undefined || h.author?.kind !== "agent" ? null : `${NOTE_KIND_LABELS[h.kind]} from ${h.author.name}`;
 }
 
-/** An agent's own note waiting on the user's answer: nobody has replied yet, or the agent spoke last. */
+/**
+ * A question from the agent waiting on the user's answer, the agent having
+ * spoken last: its own note, or any note whose agent reply offers options
+ * to pick from.
+ */
 export function isOpenQuestion(h: Highlight): boolean {
-  return agentNoteLabel(h) !== null && answeredBy(h) !== null;
+  return answeredBy(h) !== null && (agentNoteLabel(h) !== null || openOptions(h) !== undefined);
+}
+
+/**
+ * An agent's Markdown as plain text, for the places too small to render it
+ * (an inline note, a hover card, a row): emphasis and code marks dropped,
+ * links and images by their text, list and heading marks off line starts.
+ */
+export function plainMarkdown(text: string): string {
+  return text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__|~~)(.+?)\1/g, "$2")
+    .replace(/(^|[^\w*])[*_]([^*_\n]+)[*_](?=[^\w*]|$)/g, "$1$2")
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/^[ \t]{0,3}(?:#{1,6}|[-*+]|\d+[.)])[ \t]+/gm, "");
+}
+
+/** A highlight's note as shown in one line: the agent's Markdown as plain text, the user's as written. */
+export function noteText(h: Pick<Highlight, "note" | "kind" | "author">): string | null {
+  return h.note !== null && agentNoteLabel(h) !== null ? plainMarkdown(h.note) : h.note;
 }
 
 /** Where a highlight falls in the state filter. */

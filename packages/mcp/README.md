@@ -11,8 +11,8 @@ the app does. It works whether or not Folio is open.
 
 ## Setup
 
-Claude Code, with Folio's plugin, which adds the `/folio:review` and
-`/folio:review-loop` commands:
+Claude Code, with Folio's plugin, which adds the `/folio:review`,
+`/folio:review-loop` and `/folio:draft` commands:
 
 ```
 /plugin marketplace add crazzybot/folio

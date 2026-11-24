@@ -2,7 +2,7 @@ import React from "react";
 import { documentsInFolder } from "../documentTree";
 import { branchSentence, commitSentence, folderName, isOnBase } from "../git";
 import { requestDone, statusText } from "../status";
-import { agentNoteLabel, answeredBy, isPrivate, lastSent, loopKind, loopSentence, needsYou, pickedUpBy, sendableNote } from "../sending";
+import { agentNoteLabel, noteText, answeredBy, isPrivate, lastSent, loopKind, loopSentence, needsYou, pickedUpBy, sendableNote } from "../sending";
 import type { NoteIconKind } from "../noteIcons";
 import type { DocumentMeta, DocumentNote, GitChange, GitLastCommit, GitRepository, Highlight, Round } from "../types";
 import { BranchIcon, WorktreeIcon } from "./GitIcons";
@@ -232,7 +232,7 @@ export function HighlightCard({
       {highlight.note !== null && (
         <div className={styles.note}>
           {by !== null && <strong>{by}: </strong>}
-          {highlight.note}
+          {noteText(highlight)}
         </div>
       )}
       <LoopLine

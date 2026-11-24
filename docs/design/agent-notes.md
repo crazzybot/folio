@@ -136,8 +136,8 @@ replies carry the questions too:
 
 Besides those:
 
-- The **Documents** list counts each document's open questions (agent
-  notes the user hasn't answered: `isOpenQuestion`) in a pill before the
-  highlight count.
+- The **Documents** list counts each document's open questions
+  (`isOpenQuestion`: the agent spoke last, on its own note or with options
+  in its reply) in a pill before the highlight count.
 - The **Marks** view's filter has a **From** section, **The agent's
   notes**, shown while there are any.

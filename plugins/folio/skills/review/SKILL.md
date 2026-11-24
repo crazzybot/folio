@@ -26,7 +26,12 @@ Documents to review: $ARGUMENTS
      copied exactly from the file;
    - or why you didn't change it, with `addressed` left out;
    - or a question, with `addressed` left out; the user answers it in
-     Folio, and the note comes back in a later round.
+     Folio, and the note comes back in a later round. When the question
+     is a choice, give 2 to 4 short `options`: the user picks one with a
+     click.
+
+   A question about another passage than the note's goes on that passage,
+   with `folio_add_notes`, rather than in the conversation.
 
    A note that answers your question counts as addressed once you've
    recorded the answer in the document (a decision filled in, an open

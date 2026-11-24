@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  plainMarkdown,
   agentNoteLabel,
   isOpenQuestion,
   agentProgress,
@@ -249,6 +250,16 @@ describe("answered notes", () => {
     // Open questions, for the Documents list: until the user answers
     expect([isOpenQuestion(question), isOpenQuestion({ ...question, state: "open", replies: [{ ...userReply, choice: 0 }] })]).toEqual([true, false]);
     expect(isOpenQuestion(highlight("a", 0, "Why?", { state: "sent", replies: [agentReply] }))).toBe(false);
+    // A choice the agent offers in a reply to the user's note
+    const offering = { ...agentReply, options: ["A", "B"] };
+    expect(isOpenQuestion(highlight("a", 0, "Why?", { state: "sent", replies: [offering] }))).toBe(true);
+  });
+
+  it("show the agent's Markdown as plain text where it can't be rendered", () => {
+    expect(plainMarkdown("Keep **Goals** and `retries`; see [the ADR](docs/adr.md), _not_ snake_case.")).toBe(
+      "Keep Goals and retries; see the ADR, not snake_case.",
+    );
+    expect(plainMarkdown("# Title\n- one\n2. two")).toBe("Title\none\ntwo");
   });
 
   it("wait on the user", () => {
