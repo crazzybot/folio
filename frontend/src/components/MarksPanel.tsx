@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { buildMarkRows } from "../marksView";
 import type { Located, MarkKind, MarkRow } from "../marksView";
-import { filterOf, noteFilterOf, shownStates, STATE_FILTERS } from "../sending";
+import { filterOf, isCounted, noteFilterOf, shownStates, STATE_FILTERS } from "../sending";
 import type { StateFilter } from "../sending";
 import { newReplies } from "../threads";
 import { noteIconOf } from "./MarksLayer";
@@ -475,7 +475,8 @@ export default function MarksPanel({
               <DocumentCard
                 doc={cardRow.doc}
                 bookmarked={cardRow.bookmark !== undefined}
-                highlightCount={byDoc.get(cardRow.doc.id)?.highlights.length ?? 0}
+                highlightCount={byDoc.get(cardRow.doc.id)?.highlights.filter(isCounted).length ?? 0}
+                resolvedCount={byDoc.get(cardRow.doc.id)?.highlights.filter((h) => !isCounted(h)).length ?? 0}
                 note={byDoc.get(cardRow.doc.id)?.note}
               />
             ) : cardRow.kind === "note" ? (

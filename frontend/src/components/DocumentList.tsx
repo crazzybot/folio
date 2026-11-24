@@ -131,8 +131,10 @@ interface DocumentListProps {
   /** What the filter menu offers, counted within the focused folder. */
   filterOptions?: { statuses: FilterOption[]; tags: FilterOption[] };
   onFiltersChange?: (filters: MetaFilters) => void;
-  /** Number of highlights by document id (documents without any are absent). */
+  /** Number of highlights by document id, resolved notes left out (documents without any are absent). */
   highlightCounts?: ReadonlyMap<string, number>;
+  /** Number of resolved notes by document id, for the hover card (documents without any are absent). */
+  resolvedCounts?: ReadonlyMap<string, number>;
   /** Documents bookmarked as a whole. */
   bookmarkedIds?: ReadonlySet<string>;
   /** The workspace's git repositories (desktop): folder icons and hover cards. */
@@ -188,6 +190,7 @@ export default function DocumentList({
   filterOptions = NO_OPTIONS,
   onFiltersChange,
   highlightCounts = NO_COUNTS,
+  resolvedCounts = NO_COUNTS,
   bookmarkedIds = NO_IDS,
   git = null,
   agents = NO_AGENTS,
@@ -956,6 +959,7 @@ export default function DocumentList({
               doc={cardRow.doc}
               bookmarked={bookmarkedIds.has(cardRow.doc.id)}
               highlightCount={highlightCounts.get(cardRow.doc.id) ?? 0}
+              resolvedCount={resolvedCounts.get(cardRow.doc.id) ?? 0}
               note={documentNotes.get(cardRow.doc.id)}
               read={readSentence(reads.get(cardRow.doc.id))}
               change={branchChanges?.get(cardRow.doc.id) ?? null}

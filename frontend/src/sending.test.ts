@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   agentProgress,
+  countsByDoc,
   defaultSelection,
   feedbackSummary,
   filterOf,
   highlightKey,
+  isCounted,
   isPrivate,
   loopKind,
   noteKey,
@@ -92,6 +94,24 @@ describe("unplacedFirst", () => {
     expect(unplacedFirst(highlight("a", 0, "Cut this", { state: "resolved" }))).toBe(false);
     const seen = { id: "r", author: { kind: "agent" as const, name: "Claude Code" }, text: "Removed it", at: "2026-11-15T10:00:00Z" };
     expect(unplacedFirst(highlight("a", 0, "Cut this", { state: "resolved", replies: [seen], seen: "2026-11-15T11:00:00Z" }))).toBe(false);
+  });
+});
+
+describe("isCounted", () => {
+  it("counts every highlight but resolved notes, kept to yourself or not", () => {
+    expect(isCounted(highlight("a", 0, null))).toBe(true);
+    expect(isCounted(highlight("a", 0, "Why?", { state: "addressed" }))).toBe(true);
+    expect(isCounted(highlight("a", 0, "Why?", { state: "resolved" }))).toBe(false);
+    expect(isCounted(highlight("a", 0, "Mine", { private: true, state: "resolved" }))).toBe(false);
+  });
+
+  it("leaves out documents with nothing counted", () => {
+    const byDoc = new Map([
+      ["a.md", { highlights: [highlight("x", 0, null), highlight("y", 2, "Done", { state: "resolved" })] }],
+      ["b.md", { highlights: [highlight("z", 0, "Done", { state: "resolved" })] }],
+    ]);
+    expect([...countsByDoc(byDoc, isCounted)]).toEqual([["a.md", 1]]);
+    expect([...countsByDoc(byDoc, (h) => !isCounted(h))]).toEqual([["a.md", 1], ["b.md", 1]]);
   });
 });
 

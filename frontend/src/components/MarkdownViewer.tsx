@@ -42,7 +42,7 @@ import remarkMathDollars from "../mathDollars";
 import { loadRehypeKatex, loadedRehypeKatex, mayContainMath } from "../katexLoader";
 import type { RehypeKatex } from "../katexLoader";
 import remarkObsidian from "../obsidian";
-import { unplacedFirst } from "../sending";
+import { isCounted, unplacedFirst } from "../sending";
 import DocumentHeader, { hasPinnedSummary } from "./DocumentHeader";
 import type { ChangesBannerProps } from "./ChangesBanner";
 import MermaidDiagram from "./MermaidDiagram";
@@ -1053,9 +1053,21 @@ export default function MarkdownViewer({
     [outlineHeadings, bookmarks],
   );
 
-  // Highlights per outline entry (those after its heading and before the
-  // next), counted from the document as just painted
-  const [outlineCounts, setOutlineCounts] = useState<number[]>([]);
+  // Each placed highlight's outline entry (the last heading before it), from
+  // the document as just painted, and the entries' count
+  const [outlineSections, setOutlineSections] = useState<{ entries: number; byId: ReadonlyMap<string, number> }>(() => ({
+    entries: 0,
+    byId: new Map(),
+  }));
+  // Highlights per outline entry, resolved notes left out as in the Documents list
+  const outlineCounts = useMemo(() => {
+    const counts = Array.from({ length: outlineSections.entries }, () => 0);
+    for (const h of highlights) {
+      const section = outlineSections.byId.get(h.id);
+      if (section !== undefined && isCounted(h)) counts[section] = (counts[section] ?? 0) + 1;
+    }
+    return counts;
+  }, [outlineSections, highlights]);
   // Above the text: the marks layer lists the highlights it couldn't find in it there,
   // and in the pinned header's details while they're open
   const [unplacedSlot, setUnplacedSlot] = useState<HTMLDivElement | null>(null);
@@ -1071,22 +1083,22 @@ export default function MarkdownViewer({
       const article = articleRef.current;
       // The same headings as the outline lists
       const elements = article === null ? [] : [...article.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")].filter((el) => el.id !== "");
-      const counts = elements.map(() => 0);
-      for (const range of located.values()) {
+      const byId = new Map<string, number>();
+      for (const [id, range] of located) {
         let section = -1;
         elements.forEach((el, i) => {
           if (el.contains(range.startContainer) || el.compareDocumentPosition(range.startContainer) & Node.DOCUMENT_POSITION_FOLLOWING) {
             section = i;
           }
         });
-        if (section >= 0) counts[section] = (counts[section] ?? 0) + 1;
+        if (section >= 0) byId.set(id, section);
       }
       // Notes kept on a heading count under it
-      for (const heading of atSection.values()) {
+      for (const [id, heading] of atSection) {
         const section = elements.indexOf(heading);
-        if (section >= 0) counts[section] = (counts[section] ?? 0) + 1;
+        if (section >= 0) byId.set(id, section);
       }
-      setOutlineCounts(counts);
+      setOutlineSections({ entries: elements.length, byId });
       setLocatedIds(new Set([...located.keys(), ...atSection.keys()]));
       if (ready && contentId !== null) {
         const headings = new Map([...atSection].map(([id, el]) => [id, (el.textContent ?? "").replace(/\s+/g, " ").trim()]));

@@ -76,6 +76,11 @@ notes, or by note state. **Only the open document** narrows it to the
 document you're reading. Click a mark to go to it; the note on a document
 opens at the top of the document, with its editor open.
 
+The **Documents** list shows how many highlights each document has, and
+the outline how many each section has. Resolved notes aren't counted, as
+the **Marks** view hides them until you pick **Resolved**; a document's
+hover card still mentions them ("2 highlights · 3 resolved").
+
 ## When a passage is deleted
 
 A highlight whose text is no longer in the document isn't deleted.

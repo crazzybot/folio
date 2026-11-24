@@ -53,6 +53,27 @@ export function filterOf(h: Highlight): StateFilter {
 }
 
 /**
+ * Whether a highlight counts in the Documents list and the outline: a
+ * resolved note is done with, so only what's left to look at is counted.
+ */
+export function isCounted(h: Highlight): boolean {
+  return stateOf(h) !== "resolved";
+}
+
+/** How many of each document's highlights pass `test`; documents with none are absent. */
+export function countsByDoc(
+  byDoc: ReadonlyMap<string, { highlights: readonly Highlight[] }>,
+  test: (h: Highlight) => boolean,
+): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const [id, { highlights }] of byDoc) {
+    const n = highlights.filter(test).length;
+    if (n > 0) counts.set(id, n);
+  }
+  return counts;
+}
+
+/**
  * Of the highlights not found in the document's current text, those shown
  * above it at once (docs/design/marks.md): notes still in the loop, or with
  * replies the user hasn't seen. Resolved notes and bare highlights wait

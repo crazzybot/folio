@@ -266,7 +266,8 @@ a diagram finishes drawing.
 ### In the document list
 
 - Bookmarked document: bookmark icon at the row's end.
-- Document with highlights: small count (`● 3`).
+- Document with highlights: small count (`● 3`). Resolved notes aren't
+  counted (`isCounted` in `sending.ts`); the hover card adds them (`· 3 resolved`).
 - Collapsed folder containing marks: one dim dot.
 
 ### Marks view
@@ -317,7 +318,7 @@ MISSING DOCUMENTS (1)
 
 The open document's marks: bookmarked headings show a bookmark icon, and
 sections containing highlights a small count (counted from the highlights
-found in the rendered text).
+found in the rendered text, resolved notes left out as in the document list).
 
 ### Not in the first version
 

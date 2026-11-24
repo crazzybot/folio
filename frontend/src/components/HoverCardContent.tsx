@@ -18,6 +18,7 @@ export function DocumentCard({
   doc,
   bookmarked,
   highlightCount,
+  resolvedCount = 0,
   note,
   read = null,
   change = null,
@@ -26,7 +27,10 @@ export function DocumentCard({
 }: {
   doc: DocumentMeta;
   bookmarked: boolean;
+  /** Highlights, resolved notes left out. */
   highlightCount: number;
+  /** Resolved notes: done with, so only mentioned after the rest. */
+  resolvedCount?: number;
   /** The user's note on the document: its request and the comment's first line. */
   note?: DocumentNote | undefined;
   /** "Changed since you read it on 3 Nov", "New since you last looked"; null when read. */
@@ -38,7 +42,11 @@ export function DocumentCard({
   /** The last commit that touched it (desktop); null when unknown. */
   commit?: GitLastCommit | null;
 }): React.ReactElement {
-  const marks = [bookmarked && "Bookmarked", highlightCount > 0 && plural(highlightCount, "highlight", "highlights")].filter(Boolean);
+  const marks = [
+    bookmarked && "Bookmarked",
+    highlightCount > 0 && plural(highlightCount, "highlight", "highlights"),
+    resolvedCount > 0 && `${resolvedCount} resolved`,
+  ].filter(Boolean);
   const { status = null, statusDetail = null, date = null, people = [], tags = [] } = doc.meta ?? {};
   return (
     <>

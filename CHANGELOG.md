@@ -38,6 +38,9 @@ turns them into the next release's section.
   pill of its own.
 - The status bar is a little taller (28 px), with 16 px icons on its
   buttons, as in VS Code.
+- The highlight counts in the **Documents** list and the outline leave out
+  resolved notes, as the **Marks** view does. A document's hover card
+  still mentions them.
 
 ### Fixed
 
