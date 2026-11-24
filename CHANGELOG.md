@@ -8,6 +8,8 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-11-24
+
 ### Added
 
 - **Questions from the agent:** a coding agent can put its questions on the
@@ -521,6 +523,7 @@ the `folio-data` volume.
 First release: signed and notarized macOS builds (Apple Silicon and Intel),
 Windows and Linux builds, and in-app updates.
 
+[0.12.0]: https://github.com/crazzybot/folio/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/crazzybot/folio/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/crazzybot/folio/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/crazzybot/folio/compare/v0.9.0...v0.9.1
