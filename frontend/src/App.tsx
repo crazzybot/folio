@@ -53,7 +53,7 @@ import { branchSentence, changesById, folderName, isOnBase, repositoryOf, status
 import SettingsPanel from "./components/SettingsPanel";
 import SendNotesDialog, { ReviewNotesIcon, copyText } from "./components/SendNotesDialog";
 import { formatReviewNotes, reviewPath } from "./reviewNotes";
-import { agentProgress, defaultSelection, picked, pickedUpBy, sendDocuments, sendGroups } from "./sending";
+import { agentProgress, countsByDoc, defaultSelection, isCounted, picked, pickedUpBy, sendDocuments, sendGroups } from "./sending";
 import { newReplies, repliedNotes, repliesParts, repliesSummary } from "./threads";
 import type { Picked, SendItem, StateFilter } from "./sending";
 import type { Located } from "./marksView";
@@ -217,13 +217,10 @@ function AppInner(): React.ReactElement {
     () => (focus === null ? marks.missing : marks.missing.filter((m) => inFolder(m.location, focus))),
     [marks.missing, focus],
   );
-  const highlightCounts = useMemo(
-    () =>
-      new Map(
-        [...marks.byDoc].flatMap(([id, m]) => (m.highlights.length > 0 ? [[id, m.highlights.length] as const] : [])),
-      ),
-    [marks.byDoc],
-  );
+  // The Documents list counts what's left to look at; resolved notes are only
+  // mentioned in a document's hover card
+  const highlightCounts = useMemo(() => countsByDoc(marks.byDoc, isCounted), [marks.byDoc]);
+  const resolvedCounts = useMemo(() => countsByDoc(marks.byDoc, (h) => !isCounted(h)), [marks.byDoc]);
   const bookmarkedIds = useMemo(
     () => new Set([...marks.byDoc].flatMap(([id, m]) => (findBookmark(m.bookmarks, null) ? [id] : []))),
     [marks.byDoc],
@@ -1031,6 +1028,7 @@ function AppInner(): React.ReactElement {
             filterOptions={metaOptions}
             onFiltersChange={setMetaFilters}
             highlightCounts={highlightCounts}
+            resolvedCounts={resolvedCounts}
             git={git}
             agents={agents}
             branchChanges={branchChanges}
