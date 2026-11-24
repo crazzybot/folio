@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DocumentNote, Highlight } from "../src/marks";
-import { answeredBy, formatReviewNotes, reviewPath, statusRequest } from "../src/reviewNotes";
+import { answeredBy, formatReviewNotes, openOptions, optionsBefore, pickedOption, reviewPath, statusRequest } from "../src/reviewNotes";
 import type { ReviewDocument } from "../src/reviewNotes";
 
 const SOURCE = `---
@@ -279,6 +279,59 @@ describe("formatReviewNotes for an agent", () => {
     expect(copied).toContain("   Reply from Claude Code: Which table?\n\n   My reply: The events table.");
   });
 
+  it("words an agent's notes as its own, with a decision's options and the user's pick in their reply", () => {
+    const claude = { kind: "agent" as const, name: "Claude Code" };
+    const question = highlight("one table per aggregate", { note: "Why per aggregate?", author: claude, kind: "question" });
+    const decision = highlight("one table per aggregate", {
+      note: "Which store?",
+      author: claude,
+      kind: "decision",
+      options: ["Postgres", "SQLite"],
+      replies: [{ id: "r1", author: { kind: "user" }, text: "SQLite", at: "2026-11-10T10:05:00Z", choice: 1 }],
+    });
+    const commented = {
+      ...decision,
+      replies: [{ id: "r1", author: { kind: "user" as const }, text: "Small enough.", at: "2026-11-10T10:05:00Z", choice: 1 }],
+    };
+    expect(formatReviewNotes([doc([question])], null).text.split("\n").slice(-1)).toEqual([
+      "   Question from Claude Code: Why per aggregate?",
+    ]);
+    expect(formatReviewNotes([doc([decision])], null).text.split("\n").slice(-6)).toEqual([
+      "   Decision from Claude Code: Which store?",
+      "",
+      "   1. Postgres",
+      "   2. SQLite",
+      "",
+      "   My choice: 2. SQLite",
+    ]);
+    expect(formatReviewNotes([doc([commented])], null).text.split("\n").slice(-2)).toEqual(["   My choice: 2. SQLite", "   Small enough."]);
+    expect([pickedOption(decision), pickedOption(question)]).toEqual([1, undefined]);
+  });
+
+  it("numbers the options an agent's reply offers, and words the user's pick of them", () => {
+    const claude = { kind: "agent" as const, name: "Claude Code" };
+    const h = highlight("one table per aggregate", {
+      note: "Add more examples?",
+      replies: [
+        { id: "r1", author: claude, text: "Which ones?", at: "2026-11-10T10:02:00Z", options: ["TypeScript", "Shell"] },
+        { id: "r2", author: { kind: "user" }, text: "Shell", at: "2026-11-10T10:05:00Z", choice: 1 },
+      ],
+    });
+    expect(formatReviewNotes([doc([h])], null).text.split("\n").slice(-7)).toEqual([
+      "",
+      "   Reply from Claude Code: Which ones?",
+      "",
+      "   1. TypeScript",
+      "   2. Shell",
+      "",
+      "   My choice: 2. Shell",
+    ]);
+    expect([openOptions(h), pickedOption(h)]).toEqual([["TypeScript", "Shell"], 1]);
+    // The agent answers: nothing open any more
+    const answered = { ...h, replies: [...(h.replies ?? []), { id: "r3", author: claude, text: "Added.", at: "2026-11-10T10:07:00Z" }] };
+    expect([openOptions(answered), pickedOption(answered), optionsBefore(answered)[1]]).toEqual([undefined, undefined, ["TypeScript", "Shell"]]);
+  });
+
   it("names an imported comment's author", () => {
     const h = highlight("one table per aggregate", { note: "Nit.", author: { kind: "github", login: "octocat" } });
     expect(formatReviewNotes([doc([h])], null).text.split("\n").slice(-2)).toEqual(["   Nit.", "   — @octocat"]);
@@ -303,6 +356,11 @@ describe("answeredBy", () => {
 
   it("names the agent whose reply is the latest on a sent note", () => {
     expect(answeredBy({ state: "sent", replies: [user, agent] })).toBe("Claude Code");
+  });
+
+  it("names the agent that wrote a sent note nobody has replied to", () => {
+    expect(answeredBy({ state: "sent", ...agent })).toBe("Claude Code");
+    expect(answeredBy({ state: "sent", ...agent, replies: [user] })).toBeNull();
   });
 
   it("is null while the note waits on the agent, or isn't sent", () => {

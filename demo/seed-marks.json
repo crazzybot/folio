@@ -1,5 +1,5 @@
 {
-  "$comment": "Marks a first visit to the live demo starts with (see docs/design/live-demo.md). Each quote must be on one line of its document and contain no Markdown syntax; desktop/scripts/demo-bundle.mjs fails when one isn't found. \"round\" is a review round already sent to a coding agent: highlights with a \"state\" were in it, and their \"replies\" are the agent's, simulated. \"readVersions\" are the versions the visitor read before that round, by document (files relative to this one): those documents start as changed since.",
+  "$comment": "Marks a first visit to the live demo starts with (see docs/design/live-demo.md). Each quote must be on one line of its document and contain no Markdown syntax; desktop/scripts/demo-bundle.mjs fails when one isn't found. \"round\" is a review round already sent to a coding agent: highlights with a \"state\" were in it, and their \"replies\" are the agent's, simulated. \"readVersions\" are the versions the visitor read before that round, by document (files relative to this one): those documents start as changed since. A highlight with a \"kind\" (question, decision with 2 to 4 \"options\", or comment) is the agent's own note, waiting on the visitor (docs/design/agent-notes.md).",
   "round": {
     "at": "2026-11-12T16:20:00Z",
     "agent": "Claude Code (demo)"
@@ -58,6 +58,21 @@
       "bookmarks": [
         {
           "heading": null
+        }
+      ]
+    },
+    "docs/specs/delivery-queue.md": {
+      "highlights": [
+        {
+          "quote": "Partitions older than 14 days are dropped, along with any events still in them.",
+          "color": "blue",
+          "note": "This drops undelivered events after 14 days, but **Goals** says no event is lost while a receiver is unreachable. What should happen to events still queued when their partition expires?",
+          "kind": "decision",
+          "options": [
+            "Keep them until they're delivered",
+            "Move them to a dead-letter table the tenant can replay",
+            "Drop them, and tell the tenant first"
+          ]
         }
       ]
     }

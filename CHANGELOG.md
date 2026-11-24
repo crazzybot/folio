@@ -8,6 +8,32 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Added
+
+- **Questions from the agent:** a coding agent can put its questions on the
+  passages they're about, as notes, with Folio's MCP server
+  (`folio_add_notes`). A decision shows its options as buttons: pick one
+  or not, write a reply if you like, and **Save** or **Send** it. The
+  agent can also ask you to choose in a reply, on any note.
+- Folio's Claude Code plugin has `/folio:draft`: the agent writes the
+  documents you ask for and puts every open question on its passage, then
+  waits for your review. `/folio:review` and `/folio:review-loop` ask their
+  questions the same way.
+- New questions from the agent show in the status bar ("Claude Code asked
+  3 questions": click to open each in turn), on the Dock icon and in a
+  notification. The **Documents** list counts the questions waiting on you,
+  and the **Marks** view's filter has **The agent's notes**.
+
+### Changed
+
+- **Save** on a reply, or on your answer to a decision, closes the note, as
+  **Save** on a note does. **Send** keeps it open for the agent's answer.
+
+### Fixed
+
+- The window no longer goes blank when the agent replies to a note whose
+  popover is open, as after **Send** in a review loop.
+
 ## [0.11.0] — 2026-11-23
 
 ### Added

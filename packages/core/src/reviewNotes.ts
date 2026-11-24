@@ -11,7 +11,7 @@
  * Node imports: the frontend compiles this for the browser too.
  */
 
-import type { Author, DocumentNote, Highlight, Reply } from "./markTypes";
+import type { Author, DocumentNote, Highlight, NoteKind, Reply } from "./markTypes";
 import { locateInSource } from "./sourceMap";
 
 // Quotes longer than this are shortened to their first and last QUOTE_KEEP
@@ -60,12 +60,16 @@ export function sendableNote<T extends Pick<DocumentNote, "text" | "requestedSta
 
 /**
  * The agent that answered a sent note without addressing it ("Claude Code"):
- * its reply is the thread's latest, so the note waits on the user, not the
- * agent. Null otherwise.
+ * its reply is the thread's latest, or it wrote the note and nobody has
+ * replied, so the note waits on the user, not the agent. Null otherwise.
  */
-export function answeredBy(note: { state?: string | undefined; replies?: readonly { author: Author }[] | undefined }): string | null {
-  const last = note.replies?.[note.replies.length - 1];
-  return note.state === "sent" && last?.author.kind === "agent" ? last.author.name : null;
+export function answeredBy(note: {
+  state?: string | undefined;
+  author?: Author | undefined;
+  replies?: readonly { author: Author }[] | undefined;
+}): string | null {
+  const last = note.replies?.[note.replies.length - 1]?.author ?? note.author;
+  return note.state === "sent" && last?.kind === "agent" ? last.name : null;
 }
 
 // ─── Formatting ───────────────────────────────────────────────────────────────
@@ -73,6 +77,8 @@ export function answeredBy(note: { state?: string | undefined; replies?: readonl
 /** A highlight as formatted: the app's and the store's both fit. */
 export type ReviewHighlight = Pick<Highlight, "id" | "note" | "quote" | "position"> & {
   author?: Author | undefined;
+  kind?: NoteKind | undefined;
+  options?: readonly string[] | undefined;
   replies?: readonly Reply[] | undefined;
   section?: readonly { text: string }[] | undefined;
 };
@@ -192,12 +198,87 @@ function byline(author: Author): string {
   }
 }
 
-/** A thread's replies, each "Reply from Claude Code: …", indented by `indent`. */
-function replyLines(replies: readonly Reply[] | undefined, indent: string): string[] {
-  return (replies ?? []).flatMap((reply) => {
-    const [first = "", ...rest] = reply.text.trim().split(/\r?\n/);
-    return ["", `${indent}${byline(reply.author)}: ${first}`, ...rest.map((line) => (line.trim() === "" ? "" : `${indent}${line}`))];
+/**
+ * A thread's replies, each "Reply from Claude Code: …", indented by
+ * `indent`. The user's answer to a decision says the option it picked ("My
+ * choice: 2. SQLite"), then their comment, if it isn't just the option.
+ */
+function replyLines(note: Offering, indent: string): string[] {
+  const offered = optionsBefore(note);
+  return (note.replies ?? []).flatMap((reply, i) => {
+    const option = reply.choice === undefined ? undefined : offered[i]?.[reply.choice];
+    const text = option !== undefined && reply.text.trim() === option ? "" : reply.text.trim();
+    const [first = "", ...rest] = text.split(/\r?\n/);
+    const indented = rest.map((line) => (line.trim() === "" ? "" : `${indent}${line}`));
+    // An agent's reply that asks the user to pick: its options numbered, as a decision's
+    const asked = reply.author.kind === "agent" && reply.options !== undefined ? ["", ...reply.options.map((o, n) => `${indent}${n + 1}. ${o}`)] : [];
+    if (option === undefined || reply.choice === undefined) return ["", `${indent}${byline(reply.author)}: ${first}`, ...indented, ...asked];
+    const picked = `${indent}My choice: ${reply.choice + 1}. ${option}`;
+    return text === "" ? ["", picked] : ["", picked, `${indent}${first}`, ...indented];
   });
+}
+
+/** A note as the options it offers are read: an agent's decision, or a thread whose agent replies offer some. */
+type Offering = {
+  author?: Author | undefined;
+  kind?: NoteKind | undefined;
+  options?: readonly string[] | undefined;
+  replies?: readonly Reply[] | undefined;
+};
+
+/** The options a note itself offers: an agent's decision's. */
+function noteOptions(note: Offering): readonly string[] | undefined {
+  return note.kind === "decision" && note.author?.kind === "agent" ? note.options : undefined;
+}
+
+/**
+ * For each reply, the options it can pick from: those of the agent's latest
+ * message before it, the decision note or an agent's reply that offers some.
+ */
+export function optionsBefore(note: Offering): (readonly string[] | undefined)[] {
+  let offered = noteOptions(note);
+  return (note.replies ?? []).map((reply) => {
+    const before = offered;
+    if (reply.author.kind === "agent") offered = reply.options;
+    return before;
+  });
+}
+
+/**
+ * The options open to the user now: the agent's latest message offers
+ * them (the decision note, or its reply). Undefined once the agent has
+ * spoken since without offering any.
+ */
+export function openOptions(note: Offering): readonly string[] | undefined {
+  const replies = note.replies ?? [];
+  const agent = [...replies].reverse().find((r) => r.author.kind === "agent");
+  return agent === undefined ? noteOptions(note) : agent.options;
+}
+
+/** The option the user has picked from the open options: their latest reply since the agent offered them that picks one. */
+export function pickedOption(note: Offering): number | undefined {
+  if (openOptions(note) === undefined) return undefined;
+  for (const reply of [...(note.replies ?? [])].reverse()) {
+    if (reply.author.kind === "agent") return undefined;
+    if (reply.choice !== undefined) return reply.choice;
+  }
+  return undefined;
+}
+
+const KIND_LABELS: Record<NoteKind, string> = { question: "Question", decision: "Decision", comment: "Comment" };
+
+/**
+ * A highlight's note, indented: the user's comment, or "(no comment)". An
+ * agent's note says it's the agent's ("Question from Claude Code: …"), with
+ * a decision's options numbered; the user's pick is in their reply.
+ */
+function noteLines(h: ReviewHighlight, indent: string): string[] {
+  const text = h.note?.trim() ? h.note.trim() : "(no comment)";
+  const [first = "", ...rest] = text.split(/\r?\n/);
+  const lines = h.kind !== undefined && h.author?.kind === "agent" ? [`${KIND_LABELS[h.kind]} from ${h.author.name}: ${first}`, ...rest] : [first, ...rest];
+  const out = lines.map((line) => (line.trim() === "" ? "" : `${indent}${line}`));
+  if (h.kind === "decision" && h.options !== undefined) out.push("", ...h.options.map((option, i) => `${indent}${i + 1}. ${option}`));
+  return out;
 }
 
 /** The id the agent is given for a note: its first 8 hex digits, as `folio_reply` takes it. */
@@ -265,7 +346,7 @@ export function formatReviewNotes(
     if (comment !== null) {
       const [first = "", ...rest] = comment.split(/\r?\n/);
       out.push(`Overall: ${first}`, ...rest);
-      out.push(...replyLines(doc.note?.replies, ""));
+      out.push(...replyLines({ replies: doc.note?.replies }, ""));
       out.push("");
     }
 
@@ -299,10 +380,9 @@ export function formatReviewNotes(
         out.push(line.trim() === "" ? `${indent}>` : `${indent}> ${line}`);
       }
       out.push("");
-      const note = h.note?.trim() ? h.note.trim() : "(no comment)";
-      for (const line of note.split(/\r?\n/)) out.push(line.trim() === "" ? "" : `${indent}${line}`);
+      out.push(...noteLines(h, indent));
       if (h.author?.kind === "github") out.push(`${indent}— @${h.author.login}`);
-      out.push(...replyLines(h.replies, indent));
+      out.push(...replyLines(h, indent));
 
       notes.push({ docId: doc.docId, highlightId: h.id, lines: { start, end: out.length }, located: where !== null });
       out.push("");

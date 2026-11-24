@@ -113,9 +113,10 @@ it works in.
 ### Know when the agent replied
 
 While you're in another app, a system notification says when an agent
-answers your notes, such as "Claude Code replied to 4 notes" (desktop).
-Click it to come back to Folio with the first of those notes open. The Dock
-icon shows how many notes have replies you haven't read yet.
+answers your notes, such as "Claude Code replied to 4 notes", or asks you
+something, such as "Claude Code asked 2 questions" (desktop). Click it to
+come back to Folio with the first of those notes open. The Dock icon shows
+how many notes have replies or questions you haven't read yet.
 
 ## Replies
 
@@ -147,7 +148,8 @@ description.
   it waits for you, and isn't sent again until you reply.
 - **Reply.** Click **Reply** under the agent's answer, and **Save** (`⌘↩` /
   `Ctrl+Enter`). Your reply opens the note again, so it goes with the next
-  round. With an agent Live, **Send** sends it at once. **Reply**
+  round, and the note closes. With an agent Live, **Send** sends it at
+  once and keeps the note open for the answer. **Reply**
   shows only when the agent spoke last; until then, edit your own message.
 - **Edit your reply.** Until someone answers it, your latest reply has an
   **Edit** link. **Save** (`⌘↩` / `Ctrl+Enter`) opens the note again, so
@@ -161,6 +163,48 @@ description.
   was answered can't be edited. On the note on the document, you can still
   change the **Status**. A conversation opens at its latest message, and
   scrolls down when a reply comes in.
+
+## Questions from the agent
+
+An agent can ask its questions in Folio instead of in its terminal: it puts
+each one on the passage it's about, as a note. In Claude Code, with Folio's
+plugin, run `/folio:draft` with what to write, such as `/folio:draft a spec
+for the export feature in docs/specs/`: the agent writes it, puts every open
+question on its passage, and waits for your review. In a review, the
+plugin's agent asks its questions the same way. Other agents do it with
+Folio's MCP server when you ask them to, for example "put your open
+questions on the spec as notes".
+
+- **In the text.** The agent's notes are highlighted like yours. The
+  popover and the inline note name it: **Question from Claude Code**,
+  **Decision from Claude Code** or **Comment from Claude Code**.
+- **Questions.** Click **Reply**, write your answer and **Save**. The
+  answer goes with your next notes, or at once with **Send** while the
+  agent is Live.
+- **Decisions.** The note shows the agent's options as buttons, and
+  **Reply**. Click an option, or **Reply** to answer in your own words,
+  or both: pick an option and add a comment. Click the picked option again
+  to take it back. **Save** (`⌘↩` / `Ctrl+Enter`) keeps your answer for
+  your next notes; with the agent Live, **Send** (`⇧⌘↩` /
+  `Ctrl+Shift+Enter`) sends it at once. **Esc** cancels. Your answer shows
+  in the conversation as your reply, the option you picked first. Once the
+  agent answers, the options go: the note is a conversation like any other.
+- **Choices in a reply.** On any note, the agent can answer with a
+  question and options to pick from, such as "TypeScript and shell, or
+  all five languages?". The options show as buttons under the
+  conversation, and you answer as on a decision.
+- **Comments** tell you something, such as an assumption the agent made,
+  and need no answer. **Resolve** them once read.
+- **Finding them.** The status bar says "Claude Code asked 3 questions";
+  click it to open each in turn. A question you haven't opened has a dot on
+  its margin icon, as a new reply does. The **Documents** list shows how
+  many questions wait on you in each document, in a blue pill (such as
+  **?2**). In the **Marks** view, the filter's **The agent's notes** lists
+  only them.
+
+The agent records your answers in the document, and marks each note
+**Addressed**. You can't edit the agent's notes, but you can delete them
+with the bin, like your own.
 
 ## What the agent receives
 

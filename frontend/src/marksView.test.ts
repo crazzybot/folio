@@ -58,6 +58,13 @@ const base: MarkRowsInput = {
 const keys = (input: Partial<MarkRowsInput>) => buildMarkRows({ ...base, ...input }).map((r) => r.key);
 
 describe("buildMarkRows", () => {
+  it("shows only the agent's own notes when asked", () => {
+    const asked = { ...highlight("q1", "a question", 20, "Why?"), author: { kind: "agent" as const, name: "Claude Code" }, kind: "question" as const };
+    const withAsked = new Map(byDoc);
+    withAsked.set("notes.md", { bookmarks: [], highlights: [highlight("h3", "an idea", 5), asked] });
+    expect(keys({ byDoc: withAsked, agentOnly: true })).toEqual(["d:notes.md", "h:notes.md:q1"]);
+  });
+
   it("groups marks by document: heading bookmarks in document order, then highlights in text order", () => {
     expect(keys({})).toEqual([
       "d:guide.md",

@@ -88,9 +88,9 @@ export interface Marks {
    * Reply to a highlight's note (null: the document's note) as the user. The
    * note is open again, to go with the next round.
    */
-  reply(docId: string, highlightId: string | null, text: string): Promise<void>;
+  reply(docId: string, highlightId: string | null, text: string, choice?: number): Promise<void>;
   /** Change the user's latest reply to a note, while nobody has answered it. The note is open again. */
-  editReply(docId: string, highlightId: string | null, replyId: string, text: string): Promise<void>;
+  editReply(docId: string, highlightId: string | null, replyId: string, text: string, choice?: number | null): Promise<void>;
   /** Delete the user's latest reply to a note, before it's sent. The note goes back to its state before it. */
   deleteReply(docId: string, highlightId: string | null, replyId: string): Promise<void>;
   /**
@@ -275,8 +275,8 @@ export default function useMarks(): Marks {
   );
 
   const reply = useCallback(
-    (docId: string, highlightId: string | null, text: string) =>
-      replyToNote(docId, highlightId, text).then((note) => {
+    (docId: string, highlightId: string | null, text: string, choice?: number) =>
+      replyToNote(docId, highlightId, text, choice).then((note) => {
         if (highlightId === null) update(docId, (m) => withNote(m, note as DocumentNote));
         else saved(docId)(note as Highlight);
       }, failed("send the reply")),
@@ -284,8 +284,8 @@ export default function useMarks(): Marks {
   );
 
   const editReply = useCallback(
-    (docId: string, highlightId: string | null, replyId: string, text: string) =>
-      editNoteReply(docId, highlightId, replyId, text).then((note) => {
+    (docId: string, highlightId: string | null, replyId: string, text: string, choice?: number | null) =>
+      editNoteReply(docId, highlightId, replyId, text, choice).then((note) => {
         if (highlightId === null) update(docId, (m) => withNote(m, note as DocumentNote));
         else saved(docId)(note as Highlight);
       }, failed("save the reply")),

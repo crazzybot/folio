@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { canReply, newReplies, repliedNotes, repliesParts, repliesSummary, replyTime, threadSummary } from "./threads";
-import type { Reply, Thread } from "./types";
+import { canReply, newReplies, newsOf, repliedNotes, repliesParts, repliesSummary, replyTime, threadSummary } from "./threads";
+import type { NoteKind, Reply, Thread } from "./types";
 
 const claude = (text: string, at: string): Reply => ({ id: text, author: { kind: "agent", name: "Claude Code" }, text, at });
 const mine = (text: string, at: string): Reply => ({ id: text, author: { kind: "user" }, text, at });
@@ -21,6 +21,14 @@ describe("newReplies", () => {
     expect(newReplies(thread).map((r) => r.text)).toEqual(["a", "c"]);
     expect(newReplies({ ...thread, seen: "2026-11-12T10:06:00Z" }).map((r) => r.text)).toEqual(["c"]);
     expect(newReplies({})).toEqual([]);
+  });
+});
+
+describe("newReplies across time formats", () => {
+  it("compares times, not text: seen with milliseconds in the reply's second", () => {
+    const reply = claude("x", "2026-11-24T19:00:35Z");
+    expect(newReplies({ replies: [reply], seen: "2026-11-24T19:00:35.412Z" })).toEqual([]);
+    expect(newReplies({ replies: [reply], seen: "2026-11-24T19:00:34.999Z" })).toEqual([reply]);
   });
 });
 
@@ -48,9 +56,28 @@ describe("repliedNotes and repliesSummary", () => {
 
   it("splits who from the notes, for the status bar's pill", () => {
     const notes = repliedNotes(byDoc);
-    expect(repliesParts(notes)).toEqual({ who: "Claude Code and Codex", notes: "3 notes" });
-    expect(repliesParts(notes.slice(2))).toEqual({ who: "Codex", notes: "a note" });
+    expect(repliesParts(notes)).toEqual({ who: "Claude Code and Codex", did: "replied to", notes: "3 notes" });
+    expect(repliesParts(notes.slice(2))).toEqual({ who: "Codex", did: "replied to", notes: "a note" });
     expect(repliesParts([])).toBeNull();
+  });
+
+  it("counts the agent's own notes as questions until they're opened", () => {
+    const author = { kind: "agent" as const, name: "Claude Code" };
+    const asked: [string, { highlights: (Thread & { id: string; kind?: NoteKind })[] }][] = [
+      ["a", { highlights: [{ id: "q1", author, kind: "question" as const }, { id: "q2", author, kind: "decision" as const, seen: "2026-11-12T10:00:00Z" }] }],
+      ["b", { highlights: [{ id: "q3", author, kind: "comment" as const }] }],
+    ];
+    const notes = repliedNotes(asked);
+    expect(notes).toEqual([
+      { docId: "a", highlightId: "q1", authors: ["Claude Code"], asked: true },
+      { docId: "b", highlightId: "q3", authors: ["Claude Code"], asked: true },
+    ]);
+    expect(repliesSummary(notes)).toBe("Claude Code asked 2 questions");
+    expect(repliesSummary([...notes, ...repliedNotes(byDoc).slice(0, 1)])).toBe("Claude Code wrote on 3 notes");
+    expect([newsOf({ author, kind: "question" }), newsOf({ author, kind: "question", replies: [claude("x", "t")] })]).toEqual([
+      "a new question",
+      "a new question, a reply",
+    ]);
   });
 });
 

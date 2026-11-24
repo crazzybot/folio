@@ -111,8 +111,10 @@ export interface MarkHandlers {
   /** A note's place in the review loop (docs/design/sending-notes.md). */
   setLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
   /** The user's reply to a note, and that they saw its thread (docs/design/agent-integration.md). */
-  reply: (id: string, text: string) => void;
-  editReply: (id: string, replyId: string, text: string) => void;
+  /** `choice`: the option of an agent's decision the reply picks. */
+  reply: (id: string, text: string, choice?: number) => void;
+  /** `choice`: undefined keeps the reply's pick, null takes it out. */
+  editReply: (id: string, replyId: string, text: string, choice?: number | null) => void;
   deleteReply: (id: string, replyId: string) => void;
   markSeen: (id: string) => void;
   toggleHeadingBookmark: (heading: BookmarkHeading) => void;
@@ -127,7 +129,7 @@ export interface MarkHandlers {
   /** Save a highlight's note (undefined: unchanged) and send it to `sendTo` on its own. */
   saveAndSend?: (id: string, note: string | null | undefined) => void;
   /** Save the user's reply to a highlight's note (replyId null: a new one) and send the note to `sendTo` on its own. */
-  replyAndSend?: (id: string, reply: { text: string; replyId: string | null }) => void;
+  replyAndSend?: (id: string, reply: { text: string; replyId: string | null; choice?: number | null }) => void;
 }
 
 /** "Scroll to the `occurrence`-th match in `docId`"; a new `nonce` asks again. */

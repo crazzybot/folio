@@ -14,7 +14,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { progressSentence, type AgentProgress } from "../sending";
 import { authorName, canReply, newReplies, replyTime } from "../threads";
-import type { Author, NoteState, Thread } from "../types";
+import type { Author, NoteState, Reply, Thread } from "../types";
 import MessageText from "./MessageText";
 import styles from "./NoteThread.module.css";
 
@@ -40,6 +40,16 @@ interface NoteThreadProps {
   onSaveAndSend?: ((reply: { text: string; replyId: string | null }) => void) | undefined;
   /** The agent the note was sent to, while the user waits on its answer: shown after the last message. */
   progress?: AgentProgress | null | undefined;
+  /** A reply saved (not sent): the panel around the thread closes, as Save on a note does. */
+  onSaved?: () => void;
+  /** Offer Reply when the user can reply; false when the popover has its own (an agent's decision). */
+  offerReply?: boolean;
+  /** For each reply, the options it could pick from (optionsBefore): a reply that picks one shows it. */
+  optionsBefore?: readonly (readonly string[] | undefined)[];
+  /** The message whose options are open now, shown as buttons under the thread (a reply's id, or "note"): not listed in it again. */
+  openFrom?: string | null;
+  /** The decision note's own options, listed in its message once they're no longer open. */
+  noteOptions?: readonly string[] | undefined;
 }
 
 export default function NoteThread({
@@ -52,6 +62,11 @@ export default function NoteThread({
   sendTo = null,
   onSaveAndSend,
   progress = null,
+  onSaved,
+  offerReply = true,
+  optionsBefore = [],
+  openFrom = null,
+  noteOptions,
 }: NoteThreadProps): React.ReactElement | null {
   // A new reply (replyId null), or the user's latest one being edited
   const [draft, setDraft] = useState<{ text: string; replyId: string | null } | null>(null);
@@ -82,11 +97,19 @@ export default function NoteThread({
   };
   const send = () => {
     const text = draft?.text.trim() ?? "";
+    let saved = false;
     if (draft !== null && text !== "") {
-      if (draft.replyId === null) onReply(text);
-      else if (text !== replies.find((r) => r.id === draft.replyId)?.text) onEditReply(draft.replyId, text);
+      if (draft.replyId === null) {
+        onReply(text);
+        saved = true;
+      } else if (text !== replies.find((r) => r.id === draft.replyId)?.text) {
+        onEditReply(draft.replyId, text);
+        saved = true;
+      }
     }
     write(null);
+    // Saved for the next round: nothing to wait for here. Send keeps the panel open for the answer
+    if (saved) onSaved?.();
   };
   // Send: with an agent in a loop on the document, the reply goes to it at
   // once instead of with the next round
@@ -162,7 +185,7 @@ export default function NoteThread({
     );
 
   // Only an answer is replied to: the user's own last word is edited instead
-  const replyable = canReply(thread);
+  const replyable = offerReply && canReply(thread);
   if (note === undefined && replies.length === 0 && !replyable && progress === null) return null;
 
   return (
@@ -178,9 +201,10 @@ export default function NoteThread({
                 </time>
               </div>
               <MessageText text={note.text} />
+              {noteOptions !== undefined && openFrom !== "note" && <OptionList options={noteOptions} />}
             </li>
           )}
-          {replies.map((reply) => (
+          {replies.map((reply, i) => (
             <li key={reply.id} className={`${styles.reply} ${reply.author.kind === "user" ? styles.mine : ""}`}>
               <div className={styles.byline}>
                 <span className={styles.author}>{authorName(reply.author)}</span>
@@ -215,7 +239,8 @@ export default function NoteThread({
                   </button>
                 )}
               </div>
-              {draft !== null && draft.replyId === reply.id ? editor(true) : <MessageText text={reply.text} />}
+              {draft !== null && draft.replyId === reply.id ? editor(true) : <ReplyText reply={reply} options={optionsBefore[i] ?? []} />}
+              {reply.options !== undefined && openFrom !== reply.id && <OptionList options={reply.options} />}
             </li>
           ))}
         </ol>
@@ -231,6 +256,29 @@ export default function NoteThread({
           )
         : draft.replyId === null && editor(false)}
     </div>
+  );
+}
+
+/** The options an agent offered, once no longer open: numbered, as the agent was told them. */
+function OptionList({ options }: { options: readonly string[] }): React.ReactElement {
+  return (
+    <ol className={styles.optionList} aria-label="Options">
+      {options.map((option, i) => (
+        <li key={i}>{option}</li>
+      ))}
+    </ol>
+  );
+}
+
+/** A reply's text; one that picks an option of a decision shows the option first, then the comment, if any. */
+function ReplyText({ reply, options }: { reply: Reply; options: readonly string[] }): React.ReactElement {
+  const option = reply.choice === undefined ? undefined : options[reply.choice];
+  if (option === undefined) return <MessageText text={reply.text} />;
+  return (
+    <>
+      <div className={styles.choice}>{option}</div>
+      {reply.text.trim() !== option && <MessageText text={reply.text} />}
+    </>
   );
 }
 

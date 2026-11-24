@@ -112,9 +112,9 @@ interface MarkdownDesktopApi {
     /** Undo a round `send` recorded. */
     unsend(round: SentRound): Promise<void>;
     /** The user's reply to a note (highlightId null: the document's note). */
-    reply(docId: string, highlightId: string | null, text: string): Promise<Highlight | DocumentNote>;
+    reply(docId: string, highlightId: string | null, text: string, choice?: number): Promise<Highlight | DocumentNote>;
     /** Change the user's latest reply to a note, while nobody has answered it. */
-    editReply(docId: string, highlightId: string | null, replyId: string, text: string): Promise<Highlight | DocumentNote>;
+    editReply(docId: string, highlightId: string | null, replyId: string, text: string, choice?: number | null): Promise<Highlight | DocumentNote>;
     /** Delete the user's latest reply to a note, before it's sent. */
     deleteReply(docId: string, highlightId: string | null, replyId: string): Promise<Highlight | DocumentNote>;
     /** Record that the user saw a note's thread; for the document's note, with the document's status then. */

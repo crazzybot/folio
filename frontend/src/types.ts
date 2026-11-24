@@ -105,6 +105,8 @@ export interface TextAnchor {
  * resolved (the user agrees).
  */
 export type NoteState = "open" | "sent" | "addressed" | "resolved";
+/** What an agent's note asks of the user: an answer, a pick of its options, or nothing. */
+export type NoteKind = "question" | "decision" | "comment";
 
 /** Who wrote a note or reply: the user, a coding agent (over MCP), or an imported pull request comment. */
 export type Author = { kind: "user" } | { kind: "agent"; name: string } | { kind: "github"; login: string };
@@ -117,6 +119,10 @@ export interface Reply {
   at: string; // ISO-8601
   /** The note's state before this reply (the user's) reopened it: deleting the reply restores it. Absent: open. */
   reopened?: NoteState;
+  /** The user's answer to an agent's decision: the option picked (its index). The text is their comment, or the option's. */
+  choice?: number;
+  /** An agent's reply that asks the user to pick: 2 to 4 options. */
+  options?: string[];
 }
 
 /** A note's thread; absent fields mean none yet. */
@@ -141,10 +147,17 @@ export interface Highlight extends TextAnchor, Thread {
   resolvedFrom?: NoteState;
   /** Set only when the user chose (Only me, Send to agent); absent: private without a note, feedback with one. */
   private?: boolean;
-  /** The text the agent says replaced the quote, until the viewer finds it and takes it as the quote (placing-notes.md). */
-  passage?: { exact: string; at: string };
+  /**
+   * The text the agent says replaced the quote, until the viewer finds it and takes it as the quote (placing-notes.md).
+   * `first`: the passage of the agent's own note, replacing nothing.
+   */
+  passage?: { exact: string; at: string; first?: true };
   /** The quote before the agent's passage took its place. */
   replaced?: { exact: string; at: string };
+  /** An agent's note: what it asks of the user (agent-notes.md). Absent: the user's note. */
+  kind?: NoteKind;
+  /** A decision's options, 2 to 4; the user's pick is on their reply. */
+  options?: string[];
 }
 
 /** A bookmarked heading: its text, level and which of the same-text, same-level headings (0 = first). */

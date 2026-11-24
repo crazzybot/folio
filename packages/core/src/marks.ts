@@ -18,11 +18,25 @@ import { createHash, randomBytes } from "node:crypto";
 import { existsSync, promises as fs, realpathSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { COLORS, NOTE_STATES } from "./markTypes";
-import type { Author, Bookmark, BookmarkHeading, Color, DocumentNote, Highlight, NoteState, Reply, Round, Thread } from "./markTypes";
+import { COLORS, NOTE_KINDS, NOTE_STATES } from "./markTypes";
+import type {
+  Author,
+  Bookmark,
+  BookmarkHeading,
+  Color,
+  DocumentNote,
+  Highlight,
+  NoteKind,
+  NoteState,
+  Reply,
+  Round,
+  Thread,
+} from "./markTypes";
+import { openOptions } from "./reviewNotes";
+import { findPassage } from "./sourceMap";
 
-export { COLORS, NOTE_STATES };
-export type { Author, Bookmark, BookmarkHeading, Color, DocumentNote, Highlight, NoteState, Reply, Round };
+export { COLORS, NOTE_KINDS, NOTE_STATES };
+export type { Author, Bookmark, BookmarkHeading, Color, DocumentNote, Highlight, NoteKind, NoteState, Reply, Round };
 
 // Note states, privacy and rounds (docs/design/sending-notes.md) are optional
 // fields a version-1 app keeps as they are, so they don't need a new version:
@@ -39,6 +53,8 @@ const MAX_ROUNDS = 5; // per document, the latest kept
 const MAX_REPLIES = 100; // per note
 const MAX_REPLY = 10_000; // characters
 const MAX_NAME = 100; // an author's name or login
+const MAX_AGENT_NOTES = 20; // per call: a runaway agent can't bury the document
+const MAX_OPTION = 200; // characters
 
 // Paths differ only by case on these platforms' default file systems
 const CASE_INSENSITIVE = process.platform === "darwin" || process.platform === "win32";
@@ -198,14 +214,41 @@ function author(value: unknown): Author {
   }
 }
 
-/** A reply body: `{author, text, addressed?}`. */
-function replyBody(body: unknown): { author: Author; text: string; addressed: boolean; passage: string | null } {
+/** A reply body: `{author, text, addressed?, passage?, choice?, options?}`. */
+function replyBody(body: unknown): {
+  author: Author;
+  text: string;
+  addressed: boolean;
+  passage: string | null;
+  choice: number | null;
+  options: string[] | null;
+} {
   if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
   const text = string(body["text"], "text", MAX_REPLY, 1);
   if (text.trim() === "") throw new MarkError(400, "text must not be blank");
   const passage = body["passage"] === undefined ? null : string(body["passage"], "passage", MAX_EXACT, 1);
   if (passage !== null && passage.trim() === "") throw new MarkError(400, "passage must not be blank");
-  return { author: author(body["author"]), text, addressed: body["addressed"] === true, passage };
+  const choice = body["choice"] === undefined || body["choice"] === null ? null : optionIndex(body["choice"]);
+  const options = body["options"] === undefined || body["options"] === null ? null : optionList(body["options"], "options");
+  const by = author(body["author"]);
+  const addressed = body["addressed"] === true;
+  // Options ask the user to pick: the agent's, on a reply that doesn't say it's done
+  if (options !== null && (by.kind !== "agent" || addressed)) throw new MarkError(400, "options go on an agent's question, not with addressed");
+  return { author: by, text, addressed, passage, choice, options };
+}
+
+function optionIndex(value: unknown): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) throw new MarkError(400, "choice must be an option's index");
+  return value;
+}
+
+/** Checks that `choice` picks one of the options the agent offers now (openOptions), and that it's the user who picks. */
+function checkChoice(mark: Highlight | DocumentNote, choice: number | null, by: Author): void {
+  if (choice === null) return;
+  const options = openOptions(mark) ?? [];
+  if (by.kind !== "user" || choice >= options.length) {
+    throw new MarkError(400, "choice must be one of the options the agent offers, picked by the user");
+  }
 }
 
 /**
@@ -258,11 +301,13 @@ function withoutReply<T extends Thread & Looped>(mark: T, replyId: string): T {
  * stays as it was. The note is open again, so the new wording goes with the
  * next round.
  */
+/** `mark` with the user's latest reply's text changed, and its choice: undefined keeps it, null removes it. */
 function withEditedReply<T extends Thread & Looped>(
   mark: T,
   replyId: string,
   text: string,
   at: string,
+  choice?: number | null,
 ): T {
   const replies = mark.replies ?? [];
   const last = replies[replies.length - 1];
@@ -270,7 +315,10 @@ function withEditedReply<T extends Thread & Looped>(
   if (last?.id !== replyId || last.author.kind !== "user") {
     throw new MarkError(409, "Only your latest reply can be edited, while it has no answer");
   }
-  return { ...withLoop(mark, { state: "open" }), replies: [...replies.slice(0, -1), { ...last, text, at }] };
+  const { choice: oldChoice, ...rest } = last;
+  const kept = choice === undefined ? oldChoice : (choice ?? undefined);
+  const edited: Reply = { ...rest, text, at, ...(kept === undefined ? {} : { choice: kept }) };
+  return { ...withLoop(mark, { state: "open" }), replies: [...replies.slice(0, -1), edited] };
 }
 
 function requestedStatus(value: unknown): string | null {
@@ -421,6 +469,68 @@ function newHighlight(body: unknown): Highlight {
   };
 }
 
+/** An agent's note as asked for: the passage it's on, copied from the source, and what it asks. */
+export interface AgentNoteRequest {
+  passage: string;
+  text: string;
+  kind: NoteKind;
+  options?: string[] | undefined;
+}
+
+/**
+ * Agent notes on `source`, validated together: each passage must be in the
+ * source, so nothing is saved when one isn't. The quote is the passage and
+ * the position its place in the source until the viewer finds it in the
+ * rendered text (placing-notes.md).
+ */
+function newAgentNotes(source: string, agent: Author, requests: unknown): Highlight[] {
+  if (agent.kind !== "agent") throw new MarkError(400, "Agent notes are written by an agent");
+  if (!Array.isArray(requests) || requests.length === 0) throw new MarkError(400, "notes must be a non-empty array");
+  if (requests.length > MAX_AGENT_NOTES) throw new MarkError(400, `At most ${MAX_AGENT_NOTES} notes at a time`);
+  const time = now();
+  return requests.map((request: unknown, i) => {
+    if (!isObject(request)) throw new MarkError(400, `notes[${i}] must be an object`);
+    const passage = string(request["passage"], `notes[${i}].passage`, MAX_EXACT, 1);
+    const text = string(request["text"], `notes[${i}].text`, MAX_NOTE, 1);
+    if (passage.trim() === "" || text.trim() === "") throw new MarkError(400, `notes[${i}]: passage and text must not be blank`);
+    const kind = request["kind"];
+    if (!(NOTE_KINDS as readonly unknown[]).includes(kind)) throw new MarkError(400, `notes[${i}].kind must be ${NOTE_KINDS.join(", ")}`);
+    const options = (kind as NoteKind) === "decision" ? decisionOptions(request["options"], i) : undefined;
+    if (options === undefined && request["options"] !== undefined) throw new MarkError(400, `notes[${i}]: options go with a decision`);
+    const span = findPassage(source, passage);
+    if (span === null) throw new MarkError(404, `notes[${i}]: the passage isn't in the document`);
+    return {
+      id: randomBytes(8).toString("hex"),
+      color: "blue",
+      note: text,
+      quote: { exact: passage, prefix: "", suffix: "" },
+      position: span,
+      passage: { exact: passage, at: time, first: true },
+      author: agent,
+      kind: kind as NoteKind,
+      ...(options === undefined ? {} : { options }),
+      // A question waits on the user, as the agent's question in a reply does; a comment needs nothing
+      state: (kind as NoteKind) === "comment" ? "addressed" : "sent",
+      created: time,
+      updated: time,
+    };
+  });
+}
+
+function decisionOptions(value: unknown, i: number): string[] {
+  return optionList(value, `notes[${i}].options`);
+}
+
+/** 2 to 4 options, each one line of text: a decision's, or an agent's reply's. */
+function optionList(value: unknown, name: string): string[] {
+  if (!Array.isArray(value) || value.length < 2 || value.length > 4) throw new MarkError(400, `${name}: 2 to 4 options`);
+  return value.map((option: unknown, n) => {
+    const text = string(option, `${name}[${n}]`, MAX_OPTION, 1).trim();
+    if (text === "" || /[\r\n]/.test(text)) throw new MarkError(400, `${name}[${n}] must be one line of text`);
+    return text;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
@@ -564,6 +674,24 @@ export class MarksStore {
     });
   }
 
+  /**
+   * Add an agent's notes (AgentNoteRequest[]) on the document `file`, whose
+   * text is `source`: all of them, or none when one is refused.
+   */
+  addAgentNotes(file: string, source: string, agent: Author, requests: unknown): Promise<Highlight[]> {
+    const added = newAgentNotes(source, agent, requests);
+    const id = recordId(file);
+    return this.serially(async () => {
+      const record = (await this.writable(id)) ?? emptyRecord();
+      if (record.highlights.length + added.length > MAX_HIGHLIGHTS) {
+        throw new MarkError(409, `A document can have at most ${MAX_HIGHLIGHTS} highlights`);
+      }
+      record.highlights.push(...added);
+      await this.write(id, await refreshed(record, file));
+      return added;
+    });
+  }
+
   updateHighlight(file: string, highlightId: string, body: unknown): Promise<Highlight> {
     if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
     // Validate before changing anything
@@ -594,7 +722,8 @@ export class MarksStore {
       // Taken once: another window may have found it first
       if (replacement !== undefined && old.passage !== undefined) {
         delete highlight.passage;
-        highlight.replaced = { exact: old.quote.exact, at: old.passage.at };
+        // An agent's note placed for the first time replaced nothing
+        if (old.passage.first !== true) highlight.replaced = { exact: old.quote.exact, at: old.passage.at };
         highlight.quote = replacement.quote;
         highlight.position = replacement.position;
       }
@@ -684,12 +813,20 @@ export class MarksStore {
    * the note with its replies.
    */
   reply(file: string, highlightId: string | null, body: unknown): Promise<Highlight | DocumentNote> {
-    const { author: by, text, addressed, passage } = replyBody(body);
+    const { author: by, text, addressed, passage, choice, options } = replyBody(body);
     if (passage !== null && highlightId === null) throw new MarkError(400, "A passage goes with a note on a passage");
+    if ((choice !== null || options !== null) && highlightId === null) throw new MarkError(400, "Options and choices go with a note on a passage");
     const id = recordId(file);
     return this.serially(async () => {
       const record = await this.writable(id);
-      const reply: Reply = { id: randomBytes(8).toString("hex"), author: by, text, at: now() };
+      const reply: Reply = {
+        id: randomBytes(8).toString("hex"),
+        author: by,
+        text,
+        at: now(),
+        ...(choice === null ? {} : { choice }),
+        ...(options === null ? {} : { options }),
+      };
       if (highlightId === null) {
         const old = storedNote(record?.documentNote);
         if (record === null || old === null) throw new MarkError(404, "The document has no note");
@@ -698,6 +835,7 @@ export class MarksStore {
         return note;
       }
       const old = find(record, highlightId);
+      checkChoice(old, choice, by);
       // The new text, for the viewer to highlight once it finds it (placing-notes.md)
       const highlight = {
         ...withReply(old, reply, addressed),
@@ -719,6 +857,9 @@ export class MarksStore {
     if (!isObject(body)) throw new MarkError(400, "Expected a JSON object");
     const text = string(body["text"], "text", MAX_REPLY, 1);
     if (text.trim() === "") throw new MarkError(400, "text must not be blank");
+    // Absent keeps the reply's choice, null removes it
+    const choice = !("choice" in body) ? undefined : body["choice"] === null ? null : optionIndex(body["choice"]);
+    if (choice != null && highlightId === null) throw new MarkError(400, "A choice goes with a decision");
     const id = recordId(file);
     return this.serially(async () => {
       const record = await this.writable(id);
@@ -731,7 +872,8 @@ export class MarksStore {
         return note;
       }
       const old = find(record, highlightId);
-      const highlight = { ...withEditedReply(old, replyId, text, at), updated: at };
+      checkChoice(old, choice ?? null, { kind: "user" });
+      const highlight = { ...withEditedReply(old, replyId, text, at, choice), updated: at };
       const highlights = (record as MarksRecord).highlights.map((h) => (h === old ? highlight : h));
       await this.write(id, await refreshed({ ...(record as MarksRecord), highlights }, file));
       return highlight;

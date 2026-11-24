@@ -11,7 +11,7 @@
  */
 
 import { findBookmark, headingIndex } from "./bookmarks";
-import { feedbackSummary, filterOf, noteFilterOf } from "./sending";
+import { agentNoteLabel, feedbackSummary, filterOf, noteFilterOf } from "./sending";
 import type { StateFilter } from "./sending";
 import type { DocMarks } from "./useMarks";
 import { requestDone } from "./status";
@@ -70,6 +70,8 @@ export interface MarkRowsInput {
   kinds?: ReadonlySet<MarkKind>;
   /** The states (and private marks) shown; undefined: all. */
   states?: ReadonlySet<StateFilter>;
+  /** Only the agent's own notes (agent-notes.md): no bookmarks, nor the user's notes. */
+  agentOnly?: boolean;
   /** Documents whose marks are folded away. */
   collapsed: ReadonlySet<string>;
   /** The open document's highlights as the viewer placed them; the others are shown as not found. */
@@ -89,7 +91,8 @@ const includes = (text: string | null | undefined, q: string) => text != null &&
 
 export function buildMarkRows(input: MarkRowsInput): MarkRow[] {
   const { documents, byDoc, states, collapsed, located } = input;
-  const showBookmarks = input.kinds === undefined || input.kinds.size === 0 || input.kinds.has("bookmarks");
+  const agentOnly = input.agentOnly === true;
+  const showBookmarks = !agentOnly && (input.kinds === undefined || input.kinds.size === 0 || input.kinds.has("bookmarks"));
   const showHighlights = input.kinds === undefined || input.kinds.size === 0 || input.kinds.has("highlights");
   const q = input.query.trim().toLowerCase();
   const rows: MarkRow[] = [];
@@ -112,6 +115,7 @@ export function buildMarkRows(input: MarkRowsInput): MarkRow[] {
 
     const highlights = (showHighlights ? marks.highlights : [])
       .filter((h) => states === undefined || states.has(filterOf(h)))
+      .filter((h) => !agentOnly || agentNoteLabel(h) !== null)
       .filter((h) => titleMatch || includes(h.quote.exact, q) || includes(h.note, q))
       .sort((a, b) => a.position.start - b.position.start);
 
@@ -119,6 +123,7 @@ export function buildMarkRows(input: MarkRowsInput): MarkRow[] {
     const note =
       marks.note !== undefined &&
       showHighlights &&
+      !agentOnly &&
       (states === undefined || states.has(noteFilterOf(marks.note, doc.meta?.status))) &&
       (titleMatch || includes(marks.note.text, q) || includes(marks.note.requestedStatus, q))
         ? marks.note

@@ -64,6 +64,8 @@ The app checks for updates at launch (**Folio → Check for Updates…**).
 - **Send your review to a coding agent.** Copy your notes as Markdown with
   file paths and lines, or let the agent fetch them through Folio's MCP
   server and reply to each one in Folio.
+- **Answer the agent's questions where they belong.** The agent puts its
+  questions on the passages they're about; answer in words or pick an option.
 - **See what changed since you read it.** New and changed documents are
   marked, and a changed document names the sections that changed.
 - **Git-aware.** What changed on your branch, compared with the base branch,
@@ -95,6 +97,10 @@ waits for your notes. **Send** in the **Send review notes** dialog hands
 them straight to it. It addresses them, answers each one, and waits for the
 next round. A **Live** pill in Folio shows where it's waiting; **End Review
 Loop** stops it. See [Review in a loop](https://crazzybot.github.io/folio/docs/guide/review-loop#review-in-a-loop).
+
+To have the agent write documents for you to review, run `/folio:draft`
+with what to write: it puts each open question on the passage it's about,
+as a note you answer in Folio.
 
 Other agents (Cursor, Codex…) use the MCP server directly, waiting with
 `folio_wait_for_review`: see [packages/mcp](packages/mcp/README.md).

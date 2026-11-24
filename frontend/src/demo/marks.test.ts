@@ -77,6 +77,23 @@ describe("DemoMarks", () => {
     ]);
   });
 
+  it("places an agent's note without replacing anything, and takes the user's pick of a decision", () => {
+    const passage = { exact: "TWO", at: "2026-11-02T00:00:00Z", first: true as const };
+    const author = { kind: "agent" as const, name: "Claude Code" };
+    const decision = { ...seedHighlight("s1"), passage, author, kind: "decision" as const, options: ["A", "B"], state: "sent" as const };
+    const marks = new DemoMarks(listed, { b: { bookmarks: [], highlights: [decision] } }, memoryStorage());
+    const replacement = { quote: { exact: "TWO", prefix: "", suffix: "" }, position: { start: 10, end: 13 } };
+    const placed = marks.updateHighlight("b", "s1", { replacement });
+    expect([placed.quote, "replaced" in placed, "passage" in placed]).toEqual([replacement.quote, false, false]);
+    // The pick is the visitor's reply, as on the desktop
+    const picked = marks.reply("b", "s1", "B", 1);
+    expect([picked.replies?.[0]?.choice, "state" in picked]).toEqual([1, false]);
+    expect(() => marks.reply("b", "s1", "C", 5)).toThrow();
+    const replyId = picked.replies?.[0]?.id ?? "";
+    expect(marks.editReply("b", "s1", replyId, "A", 0).replies?.[0]?.choice).toBe(0);
+    expect("choice" in (marks.editReply("b", "s1", replyId, "Neither", null).replies?.[0] ?? {})).toBe(false);
+  });
+
   it("removes a highlight, and a document with no marks left", () => {
     const marks = new DemoMarks(listed, seed, memoryStorage());
     marks.deleteHighlight("b", "s1");

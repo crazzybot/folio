@@ -9,9 +9,9 @@
  */
 
 import type { NoteIconKind } from "./noteIcons";
-import { answeredBy, isPrivate, sendableNote } from "../../packages/core/src/reviewNotes";
-import { newReplies } from "./threads";
-import type { DocumentMeta, DocumentNote, Highlight, NoteState, Round, SendDocument } from "./types";
+import { answeredBy, isPrivate, openOptions, optionsBefore, pickedOption, sendableNote } from "../../packages/core/src/reviewNotes";
+import { newsOf } from "./threads";
+import type { DocumentMeta, DocumentNote, Highlight, NoteKind, NoteState, Round, SendDocument } from "./types";
 
 /** What the Marks view's state filter tells apart: the four states, and private marks. */
 export type StateFilter = NoteState | "private";
@@ -40,11 +40,46 @@ export function stateOf(mark: { state?: NoteState | undefined }): NoteState {
 export const UNRESOLVE_TITLE = "Back to where it was before you resolved it";
 
 // Shared with the MCP server, which sends the same notes
-export { answeredBy, isPrivate, sendableNote };
+export { answeredBy, isPrivate, openOptions, optionsBefore, pickedOption, sendableNote };
 
 /** A note's icon, for a note in the loop: answered when the agent's reply is the latest on a sent note, else its state. */
 export function loopKind(mark: { state?: NoteState | undefined; replies?: Highlight["replies"] }): Exclude<NoteIconKind, "private"> {
   return answeredBy(mark) === null ? stateOf(mark) : "answered";
+}
+
+const NOTE_KIND_LABELS: Record<NoteKind, string> = { question: "Question", decision: "Decision", comment: "Comment" };
+
+/** An agent's own note (agent-notes.md): "Question from Claude Code". Null for the user's notes. */
+export function agentNoteLabel(h: Pick<Highlight, "kind" | "author">): string | null {
+  return h.kind === undefined || h.author?.kind !== "agent" ? null : `${NOTE_KIND_LABELS[h.kind]} from ${h.author.name}`;
+}
+
+/**
+ * A question from the agent waiting on the user's answer, the agent having
+ * spoken last: its own note, or any note whose agent reply offers options
+ * to pick from.
+ */
+export function isOpenQuestion(h: Highlight): boolean {
+  return answeredBy(h) !== null && (agentNoteLabel(h) !== null || openOptions(h) !== undefined);
+}
+
+/**
+ * An agent's Markdown as plain text, for the places too small to render it
+ * (an inline note, a hover card, a row): emphasis and code marks dropped,
+ * links and images by their text, list and heading marks off line starts.
+ */
+export function plainMarkdown(text: string): string {
+  return text
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__|~~)(.+?)\1/g, "$2")
+    .replace(/(^|[^\w*])[*_]([^*_\n]+)[*_](?=[^\w*]|$)/g, "$1$2")
+    .replace(/`([^`\n]+)`/g, "$1")
+    .replace(/^[ \t]{0,3}(?:#{1,6}|[-*+]|\d+[.)])[ \t]+/gm, "");
+}
+
+/** A highlight's note as shown in one line: the agent's Markdown as plain text, the user's as written. */
+export function noteText(h: Pick<Highlight, "note" | "kind" | "author">): string | null {
+  return h.note !== null && agentNoteLabel(h) !== null ? plainMarkdown(h.note) : h.note;
 }
 
 /** Where a highlight falls in the state filter. */
@@ -80,7 +115,7 @@ export function countsByDoc(
  * behind "N more", so the strip doesn't grow with every old mark.
  */
 export function unplacedFirst(h: Highlight): boolean {
-  if (newReplies(h).length > 0) return true;
+  if (newsOf(h) !== "") return true;
   return (h.note !== null || h.private === false) && stateOf(h) !== "resolved";
 }
 

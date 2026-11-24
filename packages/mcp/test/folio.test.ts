@@ -299,6 +299,17 @@ describe("reply", () => {
     expect((await records())[0]?.highlights.find((x) => x.id === other.id)?.replies).toBeUndefined();
   });
 
+  it("asks the user to pick from options, and gets their pick back", async () => {
+    const h = await note("Add more examples?");
+    await folio.reviewNotes({}, "Claude Code");
+    const said = await folio.reply({ noteId: h.id, text: "Which ones?", options: ["TypeScript", "Shell"] }, "Claude Code");
+    expect(said).toContain("picks one of your options");
+    await store.reply(adr(), h.id, { author: { kind: "user" }, text: "Shell", choice: 1 });
+    const sent = await folio.reviewNotes({}, "Claude Code");
+    expect(sent?.text).toContain("   1. TypeScript\n   2. Shell\n\n   My choice: 2. Shell");
+    await expect(folio.reply({ noteId: h.id, text: "Done.", addressed: true, options: ["A", "B"] }, "X")).rejects.toThrow(/leave addressed out/);
+  });
+
   it("answers the note on a document as a whole by its path", async () => {
     await store.setNote(adr(), { text: "Overall fine.", requestedStatus: null });
     await folio.reply({ path: adr(), text: "Thanks.", addressed: true }, "Claude Code");
@@ -315,6 +326,42 @@ describe("reply", () => {
     await refused({ path: os.tmpdir(), text: "Hi" });
     await store.setNote(adr(), { text: "Overall fine.", requestedStatus: null });
     await refused({ path: adr(), text: "Hi", passage: "Postgres" });
+  });
+});
+
+describe("addNotes", () => {
+  it("puts the agent's questions on passages, and sends them back once the user answers", async () => {
+    const said = await folio.addNotes(
+      {
+        path: "docs/adr.md",
+        notes: [
+          { passage: "store events in Postgres", text: "Postgres or SQLite?", kind: "decision", options: ["Postgres", "SQLite"] },
+          { passage: "one table per aggregate", text: "Assumed one schema.", kind: "comment" },
+        ],
+      },
+      "Claude Code",
+    );
+    expect(said).toMatch(/^Added 2 notes on .*adr\.md \([0-9a-f]{8}, [0-9a-f]{8}\)\. The user answers in Folio/);
+    const [decision, comment] = (await records())[0]?.highlights ?? [];
+    expect([decision?.author, decision?.state, comment?.state]).toEqual([{ kind: "agent", name: "Claude Code" }, "sent", "addressed"]);
+    // Waiting on the user: not sent, nor counted as waiting on the agent
+    expect(await folio.reviewNotes({}, "Claude Code")).toBeNull();
+    expect((await folio.listDocuments({ withOpenNotes: true })).length).toBe(0);
+
+    // The user picks: the answer goes with the next notes
+    await store.reply(adr(), decision?.id ?? "", { author: { kind: "user" }, text: "Postgres", choice: 0 });
+    const sent = await folio.reviewNotes({}, "Claude Code");
+    expect(sent?.text).toContain("Decision from Claude Code: Postgres or SQLite?");
+    expect(sent?.text).toContain("My choice: 1. Postgres");
+    expect(readFileSync(adr(), "utf8")).toBe(ADR);
+  });
+
+  it("saves nothing when a passage isn't in the document", async () => {
+    const add = (p: string, passage: string) => folio.addNotes({ path: p, notes: [{ passage, text: "Why?", kind: "question" }] }, "X");
+    await expect(add(adr(), "Postgres, two tables")).rejects.toThrow("Note 1: the passage isn't in the document. Nothing was saved: copy");
+    await expect(add(path.join(root, "node_modules", "dep.md"), "Not listed")).rejects.toThrow(/Not a Markdown document Folio lists/);
+    await expect(add(os.tmpdir(), "x")).rejects.toBeInstanceOf(FolioError);
+    expect(await records()).toEqual([]);
   });
 });
 

@@ -76,6 +76,35 @@ describe("alertText", () => {
   });
 });
 
+describe("the agent's own notes", () => {
+  const asked = (id: string, extra: Partial<Highlight> = {}): Highlight => ({
+    ...highlight(id, []),
+    author: { kind: "agent", name: "Claude Code" },
+    kind: "question",
+    ...extra,
+  });
+
+  it("compares times, not text", () => {
+    const seenMs = highlight("h1", [reply("r1", "2026-11-14T10:01:00Z")], "2026-11-14T10:01:00.500Z");
+    expect(unseenNotes(work, [record(path.join(work, "a.md"), [seenMs])])).toEqual([]);
+  });
+
+  it("are new until the user opens them", () => {
+    const notes = unseenNotes(work, [record(path.join(work, "a.md"), [asked("h1"), asked("h2", { seen: "2026-11-14T10:02:00Z" })])]);
+    expect(notes.map((n) => [n.replyIds, n.asked])).toEqual([[["h1"], true]]);
+  });
+
+  it("are questions the agent asked, or notes it wrote on along with replies", () => {
+    const questions = unseenNotes(work, [
+      record(path.join(work, "a.md"), [asked("h1")]),
+      record(path.join(work, "b.md"), [asked("h2")]),
+    ]);
+    expect(alertText(questions)).toEqual({ title: "Claude Code asked 2 questions", body: "In 2 documents" });
+    const mixed = unseenNotes(work, [record(path.join(work, "a.md"), [asked("h1"), highlight("h2", [reply("r1", "t")])])]);
+    expect(alertText(mixed)).toEqual({ title: "Claude Code wrote on 2 notes", body: "a.md" });
+  });
+});
+
 describe("ReplyAlerts", () => {
   const notesWith = (...ids: string[]) =>
     unseenNotes(work, [record(path.join(work, "a.md"), ids.map((id) => highlight(`h-${id}`, [reply(id, "t")])))]);

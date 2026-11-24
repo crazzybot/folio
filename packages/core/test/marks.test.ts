@@ -545,6 +545,80 @@ describe("threads", () => {
     expect(await refusal(() => store.reply(BLANK_DOC, null, { author: CLAUDE, text: "x", passage: "y" }))).toBe(400);
   });
 
+  it("adds an agent's notes on passages of the source, to be placed by the viewer", async () => {
+    const source = "No *headings* here.\nSecond line.\n";
+    const [question, decision, comment] = await store.addAgentNotes(PLAIN, source, CLAUDE, [
+      { passage: "No *headings* here.", text: "Should it have one?", kind: "question" },
+      { passage: "Second line.", text: "Keep it?", kind: "decision", options: ["Keep", " Drop "] },
+      { passage: "Second line.", text: "Assumed plain text.", kind: "comment" },
+    ]);
+    expect(question).toMatchObject({
+      author: CLAUDE,
+      kind: "question",
+      note: "Should it have one?",
+      state: "sent",
+      quote: { exact: "No *headings* here.", prefix: "", suffix: "" },
+      position: { start: 0, end: 19 },
+      passage: { exact: "No *headings* here.", first: true },
+    });
+    expect([decision?.options, decision?.state, comment?.state]).toEqual([["Keep", "Drop"], "sent", "addressed"]);
+
+    // Placed by the viewer: nothing was replaced
+    const replacement = { quote: { exact: "No headings here.", prefix: "", suffix: " Second" }, position: { start: 0, end: 17 } };
+    const placed = await store.updateHighlight(PLAIN, question?.id ?? "", { replacement });
+    expect([placed.quote, "passage" in placed, "replaced" in placed]).toEqual([replacement.quote, false, false]);
+
+    // The user's pick is their reply: it opens the decision, to go with the next round
+    const id = decision?.id ?? "";
+    const picked = await store.reply(PLAIN, id, { author: { kind: "user" }, text: "Drop", choice: 1 });
+    expect([picked.replies?.[0]?.choice, "state" in picked]).toEqual([1, false]);
+    const replyId = picked.replies?.[0]?.id ?? "";
+    // Changed in place while unanswered, or the pick taken out of it
+    const changed = await store.editReply(PLAIN, id, replyId, { text: "Keep", choice: 0 });
+    expect(changed.replies?.map((r) => [r.text, r.choice])).toEqual([["Keep", 0]]);
+    const words = await store.editReply(PLAIN, id, replyId, { text: "Neither" });
+    expect(words.replies?.[0]?.choice).toBe(0);
+    const none = await store.editReply(PLAIN, id, replyId, { text: "Neither", choice: null });
+    expect("choice" in (none.replies?.[0] ?? {})).toBe(false);
+    // Only one of a decision's options, picked by the user
+    const user = { kind: "user" };
+    expect(await refusal(() => store.reply(PLAIN, id, { author: user, text: "x", choice: 2 }))).toBe(400);
+    expect(await refusal(() => store.reply(PLAIN, id, { author: CLAUDE, text: "x", choice: 0 }))).toBe(400);
+    expect(await refusal(() => store.reply(PLAIN, question?.id ?? "", { author: user, text: "x", choice: 0 }))).toBe(400);
+  });
+
+  it("takes an agent's reply that offers options, and the user's pick of them", async () => {
+    const a = await store.addHighlight(PLAIN, highlight({ note: "Add more examples?" }));
+    const asked = await store.reply(PLAIN, a.id, { author: CLAUDE, text: "Which ones?", options: ["TypeScript", " Shell "] });
+    expect([asked.replies?.[0]?.options, asked.state]).toEqual([["TypeScript", "Shell"], "sent"]);
+    const picked = await store.reply(PLAIN, a.id, { author: { kind: "user" }, text: "Shell", choice: 1 });
+    expect(picked.replies?.[1]?.choice).toBe(1);
+    // Options only from the agent, asking; a pick only of the options open now
+    const user = { kind: "user" };
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: user, text: "x", options: ["A", "B"] }))).toBe(400);
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: CLAUDE, text: "x", options: ["A", "B"], addressed: true }))).toBe(400);
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: CLAUDE, text: "x", options: ["A"] }))).toBe(400);
+    await store.reply(PLAIN, a.id, { author: CLAUDE, text: "Added the shell example.", addressed: true });
+    expect(await refusal(() => store.reply(PLAIN, a.id, { author: user, text: "x", choice: 0 }))).toBe(400);
+  });
+
+  it("adds none of an agent's notes when one is refused", async () => {
+    const source = "No headings here.\nSecond line.\n";
+    const note = { passage: "Second line.", text: "Why?", kind: "question" };
+    const before = recordOf(PLAIN);
+    const refused = async (notes: unknown, author: unknown = CLAUDE) =>
+      refusal(() => store.addAgentNotes(PLAIN, source, author as typeof CLAUDE, notes));
+    expect(await refused([note, { ...note, passage: "Third line." }])).toBe(404);
+    expect(await refused([{ ...note, kind: "decision", options: ["Only one"] }])).toBe(400);
+    expect(await refused([{ ...note, kind: "decision", options: ["A", "B\nC"] }])).toBe(400);
+    expect(await refused([{ ...note, options: ["A", "B"] }])).toBe(400);
+    expect(await refused([{ ...note, kind: "todo" }])).toBe(400);
+    expect(await refused(Array.from({ length: 21 }, () => note))).toBe(400);
+    expect(await refused([], CLAUDE)).toBe(400);
+    expect(await refused([note], { kind: "user" })).toBe(400);
+    expect(recordOf(PLAIN)).toEqual(before);
+  });
+
   it("replies to the document's note", async () => {
     await store.setNote(BLANK_DOC, { text: "Overall fine.", requestedStatus: "accepted" });
     const note = await store.reply(BLANK_DOC, null, { author: CLAUDE, text: "Status changed.", addressed: true });

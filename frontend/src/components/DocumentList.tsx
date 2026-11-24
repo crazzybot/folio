@@ -135,6 +135,8 @@ interface DocumentListProps {
   highlightCounts?: ReadonlyMap<string, number>;
   /** Number of resolved notes by document id, for the hover card (documents without any are absent). */
   resolvedCounts?: ReadonlyMap<string, number>;
+  /** Number of the agent's questions waiting on the user, by document id (documents without any are absent). */
+  questionCounts?: ReadonlyMap<string, number>;
   /** Documents bookmarked as a whole. */
   bookmarkedIds?: ReadonlySet<string>;
   /** The workspace's git repositories (desktop): folder icons and hover cards. */
@@ -190,6 +192,7 @@ export default function DocumentList({
   filterOptions = NO_OPTIONS,
   onFiltersChange,
   highlightCounts = NO_COUNTS,
+  questionCounts = NO_COUNTS,
   resolvedCounts = NO_COUNTS,
   bookmarkedIds = NO_IDS,
   git = null,
@@ -940,6 +943,7 @@ export default function DocumentList({
                 onMarkUnread={onMarkUnread}
                 onMarkFolderRead={onMarkFolderRead}
                 bookmarked={row.kind === "document" && bookmarkedIds.has(row.doc.id)}
+                questionCount={row.kind === "document" ? (questionCounts.get(row.doc.id) ?? 0) : 0}
                 highlightCount={
                   row.kind === "document"
                     ? (highlightCounts.get(row.doc.id) ?? 0)
@@ -1053,6 +1057,8 @@ interface RowItemProps {
   onFocusFolder: (folder: string) => void;
   /** A document's highlights; for a folder, more than 0 when something inside has any. */
   highlightCount: number;
+  /** A document's questions from the agent waiting on the user. */
+  questionCount: number;
   /** A document bookmarked as a whole. */
   bookmarked: boolean;
   /** For a folder: the nested git repository whose root it is, if any. */
@@ -1082,6 +1088,7 @@ function RowItem({
   onActivate,
   onFocusFolder,
   highlightCount,
+  questionCount,
   bookmarked,
   repository,
   agents,
@@ -1184,13 +1191,14 @@ function RowItem({
       (tags.length === 0 ? "" : ` — tags ${tags.join(", ")}`);
     const matches = matchCount === null ? "" : ` — ${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
     const marked = highlightCount === 0 ? "" : ` — ${highlightCount} ${highlightCount === 1 ? "highlight" : "highlights"}`;
+    const asked = questionCount === 0 ? "" : ` — ${questionCount} ${questionCount === 1 ? "question" : "questions"} from the agent`;
     return (
       <li
         {...common}
         className={`${styles.entry} ${selected ? styles.entrySelected : ""} ${status !== null && isRetired(status) ? styles.entryRetired : ""}`}
         style={tree ? { paddingLeft: TREE_PADDING + row.level * INDENT + CHEVRON } : undefined}
         aria-selected={selected}
-        aria-label={`${doc.title} — ${doc.location}${described}${readState === "read" ? "" : ` — ${readState}`}${changeText === null ? "" : ` — ${lowerFirst(changeText)}`}${bookmarked ? " — bookmarked" : ""}${matches}${marked}`}
+        aria-label={`${doc.title} — ${doc.location}${described}${readState === "read" ? "" : ` — ${readState}`}${changeText === null ? "" : ` — ${lowerFirst(changeText)}`}${bookmarked ? " — bookmarked" : ""}${matches}${marked}${asked}`}
         onContextMenu={(e) => {
           // Desktop: a native menu (Mark as Read, Open in Editor, Reveal in
           // Finder…); the browser keeps its own
@@ -1232,8 +1240,17 @@ function RowItem({
             <path d="M4 2h8v12l-4-3-4 3z" fill="currentColor" />
           </svg>
         )}
+        {matchCount === null && questionCount > 0 && (
+          <span
+            className={styles.questionCount}
+            title={`${questionCount} ${questionCount === 1 ? "question" : "questions"} from the agent, waiting on you`}
+            aria-hidden="true"
+          >
+            ?{questionCount}
+          </span>
+        )}
         {matchCount === null && highlightCount > 0 && (
-          <span className={styles.marksCount} aria-hidden="true">
+          <span className={`${styles.marksCount} ${questionCount > 0 ? styles.afterQuestions : ""}`} aria-hidden="true">
             <span className={styles.marksDot} />
             {highlightCount}
           </span>

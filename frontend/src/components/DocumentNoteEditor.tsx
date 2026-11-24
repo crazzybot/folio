@@ -275,6 +275,7 @@ export default function DocumentNoteEditor({
             onEditReply={onEditReply}
             onDeleteReply={onDeleteReply}
             onWritingChange={setReplying}
+            onSaved={onClose}
             sendTo={note.private === true ? null : sendTo}
             onSaveAndSend={
               onReplyAndSend === undefined

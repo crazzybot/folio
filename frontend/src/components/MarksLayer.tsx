@@ -8,10 +8,10 @@ import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
-import { agentProgress, type AgentProgress, answeredBy, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
+import { agentNoteLabel, noteText, agentProgress, type AgentProgress, answeredBy, openOptions, optionsBefore, pickedOption, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
 import { buildTextModel } from "../textModel";
 import { locateSection, sameSection, sectionPath } from "../sectionAnchor";
-import { newReplies, threadSummary } from "../threads";
+import { canReply, newsOf, threadSummary } from "../threads";
 import { HIGHLIGHT_COLORS } from "../types";
 import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, NoteState, Round, TextAnchor } from "../types";
 import LockIcon from "./LockIcon";
@@ -213,11 +213,12 @@ interface MarksLayerProps {
   /** Save a highlight's note (undefined: unchanged) and send it to `sendTo` on its own. */
   onSaveAndSend?: ((id: string, note: string | null | undefined) => void) | undefined;
   /** Save the user's reply (replyId null: a new one) and send the note to `sendTo` on its own. */
-  onReplyAndSend?: ((id: string, reply: { text: string; replyId: string | null }) => void) | undefined;
-  /** The user's reply to a highlight's note. */
-  onReply: (id: string, text: string) => void;
+  onReplyAndSend?: ((id: string, reply: { text: string; replyId: string | null; choice?: number | null }) => void) | undefined;
+  /** The user's reply to a highlight's note; `choice`: the option of an agent's decision it picks. */
+  onReply: (id: string, text: string, choice?: number) => void;
   /** The user's latest reply to a highlight's note, changed. */
-  onEditReply: (id: string, replyId: string, text: string) => void;
+  /** `choice`: undefined keeps the reply's pick, null takes it out. */
+  onEditReply: (id: string, replyId: string, text: string, choice?: number | null) => void;
   /** The user's latest reply to a highlight's note, deleted before it's sent. */
   onDeleteReply: (id: string, replyId: string) => void;
   /** The user saw a highlight's thread (its popover opened with new replies). */
@@ -553,7 +554,7 @@ export default function MarksLayer({
         const range = h.note === null ? undefined : located.current.get(h.id);
         return range === undefined || h.note === null
           ? []
-          : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: h.note, icon: noteIconOf(h), replies: threadSummary(h) }];
+          : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: noteText(h) ?? "", by: agentNoteLabel(h), icon: noteIconOf(h), replies: threadSummary(h) }];
       });
     const relayout = () => setLayoutVersion((v) => v + 1);
     let stop = () => {};
@@ -894,8 +895,13 @@ export default function MarksLayer({
   }, [articleRef, ready, renderKey, openPopover]);
 
   const current = popover === null ? undefined : highlights.find((h) => h.id === popover.id);
-  // Replied to: the note is part of the conversation, and stays as it was answered
-  const answered = (current?.replies?.length ?? 0) > 0;
+  // Replied to, or the agent's own: the note is part of the conversation, and stays as it was written
+  const answered = (current?.replies?.length ?? 0) > 0 || current?.author?.kind === "agent";
+
+  // The answer to an agent's decision being written: an option picked (or
+  // none) and a comment. It's the user's reply, saved or sent as any is;
+  // the decision's one reply box
+  const [pick, setPick] = useState<{ id: string; choice: number | null; comment: string } | null>(null);
 
   /** Close the popover, keeping a note being written. */
   const closePopover = useCallback(() => {
@@ -905,6 +911,7 @@ export default function MarksLayer({
     sentFrom.current = null;
     setPopover(null);
     setDraft(null);
+    setPick(null);
     setReplying(false);
   }, [current, draft, onSetNote]);
 
@@ -926,6 +933,44 @@ export default function MarksLayer({
     setDraft(null);
     setReplying(false);
   };
+  // The options the agent offers now: its decision's, or those of its latest
+  // reply. Once it answers without any, the thread is an ordinary one
+  const offered = current === undefined ? undefined : openOptions(current);
+  const deciding = offered !== undefined;
+  // The message offering them, whose options are the buttons: a reply's id, or "note"
+  const openFrom =
+    offered === undefined ? null : ([...(current?.replies ?? [])].reverse().find((r) => r.author.kind === "agent")?.id ?? "note");
+  const picking = deciding && pick !== null && pick.id === current?.id ? pick : null;
+  // The user's answer so far, while unanswered: the box edits it rather than adding another
+  const lastReply = current?.replies?.[current.replies.length - 1];
+  const mine = deciding && lastReply?.author.kind === "user" ? lastReply : null;
+  const optionText = (choice: number | null | undefined) => (choice == null ? undefined : offered?.[choice]);
+  // The reply's text: the comment, or the option's when there's none
+  const answerText = picking === null ? "" : picking.comment.trim() || (optionText(picking.choice) ?? "");
+  const pickReady =
+    picking !== null && answerText !== "" && (mine === null || answerText !== mine.text || picking.choice !== (mine.choice ?? null));
+  const canSendPick = sendTo !== null && onReplyAndSend !== undefined && current !== undefined && !isPrivate(current);
+  const startPick = (choice: number | null) => {
+    if (current === undefined) return;
+    // Editing the answer: its comment, not the option's text standing in for one
+    const comment = picking?.comment ?? (mine === null || mine.text === optionText(mine.choice) ? "" : mine.text);
+    setPick({ id: current.id, choice, comment });
+    setReplying(true);
+  };
+  const savePick = (send: boolean) => {
+    if (picking === null || current === undefined || !pickReady) return;
+    const { choice } = picking;
+    if (send) {
+      if (!canSendPick) return;
+      onReplyAndSend(current.id, { text: answerText, replyId: mine?.id ?? null, choice });
+      sentFrom.current = current.id;
+    } else if (mine === null) onReply(current.id, answerText, choice ?? undefined);
+    else onEditReply(current.id, mine.id, answerText, choice);
+    setPick(null);
+    setReplying(false);
+    // Saved for the next round: done with the note. Sent, it stays open for the answer
+    if (!send) closePopover();
+  };
   // The agent it went to, until it answers
   const progress = current === undefined ? null : agentProgress(current, rounds, current.id, sendTo);
 
@@ -933,7 +978,7 @@ export default function MarksLayer({
   useEffect(() => {
     if (popover === null) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && draft === null && !replying) closePopover();
+      if (e.key === "Escape" && draft === null && !replying && pick === null) closePopover();
     }
     function onPointerDown(e: PointerEvent) {
       if (!(e.target instanceof Node && popoverRef.current?.contains(e.target))) closePopover();
@@ -944,13 +989,19 @@ export default function MarksLayer({
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [popover, draft, replying, closePopover]);
+  }, [popover, draft, replying, pick, closePopover]);
 
-  // Opening a note's thread shows its new replies: they're seen from then on
-  const currentNew = current === undefined ? 0 : newReplies(current).length;
+  // Opening a note's thread shows its new replies: they're seen from then on.
+  // Once for each latest message: marking seen changes the marks, which can
+  // give onSeen a new identity, and must not mark it again
+  const currentNews =
+    current === undefined || newsOf(current) === "" ? null : `${current.id} ${current.replies?.[current.replies.length - 1]?.id ?? ""}`;
+  const markedSeen = useRef<string | null>(null);
   useEffect(() => {
-    if (popover !== null && currentNew > 0) onSeen(popover.id);
-  }, [popover, currentNew, onSeen]);
+    if (popover === null || currentNews === null || markedSeen.current === currentNews) return;
+    markedSeen.current = currentNews;
+    onSeen(popover.id);
+  }, [popover, currentNews, onSeen]);
 
   // The popover takes keyboard focus, so its buttons are reachable
   useEffect(() => {
@@ -1018,15 +1069,15 @@ export default function MarksLayer({
         {unplacedShown.map((h) => {
           const kind = noteIconOf(h);
           const note = h.note ?? (h.private === false ? "(no comment)" : null);
-          const fresh = newReplies(h).length;
-          const news = fresh === 0 ? "" : ` · ${fresh === 1 ? "a new reply" : `${fresh} new replies`}`;
+          const fresh = newsOf(h);
+          const news = fresh === "" ? "" : ` · ${fresh}`;
           const about = note === null ? "Highlight" : `${NOTE_ICON_LABELS[kind]} note: ${note}`;
           return (
             <li key={h.id}>
               <button
                 type="button"
                 data-highlight-id={h.id}
-                className={`${styles.unplacedRow} ${fresh > 0 ? styles.noteMarkerNew : ""}`}
+                className={`${styles.unplacedRow} ${fresh !== "" ? styles.noteMarkerNew : ""}`}
                 style={{ borderLeftColor: `var(--mark-${h.color}-swatch)` }}
                 onClick={(e) => openPopover(h.id, e.currentTarget.getBoundingClientRect())}
                 aria-label={`${about}. On: ${h.quote.exact}${news}`}
@@ -1118,14 +1169,14 @@ export default function MarksLayer({
         const highlight = highlights.find((h) => h.id === spot.id);
         const kind = highlight === undefined ? "private" : noteIconOf(highlight);
         const note = highlight?.note ?? "(no comment)";
-        const fresh = highlight === undefined ? 0 : newReplies(highlight).length;
-        const news = fresh === 0 ? "" : ` · ${fresh === 1 ? "a new reply" : `${fresh} new replies`}`;
+        const fresh = highlight === undefined ? "" : newsOf(highlight);
+        const news = fresh === "" ? "" : ` · ${fresh}`;
         const detached = spot.detached ? ` · ${DETACHED_LABEL}` : "";
         return (
           <button
             key={spot.id}
             type="button"
-            className={`${styles.noteMarker} ${spot.detached ? styles.noteMarkerDetached : ""} ${spot.id === hoveredNote ? styles.noteMarkerHovered : ""} ${fresh > 0 ? styles.noteMarkerNew : ""}`}
+            className={`${styles.noteMarker} ${spot.detached ? styles.noteMarkerDetached : ""} ${spot.id === hoveredNote ? styles.noteMarkerHovered : ""} ${fresh !== "" ? styles.noteMarkerNew : ""}`}
             style={{ top: spot.top, left: spot.left }}
             onClick={(e) => openPopover(spot.id, e.currentTarget.getBoundingClientRect())}
             aria-label={`${NOTE_ICON_LABELS[kind]} note: ${note}${news}${detached}`}
@@ -1345,7 +1396,94 @@ export default function MarksLayer({
                     }
               }
               progress={progress}
+              // A decision being made has its own reply box, under its options
+              onSaved={closePopover}
+              offerReply={!deciding}
+              optionsBefore={optionsBefore(current)}
+              openFrom={openFrom}
+              noteOptions={current.kind === "decision" && current.author?.kind === "agent" ? current.options : undefined}
             />
+          )}
+
+          {/* An agent's decision: the user picks one of its options, then saves or sends it as a reply */}
+          {draft === null && offered !== undefined && (
+            <div className={styles.options} role="group" aria-label="Options">
+              {offered.map((option, i) => {
+                const on = (picking === null ? (pickedOption(current) ?? null) : picking.choice) === i;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`${styles.option} ${on ? styles.optionOn : ""}`}
+                    // Picked again: taken back
+                    onClick={() => startPick(on ? null : i)}
+                    aria-pressed={on}
+                    title={on ? "Click again to take your choice back" : undefined}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {draft === null && deciding && picking === null && canReply(current) && (
+            <button type="button" className={styles.replyBtn} onClick={() => startPick(null)}>
+              Reply
+            </button>
+          )}
+          {draft === null && picking !== null && (
+            <div className={styles.noteEditor}>
+              <textarea
+                className={styles.noteField}
+                value={picking.comment}
+                onChange={(e) => setPick({ ...picking, comment: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.shiftKey && canSendPick) {
+                    e.preventDefault();
+                    savePick(true);
+                  } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    savePick(false);
+                  } else if (e.key === "Escape") {
+                    // Cancel the pick, keep the popover
+                    e.stopPropagation();
+                    setPick(null);
+                    setReplying(false);
+                  }
+                }}
+                aria-label="Reply"
+                placeholder={picking.choice === null ? "Reply… or pick an option above" : "Add a comment (optional)…"}
+                rows={3}
+                maxLength={10_000}
+                autoFocus
+              />
+              <div className={styles.noteActions}>
+                <span className={styles.noteHint}>
+                  {canSendPick ? `${SEND_SHORTCUT} to send` : `${SAVE_SHORTCUT} to save`} · Esc to cancel
+                </span>
+                {/* With an agent in the loop, Send is the main action: Save keeps the choice for the next round */}
+                <button
+                  type="button"
+                  className={canSendPick ? styles.secondaryBtn : styles.primaryBtn}
+                  onClick={() => savePick(false)}
+                  disabled={!pickReady}
+                  title={canSendPick ? `Save, to send with the next round (${SAVE_SHORTCUT})` : undefined}
+                >
+                  Save
+                </button>
+                {canSendPick && (
+                  <button
+                    type="button"
+                    className={styles.primaryBtn}
+                    onClick={() => savePick(true)}
+                    disabled={!pickReady}
+                    title={`Save, and send your answer to ${sendTo} now (${SEND_SHORTCUT})`}
+                  >
+                    Send
+                  </button>
+                )}
+              </div>
+            </div>
           )}
 
           {draft === null && (
@@ -1387,6 +1525,8 @@ function LoopRow({
   const locked = isPrivate(highlight);
   const state = stateOf(highlight);
   const answered = answeredBy(highlight);
+  // The agent's own note, not answered yet: who's asking, rather than who answered
+  const asked = (highlight.replies?.length ?? 0) === 0 ? agentNoteLabel(highlight) : null;
   const when = state === "sent" ? lastSent(rounds, highlight.id) : null;
   const pickedBy = state === "sent" && progress === null ? pickedUpBy(rounds, highlight.id) : null;
   const link = (label: string, changes: { state?: NoteState; private?: boolean | null }, title?: string) => (
@@ -1415,7 +1555,7 @@ function LoopRow({
         )}
         {!locked && answered !== null && (
           <>
-            <NoteStateIcon kind="answered" size={12} /> Answered by {answered} · {link("Resolve", { state: "resolved" })}
+            <NoteStateIcon kind="answered" size={12} /> {asked ?? `Answered by ${answered}`} · {link("Resolve", { state: "resolved" })}
           </>
         )}
         {!locked && state === "sent" && answered === null && (
@@ -1428,7 +1568,7 @@ function LoopRow({
         )}
         {!locked && state === "addressed" && (
           <>
-            <NoteStateIcon kind="addressed" size={12} /> Addressed · {link("Resolve", { state: "resolved" })}
+            <NoteStateIcon kind="addressed" size={12} /> {asked ?? "Addressed"} · {link("Resolve", { state: "resolved" })}
           </>
         )}
         {!locked && state === "resolved" && (
