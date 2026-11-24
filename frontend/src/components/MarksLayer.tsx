@@ -8,7 +8,7 @@ import { watchInlineNotes } from "../inlineNotes";
 import type { InlineNote } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
-import { agentNoteLabel, agentProgress, type AgentProgress, answeredBy, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
+import { agentNoteLabel, agentProgress, type AgentProgress, answeredBy, pickedOption, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
 import { buildTextModel } from "../textModel";
 import { locateSection, sameSection, sectionPath } from "../sectionAnchor";
 import { canReply, newsOf, threadSummary } from "../threads";
@@ -213,13 +213,12 @@ interface MarksLayerProps {
   /** Save a highlight's note (undefined: unchanged) and send it to `sendTo` on its own. */
   onSaveAndSend?: ((id: string, note: string | null | undefined) => void) | undefined;
   /** Save the user's reply (replyId null: a new one) and send the note to `sendTo` on its own. */
-  onReplyAndSend?: ((id: string, reply: { text: string; replyId: string | null }) => void) | undefined;
-  /** The user's answer to an agent's decision: a pick (null: taken back, undefined: unchanged) and / or a comment; `send`: at once. */
-  onChoose: (id: string, choice: number | null | undefined, comment: string | null, send: boolean) => void;
-  /** The user's reply to a highlight's note. */
-  onReply: (id: string, text: string) => void;
+  onReplyAndSend?: ((id: string, reply: { text: string; replyId: string | null; choice?: number | null }) => void) | undefined;
+  /** The user's reply to a highlight's note; `choice`: the option of an agent's decision it picks. */
+  onReply: (id: string, text: string, choice?: number) => void;
   /** The user's latest reply to a highlight's note, changed. */
-  onEditReply: (id: string, replyId: string, text: string) => void;
+  /** `choice`: undefined keeps the reply's pick, null takes it out. */
+  onEditReply: (id: string, replyId: string, text: string, choice?: number | null) => void;
   /** The user's latest reply to a highlight's note, deleted before it's sent. */
   onDeleteReply: (id: string, replyId: string) => void;
   /** The user saw a highlight's thread (its popover opened with new replies). */
@@ -267,7 +266,6 @@ export default function MarksLayer({
   sendTo = null,
   onSaveAndSend,
   onReplyAndSend,
-  onChoose,
   onReply,
   onEditReply,
   onDeleteReply,
@@ -901,8 +899,8 @@ export default function MarksLayer({
   const answered = (current?.replies?.length ?? 0) > 0 || current?.author?.kind === "agent";
 
   // The answer to an agent's decision being written: an option picked (or
-  // none) and a comment, which goes as the user's reply. Saved or sent as a
-  // reply is; the decision's one reply box
+  // none) and a comment. It's the user's reply, saved or sent as any is;
+  // the decision's one reply box
   const [pick, setPick] = useState<{ id: string; choice: number | null; comment: string } | null>(null);
 
   /** Close the popover, keeping a note being written. */
@@ -935,21 +933,35 @@ export default function MarksLayer({
     setDraft(null);
     setReplying(false);
   };
-  const picking = pick !== null && pick.id === current?.id ? pick : null;
-  const canSendPick = sendTo !== null && current !== undefined && !isPrivate(current);
-  const pickChanged = picking !== null && picking.choice !== (current?.choice ?? null);
-  // Something to save: a different pick, or a comment
-  const pickReady = picking !== null && (pickChanged || picking.comment.trim() !== "");
+  // A decision is open until the agent has answered: then it's an ordinary thread
+  const deciding =
+    current?.kind === "decision" && current.options !== undefined && !(current.replies ?? []).some((r) => r.author.kind === "agent");
+  const picking = deciding && pick !== null && pick.id === current?.id ? pick : null;
+  // The user's answer so far, while unanswered: the box edits it rather than adding another
+  const lastReply = current?.replies?.[current.replies.length - 1];
+  const mine = deciding && lastReply?.author.kind === "user" ? lastReply : null;
+  const optionText = (choice: number | null | undefined) => (choice == null ? undefined : current?.options?.[choice]);
+  // The reply's text: the comment, or the option's when there's none
+  const answerText = picking === null ? "" : picking.comment.trim() || (optionText(picking.choice) ?? "");
+  const pickReady =
+    picking !== null && answerText !== "" && (mine === null || answerText !== mine.text || picking.choice !== (mine.choice ?? null));
+  const canSendPick = sendTo !== null && onReplyAndSend !== undefined && current !== undefined && !isPrivate(current);
   const startPick = (choice: number | null) => {
     if (current === undefined) return;
-    setPick({ id: current.id, choice, comment: picking?.comment ?? "" });
+    // Editing the answer: its comment, not the option's text standing in for one
+    const comment = picking?.comment ?? (mine === null || mine.text === optionText(mine.choice) ? "" : mine.text);
+    setPick({ id: current.id, choice, comment });
     setReplying(true);
   };
   const savePick = (send: boolean) => {
-    if (picking === null || current === undefined || !pickReady || (send && !canSendPick)) return;
-    const comment = picking.comment.trim();
-    onChoose(current.id, pickChanged ? picking.choice : undefined, comment === "" ? null : comment, send);
-    if (send) sentFrom.current = current.id;
+    if (picking === null || current === undefined || !pickReady) return;
+    const { choice } = picking;
+    if (send) {
+      if (!canSendPick) return;
+      onReplyAndSend(current.id, { text: answerText, replyId: mine?.id ?? null, choice });
+      sentFrom.current = current.id;
+    } else if (mine === null) onReply(current.id, answerText, choice ?? undefined);
+    else onEditReply(current.id, mine.id, answerText, choice);
     setPick(null);
     setReplying(false);
   };
@@ -1378,16 +1390,17 @@ export default function MarksLayer({
                     }
               }
               progress={progress}
-              // A decision has its own reply box, under its options
-              offerReply={current.kind !== "decision"}
+              // A decision being made has its own reply box, under its options
+              offerReply={!deciding}
+              options={current.options}
             />
           )}
 
           {/* An agent's decision: the user picks one of its options, then saves or sends it as a reply */}
-          {draft === null && current.kind === "decision" && current.options !== undefined && (
+          {draft === null && deciding && current.options !== undefined && (
             <div className={styles.options} role="group" aria-label="Options">
               {current.options.map((option, i) => {
-                const on = (picking === null ? (current.choice ?? null) : picking.choice) === i;
+                const on = (picking === null ? (pickedOption(current) ?? null) : picking.choice) === i;
                 return (
                   <button
                     key={i}
@@ -1404,8 +1417,8 @@ export default function MarksLayer({
               })}
             </div>
           )}
-          {draft === null && current.kind === "decision" && picking === null && canReply(current) && (
-            <button type="button" className={styles.replyBtn} onClick={() => startPick(current.choice ?? null)}>
+          {draft === null && deciding && picking === null && canReply(current) && (
+            <button type="button" className={styles.replyBtn} onClick={() => startPick(null)}>
               Reply
             </button>
           )}

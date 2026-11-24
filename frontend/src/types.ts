@@ -119,6 +119,8 @@ export interface Reply {
   at: string; // ISO-8601
   /** The note's state before this reply (the user's) reopened it: deleting the reply restores it. Absent: open. */
   reopened?: NoteState;
+  /** The user's answer to an agent's decision: the option picked (its index). The text is their comment, or the option's. */
+  choice?: number;
 }
 
 /** A note's thread; absent fields mean none yet. */
@@ -152,10 +154,8 @@ export interface Highlight extends TextAnchor, Thread {
   replaced?: { exact: string; at: string };
   /** An agent's note: what it asks of the user (agent-notes.md). Absent: the user's note. */
   kind?: NoteKind;
-  /** A decision's options, 2 to 4. */
+  /** A decision's options, 2 to 4; the user's pick is on their reply. */
   options?: string[];
-  /** The option the user picked: its index in `options`. */
-  choice?: number;
 }
 
 /** A bookmarked heading: its text, level and which of the same-text, same-level headings (0 = first). */

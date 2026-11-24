@@ -137,10 +137,10 @@ contextBridge.exposeInMainWorld("markdownApi", {
     forget: (recordId: string) => ipcRenderer.invoke("marks:forget", recordId),
     send: (docs: unknown, markSent: boolean, agent: string | null = null) => ipcRenderer.invoke("marks:send", docs, markSent, agent),
     unsend: (round: unknown) => ipcRenderer.invoke("marks:unsend", round),
-    reply: (docId: string, highlightId: string | null, text: string) =>
-      ipcRenderer.invoke("marks:reply", docId, highlightId, text),
-    editReply: (docId: string, highlightId: string | null, replyId: string, text: string) =>
-      ipcRenderer.invoke("marks:editReply", docId, highlightId, replyId, text),
+    reply: (docId: string, highlightId: string | null, text: string, choice?: number) =>
+      ipcRenderer.invoke("marks:reply", docId, highlightId, text, choice),
+    editReply: (docId: string, highlightId: string | null, replyId: string, text: string, choice?: number | null) =>
+      ipcRenderer.invoke("marks:editReply", docId, highlightId, replyId, text, choice),
     deleteReply: (docId: string, highlightId: string | null, replyId: string) =>
       ipcRenderer.invoke("marks:deleteReply", docId, highlightId, replyId),
     markSeen: (docId: string, highlightId: string | null, status: string | null = null) =>

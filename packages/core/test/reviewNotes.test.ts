@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DocumentNote, Highlight } from "../src/marks";
-import { answeredBy, formatReviewNotes, reviewPath, statusRequest } from "../src/reviewNotes";
+import { answeredBy, formatReviewNotes, pickedOption, reviewPath, statusRequest } from "../src/reviewNotes";
 import type { ReviewDocument } from "../src/reviewNotes";
 
 const SOURCE = `---
@@ -279,7 +279,7 @@ describe("formatReviewNotes for an agent", () => {
     expect(copied).toContain("   Reply from Claude Code: Which table?\n\n   My reply: The events table.");
   });
 
-  it("words an agent's notes as its own, with a decision's options and the user's pick", () => {
+  it("words an agent's notes as its own, with a decision's options and the user's pick in their reply", () => {
     const claude = { kind: "agent" as const, name: "Claude Code" };
     const question = highlight("one table per aggregate", { note: "Why per aggregate?", author: claude, kind: "question" });
     const decision = highlight("one table per aggregate", {
@@ -287,8 +287,12 @@ describe("formatReviewNotes for an agent", () => {
       author: claude,
       kind: "decision",
       options: ["Postgres", "SQLite"],
-      choice: 1,
+      replies: [{ id: "r1", author: { kind: "user" }, text: "SQLite", at: "2026-11-10T10:05:00Z", choice: 1 }],
     });
+    const commented = {
+      ...decision,
+      replies: [{ id: "r1", author: { kind: "user" as const }, text: "Small enough.", at: "2026-11-10T10:05:00Z", choice: 1 }],
+    };
     expect(formatReviewNotes([doc([question])], null).text.split("\n").slice(-1)).toEqual([
       "   Question from Claude Code: Why per aggregate?",
     ]);
@@ -300,6 +304,8 @@ describe("formatReviewNotes for an agent", () => {
       "",
       "   My choice: 2. SQLite",
     ]);
+    expect(formatReviewNotes([doc([commented])], null).text.split("\n").slice(-2)).toEqual(["   My choice: 2. SQLite", "   Small enough."]);
+    expect([pickedOption(decision), pickedOption(question)]).toEqual([1, undefined]);
   });
 
   it("names an imported comment's author", () => {

@@ -181,7 +181,9 @@ on the spec as notes".
   or both: pick an option and add a comment. Click the picked option again
   to take it back. **Save** (`⌘↩` / `Ctrl+Enter`) keeps your answer for
   your next notes; with the agent Live, **Send** (`⇧⌘↩` /
-  `Ctrl+Shift+Enter`) sends it at once. **Esc** cancels.
+  `Ctrl+Shift+Enter`) sends it at once. **Esc** cancels. Your answer shows
+  in the conversation as your reply, the option you picked first. Once the
+  agent answers, the options go: the note is a conversation like any other.
 - **Comments** tell you something, such as an assumption the agent made,
   and need no answer. **Resolve** them once read.
 - **Finding them.** The status bar says "Claude Code asked 3 questions";

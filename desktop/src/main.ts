@@ -484,21 +484,33 @@ function registerIpcHandlers(): void {
   // Threads (docs/design/agent-integration.md): the user's replies, and
   // that they saw a thread. Replies from here are always the user's: only
   // the MCP server writes an agent's
-  ipcMain.handle("marks:reply", async (event, docId: unknown, highlightId: unknown, text: unknown): Promise<Highlight | DocumentNote> => {
-    assertTrustedSender(event);
-    if (highlightId !== null && typeof highlightId !== "string") throw new Error("Highlight id must be a string or null");
-    const note = await marks.reply(await markedDocument(docId), highlightId, { author: { kind: "user" }, text });
-    notifyMarksChanged();
-    return note;
-  });
+  // `choice`: the option of an agent's decision the reply picks (the store checks it)
+  ipcMain.handle(
+    "marks:reply",
+    async (event, docId: unknown, highlightId: unknown, text: unknown, choice: unknown): Promise<Highlight | DocumentNote> => {
+      assertTrustedSender(event);
+      if (highlightId !== null && typeof highlightId !== "string") throw new Error("Highlight id must be a string or null");
+      const note = await marks.reply(await markedDocument(docId), highlightId, {
+        author: { kind: "user" },
+        text,
+        ...(choice === undefined ? {} : { choice }),
+      });
+      notifyMarksChanged();
+      return note;
+    },
+  );
   // Only the user's latest reply, while nobody has answered it (the store checks)
   ipcMain.handle(
     "marks:editReply",
-    async (event, docId: unknown, highlightId: unknown, replyId: unknown, text: unknown): Promise<Highlight | DocumentNote> => {
+    async (event, docId: unknown, highlightId: unknown, replyId: unknown, text: unknown, choice: unknown): Promise<Highlight | DocumentNote> => {
       assertTrustedSender(event);
       if (highlightId !== null && typeof highlightId !== "string") throw new Error("Highlight id must be a string or null");
       if (typeof replyId !== "string") throw new Error("Reply id must be a string");
-      const note = await marks.editReply(await markedDocument(docId), highlightId, replyId, { text });
+      // `choice` absent keeps the reply's pick, null takes it out
+      const note = await marks.editReply(await markedDocument(docId), highlightId, replyId, {
+        text,
+        ...(choice === undefined ? {} : { choice }),
+      });
       notifyMarksChanged();
       return note;
     },

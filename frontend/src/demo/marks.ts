@@ -188,13 +188,6 @@ export class DemoMarks {
       if (changes.section.length === 0) delete highlight.section;
       else highlight.section = structuredClone(changes.section);
     }
-    const { choice } = changes;
-    if (choice !== undefined && highlight.kind === "decision" && (choice === null || choice < (highlight.options ?? []).length)) {
-      // The visitor's answer: it goes with the next round
-      if (choice !== (highlight.choice ?? null) && changes.state === undefined) delete highlight.state;
-      if (choice === null) delete highlight.choice;
-      else highlight.choice = choice;
-    }
     if (changes.replacement !== undefined && highlight.passage !== undefined) {
       // An agent's note placed for the first time replaced nothing
       if (highlight.passage.first !== true) highlight.replaced = { exact: highlight.quote.exact, at: highlight.passage.at };
@@ -312,14 +305,16 @@ export class DemoMarks {
   }
 
   /** The visitor's reply to a note (highlightId null: the document's), as the desktop store makes it: the note is open again. */
-  reply(docId: string, highlightId: string | null, text: string): Highlight | DocumentNote {
+  reply(docId: string, highlightId: string | null, text: string, choice?: number): Highlight | DocumentNote {
     if (text.trim() === "") throw new Error("A reply needs some text");
     const target = highlightId === null ? this.documents[docId]?.note : this.highlight(docId, highlightId);
     if (target === undefined) throw new Error("The document has no note");
+    checkChoice(target, choice);
     const at = now();
     // Remembers the state it reopened, for deleting it
     const reopened = target.state === undefined || target.state === "open" ? {} : { reopened: target.state };
-    target.replies = [...(target.replies ?? []), { id: newId(), author: { kind: "user" }, text, at, ...reopened }];
+    const picked = choice === undefined ? {} : { choice };
+    target.replies = [...(target.replies ?? []), { id: newId(), author: { kind: "user" }, text, at, ...reopened, ...picked }];
     delete target.state;
     target.updated = at;
     this.changed(docId);
@@ -327,15 +322,19 @@ export class DemoMarks {
   }
 
   /** The visitor's latest reply, changed while nobody has answered it, as the desktop store does: the note is open again. */
-  editReply(docId: string, highlightId: string | null, replyId: string, text: string): Highlight | DocumentNote {
+  editReply(docId: string, highlightId: string | null, replyId: string, text: string, choice?: number | null): Highlight | DocumentNote {
     if (text.trim() === "") throw new Error("A reply needs some text");
     const target = highlightId === null ? this.documents[docId]?.note : this.highlight(docId, highlightId);
     if (target === undefined) throw new Error("The document has no note");
+    checkChoice(target, choice ?? undefined);
     const replies = target.replies ?? [];
     const last = replies[replies.length - 1];
     if (last?.id !== replyId || last.author.kind !== "user") throw new Error("Only your latest reply can be edited");
     const at = now();
-    target.replies = [...replies.slice(0, -1), { ...last, text, at }];
+    // Undefined keeps the pick, null takes it out
+    const { choice: oldChoice, ...rest } = last;
+    const kept = choice === undefined ? oldChoice : (choice ?? undefined);
+    target.replies = [...replies.slice(0, -1), { ...rest, text, at, ...(kept === undefined ? {} : { choice: kept }) }];
     delete target.state;
     target.updated = at;
     this.changed(docId);
@@ -380,4 +379,11 @@ export class DemoMarks {
       // In memory only; the seed is already back
     }
   }
+}
+
+/** A pick must be one of a decision's options, as the desktop store checks. */
+function checkChoice(target: Highlight | DocumentNote, choice: number | undefined): void {
+  if (choice === undefined) return;
+  const options = "kind" in target && target.kind === "decision" ? (target.options ?? []) : [];
+  if (!Number.isInteger(choice) || choice < 0 || choice >= options.length) throw new Error("Not one of the decision's options");
 }

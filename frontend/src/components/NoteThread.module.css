@@ -252,3 +252,8 @@
     animation: none;
   }
 }
+
+/* A reply that picks one of a decision's options: the option, before any comment */
+.choice {
+  font-weight: 600;
+}

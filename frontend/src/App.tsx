@@ -584,8 +584,8 @@ function AppInner(): React.ReactElement {
       setLoop: (id, changes) => void setLoop(contentId, id, changes),
       setSection: (id, section) => void setSection(contentId, id, section),
       takePassage: (id, replacement) => void takePassage(contentId, id, replacement),
-      reply: (id, text) => void reply(contentId, id, text),
-      editReply: (id, replyId, text) => void editReply(contentId, id, replyId, text),
+      reply: (id, text, choice) => void reply(contentId, id, text, choice),
+      editReply: (id, replyId, text, choice) => void editReply(contentId, id, replyId, text, choice),
       deleteReply: (id, replyId) => void deleteReply(contentId, id, replyId),
       markSeen: (id) => void markSeen(contentId, id),
       toggleHeadingBookmark: (heading) => void toggleBookmark(contentId, heading),
@@ -593,16 +593,12 @@ function AppInner(): React.ReactElement {
       sendTo,
       saveAndSend: (id, note) =>
         sendNow(contentId, note === undefined ? Promise.resolve() : setNote(contentId, id, note), { highlightId: id }),
-      choose: (id, choice, comment, send) => {
-        // The pick (unless unchanged), then the comment as the user's reply: both open the note for the next round
-        const picked = choice === undefined ? Promise.resolve() : setLoop(contentId, id, { choice });
-        const saved = picked.then(() => (comment === null ? undefined : reply(contentId, id, comment)));
-        if (send) sendNow(contentId, saved, { highlightId: id });
-      },
       replyAndSend: (id, r) =>
         sendNow(
           contentId,
-          r.replyId === null ? reply(contentId, id, r.text) : editReply(contentId, id, r.replyId, r.text),
+          r.replyId === null
+            ? reply(contentId, id, r.text, r.choice ?? undefined)
+            : editReply(contentId, id, r.replyId, r.text, r.choice),
           { highlightId: id },
         ),
     };

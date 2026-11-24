@@ -41,6 +41,11 @@ export interface Reply {
   at: string;
   /** The note's state before this reply (the user's) reopened it: deleting the reply restores it. Absent: open. */
   reopened?: NoteState;
+  /**
+   * The user's answer to an agent's decision: the option picked (its index).
+   * The text is their comment, or the option's when they wrote none.
+   */
+  choice?: number;
 }
 
 /** A note's thread (agent-integration): absent fields mean none yet. */
@@ -88,10 +93,8 @@ export interface Highlight extends Thread {
   private?: boolean;
   /** An agent's note: what it asks of the user. Absent: the user's note. */
   kind?: NoteKind;
-  /** A decision's options, 2 to 4. */
+  /** A decision's options, 2 to 4; the user's pick is on their reply. */
   options?: string[];
-  /** The option the user picked: its index in `options`. */
-  choice?: number;
 }
 
 /** A bookmarked heading: its text, level and which of the same-text, same-level headings. */

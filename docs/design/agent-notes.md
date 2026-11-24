@@ -33,9 +33,13 @@ permission to act: tool approvals stay in the agent.
 An agent note is a highlight (markTypes.ts) with:
 
 - `author: {kind: "agent", name}`, as on the agent's replies.
-- `kind`, and for a decision `options`; `choice` once the user picks (the
-  option's index). Absent `kind`: the user's note, as before. Version-1
-  records keep unknown fields, so no new version.
+- `kind`, and for a decision `options`. Absent `kind`: the user's note,
+  as before. Version-1 records keep unknown fields, so no new version.
+- The user's pick is their reply, with `choice` (the option's index) on
+  it, so it sits in the thread in order. Its text is their comment, or the
+  option's when they wrote none. The current pick is the latest reply that
+  has one (`pickedOption`); the store takes a `choice` only from the user,
+  on a decision, within its options.
 - `color: "blue"`. The user can change it.
 - `passage: {exact, at, first: true}`. A highlight's anchor is in the
   rendered text, which only the viewer has, so the server can't make one.
@@ -54,15 +58,15 @@ The existing loop (note-lifecycle.md) covers it, with one change:
 - A question or decision starts `sent`, the agent's word last: it waits
   on the user, as a question in an agent's reply does. It isn't sent, and
   doesn't count as waiting on the agent in `folio_list_documents`.
-- The user's reply opens it, as any reply does. Picking an option sets
-  `choice` and opens it too. Open, it goes with the next round.
+- The user's reply opens it, as any reply does, a pick included. Open, it
+  goes with the next round.
 - A comment starts `addressed`: nothing waits on the agent; the user
   resolves it.
 
 ## What the agent gets back
 
 Review notes (reviewNotes.ts) word an agent note as the agent's, with a
-decision's options numbered and the user's pick:
+decision's options numbered; the user's reply that picks one says so:
 
 ```
 1. /repo/docs/adr.md:7 · Decision · note 1a2b3c4d
@@ -74,9 +78,10 @@ decision's options numbered and the user's pick:
    2. SQLite
 
    My choice: 2. SQLite
+   Small enough for one machine.
 ```
 
-Then the replies, as on any note. The agent records the decision in the
+Its other replies are worded as on any note. The agent records the decision in the
 document and answers with `folio_reply`, `addressed: true`.
 
 ## In the viewer
@@ -89,10 +94,12 @@ document and answers with `folio_reply`, `addressed: true`.
 - A decision's options are buttons under the thread, the pick pressed,
   with **Reply** under them in place of the thread's: the decision has one
   reply box. An option or **Reply** opens it; the answer is a pick, a
-  comment, or both, and clicking the picked option takes it back
-  (`choice: null`). **Save**, or **Send** with an agent Live, as a reply:
-  the pick is saved if it changed, then the comment as the user's reply;
-  Send sends the note after both.
+  comment, or both, and clicking the picked option takes it out. **Save**,
+  or **Send** with an agent Live, adds it as the user's reply, or changes
+  their latest one while it's unanswered (`choice: null` takes the pick
+  out of it). In the thread, a reply that picks shows the option in bold,
+  then the comment. Once the agent has replied, the decision is settled:
+  the buttons and its reply box go, and the thread's **Reply** is back.
 - The hover card and the inline note name the agent the same way.
 
 ## Finding them

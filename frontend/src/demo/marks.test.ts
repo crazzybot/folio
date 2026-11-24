@@ -84,10 +84,13 @@ describe("DemoMarks", () => {
     const replacement = { quote: { exact: "TWO", prefix: "", suffix: "" }, position: { start: 10, end: 13 } };
     const placed = marks.updateHighlight("b", "s1", { replacement });
     expect([placed.quote, "replaced" in placed, "passage" in placed]).toEqual([replacement.quote, false, false]);
-    const picked = marks.updateHighlight("b", "s1", { choice: 1 });
-    expect([picked.choice, "state" in picked]).toEqual([1, false]);
-    expect(marks.updateHighlight("b", "s1", { choice: 5 }).choice).toBe(1);
-    expect("choice" in marks.updateHighlight("b", "s1", { choice: null })).toBe(false);
+    // The pick is the visitor's reply, as on the desktop
+    const picked = marks.reply("b", "s1", "B", 1);
+    expect([picked.replies?.[0]?.choice, "state" in picked]).toEqual([1, false]);
+    expect(() => marks.reply("b", "s1", "C", 5)).toThrow();
+    const replyId = picked.replies?.[0]?.id ?? "";
+    expect(marks.editReply("b", "s1", replyId, "A", 0).replies?.[0]?.choice).toBe(0);
+    expect("choice" in (marks.editReply("b", "s1", replyId, "Neither", null).replies?.[0] ?? {})).toBe(false);
   });
 
   it("removes a highlight, and a document with no marks left", () => {

@@ -9,7 +9,7 @@
  */
 
 import type { NoteIconKind } from "./noteIcons";
-import { answeredBy, isPrivate, sendableNote } from "../../packages/core/src/reviewNotes";
+import { answeredBy, isPrivate, pickedOption, sendableNote } from "../../packages/core/src/reviewNotes";
 import { newsOf } from "./threads";
 import type { DocumentMeta, DocumentNote, Highlight, NoteKind, NoteState, Round, SendDocument } from "./types";
 
@@ -40,7 +40,7 @@ export function stateOf(mark: { state?: NoteState | undefined }): NoteState {
 export const UNRESOLVE_TITLE = "Back to where it was before you resolved it";
 
 // Shared with the MCP server, which sends the same notes
-export { answeredBy, isPrivate, sendableNote };
+export { answeredBy, isPrivate, pickedOption, sendableNote };
 
 /** A note's icon, for a note in the loop: answered when the agent's reply is the latest on a sent note, else its state. */
 export function loopKind(mark: { state?: NoteState | undefined; replies?: Highlight["replies"] }): Exclude<NoteIconKind, "private"> {

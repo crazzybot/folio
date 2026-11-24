@@ -45,8 +45,8 @@ function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
       forget: (recordId) => api.marks.forget(recordId),
       send: (docs, markSent, agent) => api.marks.send(docs, markSent, agent),
       unsend: (round) => api.marks.unsend(round),
-      reply: (docId, highlightId, text) => api.marks.reply(docId, highlightId, text),
-      editReply: (docId, highlightId, replyId, text) => api.marks.editReply(docId, highlightId, replyId, text),
+      reply: (docId, highlightId, text, choice) => api.marks.reply(docId, highlightId, text, choice),
+      editReply: (docId, highlightId, replyId, text, choice) => api.marks.editReply(docId, highlightId, replyId, text, choice),
       deleteReply: (docId, highlightId, replyId) => api.marks.deleteReply(docId, highlightId, replyId),
       markSeen: (docId, highlightId, status) => api.marks.markSeen(docId, highlightId, status ?? null),
     },
@@ -217,9 +217,9 @@ export async function unsendNotes(round: SentRound): Promise<void> {
   return source.marks.unsend(round);
 }
 
-/** Reply to a highlight's note (null: the document's note), as the user. */
-export async function replyToNote(docId: string, highlightId: string | null, text: string): Promise<Highlight | DocumentNote> {
-  return source.marks.reply(docId, highlightId, text);
+/** Reply to a highlight's note (null: the document's note), as the user; `choice`: the option of a decision it picks. */
+export async function replyToNote(docId: string, highlightId: string | null, text: string, choice?: number): Promise<Highlight | DocumentNote> {
+  return source.marks.reply(docId, highlightId, text, choice);
 }
 
 /** Change the user's latest reply to a note (highlightId null: the document's note). */
@@ -228,8 +228,9 @@ export async function editNoteReply(
   highlightId: string | null,
   replyId: string,
   text: string,
+  choice?: number | null,
 ): Promise<Highlight | DocumentNote> {
-  return source.marks.editReply(docId, highlightId, replyId, text);
+  return source.marks.editReply(docId, highlightId, replyId, text, choice);
 }
 
 /** Delete the user's latest reply to a note, before it's sent (highlightId null: the document's note). */

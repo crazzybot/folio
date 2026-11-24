@@ -338,7 +338,7 @@ describe("addNotes", () => {
     expect((await folio.listDocuments({ withOpenNotes: true })).length).toBe(0);
 
     // The user picks: the answer goes with the next notes
-    await store.updateHighlight(adr(), decision?.id ?? "", { choice: 0 });
+    await store.reply(adr(), decision?.id ?? "", { author: { kind: "user" }, text: "Postgres", choice: 0 });
     const sent = await folio.reviewNotes({}, "Claude Code");
     expect(sent?.text).toContain("Decision from Claude Code: Postgres or SQLite?");
     expect(sent?.text).toContain("My choice: 1. Postgres");

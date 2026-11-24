@@ -33,8 +33,6 @@ export type HighlightChanges = {
   section?: BookmarkHeading[];
   /** Where the agent's passage was found: it becomes the quote, the old one kept as `replaced`. Ignored once taken. */
   replacement?: Pick<TextAnchor, "quote" | "position">;
-  /** A decision's option the user picked (its index), or null to take it back: the note opens, to go with the next round. */
-  choice?: number | null;
 };
 /** A document's note as set: both null (or blank) removes it. Privacy carries over unless given; so does the state, unless given or the text or status changed (open again). */
 export type NoteChanges = { text: string | null; requestedStatus: string | null; state?: NoteState; private?: boolean | null };
@@ -75,9 +73,9 @@ export interface DataSource {
     /** Undo a round: it goes, and the notes it made sent are open again. */
     unsend(round: SentRound): Promise<void>;
     /** The user's reply to a highlight's note (highlightId null: the document's note); resolves to the note. */
-    reply(docId: string, highlightId: string | null, text: string): Promise<Highlight | DocumentNote>;
-    /** Change the user's latest reply to a note, while nobody has answered it; resolves to the note. */
-    editReply(docId: string, highlightId: string | null, replyId: string, text: string): Promise<Highlight | DocumentNote>;
+    reply(docId: string, highlightId: string | null, text: string, choice?: number): Promise<Highlight | DocumentNote>;
+    /** Change the user's latest reply to a note, while nobody has answered it (`choice` null: no pick); resolves to the note. */
+    editReply(docId: string, highlightId: string | null, replyId: string, text: string, choice?: number | null): Promise<Highlight | DocumentNote>;
     /** Delete the user's latest reply to a note, before it's sent; resolves to the note, in its state before the reply. */
     deleteReply(docId: string, highlightId: string | null, replyId: string): Promise<Highlight | DocumentNote>;
     /** Record that the user saw a note's thread; for the document's note, with the document's status then. */

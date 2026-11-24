@@ -79,7 +79,6 @@ export type ReviewHighlight = Pick<Highlight, "id" | "note" | "quote" | "positio
   author?: Author | undefined;
   kind?: NoteKind | undefined;
   options?: readonly string[] | undefined;
-  choice?: number | undefined;
   replies?: readonly Reply[] | undefined;
   section?: readonly { text: string }[] | undefined;
 };
@@ -199,12 +198,26 @@ function byline(author: Author): string {
   }
 }
 
-/** A thread's replies, each "Reply from Claude Code: …", indented by `indent`. */
-function replyLines(replies: readonly Reply[] | undefined, indent: string): string[] {
+/**
+ * A thread's replies, each "Reply from Claude Code: …", indented by
+ * `indent`. The user's answer to a decision says the option it picked ("My
+ * choice: 2. SQLite"), then their comment, if it isn't just the option.
+ */
+function replyLines(replies: readonly Reply[] | undefined, indent: string, options: readonly string[] = []): string[] {
   return (replies ?? []).flatMap((reply) => {
-    const [first = "", ...rest] = reply.text.trim().split(/\r?\n/);
-    return ["", `${indent}${byline(reply.author)}: ${first}`, ...rest.map((line) => (line.trim() === "" ? "" : `${indent}${line}`))];
+    const option = reply.choice === undefined ? undefined : options[reply.choice];
+    const text = option !== undefined && reply.text.trim() === option ? "" : reply.text.trim();
+    const [first = "", ...rest] = text.split(/\r?\n/);
+    const indented = rest.map((line) => (line.trim() === "" ? "" : `${indent}${line}`));
+    if (option === undefined || reply.choice === undefined) return ["", `${indent}${byline(reply.author)}: ${first}`, ...indented];
+    const picked = `${indent}My choice: ${reply.choice + 1}. ${option}`;
+    return text === "" ? ["", picked] : ["", picked, `${indent}${first}`, ...indented];
   });
+}
+
+/** The option the user has picked on an agent's decision: the latest of their replies that picks one. Undefined: none. */
+export function pickedOption(note: { replies?: readonly Reply[] | undefined }): number | undefined {
+  return [...(note.replies ?? [])].reverse().find((r) => r.author.kind === "user" && r.choice !== undefined)?.choice;
 }
 
 const KIND_LABELS: Record<NoteKind, string> = { question: "Question", decision: "Decision", comment: "Comment" };
@@ -212,18 +225,14 @@ const KIND_LABELS: Record<NoteKind, string> = { question: "Question", decision: 
 /**
  * A highlight's note, indented: the user's comment, or "(no comment)". An
  * agent's note says it's the agent's ("Question from Claude Code: …"), with
- * a decision's options numbered and the user's pick.
+ * a decision's options numbered; the user's pick is in their reply.
  */
 function noteLines(h: ReviewHighlight, indent: string): string[] {
   const text = h.note?.trim() ? h.note.trim() : "(no comment)";
   const [first = "", ...rest] = text.split(/\r?\n/);
   const lines = h.kind !== undefined && h.author?.kind === "agent" ? [`${KIND_LABELS[h.kind]} from ${h.author.name}: ${first}`, ...rest] : [first, ...rest];
   const out = lines.map((line) => (line.trim() === "" ? "" : `${indent}${line}`));
-  if (h.kind === "decision" && h.options !== undefined) {
-    out.push("", ...h.options.map((option, i) => `${indent}${i + 1}. ${option}`));
-    const picked = h.choice === undefined ? undefined : h.options[h.choice];
-    if (picked !== undefined && h.choice !== undefined) out.push("", `${indent}My choice: ${h.choice + 1}. ${picked}`);
-  }
+  if (h.kind === "decision" && h.options !== undefined) out.push("", ...h.options.map((option, i) => `${indent}${i + 1}. ${option}`));
   return out;
 }
 
@@ -328,7 +337,7 @@ export function formatReviewNotes(
       out.push("");
       out.push(...noteLines(h, indent));
       if (h.author?.kind === "github") out.push(`${indent}— @${h.author.login}`);
-      out.push(...replyLines(h.replies, indent));
+      out.push(...replyLines(h.replies, indent, h.options));
 
       notes.push({ docId: doc.docId, highlightId: h.id, lines: { start, end: out.length }, located: where !== null });
       out.push("");

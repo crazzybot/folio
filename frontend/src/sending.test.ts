@@ -247,7 +247,7 @@ describe("answered notes", () => {
     expect(loopKind({ ...question, replies: [userReply] })).toBe("sent");
     expect(agentNoteLabel(highlight("a", 0, "Why?"))).toBeNull();
     // Open questions, for the Documents list: until the user answers
-    expect([isOpenQuestion(question), isOpenQuestion({ ...question, state: "open", choice: 0 })]).toEqual([true, false]);
+    expect([isOpenQuestion(question), isOpenQuestion({ ...question, state: "open", replies: [{ ...userReply, choice: 0 }] })]).toEqual([true, false]);
     expect(isOpenQuestion(highlight("a", 0, "Why?", { state: "sent", replies: [agentReply] }))).toBe(false);
   });
 

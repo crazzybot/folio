@@ -14,7 +14,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { progressSentence, type AgentProgress } from "../sending";
 import { authorName, canReply, newReplies, replyTime } from "../threads";
-import type { Author, NoteState, Thread } from "../types";
+import type { Author, NoteState, Reply, Thread } from "../types";
 import MessageText from "./MessageText";
 import styles from "./NoteThread.module.css";
 
@@ -42,6 +42,8 @@ interface NoteThreadProps {
   progress?: AgentProgress | null | undefined;
   /** Offer Reply when the user can reply; false when the popover has its own (an agent's decision). */
   offerReply?: boolean;
+  /** An agent's decision's options: a reply that picks one shows it. */
+  options?: readonly string[] | undefined;
 }
 
 export default function NoteThread({
@@ -55,6 +57,7 @@ export default function NoteThread({
   onSaveAndSend,
   progress = null,
   offerReply = true,
+  options = [],
 }: NoteThreadProps): React.ReactElement | null {
   // A new reply (replyId null), or the user's latest one being edited
   const [draft, setDraft] = useState<{ text: string; replyId: string | null } | null>(null);
@@ -218,7 +221,7 @@ export default function NoteThread({
                   </button>
                 )}
               </div>
-              {draft !== null && draft.replyId === reply.id ? editor(true) : <MessageText text={reply.text} />}
+              {draft !== null && draft.replyId === reply.id ? editor(true) : <ReplyText reply={reply} options={options} />}
             </li>
           ))}
         </ol>
@@ -234,6 +237,18 @@ export default function NoteThread({
           )
         : draft.replyId === null && editor(false)}
     </div>
+  );
+}
+
+/** A reply's text; one that picks an option of a decision shows the option first, then the comment, if any. */
+function ReplyText({ reply, options }: { reply: Reply; options: readonly string[] }): React.ReactElement {
+  const option = reply.choice === undefined ? undefined : options[reply.choice];
+  if (option === undefined) return <MessageText text={reply.text} />;
+  return (
+    <>
+      <div className={styles.choice}>{option}</div>
+      {reply.text.trim() !== option && <MessageText text={reply.text} />}
+    </>
   );
 }
 
