@@ -148,7 +148,8 @@ description.
   it waits for you, and isn't sent again until you reply.
 - **Reply.** Click **Reply** under the agent's answer, and **Save** (`⌘↩` /
   `Ctrl+Enter`). Your reply opens the note again, so it goes with the next
-  round. With an agent Live, **Send** sends it at once. **Reply**
+  round, and the note closes. With an agent Live, **Send** sends it at
+  once and keeps the note open for the answer. **Reply**
   shows only when the agent spoke last; until then, edit your own message.
 - **Edit your reply.** Until someone answers it, your latest reply has an
   **Edit** link. **Save** (`⌘↩` / `Ctrl+Enter`) opens the note again, so

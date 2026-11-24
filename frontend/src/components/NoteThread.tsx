@@ -40,6 +40,8 @@ interface NoteThreadProps {
   onSaveAndSend?: ((reply: { text: string; replyId: string | null }) => void) | undefined;
   /** The agent the note was sent to, while the user waits on its answer: shown after the last message. */
   progress?: AgentProgress | null | undefined;
+  /** A reply saved (not sent): the panel around the thread closes, as Save on a note does. */
+  onSaved?: () => void;
   /** Offer Reply when the user can reply; false when the popover has its own (an agent's decision). */
   offerReply?: boolean;
   /** For each reply, the options it could pick from (optionsBefore): a reply that picks one shows it. */
@@ -60,6 +62,7 @@ export default function NoteThread({
   sendTo = null,
   onSaveAndSend,
   progress = null,
+  onSaved,
   offerReply = true,
   optionsBefore = [],
   openFrom = null,
@@ -94,11 +97,19 @@ export default function NoteThread({
   };
   const send = () => {
     const text = draft?.text.trim() ?? "";
+    let saved = false;
     if (draft !== null && text !== "") {
-      if (draft.replyId === null) onReply(text);
-      else if (text !== replies.find((r) => r.id === draft.replyId)?.text) onEditReply(draft.replyId, text);
+      if (draft.replyId === null) {
+        onReply(text);
+        saved = true;
+      } else if (text !== replies.find((r) => r.id === draft.replyId)?.text) {
+        onEditReply(draft.replyId, text);
+        saved = true;
+      }
     }
     write(null);
+    // Saved for the next round: nothing to wait for here. Send keeps the panel open for the answer
+    if (saved) onSaved?.();
   };
   // Send: with an agent in a loop on the document, the reply goes to it at
   // once instead of with the next round

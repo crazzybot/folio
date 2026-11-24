@@ -968,6 +968,8 @@ export default function MarksLayer({
     else onEditReply(current.id, mine.id, answerText, choice);
     setPick(null);
     setReplying(false);
+    // Saved for the next round: done with the note. Sent, it stays open for the answer
+    if (!send) closePopover();
   };
   // The agent it went to, until it answers
   const progress = current === undefined ? null : agentProgress(current, rounds, current.id, sendTo);
@@ -1395,6 +1397,7 @@ export default function MarksLayer({
               }
               progress={progress}
               // A decision being made has its own reply box, under its options
+              onSaved={closePopover}
               offerReply={!deciding}
               optionsBefore={optionsBefore(current)}
               openFrom={openFrom}

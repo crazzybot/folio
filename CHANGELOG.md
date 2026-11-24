@@ -24,6 +24,11 @@ turns them into the next release's section.
   notification. The **Documents** list counts the questions waiting on you,
   and the **Marks** view's filter has **The agent's notes**.
 
+### Changed
+
+- **Save** on a reply, or on your answer to a decision, closes the note, as
+  **Save** on a note does. **Send** keeps it open for the agent's answer.
+
 ### Fixed
 
 - The window no longer goes blank when the agent replies to a note whose
