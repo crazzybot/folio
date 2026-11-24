@@ -86,7 +86,13 @@ document and answers with `folio_reply`, `addressed: true`.
   agent spoke last.
 - The loop row says **Question from Claude Code** (or Decision, Comment)
   until someone replies, then the usual states.
-- A decision's options are buttons under the thread, the pick pressed.
+- A decision's options are buttons under the thread, the pick pressed,
+  with **Reply** under them in place of the thread's: the decision has one
+  reply box. An option or **Reply** opens it; the answer is a pick, a
+  comment, or both, and clicking the picked option takes it back
+  (`choice: null`). **Save**, or **Send** with an agent Live, as a reply:
+  the pick is saved if it changed, then the comment as the user's reply;
+  Send sends the note after both.
 - The hover card and the inline note name the agent the same way.
 
 ## Finding them

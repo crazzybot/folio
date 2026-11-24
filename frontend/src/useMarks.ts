@@ -69,7 +69,7 @@ export interface Marks {
    * its state, and `private` (true: Only me, false: sent without a note,
    * null: the default).
    */
-  setLoop(docId: string, highlightId: string, changes: { state?: NoteState; private?: boolean | null; choice?: number }): Promise<void>;
+  setLoop(docId: string, highlightId: string, changes: { state?: NoteState; private?: boolean | null; choice?: number | null }): Promise<void>;
   /** Where a highlight's passage is now (placing-notes.md): saved quietly, as it isn't the user's change. */
   setSection(docId: string, highlightId: string, section: BookmarkHeading[]): Promise<void>;
   /** The agent's passage, found in the text: it becomes the highlight's quote (placing-notes.md). Saved quietly. */
@@ -241,7 +241,7 @@ export default function useMarks(): Marks {
   );
 
   const setLoop = useCallback(
-    (docId: string, highlightId: string, changes: { state?: NoteState; private?: boolean | null; choice?: number }) =>
+    (docId: string, highlightId: string, changes: { state?: NoteState; private?: boolean | null; choice?: number | null }) =>
       updateHighlight(docId, highlightId, changes).then(saved(docId), failed("change the note")),
     [saved, failed],
   );

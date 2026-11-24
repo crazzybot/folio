@@ -40,6 +40,8 @@ interface NoteThreadProps {
   onSaveAndSend?: ((reply: { text: string; replyId: string | null }) => void) | undefined;
   /** The agent the note was sent to, while the user waits on its answer: shown after the last message. */
   progress?: AgentProgress | null | undefined;
+  /** Offer Reply when the user can reply; false when the popover has its own (an agent's decision). */
+  offerReply?: boolean;
 }
 
 export default function NoteThread({
@@ -52,6 +54,7 @@ export default function NoteThread({
   sendTo = null,
   onSaveAndSend,
   progress = null,
+  offerReply = true,
 }: NoteThreadProps): React.ReactElement | null {
   // A new reply (replyId null), or the user's latest one being edited
   const [draft, setDraft] = useState<{ text: string; replyId: string | null } | null>(null);
@@ -162,7 +165,7 @@ export default function NoteThread({
     );
 
   // Only an answer is replied to: the user's own last word is edited instead
-  const replyable = canReply(thread);
+  const replyable = offerReply && canReply(thread);
   if (note === undefined && replies.length === 0 && !replyable && progress === null) return null;
 
   return (

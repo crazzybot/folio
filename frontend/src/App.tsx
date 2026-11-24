@@ -593,6 +593,12 @@ function AppInner(): React.ReactElement {
       sendTo,
       saveAndSend: (id, note) =>
         sendNow(contentId, note === undefined ? Promise.resolve() : setNote(contentId, id, note), { highlightId: id }),
+      choose: (id, choice, comment, send) => {
+        // The pick (unless unchanged), then the comment as the user's reply: both open the note for the next round
+        const picked = choice === undefined ? Promise.resolve() : setLoop(contentId, id, { choice });
+        const saved = picked.then(() => (comment === null ? undefined : reply(contentId, id, comment)));
+        if (send) sendNow(contentId, saved, { highlightId: id });
+      },
       replyAndSend: (id, r) =>
         sendNow(
           contentId,

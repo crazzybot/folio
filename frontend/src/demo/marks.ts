@@ -188,10 +188,12 @@ export class DemoMarks {
       if (changes.section.length === 0) delete highlight.section;
       else highlight.section = structuredClone(changes.section);
     }
-    if (changes.choice !== undefined && highlight.kind === "decision" && changes.choice < (highlight.options ?? []).length) {
+    const { choice } = changes;
+    if (choice !== undefined && highlight.kind === "decision" && (choice === null || choice < (highlight.options ?? []).length)) {
       // The visitor's answer: it goes with the next round
-      if (changes.choice !== highlight.choice && changes.state === undefined) delete highlight.state;
-      highlight.choice = changes.choice;
+      if (choice !== (highlight.choice ?? null) && changes.state === undefined) delete highlight.state;
+      if (choice === null) delete highlight.choice;
+      else highlight.choice = choice;
     }
     if (changes.replacement !== undefined && highlight.passage !== undefined) {
       // An agent's note placed for the first time replaced nothing

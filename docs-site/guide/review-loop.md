@@ -176,9 +176,12 @@ on the spec as notes".
 - **Questions.** Click **Reply**, write your answer and **Save**. The
   answer goes with your next notes, or at once with **Send** while the
   agent is Live.
-- **Decisions.** The note shows the agent's options as buttons. Click one
-  to pick it; click another to change your mind. Your pick goes with your
-  next notes, and you can add a reply to explain it.
+- **Decisions.** The note shows the agent's options as buttons, and
+  **Reply**. Click an option, or **Reply** to answer in your own words,
+  or both: pick an option and add a comment. Click the picked option again
+  to take it back. **Save** (`⌘↩` / `Ctrl+Enter`) keeps your answer for
+  your next notes; with the agent Live, **Send** (`⇧⌘↩` /
+  `Ctrl+Shift+Enter`) sends it at once. **Esc** cancels.
 - **Comments** tell you something, such as an assumption the agent made,
   and need no answer. **Resolve** them once read.
 - **Finding them.** The status bar says "Claude Code asked 3 questions";

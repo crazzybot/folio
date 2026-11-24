@@ -109,7 +109,12 @@ export interface MarkHandlers {
   setNote: (id: string, note: string | null) => void;
   remove: (id: string) => void;
   /** A note's place in the review loop (docs/design/sending-notes.md). */
-  setLoop: (id: string, changes: { state?: NoteState; private?: boolean | null; choice?: number }) => void;
+  setLoop: (id: string, changes: { state?: NoteState; private?: boolean | null }) => void;
+  /**
+   * The user's answer to an agent's decision: a pick (null: taken back, undefined: unchanged) and / or a
+   * comment (their reply); `send`: to `sendTo` at once.
+   */
+  choose: (id: string, choice: number | null | undefined, comment: string | null, send: boolean) => void;
   /** The user's reply to a note, and that they saw its thread (docs/design/agent-integration.md). */
   reply: (id: string, text: string) => void;
   editReply: (id: string, replyId: string, text: string) => void;
@@ -1226,6 +1231,7 @@ export default function MarkdownViewer({
               sendTo={markHandlers.sendTo ?? null}
               onSaveAndSend={markHandlers.saveAndSend}
               onReplyAndSend={markHandlers.replyAndSend}
+              onChoose={markHandlers.choose}
               onReply={markHandlers.reply}
               onEditReply={markHandlers.editReply}
               onDeleteReply={markHandlers.deleteReply}

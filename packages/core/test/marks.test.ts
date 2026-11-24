@@ -572,6 +572,10 @@ describe("threads", () => {
     const picked = await store.updateHighlight(PLAIN, decision?.id ?? "", { choice: 1 });
     expect([picked.choice, "state" in picked]).toEqual([1, false]);
     expect(await refusal(() => store.updateHighlight(PLAIN, decision?.id ?? "", { choice: 2 }))).toBe(400);
+    // Taken back
+    await store.updateHighlight(PLAIN, decision?.id ?? "", { state: "sent" });
+    const cleared = await store.updateHighlight(PLAIN, decision?.id ?? "", { choice: null });
+    expect(["choice" in cleared, "state" in cleared]).toEqual([false, false]);
     expect(await refusal(() => store.updateHighlight(PLAIN, question?.id ?? "", { choice: 0 }))).toBe(400);
   });
 

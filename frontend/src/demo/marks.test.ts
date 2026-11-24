@@ -87,6 +87,7 @@ describe("DemoMarks", () => {
     const picked = marks.updateHighlight("b", "s1", { choice: 1 });
     expect([picked.choice, "state" in picked]).toEqual([1, false]);
     expect(marks.updateHighlight("b", "s1", { choice: 5 }).choice).toBe(1);
+    expect("choice" in marks.updateHighlight("b", "s1", { choice: null })).toBe(false);
   });
 
   it("removes a highlight, and a document with no marks left", () => {

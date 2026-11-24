@@ -421,8 +421,10 @@ function anchorOf(body: unknown): Pick<Highlight, "quote" | "position"> {
   };
 }
 
-function optionIndex(value: unknown): number {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) throw new MarkError(400, "choice must be an option's index");
+/** A decision's option picked (its index), or null to take the pick back. */
+function optionIndex(value: unknown): number | null {
+  if (value === null) return null;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) throw new MarkError(400, "choice must be an option's index or null");
   return value;
 }
 
@@ -681,11 +683,11 @@ export class MarksStore {
       const record = await this.writable(id);
       const old = find(record, highlightId);
       if (choice !== undefined) {
-        if (old.kind !== "decision" || choice >= (old.options ?? []).length) {
+        if (old.kind !== "decision" || (choice !== null && choice >= (old.options ?? []).length)) {
           throw new MarkError(400, "choice must be one of a decision's options");
         }
         // The user's answer: it goes to the agent with the next round
-        if (choice !== old.choice && loop.state === undefined) loop.state = "open";
+        if (choice !== (old.choice ?? null) && loop.state === undefined) loop.state = "open";
       }
       // New wording is new feedback: it goes with the next round, whatever the note's state
       if (changes.note !== undefined && changes.note !== old.note && loop.state === undefined) loop.state = "open";
@@ -694,9 +696,10 @@ export class MarksStore {
         ...rest,
         ...changes,
         ...withSection(section ?? oldSection ?? []),
-        ...(choice === undefined ? {} : { choice }),
+        ...(choice === undefined || choice === null ? {} : { choice }),
         updated: edited ? now() : old.updated,
       };
+      if (choice === null) delete highlight.choice;
       // Taken once: another window may have found it first
       if (replacement !== undefined && old.passage !== undefined) {
         delete highlight.passage;

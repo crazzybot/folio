@@ -33,8 +33,8 @@ export type HighlightChanges = {
   section?: BookmarkHeading[];
   /** Where the agent's passage was found: it becomes the quote, the old one kept as `replaced`. Ignored once taken. */
   replacement?: Pick<TextAnchor, "quote" | "position">;
-  /** A decision's option the user picked (its index): the note opens, to go with the next round. */
-  choice?: number;
+  /** A decision's option the user picked (its index), or null to take it back: the note opens, to go with the next round. */
+  choice?: number | null;
 };
 /** A document's note as set: both null (or blank) removes it. Privacy carries over unless given; so does the state, unless given or the text or status changed (open again). */
 export type NoteChanges = { text: string | null; requestedStatus: string | null; state?: NoteState; private?: boolean | null };
