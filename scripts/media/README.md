@@ -9,8 +9,9 @@ demo build (`demo/relay/` and `demo/seed-marks.json`) in headless Chrome:
 | `app-light.webp`, `app-dark.webp`, `status.webp`, `search.webp`, `book.webp`, `marks.webp` | `shoot.mjs` (1440×900 @2x), then `cwebp` |
 | `og.png` (1200×630 link preview) | `og.mjs` + `og.html`, from `app-light.png` |
 
-Last made: stills and `og.png` 2026-11-17 (0.9.0, with the status icons
-from `feat/status-lifecycle`); video and poster 2026-11-19 (0.10.0).
+Last made: stills and `og.png` 2026-11-24 (0.12.0, with the agent's
+decision on ADR 0003 from the demo's seed marks); video and poster
+2026-11-19 (0.10.0).
 
 The site's video is no longer made by `record.mjs`: it shows the review
 loop with a real agent, which the browser demo can't. Don't copy
