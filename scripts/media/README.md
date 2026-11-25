@@ -49,6 +49,13 @@ reply to a note is open beside the diff.
   Folio's marks and read records for that folder from `~/.folio`, which are
   keyed by path and would otherwise come back. Quit Folio before running it.
   Doesn't need `npm install`.
+- `lantern.mjs`: a fresh, nearly empty workspace, `~/lantern-drift` by
+  default, for recording Claude Code building a small browser game
+  spec-first in Folio's agent panel: empty `docs/specs/` and `docs/adr/`,
+  an ADR template, a `CLAUDE.md` with the project's way of working, and
+  `.claude/settings.json` allowing edits so no approval prompts show.
+  Resets Folio's records like `workspace.mjs` (both use `records.mjs`).
+  Quit Folio before running it.
 
 The scripts find elements by their accessible names (`aria-label`, roles).
 When a UI change breaks a step, the script stops with the failing selector
