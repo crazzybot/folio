@@ -150,7 +150,7 @@ interface MarkdownDesktopApi {
     /** The user clicked a notification of agents' replies (desktop/src/replyAlerts.ts). */
     onShowReplies(callback: () => void): () => void;
   };
-  /** The agent panel below the page (desktop/src/agentPanel.ts): showing and hiding it only. */
+  /** The agent panel below or beside the page (desktop/src/agentPanel.ts): showing and hiding it only. */
   agentPanel: {
     /** Show or hide it; a new session starts in `focusedFolder` (workspace location), or the workspace. */
     toggle(focusedFolder: string | null): Promise<void>;
@@ -158,6 +158,8 @@ interface MarkdownDesktopApi {
     onVisibleChange(callback: (visible: boolean) => void): () => void;
     /** The status bar's height in CSS pixels: the panel sits above it. */
     setBottomGap(gap: number): void;
+    /** The room the panel takes changed: --agent-panel-width and the others are set. */
+    onLayoutChange(callback: () => void): () => void;
   };
   /**
    * The context menu of a folder in the document list (workspace location).

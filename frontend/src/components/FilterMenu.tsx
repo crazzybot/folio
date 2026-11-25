@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { visibleWidth } from "../viewport";
 import styles from "./FilterMenu.module.css";
 
 // Past this many options, a section gets a box to narrow them
@@ -87,7 +88,7 @@ export default function FilterMenu({
     const box = buttonRef.current?.getBoundingClientRect();
     if (box === undefined) return;
     setPosition({
-      left: Math.max(WINDOW_MARGIN, Math.min(box.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - WINDOW_MARGIN)),
+      left: Math.max(WINDOW_MARGIN, Math.min(box.right - MENU_WIDTH, visibleWidth() - MENU_WIDTH - WINDOW_MARGIN)),
       top: box.bottom + 4,
     });
     setOpen(true);

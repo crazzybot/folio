@@ -2,7 +2,7 @@
 .backdrop {
   position: fixed;
   /* Ends above the desktop app's agent panel, which covers the page below it */
-  inset: 0 0 var(--agent-panel-inset, 0px);
+  inset: 0 var(--agent-panel-width, 0px) var(--agent-panel-inset, 0px) 0;
   z-index: 50;
   display: flex;
   align-items: flex-start;

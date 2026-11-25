@@ -56,7 +56,8 @@ import { serveImage } from "./images";
 import { canInstallCommand, installCommand } from "./cli";
 import { ensureCustomCss, readCustomCss, watchCustomCss } from "./customCss";
 import { AgentTracker } from "./agents";
-import { AgentPanel, registerAgentIpc } from "./agentPanel";
+import { AgentPanel, isPanelPosition, registerAgentIpc } from "./agentPanel";
+import type { PanelLayout, PanelPosition } from "./agentPanel";
 import { DEFAULT_AGENT_COMMAND } from "./agentLaunch";
 import type { AgentSession } from "./agents";
 import { editorName, openInEditor } from "./editor";
@@ -1550,6 +1551,22 @@ function buildMenu(): Menu {
           accelerator: "CmdOrCtrl+J",
           click: () => mainWindow?.webContents.send("find:command", "agent-panel"),
         },
+        {
+          label: "Agent Panel Position",
+          submenu: (
+            [
+              ["bottom", "Bottom"],
+              ["right", "Right"],
+            ] as const
+          ).map(
+            ([position, label]): MenuItemConstructorOptions => ({
+              label,
+              type: "radio",
+              checked: (agentPanel?.preferredPosition ?? savedAgentPanelPosition()) === position,
+              click: () => setAgentPanelPosition(position),
+            }),
+          ),
+        },
         { type: "separator" },
         // The rest of Electron's default View menu
         { role: "reload" },
@@ -1607,36 +1624,69 @@ function buildMenu(): Menu {
 let agentPanel: AgentPanel | null = null;
 
 /**
- * The page makes room for the panel below it (App.module.css,
- * --agent-panel-height). Inserted CSS goes with each load, so it's put back
- * on dom-ready; the chain keeps a quick drag's inserts and removals in order.
+ * The page makes room for the panel below it or beside it (App.module.css,
+ * --agent-panel-height and --agent-panel-width). Inserted CSS goes with each
+ * load, so it's put back on dom-ready; the chain keeps a quick drag's inserts
+ * and removals in order. Once the room is there, the page is told, for what
+ * it lays out by the width it has (drawer.ts).
  */
-let agentPanelHeight = 0;
-let agentPanelGap = 0;
+let agentPanelLayout: PanelLayout = { height: 0, width: 0, gap: 0 };
 let agentPanelCss: Promise<string | null> = Promise.resolve(null);
+// The view state key of the panel's position (the page's keys share the file)
+const AGENT_PANEL_POSITION_KEY = "folio.agentPanelPosition";
 
-function reserveAgentPanel(win: BrowserWindow, height: number, gap: number, reloaded = false): void {
-  agentPanelHeight = height;
-  agentPanelGap = gap;
+function reserveAgentPanel(win: BrowserWindow, layout: PanelLayout, reloaded = false): void {
+  agentPanelLayout = layout;
   agentPanelCss = agentPanelCss.then(async (previous) => {
     if (win.isDestroyed()) return null;
     if (previous !== null && !reloaded) await win.webContents.removeInsertedCSS(previous);
-    if (height === 0) return null;
-    // In the page's CSS pixels, which zooming makes larger than the window's.
-    // The inset (panel and status bar) is where the page's overlays end
-    const css = height / win.webContents.getZoomFactor();
-    return win.webContents.insertCSS(`:root { --agent-panel-height: ${css}px; --agent-panel-inset: ${css + gap}px; }`);
+    let inserted: string | null = null;
+    if (layout.height > 0 || layout.width > 0) {
+      // In the page's CSS pixels, which zooming makes larger than the window's.
+      // The inset (a panel at the bottom and the status bar) is where the
+      // page's overlays end; on the right, they end at its width
+      const zoom = win.webContents.getZoomFactor();
+      const height = layout.height / zoom;
+      const inset = layout.height > 0 ? height + layout.gap : 0;
+      inserted = await win.webContents.insertCSS(
+        `:root { --agent-panel-height: ${height}px; --agent-panel-width: ${layout.width / zoom}px; --agent-panel-inset: ${inset}px; }`,
+      );
+    }
+    win.webContents.send("agent-panel:layout");
+    return inserted;
   }).catch(() => null);
 }
 
+function savedAgentPanelPosition(): PanelPosition {
+  const saved = viewStateSnapshot()[AGENT_PANEL_POSITION_KEY];
+  return isPanelPosition(saved) ? saved : "bottom";
+}
+
+/** View → Agent Panel Position or the panel's own button: move it, remember it, update the menu. */
+function setAgentPanelPosition(position: PanelPosition): void {
+  if (agentPanel !== null) {
+    agentPanel.setPosition(position);
+    return;
+  }
+  // No window (macOS): for the next one's panel
+  setViewState(AGENT_PANEL_POSITION_KEY, position);
+  Menu.setApplicationMenu(buildMenu());
+}
+
 function createAgentPanel(win: BrowserWindow): AgentPanel {
-  win.webContents.on("dom-ready", () => reserveAgentPanel(win, agentPanelHeight, agentPanelGap, true));
+  win.webContents.on("dom-ready", () => reserveAgentPanel(win, agentPanelLayout, true));
   return new AgentPanel(win, {
     url: agentPanelUrl(),
     preload: path.join(__dirname, "agentPreload.js"),
     command: process.env["FOLIO_AGENT_COMMAND"] ?? DEFAULT_AGENT_COMMAND,
     workspace: () => settings.workspace,
-    onLayout: (height, gap) => reserveAgentPanel(win, height, gap),
+    position: savedAgentPanelPosition(),
+    onLayout: (layout) => reserveAgentPanel(win, layout),
+    // From the panel's button too, so the menu follows
+    onPositionChange: (position) => {
+      setViewState(AGENT_PANEL_POSITION_KEY, position);
+      Menu.setApplicationMenu(buildMenu());
+    },
     onVisible: (visible) => {
       if (!win.isDestroyed()) win.webContents.send("agent-panel:visible", visible);
     },
@@ -1742,7 +1792,7 @@ function createWindow(): BrowserWindow {
       mainWindow = null;
       windowReady = false;
       agentPanel = null;
-      agentPanelHeight = 0;
+      agentPanelLayout = { ...agentPanelLayout, height: 0, width: 0 };
     }
   });
   return win;

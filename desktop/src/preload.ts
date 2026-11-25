@@ -231,6 +231,14 @@ contextBridge.exposeInMainWorld("markdownApi", {
     },
     /** The status bar's height, which the panel sits above. */
     setBottomGap: (gap: number) => ipcRenderer.send("agent-panel:gap", gap),
+    /** The room the panel takes changed (--agent-panel-width and the others are set). */
+    onLayoutChange: (callback: () => void) => {
+      const listener = () => callback();
+      ipcRenderer.on("agent-panel:layout", listener);
+      return () => {
+        ipcRenderer.removeListener("agent-panel:layout", listener);
+      };
+    },
   },
   /** A document's context menu in the document list; resolves "read", "unread" or null. */
   showDocumentMenu: (docId: string, unread: boolean) => ipcRenderer.invoke("document:context-menu", docId, unread),

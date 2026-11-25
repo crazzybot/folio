@@ -24,10 +24,13 @@ contextBridge.exposeInMainWorld("agentApi", {
   copyReviewLoopCommand: () => ipcRenderer.send("agent:copy-review-loop"),
   hide: () => ipcRenderer.send("agent:hide"),
   setHeight: (height: number) => ipcRenderer.send("agent:height", height),
+  setWidth: (width: number) => ipcRenderer.send("agent:width", width),
+  setPosition: (position: "bottom" | "right") => ipcRenderer.send("agent:position", position),
   onData: (callback: (data: string) => void) => subscribe("agent:data", callback),
   onExit: (callback: (exit: { code: number; missing: { program: string; installUrl: string | null } | null }) => void) =>
     subscribe("agent:exit", callback),
   onInfo: (callback: (info: { title: string; folder: string; reviewLoop: string | null }) => void) => subscribe("agent:info", callback),
   onLoop: (callback: (state: "off" | "waiting" | "working") => void) => subscribe("agent:loop", callback),
   onFocus: (callback: () => void) => subscribe("agent:focus", callback),
+  onPlace: (callback: (place: { position: "bottom" | "right"; rightFits: boolean }) => void) => subscribe("agent:place", callback),
 });

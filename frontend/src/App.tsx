@@ -61,7 +61,7 @@ import type { Located } from "./marksView";
 import styles from "./App.module.css";
 import type { DocumentMeta, HighlightColor, ReadVersion, TextAnchor } from "./types";
 import { getItem, setItem } from "./storage";
-import { OUTLINE_DRAWER_QUERY, SIDEBAR_DRAWER_QUERY, useDrawerFocus, useMediaQuery } from "./drawer";
+import { OUTLINE_DRAWER_WIDTH, SIDEBAR_DRAWER_WIDTH, useDrawerFocus, useNarrowerThan } from "./drawer";
 
 const PANEL_MIN_WIDTH = 160;
 const PANEL_DEFAULT_WIDTH = 260;
@@ -436,8 +436,8 @@ function AppInner(): React.ReactElement {
   // ── Drawers: in a narrow window the panels slide in over the document, one
   // at a time, and close once used. Not remembered: the panels' settings
   // above are for when there's room, and apply again when there is ─────────
-  const sidebarAsDrawer = useMediaQuery(SIDEBAR_DRAWER_QUERY);
-  const outlineAsDrawer = useMediaQuery(OUTLINE_DRAWER_QUERY);
+  const sidebarAsDrawer = useNarrowerThan(SIDEBAR_DRAWER_WIDTH);
+  const outlineAsDrawer = useNarrowerThan(OUTLINE_DRAWER_WIDTH);
   const [drawer, setDrawer] = useState<"documents" | "outline" | null>(null);
   // Resizing or rotating into another layout closes the open drawer
   const drawerLayout = `${sidebarAsDrawer} ${outlineAsDrawer}`;
@@ -1322,6 +1322,7 @@ function AppInner(): React.ReactElement {
             onLocatedChange={setLocated}
           />
         </main>
+        {window.markdownApi && <div className={styles.agentSideSlot} aria-hidden="true" />}
       </div>
 
       {/* Behind an open drawer: a tap outside it closes it */}

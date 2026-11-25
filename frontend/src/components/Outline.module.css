@@ -118,8 +118,8 @@
 .drawer {
   position: fixed;
   top: 0;
-  right: 0;
-  /* Ends above the desktop app's agent panel, which covers the page below it */
+  /* Ends above or beside the desktop app's agent panel, which covers the page there */
+  right: var(--agent-panel-width, 0px);
   bottom: var(--agent-panel-inset, 0px);
   z-index: 31;
   width: min(85vw, 300px);
