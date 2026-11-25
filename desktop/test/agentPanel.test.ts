@@ -94,42 +94,63 @@ vi.mock("../src/processTree", async (original) => ({
   readProcessTable: () => processTable(),
 }));
 
-const { AgentPanel, registerAgentIpc } = await import("../src/agentPanel");
+const { AgentPanel, panelSize, registerAgentIpc } = await import("../src/agentPanel");
 type Panel = InstanceType<typeof AgentPanel>;
 
 const workspace = path.join(path.sep, "work", "repo");
 
-function fakeWindow(height = 900) {
+function fakeWindow(height = 900, width = 1200) {
+  const size = { width, height };
   return {
+    size,
     on: () => undefined,
     isDestroyed: () => false,
-    getContentBounds: () => ({ x: 0, y: 0, width: 1200, height }),
+    getContentBounds: () => ({ x: 0, y: 0, ...size }),
     webContents: { getZoomFactor: () => 1, focus: () => undefined },
     contentView: { addChildView: () => undefined },
   };
 }
 
-function setup(options: { command?: string; windowHeight?: number } = {}) {
+function setup(
+  options: {
+    command?: string;
+    windowHeight?: number;
+    windowWidth?: number;
+    position?: "bottom" | "right";
+    size?: { width: number; height: number };
+  } = {},
+) {
   let current: string | null = workspace;
-  const layouts: [number, number][] = [];
-  const win = fakeWindow(options.windowHeight);
+  const layouts: [number, number, number][] = [];
+  const positions: string[] = [];
+  const sizes: { width: number; height: number }[] = [];
+  const win = fakeWindow(options.windowHeight, options.windowWidth);
   const panel: Panel = new AgentPanel(win as never, {
     url: "app://folio/agent.html",
     preload: "agentPreload.js",
     command: options.command ?? "claude",
     workspace: () => current,
-    onLayout: (height, gap) => layouts.push([height, gap]),
+    position: options.position ?? "bottom",
+    onLayout: ({ height, width, gap }) => layouts.push([height, width, gap]),
+    size: options.size ?? null,
+    onPositionChange: (position) => positions.push(position),
+    onSizeChange: (size) => sizes.push(size),
     onVisible: () => undefined,
     openExternal: () => undefined,
     backgroundColor: () => "#000",
     loops: () => [],
   });
   /** The panel's page: what it was sent, and its view's place. */
-  const page = () => (panel as unknown as { view: { bounds: { y: number; height: number }; webContents: { sent: [string, unknown][] } } | null }).view;
+  const page = () =>
+    (panel as unknown as { view: { bounds: { x: number; y: number; width: number; height: number }; webContents: { sent: [string, unknown][] } } | null })
+      .view;
   const sent = (channel: string) => page()?.webContents.sent.filter(([c]) => c === channel).map(([, value]) => value) ?? [];
   return {
     panel,
+    win,
     layouts,
+    positions,
+    sizes,
     page,
     sent,
     setWorkspace: (folder: string | null) => {
@@ -299,13 +320,86 @@ describe("AgentPanel layout", () => {
     const { panel, layouts, page } = setup({ windowHeight: 600 });
     panel.setBottomGap(24);
     panel.show();
-    expect(layouts.at(-1)).toEqual([320, 24]);
+    expect(layouts.at(-1)).toEqual([320, 0, 24]);
     expect(page()?.bounds).toMatchObject({ y: 600 - 24 - 320, height: 320 });
     panel.setHeight(5000);
     // 600 - 24 for the status bar - 200 the documents keep
-    expect(layouts.at(-1)).toEqual([376, 24]);
+    expect(layouts.at(-1)).toEqual([376, 0, 24]);
     panel.hide();
-    expect(layouts.at(-1)).toEqual([0, 24]);
+    expect(layouts.at(-1)).toEqual([0, 0, 24]);
+  });
+
+  it("on the right, takes its width beside the documents, above the status bar", () => {
+    const { panel, layouts, page, sent } = setup({ windowHeight: 800, windowWidth: 1600, position: "right" });
+    panel.setBottomGap(24);
+    panel.show();
+    expect(layouts.at(-1)).toEqual([0, 480, 24]);
+    expect(page()?.bounds).toEqual({ x: 1600 - 480, y: 0, width: 480, height: 800 - 24 });
+    expect(sent("agent:place").at(-1)).toEqual({ position: "right", rightFits: true });
+    panel.setWidth(5000);
+    // 1600 - 520 the documents keep
+    expect(layouts.at(-1)).toEqual([0, 1080, 24]);
+    panel.setWidth(10);
+    expect(layouts.at(-1)).toEqual([0, 360, 24]);
+  });
+
+  it("moves to the right and back, remembering it", () => {
+    const { panel, layouts, positions, sent } = setup({ windowWidth: 1600 });
+    panel.show();
+    panel.setPosition("right");
+    expect(layouts.at(-1)).toEqual([0, 480, 0]);
+    expect(panel.preferredPosition).toBe("right");
+    panel.setPosition("bottom");
+    expect(layouts.at(-1)).toEqual([320, 0, 0]);
+    expect(positions).toEqual(["right", "bottom"]);
+    expect(sent("agent:place")).toEqual([
+      { position: "bottom", rightFits: true },
+      { position: "right", rightFits: true },
+      { position: "bottom", rightFits: true },
+    ]);
+  });
+
+  it("goes to the bottom in a window too narrow for it on the right, and back once it's wide enough", () => {
+    const { panel, win, layouts, sent } = setup({ windowWidth: 800, position: "right" });
+    panel.show();
+    expect(layouts.at(-1)).toEqual([320, 0, 0]);
+    expect(sent("agent:place").at(-1)).toEqual({ position: "bottom", rightFits: false });
+    expect(panel.preferredPosition).toBe("right");
+    win.size.width = 1200;
+    panel.setBottomGap(0); // a layout, as the window's resize event gives
+    expect(layouts.at(-1)).toEqual([0, 480, 0]);
+    expect(sent("agent:place").at(-1)).toEqual({ position: "right", rightFits: true });
+  });
+
+  it("starts at the size it was left at, and reports each resize to remember", () => {
+    const { panel, layouts, sizes } = setup({ windowWidth: 1600, size: { width: 560, height: 250 } });
+    panel.show();
+    expect(layouts.at(-1)).toEqual([250, 0, 0]);
+    panel.setPosition("right");
+    expect(layouts.at(-1)).toEqual([0, 560, 0]);
+    panel.setWidth(600);
+    panel.setPosition("bottom");
+    panel.setHeight(300);
+    expect(sizes).toEqual([
+      { width: 600, height: 250 },
+      { width: 600, height: 300 },
+    ]);
+  });
+
+  it("keeps a saved size only when it's one", () => {
+    expect(panelSize({ width: 560, height: 250 })).toEqual({ width: 560, height: 250 });
+    expect(panelSize({ width: "560", height: 250 })).toBeNull();
+    expect(panelSize({ width: 1e9, height: 250 })).toBeNull();
+    expect(panelSize(null)).toBeNull();
+  });
+
+  it("tells a reloaded page where it is", () => {
+    const { panel, sent } = setup({ windowWidth: 1600, position: "right" });
+    open(panel);
+    const before = sent("agent:place").length;
+    panel.ready(80, 24);
+    expect(sent("agent:place")).toHaveLength(before + 1);
+    expect(sent("agent:place").at(-1)).toEqual({ position: "right", rightFits: true });
   });
 });
 
@@ -316,7 +410,8 @@ describe("registerAgentIpc", () => {
     registerAgentIpc((sender) => (sender === page()?.webContents ? panel : null));
     const input = ipcHandlers.get("agent:input");
     const height = ipcHandlers.get("agent:height");
-    if (input === undefined || height === undefined) throw new Error("Not registered");
+    const position = ipcHandlers.get("agent:position");
+    if (input === undefined || height === undefined || position === undefined) throw new Error("Not registered");
     input({ sender: page()?.webContents }, "y");
     input({ sender: {} }, "rm -rf ~\r"); // the document view, say
     input({ sender: page()?.webContents }, 42);
@@ -325,5 +420,9 @@ describe("registerAgentIpc", () => {
     height({ sender: page()?.webContents }, -5);
     height({ sender: page()?.webContents }, 1.5);
     expect(spy).not.toHaveBeenCalled();
+    const move = vi.spyOn(panel, "setPosition");
+    position({ sender: page()?.webContents }, "left");
+    position({ sender: {} }, "right");
+    expect(move).not.toHaveBeenCalled();
   });
 });

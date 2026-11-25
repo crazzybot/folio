@@ -53,7 +53,7 @@
 /* Dims the document behind an open drawer */
 .scrim {
   position: fixed;
-  inset: 0 0 var(--agent-panel-inset, 0px);
+  inset: 0 var(--agent-panel-width, 0px) var(--agent-panel-inset, 0px) 0;
   z-index: 30;
   background: rgba(0, 0, 0, 0.35);
   opacity: 0;
@@ -195,13 +195,19 @@
 
 /* ─── Status bar ──────────────────────────────────────────────────────────── */
 /* Room for the desktop app's agent panel, a view of its own laid over this
-   space by the main process (desktop/src/agentPanel.ts sets the height).
-   The view covers whatever the page draws there, so overlays fixed to the
-   window end above it: --agent-panel-inset is the panel and the status bar
-   below it, set only while the panel shows */
+   space by the main process (desktop/src/agentPanel.ts sets the height, or
+   the width when it's on the right). The view covers whatever the page draws
+   there, so overlays fixed to the window end above it or beside it:
+   --agent-panel-inset is a bottom panel and the status bar below it, and
+   --agent-panel-width a right one, set only while the panel shows */
 .agentSlot {
   flex-shrink: 0;
   height: var(--agent-panel-height, 0px);
+}
+
+.agentSideSlot {
+  flex-shrink: 0;
+  width: var(--agent-panel-width, 0px);
 }
 
 .statusBar {
@@ -364,7 +370,7 @@
 /* ─── Drop overlay (desktop: drag a file or folder onto the window) ───────── */
 .dropOverlay {
   position: fixed;
-  inset: 0 0 var(--agent-panel-inset, 0px);
+  inset: 0 var(--agent-panel-width, 0px) var(--agent-panel-inset, 0px) 0;
   z-index: 20;
   display: flex;
   align-items: center;

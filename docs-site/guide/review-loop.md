@@ -52,15 +52,21 @@ a **Copy** button.
 
 ## The agent panel
 
-In the desktop app, Claude Code can run in a panel below your documents,
-so you don't need a separate terminal. Open it with **View → Toggle Agent
+In the desktop app, Claude Code can run in a panel below or beside your
+documents, so you don't need a separate terminal. Open it with **View → Toggle Agent
 Panel** (`⌘J` / `Ctrl+J`) or the terminal button in the status bar. The
 session starts in the workspace, or in the focused folder. To start it in
 another folder, choose **Open Agent Here** in the folder's context menu.
 
 - **Hide** closes the panel and keeps the session running; open it again to
   pick up where you were. **Restart** ends the session and starts a new
-  one. Drag the panel's top bar to resize it.
+  one. Drag the panel's top bar to resize it. Folio keeps its size the
+  next time you open it.
+- **Bottom or right.** Choose **View → Agent Panel Position**, or click the
+  button next to **Hide** to move the panel to the other side. On the
+  right, it runs from the top of the window to the status bar; drag its
+  left edge to resize it. If the window is too narrow for the panel beside
+  your documents, it shows at the bottom until you make the window wider.
 - **The review loop.** The header shows `/folio:review-loop` with a
   **Copy** button: paste it in the panel and press Enter, and Claude waits
   for the notes you send from Folio. Folio never types into the session.

@@ -12,6 +12,10 @@ export interface AgentApi {
   hide(): void;
   /** The panel's new height while its top edge is dragged. */
   setHeight(height: number): void;
+  /** The panel's new width while its left edge is dragged (on the right). */
+  setWidth(width: number): void;
+  /** Dock the panel at the bottom or on the right. */
+  setPosition(position: PanelPosition): void;
   onData(callback: (data: string) => void): () => void;
   /** The session ended; `missing` when the shell didn't find the agent's program (not installed). */
   onExit(callback: (exit: AgentExit) => void): () => void;
@@ -21,7 +25,11 @@ export interface AgentApi {
   onLoop(callback: (state: LoopState) => void): () => void;
   /** The panel was shown: take the keyboard. */
   onFocus(callback: () => void): () => void;
+  /** Where the panel shows, and whether the window has room for it on the right. */
+  onPlace(callback: (place: { position: PanelPosition; rightFits: boolean }) => void): () => void;
 }
+
+export type PanelPosition = "bottom" | "right";
 
 export interface AgentExit {
   code: number;

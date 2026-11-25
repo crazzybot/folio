@@ -10,7 +10,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import "../index.css";
 import "./agent.css";
-import type { AgentApi, AgentExit, LoopState } from "./agentApi";
+import type { AgentApi, AgentExit, LoopState, PanelPosition } from "./agentApi";
 
 const lightQuery = window.matchMedia("(prefers-color-scheme: light)");
 
@@ -36,6 +36,33 @@ interface Header {
   title: HTMLElement;
   /** Show the review loop's state, or the button to start it. */
   setLoop(state: LoopState, command: string | null): void;
+  /** Where the panel shows: the move button offers the other side. */
+  setPlace(position: PanelPosition, rightFits: boolean): void;
+}
+
+const SVG = "http://www.w3.org/2000/svg";
+
+/** A window with the panel at the bottom or on the right, as VS Code's panel position icons. */
+function positionIcon(position: PanelPosition): SVGSVGElement {
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("width", "14");
+  svg.setAttribute("height", "14");
+  svg.setAttribute("viewBox", "0 0 14 14");
+  svg.setAttribute("aria-hidden", "true");
+  const frame = document.createElementNS(SVG, "rect");
+  frame.setAttribute("x", "1.5");
+  frame.setAttribute("y", "2.5");
+  frame.setAttribute("width", "11");
+  frame.setAttribute("height", "9");
+  frame.setAttribute("rx", "1");
+  frame.setAttribute("fill", "none");
+  frame.setAttribute("stroke", "currentColor");
+  const panel = document.createElementNS(SVG, "rect");
+  const box = position === "right" ? ["8", "2.5", "4.5", "9"] : ["1.5", "7.5", "11", "4"];
+  for (const [i, name] of ["x", "y", "width", "height"].entries()) panel.setAttribute(name, box[i] ?? "0");
+  panel.setAttribute("fill", "currentColor");
+  svg.append(frame, panel);
+  return svg;
 }
 
 function header(api: AgentApi, terminal: Terminal): Header {
@@ -74,26 +101,23 @@ function header(api: AgentApi, terminal: Terminal): Header {
     terminal.reset();
     api.restart();
   });
+  // Moves the panel to the other side: the side it would go to is on the icon
+  const move = document.createElement("button");
+  move.className = "move";
+  let moveTo: PanelPosition = "right";
+  move.addEventListener("click", () => api.setPosition(moveTo));
   const hide = document.createElement("button");
   hide.textContent = "Hide";
   hide.setAttribute("aria-label", "Hide Agent Panel");
   hide.addEventListener("click", () => api.hide());
-  root.append(title, loop, offer, restart, hide);
+  root.append(title, loop, offer, restart, move, hide);
 
-  // Dragging the bar resizes the panel. Screen coordinates: the view itself
-  // moves while it's resized, so its own coordinates would drift.
+  // At the bottom, dragging the bar resizes the panel (on the right, its
+  // left edge: see sash)
   root.addEventListener("pointerdown", (event) => {
+    if (document.documentElement.dataset["position"] === "right") return;
     if (event.target !== root && event.target !== title) return;
-    const startY = event.screenY;
-    const startHeight = window.innerHeight;
-    root.setPointerCapture(event.pointerId);
-    const move = (moved: PointerEvent) => api.setHeight(Math.round(startHeight - (moved.screenY - startY)));
-    const up = () => {
-      root.removeEventListener("pointermove", move);
-      root.removeEventListener("pointerup", up);
-    };
-    root.addEventListener("pointermove", move);
-    root.addEventListener("pointerup", up);
+    drag(root, event, (_width, height) => api.setHeight(height));
   });
 
   const setLoop = (state: LoopState, loopCommand: string | null) => {
@@ -105,7 +129,40 @@ function header(api: AgentApi, terminal: Terminal): Header {
     loop.textContent = state === "waiting" ? "Waiting for your notes" : "Working on your notes";
     loop.title = state === "waiting" ? "Notes you send from Folio go to Claude. Press Esc in the panel to stop waiting." : "";
   };
-  return { root, title, setLoop };
+  const setPlace = (position: PanelPosition, rightFits: boolean) => {
+    document.documentElement.dataset["position"] = position;
+    moveTo = position === "right" ? "bottom" : "right";
+    move.replaceChildren(positionIcon(moveTo));
+    // A window too narrow for the panel beside the documents keeps it at the bottom
+    move.disabled = moveTo === "right" && !rightFits;
+    const label = moveTo === "right" ? "Move Agent Panel to the Right" : "Move Agent Panel to the Bottom";
+    move.setAttribute("aria-label", label);
+    move.title = move.disabled ? "Widen the window to put the panel on the right" : label;
+  };
+  setPlace("bottom", true);
+  return { root, title, setLoop, setPlace };
+}
+
+/**
+ * Follows a drag of the panel's top or left edge from `event` until the
+ * pointer is released, calling `onMove` with the panel's new size. In screen
+ * coordinates: the view itself moves and resizes with the drag, so its own
+ * coordinates would drift.
+ */
+function drag(target: HTMLElement, event: PointerEvent, onMove: (width: number, height: number) => void): void {
+  const startX = event.screenX;
+  const startY = event.screenY;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  target.setPointerCapture(event.pointerId);
+  const move = (moved: PointerEvent) =>
+    onMove(Math.round(width - (moved.screenX - startX)), Math.round(height - (moved.screenY - startY)));
+  const up = () => {
+    target.removeEventListener("pointermove", move);
+    target.removeEventListener("pointerup", up);
+  };
+  target.addEventListener("pointermove", move);
+  target.addEventListener("pointerup", up);
 }
 
 /** What the terminal says when the session ends: how to install the agent, when the shell couldn't find it. */
@@ -135,7 +192,12 @@ function start(api: AgentApi): void {
   const bar = header(api, terminal);
   const host = document.createElement("div");
   host.className = "terminal";
-  document.body.append(bar.root, host);
+  // On the right, the left edge resizes the panel
+  const sash = document.createElement("div");
+  sash.className = "sash";
+  sash.setAttribute("aria-hidden", "true");
+  sash.addEventListener("pointerdown", (event) => drag(sash, event, (width) => api.setWidth(width)));
+  document.body.append(bar.root, host, sash);
 
   const fit = new FitAddon();
   terminal.loadAddon(fit);
@@ -173,6 +235,7 @@ function start(api: AgentApi): void {
     bar.setLoop(loopState, loopCommand);
   });
   api.onFocus(() => terminal.focus());
+  api.onPlace(({ position, rightFits }) => bar.setPlace(position, rightFits));
 
   new ResizeObserver(() => fit.fit()).observe(host);
   lightQuery.addEventListener("change", () => applyTheme(terminal));

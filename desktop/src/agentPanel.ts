@@ -1,6 +1,7 @@
 /**
  * agentPanel.ts — The agent panel: the user's coding agent (Claude Code) in
- * a terminal docked at the bottom of the window, started in the workspace.
+ * a terminal docked at the bottom or the right of the window, started in the
+ * workspace.
  *
  * Markdown is untrusted, and the document view is sandboxed for that reason;
  * a page that can write to a shell would turn any sanitizer bypass into
@@ -13,11 +14,14 @@
  * opened, and never types into it on its own. Hiding the panel keeps it
  * running; Restart, closing the window or quitting ends it.
  *
- * The panel sits above the document page's status bar: the page leaves a
- * gap of the panel's height there (--agent-panel-height) and says how far
- * the gap's bottom is from the window's (the status bar's height). The page
- * can show and hide the panel and pick a folder in the workspace to start in;
- * it can't type into the session or read it.
+ * The panel sits above the document page's status bar: at the bottom, the
+ * page leaves a gap of the panel's height there (--agent-panel-height); on
+ * the right, a column of its width beside the documents
+ * (--agent-panel-width). The page says how far the gap's bottom is from the
+ * window's (the status bar's height). A window too narrow for the panel
+ * beside the documents gets it at the bottom, until it's wide enough again.
+ * The page can show and hide the panel and pick a folder in the workspace to
+ * start in; it can't type into the session or read it.
  *
  * The session starts in the workspace, or in a folder of it (the folder's
  * context menu, or the focused folder when the status bar's button opens it).
@@ -37,6 +41,12 @@ const DEFAULT_HEIGHT = 320;
 const MIN_HEIGHT = 120;
 // Room the documents keep above the panel
 const MIN_DOCUMENTS_HEIGHT = 200;
+// On the right: about 60 columns of Claude Code's output at the default font,
+// leaving the documents most of a laptop's window
+const DEFAULT_WIDTH = 480;
+const MIN_WIDTH = 360;
+// Room the documents keep beside the panel: a narrower window gets it at the bottom
+const MIN_DOCUMENTS_WIDTH = 520;
 // Output kept for the page to replay when it reloads
 const REPLAY_LIMIT = 512 * 1024;
 // After the review loop's command is copied, look for the loop this often
@@ -44,6 +54,45 @@ const REPLAY_LIMIT = 512 * 1024;
 // can be missed (the process table read while it changes)
 const LOOP_POLL_MS = 2000;
 const LOOP_POLL_FOR_MS = 120_000;
+
+/** Where the panel docks. */
+export type PanelPosition = "bottom" | "right";
+
+export function isPanelPosition(value: unknown): value is PanelPosition {
+  return value === "bottom" || value === "right";
+}
+
+/**
+ * The room the panel takes from the document page, in the window's units:
+ * its height at the bottom or its width on the right (the other is 0, both
+ * when hidden), and the page's status bar below it (the page's CSS pixels).
+ */
+export interface PanelLayout {
+  height: number;
+  width: number;
+  gap: number;
+}
+
+/** The panel's size as the user left it: its height at the bottom, its width on the right. */
+export interface PanelSize {
+  width: number;
+  height: number;
+}
+
+/** A size kept from an earlier run, or null if it isn't one. */
+export function panelSize(value: unknown): PanelSize | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { width, height } = value as Record<string, unknown>;
+  return isSize(width) && isSize(height) ? { width, height } : null;
+}
+
+/** Where the panel is, for its header. */
+export interface PanelPlace {
+  /** Where it shows now: at the bottom in a window too narrow for the right. */
+  position: PanelPosition;
+  /** Whether it can show on the right in this window. */
+  rightFits: boolean;
+}
 
 /** The review loop of the panel's session, from its Presence file. */
 export type LoopState = "off" | "waiting" | "working";
@@ -66,11 +115,16 @@ export interface AgentPanelOptions {
   command: string;
   /** The workspace: the session starts there unless a folder of it was asked for. */
   workspace: () => string | null;
-  /**
-   * The height the panel takes from the document view (0 when hidden), and
-   * the page's status bar below it (the page's CSS pixels).
-   */
-  onLayout: (height: number, gap: number) => void;
+  /** Where the user put the panel last (View → Agent Panel Position). */
+  position: PanelPosition;
+  /** The size the user left it at, or null for the defaults. */
+  size: PanelSize | null;
+  /** The room the panel takes from the document view, whenever it changes. */
+  onLayout: (layout: PanelLayout) => void;
+  /** The user moved the panel, to remember. */
+  onPositionChange: (position: PanelPosition) => void;
+  /** The user resized the panel, to remember. */
+  onSizeChange: (size: PanelSize) => void;
   /** The panel was shown or hidden, for the status bar's button. */
   onVisible: (visible: boolean) => void;
   openExternal: (url: string) => void;
@@ -93,8 +147,11 @@ export class AgentPanel {
   private size = { cols: 80, rows: 24 };
   private visible = false;
   private height = DEFAULT_HEIGHT;
-  private reserved = 0;
-  private reservedGap = 0;
+  private width = DEFAULT_WIDTH;
+  private position: PanelPosition;
+  private reserved: PanelLayout = { height: 0, width: 0, gap: 0 };
+  /** The place last sent to the page. */
+  private place: PanelPlace | null = null;
   private loop: LoopState = "off";
   private loopCheck = 0;
 
@@ -102,12 +159,20 @@ export class AgentPanel {
     private readonly win: BrowserWindow,
     private readonly options: AgentPanelOptions,
   ) {
+    this.position = options.position;
+    this.width = Math.max(MIN_WIDTH, options.size?.width ?? DEFAULT_WIDTH);
+    this.height = Math.max(MIN_HEIGHT, options.size?.height ?? DEFAULT_HEIGHT);
     win.on("resize", () => this.layout());
     win.on("closed", () => this.dispose());
   }
 
   get isVisible(): boolean {
     return this.visible;
+  }
+
+  /** Where the user put the panel: it may show at the bottom while the window is too narrow. */
+  get preferredPosition(): PanelPosition {
+    return this.position;
   }
 
   /** Whether an IPC message comes from this panel's page. */
@@ -172,6 +237,7 @@ export class AgentPanel {
   /** The page's terminal is ready: start the session, or replay it after a reload. */
   ready(cols: number, rows: number): void {
     this.size = { cols, rows };
+    if (this.place !== null) this.send("agent:place", this.place);
     if (this.pty === null) {
       this.start();
       return;
@@ -181,6 +247,7 @@ export class AgentPanel {
     this.sendInfo();
     this.send("agent:loop", this.loop);
   }
+
 
   /** The user's keys: the only thing that goes into the session. */
   input(data: string): void {
@@ -240,6 +307,22 @@ export class AgentPanel {
   setHeight(height: number): void {
     this.height = Math.max(MIN_HEIGHT, height);
     this.layout();
+    this.options.onSizeChange({ width: this.width, height: this.height });
+  }
+
+  setWidth(width: number): void {
+    this.width = Math.max(MIN_WIDTH, width);
+    this.layout();
+    this.options.onSizeChange({ width: this.width, height: this.height });
+  }
+
+  /** Dock the panel at the bottom or on the right, and remember it. */
+  setPosition(position: PanelPosition): void {
+    if (position === this.position) return;
+    this.position = position;
+    this.layout();
+    this.options.onPositionChange(position);
+    if (this.visible) this.view?.webContents.focus();
   }
 
   /** End the session (SIGHUP, as closing a terminal does). */
@@ -349,12 +432,27 @@ export class AgentPanel {
     const { width, height } = this.win.getContentBounds();
     // The page's CSS pixels are larger than the window's when it's zoomed
     const gap = Math.round(this.bottomGap * this.win.webContents.getZoomFactor());
-    const panel = this.visible ? Math.max(0, Math.min(this.height, height - gap - MIN_DOCUMENTS_HEIGHT)) : 0;
-    this.view?.setBounds({ x: 0, y: height - gap - panel, width, height: panel });
-    if (panel !== this.reserved || this.bottomGap !== this.reservedGap) {
-      this.reserved = panel;
-      this.reservedGap = this.bottomGap;
-      this.options.onLayout(panel, this.bottomGap);
+    const rightFits = width >= MIN_WIDTH + MIN_DOCUMENTS_WIDTH;
+    const position = this.position === "right" && rightFits ? "right" : "bottom";
+    let reserved: PanelLayout;
+    if (position === "right") {
+      const panel = this.visible ? Math.min(this.width, width - MIN_DOCUMENTS_WIDTH) : 0;
+      this.view?.setBounds({ x: width - panel, y: 0, width: panel, height: Math.max(0, height - gap) });
+      reserved = { height: 0, width: panel, gap: this.bottomGap };
+    } else {
+      const panel = this.visible ? Math.max(0, Math.min(this.height, height - gap - MIN_DOCUMENTS_HEIGHT)) : 0;
+      this.view?.setBounds({ x: 0, y: height - gap - panel, width, height: panel });
+      reserved = { height: panel, width: 0, gap: this.bottomGap };
+    }
+    const was = this.reserved;
+    if (reserved.height !== was.height || reserved.width !== was.width || reserved.gap !== was.gap) {
+      this.reserved = reserved;
+      this.options.onLayout(reserved);
+    }
+    // Recorded only once there's a page to tell (it's told again when it's ready)
+    if (this.view !== null && (this.place?.position !== position || this.place.rightFits !== rightFits)) {
+      this.place = { position, rightFits };
+      this.send("agent:place", this.place);
     }
   }
 }
@@ -388,5 +486,11 @@ export function registerAgentIpc(find: (sender: WebContents) => AgentPanel | nul
   on("agent:hide", (panel) => panel.hide());
   on("agent:height", (panel, height) => {
     if (isSize(height)) panel.setHeight(height);
+  });
+  on("agent:width", (panel, width) => {
+    if (isSize(width)) panel.setWidth(width);
+  });
+  on("agent:position", (panel, position) => {
+    if (isPanelPosition(position)) panel.setPosition(position);
   });
 }
