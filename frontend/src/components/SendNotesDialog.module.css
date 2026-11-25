@@ -330,6 +330,20 @@
   padding: var(--space-3) var(--space-5);
 }
 
+/* The live demo's note on Send, above the footer */
+.demoNote {
+  margin: 0;
+  padding: 8px 16px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.demoNote a {
+  color: var(--color-accent);
+}
+
 .hint {
   color: var(--color-text-muted);
   font-size: var(--text-sm);

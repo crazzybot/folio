@@ -42,6 +42,7 @@ import { useShownDocument } from "./useShownDocument";
 import { useStatusMessage } from "./useStatusMessage";
 import { unreadCount } from "./reads";
 import { useMarkReadWhenShown, useReads } from "./useReads";
+import { IS_DEMO, openReviewLoopDocs } from "./demo/links";
 import DemoBanner from "./components/DemoBanner";
 import DisplayMenu from "./components/DisplayMenu";
 import { sectionChanges } from "../../packages/core/src/sections";
@@ -573,6 +574,13 @@ function AppInner(): React.ReactElement {
     },
     [sendTo, recordSend, markSent, setStatusMessage],
   );
+  // The live demo has no agent: a reply saved there says where one would answer it
+  const demoSaved = useCallback(() => {
+    if (IS_DEMO) {
+      setStatusMessage({ text: "Saved. In the desktop app, Claude Code answers it.", action: { label: "Learn how", run: openReviewLoopDocs } });
+    }
+  }, [setStatusMessage]);
+
   // Changes to the shown document's marks, from the viewer
   const markHandlers = useMemo((): MarkHandlers | undefined => {
     if (contentId === null) return undefined;
@@ -584,8 +592,8 @@ function AppInner(): React.ReactElement {
       setLoop: (id, changes) => void setLoop(contentId, id, changes),
       setSection: (id, section) => void setSection(contentId, id, section),
       takePassage: (id, replacement) => void takePassage(contentId, id, replacement),
-      reply: (id, text, choice) => void reply(contentId, id, text, choice),
-      editReply: (id, replyId, text, choice) => void editReply(contentId, id, replyId, text, choice),
+      reply: (id, text, choice) => void reply(contentId, id, text, choice).then(demoSaved),
+      editReply: (id, replyId, text, choice) => void editReply(contentId, id, replyId, text, choice).then(demoSaved),
       deleteReply: (id, replyId) => void deleteReply(contentId, id, replyId),
       markSeen: (id) => void markSeen(contentId, id),
       toggleHeadingBookmark: (heading) => void toggleBookmark(contentId, heading),
@@ -602,7 +610,7 @@ function AppInner(): React.ReactElement {
           { highlightId: id },
         ),
     };
-  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, setSection, takePassage, reply, editReply, deleteReply, markSeen, toggleBookmark, shownRounds, sendTo, sendNow]);
+  }, [contentId, addMark, recolor, setNote, removeMark, setLoop, setSection, takePassage, reply, editReply, deleteReply, markSeen, toggleBookmark, shownRounds, sendTo, sendNow, demoSaved]);
   const shownMarks = contentId === null ? undefined : marks.byDoc.get(contentId);
   const documentBookmarked = shownMarks !== undefined && findBookmark(shownMarks.bookmarks, null) !== undefined;
 
@@ -954,7 +962,7 @@ function AppInner(): React.ReactElement {
       data-doc-style={docStyle.id}
       style={{ "--reading-width": readingWidth.value, "--reading-font-size": fontSize.value } as React.CSSProperties}
     >
-      {import.meta.env.MODE === "demo" && <DemoBanner />}
+      {IS_DEMO && <DemoBanner />}
       <div className={styles.workbench}>
         {/* ── Left panel (document list) ── */}
         <aside
