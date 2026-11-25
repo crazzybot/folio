@@ -5,6 +5,7 @@ import { answeredBy, UNRESOLVE_TITLE, type AgentProgress } from "../sending";
 import { normaliseStatus, statusChoices, statusNew } from "../status";
 import { canReply, newReplies } from "../threads";
 import type { DocumentNote, NoteState } from "../types";
+import { useDragOffset } from "../useDragOffset";
 import { visibleWidth } from "../viewport";
 import LockIcon from "./LockIcon";
 import NoteStateIcon from "./NoteStateIcon";
@@ -158,6 +159,8 @@ export default function DocumentNoteEditor({
 
   // Narrower in a narrow window, with its margin on both sides
   const width = Math.min(WIDTH, visibleWidth() - 2 * MARGIN);
+  // Moved off what it covers, by its heading
+  const drag = useDragOffset();
 
   const shownStatus = choice === OTHER ? normaliseStatus(other) : choice;
 
@@ -176,11 +179,10 @@ export default function DocumentNoteEditor({
       role="dialog"
       aria-label="Note on this document"
       style={{
-        top: anchor.bottom + 6,
-        left: Math.max(
-          MARGIN,
-          Math.min("left" in anchor ? anchor.left : anchor.right - width, visibleWidth() - width - MARGIN),
-        ),
+        top: anchor.bottom + 6 + drag.offset.y,
+        left:
+          Math.max(MARGIN, Math.min("left" in anchor ? anchor.left : anchor.right - width, visibleWidth() - width - MARGIN)) +
+          drag.offset.x,
         width,
       }}
       onKeyDown={(e) => {
@@ -197,7 +199,7 @@ export default function DocumentNoteEditor({
         }
       }}
     >
-      <div className={styles.heading}>
+      <div className={`${styles.heading} ${drag.dragging ? styles.headingDragging : ""}`} onPointerDown={drag.onPointerDown}>
         Note on this document
         <button type="button" className={styles.closeBtn} onClick={save} aria-label="Close" title="Close: what you changed is saved">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true">

@@ -13,6 +13,7 @@ import { buildTextModel } from "../textModel";
 import { locateSection, sameSection, sectionPath } from "../sectionAnchor";
 import { canReply, newsOf, threadSummary } from "../threads";
 import { HIGHLIGHT_COLORS } from "../types";
+import { useDragOffset } from "../useDragOffset";
 import type { Bookmark, BookmarkHeading, Highlight, HighlightColor, NoteState, Round, TextAnchor } from "../types";
 import LockIcon from "./LockIcon";
 import NoteStateIcon from "./NoteStateIcon";
@@ -326,6 +327,9 @@ export default function MarksLayer({
   const inlineOn = useRef(inlineNotes);
   const popoverRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  // The popover moved off the text it covers, by its top row
+  const drag = useDragOffset();
+  const resetDrag = drag.reset;
   const handledFocus = useRef<number | null>(null);
   // Across a reload: the open highlight, and its height in the view before it
   const keepInView = useRef<{ id: string; offset: number } | null>(null);
@@ -475,6 +479,14 @@ export default function MarksLayer({
       const { clientX: x, clientY: y } = e;
       cancelAnimationFrame(frame);
       const target = e.target;
+      // Over the popover or toolbar: nothing under them is hovered, or the
+      // passage they cover would flicker as the pointer crosses its lines
+      if (target instanceof Node && (popoverRef.current?.contains(target) || toolbarRef.current?.contains(target))) {
+        setHoveredNote(null);
+        setHoveredHeading(null);
+        setHoveredBlock(null);
+        return;
+      }
       frame = requestAnimationFrame(() => {
         if (article === null) return;
         // An inline note by its element; a passage by its painted text
@@ -588,8 +600,9 @@ export default function MarksLayer({
       if (container === null) return;
       setPopover({ ...placeBy(container, rect, true), id });
       setDraft(note);
+      resetDrag();
     },
-    [containerRef],
+    [containerRef, resetDrag],
   );
 
   // ── Scroll to a mark (Marks view) ──────────────────────────────────────────
@@ -700,6 +713,25 @@ export default function MarksLayer({
     };
     // Again once painting has found the highlight in new text
   }, [containerRef, popoverId, layoutVersion, renderKey, highlights]);
+
+  // The open popover's passage, inline note and margin icon: which highlight
+  // it's about, where several are in view. After painting, which finds it
+  useEffect(() => {
+    const article = articleRef.current;
+    const range = popoverId === null ? undefined : located.current.get(popoverId);
+    if (article === null || popoverId === null || range === undefined) return;
+    if (supported) {
+      const active = new Highlight(range);
+      active.priority = 1;
+      CSS.highlights.set("folio-mark-active", active);
+    }
+    const linked = article.querySelectorAll(`[data-highlight="${CSS.escape(popoverId)}"]`);
+    for (const el of linked) el.classList.add("folio-active");
+    return () => {
+      if (supported) CSS.highlights.delete("folio-mark-active");
+      for (const el of linked) el.classList.remove("folio-active");
+    };
+  }, [articleRef, popoverId, layoutVersion, renderKey, highlights]);
 
   // After a reload: the open highlight back at the height it was (text the
   // agent added above it would push it, and its popover, out of view), and
@@ -1176,7 +1208,7 @@ export default function MarksLayer({
           <button
             key={spot.id}
             type="button"
-            className={`${styles.noteMarker} ${spot.detached ? styles.noteMarkerDetached : ""} ${spot.id === hoveredNote ? styles.noteMarkerHovered : ""} ${fresh !== "" ? styles.noteMarkerNew : ""}`}
+            className={`${styles.noteMarker} ${spot.detached ? styles.noteMarkerDetached : ""} ${spot.id === hoveredNote || spot.id === popoverId ? styles.noteMarkerHovered : ""} ${fresh !== "" ? styles.noteMarkerNew : ""}`}
             style={{ top: spot.top, left: spot.left }}
             onClick={(e) => openPopover(spot.id, e.currentTarget.getBoundingClientRect())}
             aria-label={`${NOTE_ICON_LABELS[kind]} note: ${note}${news}${detached}`}
@@ -1247,12 +1279,17 @@ export default function MarksLayer({
         <div
           ref={popoverRef}
           className={`${styles.bubble} ${styles.popover} ${draft !== null || current.note !== null || (current.replies?.length ?? 0) > 0 ? styles.popoverWide : ""}`}
-          // Its top is set once its height is known (see the layout effect)
-          style={{ left: popover.left }}
+          // Its top is set once its height is known (see the layout effect);
+          // dragged, it's moved from there
+          style={{
+            left: popover.left,
+            transform: drag.offset.x === 0 && drag.offset.y === 0 ? undefined : `translate(calc(-50% + ${drag.offset.x}px), ${drag.offset.y}px)`,
+          }}
           role="dialog"
           aria-label="Highlight"
         >
-          <div className={styles.row}>
+          {/* Its handle: drag it by the row's space between the buttons */}
+          <div className={`${styles.row} ${styles.handle} ${drag.dragging ? styles.handleDragging : ""}`} onPointerDown={drag.onPointerDown}>
             {HIGHLIGHT_COLORS.map((color) => (
               <button
                 key={color}

@@ -8,6 +8,19 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Changed
+
+- Clicking a highlight in the **Marks** view opens its popover, as
+  clicking it in the document does. While the popover is open, its passage
+  is underlined, so you can tell it from the highlights around it.
+- A highlight's popover, and the note on a document, can be dragged out of
+  the way of the text: by the popover's top row, or the note's title.
+
+### Fixed
+
+- Moving the pointer over a highlight's popover no longer makes the
+  highlights under it flicker.
+
 ## [0.12.1] — 2026-11-25
 
 ### Added

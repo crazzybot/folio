@@ -20,6 +20,12 @@
   justify-content: space-between;
   margin-bottom: var(--space-1);
   font-weight: 600;
+  /* Its handle: drag it off what it covers */
+  cursor: grab;
+}
+
+.headingDragging {
+  cursor: grabbing;
 }
 
 /* Close, at the heading's end: saves what changed, as a click elsewhere does */
