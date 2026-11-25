@@ -8,6 +8,8 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+## [0.12.1] — 2026-11-25
+
 ### Added
 
 - The agent panel can dock on the right, beside your documents, as well as
@@ -532,6 +534,7 @@ the `folio-data` volume.
 First release: signed and notarized macOS builds (Apple Silicon and Intel),
 Windows and Linux builds, and in-app updates.
 
+[0.12.1]: https://github.com/crazzybot/folio/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/crazzybot/folio/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/crazzybot/folio/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/crazzybot/folio/compare/v0.9.1...v0.10.0
