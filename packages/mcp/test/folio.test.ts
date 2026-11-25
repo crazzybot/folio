@@ -177,6 +177,28 @@ describe("waitForReview", () => {
     expect(() => presence()).toThrow();
   });
 
+  it("gives every document of one send, which shares a round id across them", async () => {
+    const h = await note("Why not a single table?");
+    const readme = path.join(root, "README.md");
+    const r = await store.addHighlight(readme, {
+      color: "yellow",
+      note: "Say more",
+      quote: { exact: "Hello", prefix: "", suffix: "" },
+      position: { start: 0, end: 5 },
+    });
+    const since = new Date().toISOString();
+    const waiting = wait({ since, timeoutMs: 5_000 });
+    // As the app's Send does: one round id for all the documents
+    const roundId = newRoundId();
+    for (const [doc, id] of [[adr(), h.id], [readme, r.id]] as const) {
+      await store.send(doc, { roundId, highlightIds: [id], documentNote: false, markSent: true, via: "send", client: "Claude Code" });
+    }
+    const sent = await waiting;
+    expect([sent?.notes, sent?.documents]).toEqual([2, 2]);
+    expect(sent?.text).toContain(`note ${h.id.slice(0, 8)}`);
+    expect(sent?.text).toContain(`note ${r.id.slice(0, 8)}`);
+  });
+
   it("only takes notes sent after since, by the user, on documents under the root", async () => {
     const h = await note("Why?");
     await send(adr(), [h.id]);

@@ -20,6 +20,9 @@ turns them into the next release's section.
 
 - Moving the pointer over a highlight's popover no longer makes the
   highlights under it flicker.
+- Notes sent to an agent in a review loop on several documents at once all
+  reach it. Before, Folio's MCP server gave the agent only the first
+  document's notes; the others waited until you asked again.
 
 ## [0.12.1] — 2026-11-25
 
