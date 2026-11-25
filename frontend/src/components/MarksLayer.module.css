@@ -100,6 +100,15 @@
   gap: 4px;
 }
 
+/* The top row moves the popover off the text it covers */
+.handle {
+  cursor: grab;
+}
+
+.handleDragging {
+  cursor: grabbing;
+}
+
 /* Close, at the row's far end */
 .close {
   margin-left: auto;

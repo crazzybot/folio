@@ -654,8 +654,9 @@ function AppInner(): React.ReactElement {
   );
 
   // Open a mark from the Marks view: its document (a history entry, so Back
-  // returns), scrolled to the highlight or heading. The note on the document
-  // opens its editor, with the header in view at the top
+  // returns), scrolled to the highlight or heading. A highlight opens its
+  // popover, which says which one it is where several are in view; the note
+  // on the document opens its editor, with the header in view at the top
   const openMark = useCallback(
     (docId: string, target: MarkTarget) => {
       if (target !== null && "documentNote" in target) {
@@ -663,7 +664,7 @@ function AppInner(): React.ReactElement {
         // Under the toolbar button, which stays put across documents; shown once the document is
         const box = noteButtonRef.current?.getBoundingClientRect();
         if (box !== undefined) setNoteEditor({ docId, right: box.right, bottom: box.bottom });
-      } else if (target !== null) setMarkFocus({ docId, target, nonce: Date.now() });
+      } else if (target !== null) setMarkFocus({ docId, target, open: "highlight" in target, nonce: Date.now() });
       if (docId !== selectedId) navigate("/doc/" + encodeURIComponent(docId));
     },
     [navigate, selectedId],

@@ -260,6 +260,13 @@ body {
   text-underline-offset: 3px;
 }
 
+/* The passage of the open popover: which highlight it's about */
+::highlight(folio-mark-active) {
+  text-decoration: underline 2px;
+  text-decoration-color: var(--color-accent);
+  text-underline-offset: 3px;
+}
+
 /* ─── Inline notes ────────────────────────────────────────────────────────── */
 /* Notes shown in the text under their passage (inlineNotes.ts); --note-color
    is the highlight's swatch colour */
@@ -289,7 +296,8 @@ li > .folio-inline-notes,
 }
 
 .folio-inline-note:hover,
-.folio-inline-note.folio-hovered {
+.folio-inline-note.folio-hovered,
+.folio-inline-note.folio-active {
   color: var(--color-text);
   background: var(--color-hover-bg);
 }

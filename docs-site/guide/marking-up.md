@@ -13,6 +13,11 @@ follow the text when a document is edited.
    **×** at the top right of its popover, `Esc` or a click elsewhere closes
    it; a note you're writing is kept.
 
+While a highlight's popover is open, its passage is underlined in the accent
+colour. If the popover covers text you want to read, drag it by its top row
+(the space beside the buttons). The note on a document moves the same way,
+by its title.
+
 `⇧⌘H` / `Ctrl+Shift+H` highlights the selection in the last colour used.
 
 To note a whole section (a paragraph, list item, table or code block), hover
@@ -77,8 +82,9 @@ The sidebar's **Marks** tab lists the marks of every document in the
 workspace, grouped by document. Filter it to bookmarks, or highlights and
 notes, or by note state, or to **The agent's notes** when an agent wrote
 some. **Only the open document** narrows it to the
-document you're reading. Click a mark to go to it; the note on a document
-opens at the top of the document, with its editor open.
+document you're reading. Click a mark to go to it: a highlight opens with
+its popover, and the note on a document opens at the top of the document,
+with its editor open.
 
 The **Documents** list shows how many highlights each document has, and
 the outline how many each section has. Resolved notes aren't counted, as
