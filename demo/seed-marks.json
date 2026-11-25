@@ -51,6 +51,17 @@
               "at": "2026-11-12T16:29:00Z"
             }
           ]
+        },
+        {
+          "quote": "Public keys would avoid that",
+          "color": "blue",
+          "note": "A leaked secret is the main risk this ADR names, and public keys remove it. Should this decision leave room for them?",
+          "kind": "decision",
+          "options": [
+            "HMAC only, until a tenant asks for public keys",
+            "HMAC now, Ed25519 as an option in a later version",
+            "Ed25519 from the start"
+          ]
         }
       ]
     },
@@ -58,21 +69,6 @@
       "bookmarks": [
         {
           "heading": null
-        }
-      ]
-    },
-    "docs/specs/delivery-queue.md": {
-      "highlights": [
-        {
-          "quote": "Partitions older than 14 days are dropped, along with any events still in them.",
-          "color": "blue",
-          "note": "This drops undelivered events after 14 days, but **Goals** says no event is lost while a receiver is unreachable. What should happen to events still queued when their partition expires?",
-          "kind": "decision",
-          "options": [
-            "Keep them until they're delivered",
-            "Move them to a dead-letter table the tenant can replay",
-            "Drop them, and tell the tenant first"
-          ]
         }
       ]
     }
