@@ -14,6 +14,8 @@ turns them into the next release's section.
   at the bottom: choose **View → Agent Panel Position**, or use the button
   in the panel's header. Drag its left edge to resize it. In a window too
   narrow for it, the panel shows at the bottom until the window is wider.
+- The agent panel keeps its size between runs, at the bottom and on the
+  right.
 
 ## [0.12.0] — 2026-11-24
 

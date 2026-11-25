@@ -60,7 +60,8 @@ another folder, choose **Open Agent Here** in the folder's context menu.
 
 - **Hide** closes the panel and keeps the session running; open it again to
   pick up where you were. **Restart** ends the session and starts a new
-  one. Drag the panel's top bar to resize it.
+  one. Drag the panel's top bar to resize it. Folio keeps its size the
+  next time you open it.
 - **Bottom or right.** Choose **View → Agent Panel Position**, or click the
   button next to **Hide** to move the panel to the other side. On the
   right, it runs from the top of the window to the status bar; drag its

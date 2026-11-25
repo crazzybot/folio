@@ -15,9 +15,9 @@ of it than a wide, short one. The panel can now dock on the right as well.
 |---|---|
 | Where it can go | At the bottom (as before) or on the right. Not the left: the document list is there |
 | How it's chosen | **View → Agent Panel Position** (**Bottom** \| **Right**), and a button in the panel's header that moves it to the other side |
-| Where it's kept | The app's view state (`view-state.json`, `folio.agentPanelPosition`), as the sidebar's width is: app state, not a setting to edit by hand. Bottom by default |
+| Where it's kept | The app's view state (`view-state.json`: `folio.agentPanelPosition`, and its width and height in `folio.agentPanelSize`), as the sidebar's width is: app state, not a setting to edit by hand. Bottom by default |
 | What it spans on the right | From the window's top to the status bar, which stays full width under it, as in VS Code. Its header is as tall as the document's (`--header-height`), so the two line up |
-| Size | 640 px wide by default (about 90 columns), at least 360. Drag its left edge to resize. The documents keep at least 520 px |
+| Size | 480 px wide by default (about 60 columns, leaving the documents most of a laptop's window), at least 360. Drag its left edge to resize. The documents keep at least 520 px. Its width and its height at the bottom are kept between runs |
 | A window too narrow for it | Narrower than 880 px (360 + 520), the panel shows at the bottom, and goes back to the right once the window is wide enough. The choice stays **Right**; the header's button is disabled, saying to widen the window |
 
 ## How the page makes room

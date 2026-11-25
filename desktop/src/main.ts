@@ -56,8 +56,8 @@ import { serveImage } from "./images";
 import { canInstallCommand, installCommand } from "./cli";
 import { ensureCustomCss, readCustomCss, watchCustomCss } from "./customCss";
 import { AgentTracker } from "./agents";
-import { AgentPanel, isPanelPosition, registerAgentIpc } from "./agentPanel";
-import type { PanelLayout, PanelPosition } from "./agentPanel";
+import { AgentPanel, isPanelPosition, panelSize, registerAgentIpc } from "./agentPanel";
+import type { PanelLayout, PanelPosition, PanelSize } from "./agentPanel";
 import { DEFAULT_AGENT_COMMAND } from "./agentLaunch";
 import type { AgentSession } from "./agents";
 import { editorName, openInEditor } from "./editor";
@@ -1632,8 +1632,9 @@ let agentPanel: AgentPanel | null = null;
  */
 let agentPanelLayout: PanelLayout = { height: 0, width: 0, gap: 0 };
 let agentPanelCss: Promise<string | null> = Promise.resolve(null);
-// The view state key of the panel's position (the page's keys share the file)
+// The view state keys of the panel's position and size (the page's keys share the file)
 const AGENT_PANEL_POSITION_KEY = "folio.agentPanelPosition";
+const AGENT_PANEL_SIZE_KEY = "folio.agentPanelSize";
 
 function reserveAgentPanel(win: BrowserWindow, layout: PanelLayout, reloaded = false): void {
   agentPanelLayout = layout;
@@ -1655,6 +1656,14 @@ function reserveAgentPanel(win: BrowserWindow, layout: PanelLayout, reloaded = f
     win.webContents.send("agent-panel:layout");
     return inserted;
   }).catch(() => null);
+}
+
+function savedAgentPanelSize(): PanelSize | null {
+  try {
+    return panelSize(JSON.parse(viewStateSnapshot()[AGENT_PANEL_SIZE_KEY] ?? "null"));
+  } catch {
+    return null;
+  }
 }
 
 function savedAgentPanelPosition(): PanelPosition {
@@ -1681,12 +1690,15 @@ function createAgentPanel(win: BrowserWindow): AgentPanel {
     command: process.env["FOLIO_AGENT_COMMAND"] ?? DEFAULT_AGENT_COMMAND,
     workspace: () => settings.workspace,
     position: savedAgentPanelPosition(),
+    size: savedAgentPanelSize(),
     onLayout: (layout) => reserveAgentPanel(win, layout),
     // From the panel's button too, so the menu follows
     onPositionChange: (position) => {
       setViewState(AGENT_PANEL_POSITION_KEY, position);
       Menu.setApplicationMenu(buildMenu());
     },
+    // Each step of a drag: the view state saves once it stops
+    onSizeChange: (size) => setViewState(AGENT_PANEL_SIZE_KEY, JSON.stringify(size)),
     onVisible: (visible) => {
       if (!win.isDestroyed()) win.webContents.send("agent-panel:visible", visible);
     },

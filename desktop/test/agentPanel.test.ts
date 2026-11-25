@@ -94,7 +94,7 @@ vi.mock("../src/processTree", async (original) => ({
   readProcessTable: () => processTable(),
 }));
 
-const { AgentPanel, registerAgentIpc } = await import("../src/agentPanel");
+const { AgentPanel, panelSize, registerAgentIpc } = await import("../src/agentPanel");
 type Panel = InstanceType<typeof AgentPanel>;
 
 const workspace = path.join(path.sep, "work", "repo");
@@ -111,10 +111,19 @@ function fakeWindow(height = 900, width = 1200) {
   };
 }
 
-function setup(options: { command?: string; windowHeight?: number; windowWidth?: number; position?: "bottom" | "right" } = {}) {
+function setup(
+  options: {
+    command?: string;
+    windowHeight?: number;
+    windowWidth?: number;
+    position?: "bottom" | "right";
+    size?: { width: number; height: number };
+  } = {},
+) {
   let current: string | null = workspace;
   const layouts: [number, number, number][] = [];
   const positions: string[] = [];
+  const sizes: { width: number; height: number }[] = [];
   const win = fakeWindow(options.windowHeight, options.windowWidth);
   const panel: Panel = new AgentPanel(win as never, {
     url: "app://folio/agent.html",
@@ -123,7 +132,9 @@ function setup(options: { command?: string; windowHeight?: number; windowWidth?:
     workspace: () => current,
     position: options.position ?? "bottom",
     onLayout: ({ height, width, gap }) => layouts.push([height, width, gap]),
+    size: options.size ?? null,
     onPositionChange: (position) => positions.push(position),
+    onSizeChange: (size) => sizes.push(size),
     onVisible: () => undefined,
     openExternal: () => undefined,
     backgroundColor: () => "#000",
@@ -139,6 +150,7 @@ function setup(options: { command?: string; windowHeight?: number; windowWidth?:
     win,
     layouts,
     positions,
+    sizes,
     page,
     sent,
     setWorkspace: (folder: string | null) => {
@@ -321,8 +333,8 @@ describe("AgentPanel layout", () => {
     const { panel, layouts, page, sent } = setup({ windowHeight: 800, windowWidth: 1600, position: "right" });
     panel.setBottomGap(24);
     panel.show();
-    expect(layouts.at(-1)).toEqual([0, 640, 24]);
-    expect(page()?.bounds).toEqual({ x: 1600 - 640, y: 0, width: 640, height: 800 - 24 });
+    expect(layouts.at(-1)).toEqual([0, 480, 24]);
+    expect(page()?.bounds).toEqual({ x: 1600 - 480, y: 0, width: 480, height: 800 - 24 });
     expect(sent("agent:place").at(-1)).toEqual({ position: "right", rightFits: true });
     panel.setWidth(5000);
     // 1600 - 520 the documents keep
@@ -335,7 +347,7 @@ describe("AgentPanel layout", () => {
     const { panel, layouts, positions, sent } = setup({ windowWidth: 1600 });
     panel.show();
     panel.setPosition("right");
-    expect(layouts.at(-1)).toEqual([0, 640, 0]);
+    expect(layouts.at(-1)).toEqual([0, 480, 0]);
     expect(panel.preferredPosition).toBe("right");
     panel.setPosition("bottom");
     expect(layouts.at(-1)).toEqual([320, 0, 0]);
@@ -355,8 +367,30 @@ describe("AgentPanel layout", () => {
     expect(panel.preferredPosition).toBe("right");
     win.size.width = 1200;
     panel.setBottomGap(0); // a layout, as the window's resize event gives
-    expect(layouts.at(-1)).toEqual([0, 640, 0]);
+    expect(layouts.at(-1)).toEqual([0, 480, 0]);
     expect(sent("agent:place").at(-1)).toEqual({ position: "right", rightFits: true });
+  });
+
+  it("starts at the size it was left at, and reports each resize to remember", () => {
+    const { panel, layouts, sizes } = setup({ windowWidth: 1600, size: { width: 560, height: 250 } });
+    panel.show();
+    expect(layouts.at(-1)).toEqual([250, 0, 0]);
+    panel.setPosition("right");
+    expect(layouts.at(-1)).toEqual([0, 560, 0]);
+    panel.setWidth(600);
+    panel.setPosition("bottom");
+    panel.setHeight(300);
+    expect(sizes).toEqual([
+      { width: 600, height: 250 },
+      { width: 600, height: 300 },
+    ]);
+  });
+
+  it("keeps a saved size only when it's one", () => {
+    expect(panelSize({ width: 560, height: 250 })).toEqual({ width: 560, height: 250 });
+    expect(panelSize({ width: "560", height: 250 })).toBeNull();
+    expect(panelSize({ width: 1e9, height: 250 })).toBeNull();
+    expect(panelSize(null)).toBeNull();
   });
 
   it("tells a reloaded page where it is", () => {

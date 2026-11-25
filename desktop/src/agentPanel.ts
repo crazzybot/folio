@@ -41,8 +41,9 @@ const DEFAULT_HEIGHT = 320;
 const MIN_HEIGHT = 120;
 // Room the documents keep above the panel
 const MIN_DOCUMENTS_HEIGHT = 200;
-// On the right: about 90 columns of Claude Code's output at the default font
-const DEFAULT_WIDTH = 640;
+// On the right: about 60 columns of Claude Code's output at the default font,
+// leaving the documents most of a laptop's window
+const DEFAULT_WIDTH = 480;
 const MIN_WIDTH = 360;
 // Room the documents keep beside the panel: a narrower window gets it at the bottom
 const MIN_DOCUMENTS_WIDTH = 520;
@@ -70,6 +71,19 @@ export interface PanelLayout {
   height: number;
   width: number;
   gap: number;
+}
+
+/** The panel's size as the user left it: its height at the bottom, its width on the right. */
+export interface PanelSize {
+  width: number;
+  height: number;
+}
+
+/** A size kept from an earlier run, or null if it isn't one. */
+export function panelSize(value: unknown): PanelSize | null {
+  if (typeof value !== "object" || value === null) return null;
+  const { width, height } = value as Record<string, unknown>;
+  return isSize(width) && isSize(height) ? { width, height } : null;
 }
 
 /** Where the panel is, for its header. */
@@ -103,10 +117,14 @@ export interface AgentPanelOptions {
   workspace: () => string | null;
   /** Where the user put the panel last (View → Agent Panel Position). */
   position: PanelPosition;
+  /** The size the user left it at, or null for the defaults. */
+  size: PanelSize | null;
   /** The room the panel takes from the document view, whenever it changes. */
   onLayout: (layout: PanelLayout) => void;
   /** The user moved the panel, to remember. */
   onPositionChange: (position: PanelPosition) => void;
+  /** The user resized the panel, to remember. */
+  onSizeChange: (size: PanelSize) => void;
   /** The panel was shown or hidden, for the status bar's button. */
   onVisible: (visible: boolean) => void;
   openExternal: (url: string) => void;
@@ -142,6 +160,8 @@ export class AgentPanel {
     private readonly options: AgentPanelOptions,
   ) {
     this.position = options.position;
+    this.width = Math.max(MIN_WIDTH, options.size?.width ?? DEFAULT_WIDTH);
+    this.height = Math.max(MIN_HEIGHT, options.size?.height ?? DEFAULT_HEIGHT);
     win.on("resize", () => this.layout());
     win.on("closed", () => this.dispose());
   }
@@ -287,11 +307,13 @@ export class AgentPanel {
   setHeight(height: number): void {
     this.height = Math.max(MIN_HEIGHT, height);
     this.layout();
+    this.options.onSizeChange({ width: this.width, height: this.height });
   }
 
   setWidth(width: number): void {
     this.width = Math.max(MIN_WIDTH, width);
     this.layout();
+    this.options.onSizeChange({ width: this.width, height: this.height });
   }
 
   /** Dock the panel at the bottom or on the right, and remember it. */
