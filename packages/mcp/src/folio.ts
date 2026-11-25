@@ -15,7 +15,7 @@ import { agentsFolder, presenceFile, stopFile, stopRequested, writePresence } fr
 import type { StopReason } from "../../core/src/agents";
 import { filesOnOtherBranches } from "../../core/src/git";
 import { listMarks, MarkError, MarksStore, newRoundId, realPath } from "../../core/src/marks";
-import type { AgentNoteRequest, DocumentMarks, DocumentNote, Highlight, NoteState } from "../../core/src/marks";
+import type { AgentNoteRequest, DocumentMarks, DocumentNote, Highlight, NoteState, Round } from "../../core/src/marks";
 import { answeredBy, formatReviewNotes, isPrivate, reviewPath, sendableNote, shortNoteId } from "../../core/src/reviewNotes";
 import type { ReviewDocument } from "../../core/src/reviewNotes";
 import { scanWorkspace } from "../../core/src/scanner";
@@ -107,7 +107,7 @@ export class Folio {
   readonly root: string;
   private readonly store: MarksStore;
   private readonly dataDir: string;
-  /** Rounds this session's waits have given the agent. */
+  /** Rounds this session's waits have given the agent, by `delivery`. */
   private readonly delivered = new Set<string>();
   private readonly settings: () => Record<string, unknown>;
   private readonly watching: boolean;
@@ -314,11 +314,16 @@ export class Folio {
         return stopped;
       }
       if (first) await this.announce({ state: "waiting", since, until: new Date(deadline).toISOString() }, client);
-      const sent = await this.sentAfter(after);
-      if (sent !== null) {
-        // Until the agent calls again, it's working on these
-        await this.announce({ state: "working", since: sent.since }, client);
-        return sent;
+      if ((await this.roundsAfter(after)).length > 0) {
+        // A send writes one record per document: let the app finish it, so
+        // all its documents come together rather than the first alone
+        await this.marksChange(SETTLE_MS, request.signal);
+        const sent = await this.sentAfter(after);
+        if (sent !== null) {
+          // Until the agent calls again, it's working on these
+          await this.announce({ state: "working", since: sent.since }, client);
+          return sent;
+        }
       }
       if (request.signal?.aborted === true) {
         // Otherwise the app would show it waiting until the deadline had long passed
@@ -364,18 +369,12 @@ export class Folio {
    * rounds are marked picked up, so the app shows their notes being worked on.
    */
   private async sentAfter(after: number): Promise<SentNotes | null> {
-    const from = Math.floor(after / 1000) * 1000;
-    const documents = await this.documents();
-    const { documents: marked } = await listMarks(this.store, this.root, documents, MARKS_OPTIONS);
     const picked: ReviewDocument[] = [];
     let latest = after;
-    for (const marks of marked) {
-      const rounds = (marks.rounds ?? []).filter((r) => r.via === "send" && Date.parse(r.at) >= from && !this.delivered.has(r.id));
-      const doc = documents.find((d) => d.id === marks.docId);
-      if (rounds.length === 0 || doc === undefined) continue;
+    for (const { doc, marks, rounds } of await this.roundsAfter(after)) {
       for (const r of rounds) {
         latest = Math.max(latest, Date.parse(r.at));
-        this.delivered.add(r.id);
+        this.delivered.add(delivery(doc, r));
       }
       try {
         await this.store.markPicked(path.join(this.root, ...doc.location.split("/")), rounds.map((r) => r.id));
@@ -397,6 +396,19 @@ export class Folio {
       documents: picked.length,
       since: new Date(latest).toISOString(),
     };
+  }
+
+  /** Each document's rounds sent to agents after `after` (ms) that this session hasn't had, as `sentAfter` takes them. */
+  private async roundsAfter(after: number): Promise<{ doc: DocumentMeta; marks: DocumentMarks; rounds: Round[] }[]> {
+    const from = Math.floor(after / 1000) * 1000;
+    const documents = await this.documents();
+    const { documents: marked } = await listMarks(this.store, this.root, documents, MARKS_OPTIONS);
+    return marked.flatMap((marks) => {
+      const doc = documents.find((d) => d.id === marks.docId);
+      if (doc === undefined) return [];
+      const rounds = (marks.rounds ?? []).filter((r) => r.via === "send" && Date.parse(r.at) >= from && !this.delivered.has(delivery(doc, r)));
+      return rounds.length === 0 ? [] : [{ doc, marks, rounds }];
+    });
   }
 
   /**
@@ -536,6 +548,11 @@ function waiting(marks: DocumentMarks, status: string | null | undefined): numbe
     n.state === undefined || n.state === "open" || (n.state === "sent" && answeredBy(n) === null);
   const note = sendableNote(marks.note, status);
   return marks.highlights.filter((h) => !isPrivate(h) && busy(h)).length + (note !== null && busy(note) ? 1 : 0);
+}
+
+/** A round as given to the agent: one send records the same round id on each of its documents. */
+function delivery(doc: DocumentMeta, round: { id: string }): string {
+  return `${doc.id} ${round.id}`;
 }
 
 function key(location: string): string {
