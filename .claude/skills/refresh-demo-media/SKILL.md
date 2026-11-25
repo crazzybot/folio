@@ -17,8 +17,9 @@ read it first. This skill is the procedure around them.
 - A change the video should *show* (a new feature) means editing
   `record.mjs`'s script, not only re-running it. Agree the new flow with the
   user before editing: the video is the site's main pitch.
-- The site's video (`site/img/demo.mp4`) is now a hand-edited screen
-  recording of the desktop app with Claude Code (see the README). Don't
+- The site's video (`site/img/demo.mp4`) is now an edited screen
+  recording of the desktop app with Claude Code in its agent panel,
+  building a small game spec-first (see the README). Don't
   replace it with `record.mjs`'s take unless the user asks; a new video
   means a new recording.
 - Refresh only what's stale: `node shoot.mjs out <names…>` takes single

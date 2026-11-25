@@ -5,21 +5,23 @@ demo build (`demo/relay/` and `demo/seed-marks.json`) in headless Chrome:
 
 | File | Made by |
 |---|---|
-| `demo.mp4` (~101 s), `demo-poster.webp` | A screen recording of the desktop app with Claude Code, in a workspace from `workspace.mjs`, edited by hand (see below) |
+| `demo.mp4` (~137 s), `demo-poster.webp` | A screen recording of the desktop app with Claude Code in its agent panel, in a workspace from `lantern.mjs`, edited (see below) |
 | `app-light.webp`, `app-dark.webp`, `status.webp`, `search.webp`, `book.webp`, `marks.webp` | `shoot.mjs` (1440×900 @2x), then `cwebp` |
 | `og.png` (1200×630 link preview) | `og.mjs` + `og.html`, from `app-light.png` |
 
 Last made: stills and `og.png` 2026-11-24 (0.12.0, with the agent's
 decision on ADR 0003 from the demo's seed marks); video and poster
-2026-11-19 (0.10.0).
+2026-11-25 (dark theme, the agent panel on the right).
 
-The site's video is no longer made by `record.mjs`: it shows the review
-loop with a real agent, which the browser demo can't. Don't copy
-`out/demo.mp4` or `out/demo-poster.webp` over it unless you mean to go
-back to the scripted take. The recording was edited with ffmpeg: typing
-at 4×, waiting for the agent at 8×, then scaled to 1600 px wide at 30 fps
-(`-crf 23 -tune stillimage`). The poster is the frame where Claude Code's
-reply to a note is open beside the diff.
+The site's video is no longer made by `record.mjs`: it shows a small game
+built spec-first with a real agent, which the browser demo can't. Don't
+copy `out/demo.mp4` or `out/demo-poster.webp` over it unless you mean to go
+back to the scripted take. The recording was edited with ffmpeg: zoomed
+on the notes, the agent panel and the game, the user's steps at 1.5–8×
+and the agent's work at 6–40×, each speed-up labelled on screen, with
+captions in the site's font. Then scaled to 1600 px wide at 30 fps
+(`-crf 30 -tune stillimage`, about 6 MB). The poster is the frame where
+Claude Code's first decision on the ADR is open with its options.
 
 - `lib.mjs`: shared puppeteer-core helpers (eased mouse, text selection),
   against the demo build at `http://localhost:3000`: documents from its
