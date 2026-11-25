@@ -7,6 +7,7 @@ import { threadSummary } from "../threads";
 import type { AgentSession } from "../types";
 import { agentNames } from "../agents";
 import LivePill from "./LivePill";
+import { IS_DEMO, REVIEW_LOOP_DOCS } from "../demo/links";
 import styles from "./SendNotesDialog.module.css";
 
 const IS_MAC = window.markdownApi?.platform === "darwin" || navigator.platform.toUpperCase().includes("MAC");
@@ -332,6 +333,16 @@ export default function SendNotesDialog({
           </div>
         ) : (
           <TextView ref={textRef} notes={notes} onOpenNote={(docId, highlightId) => onOpenNote(docId, highlightId)} />
+        )}
+
+        {/* The demo has no agent to send to: say where Send is */}
+        {IS_DEMO && (
+          <p className={styles.demoNote}>
+            In the desktop app, <strong>Send</strong> hands these notes to Claude Code while it waits for your review.{" "}
+            <a href={REVIEW_LOOP_DOCS} target="_blank" rel="noopener">
+              How it works
+            </a>
+          </p>
         )}
 
         <footer className={styles.footer}>
