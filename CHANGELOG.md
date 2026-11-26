@@ -19,10 +19,12 @@ turns them into the next release's section.
   is underlined, so you can tell it from the highlights around it.
 - A highlight's popover, and the note on a document, can be dragged out of
   the way of the text: by the popover's top row, or the note's title.
-- Folders in the **Documents** list show how many of the agent's questions
-  wait on you inside them, in a blue pill (such as **?2**), so you can find
-  them with the folders collapsed. A folder's hover card counts them too,
-  and so does the bar of the folder you focus on.
+- Collapsed folders in the **Documents** list show how many of the agent's
+  questions wait on you inside them, in a blue pill (such as **?2**), so you
+  can find them with the tree collapsed. A folder's hover card counts them
+  too, and so does the bar of the folder you focus on.
+- Expanded folders no longer show their unread count: the documents below
+  them already show which are unread.
 - **Needs your attention** in the **Marks** view's filter lists the notes
   that wait on you: the agent's questions, decisions and comments, and its
   answers to your notes, that you haven't answered or resolved yet. Unlike

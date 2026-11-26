@@ -53,9 +53,9 @@ The filters are remembered for each workspace.
 
 Folio remembers which version of each document you last read. A dot after a
 document's title means it changed since you read it; a ring means it's new.
-Folders show how many unread documents they hold, and the **Documents** tab
-shows the total. Hover a document to see since when: "Changed since you read
-it on 3 Nov", or "New since you last looked". **Unread** in the filter menu
+Collapsed folders show how many unread documents they hold, and the
+**Documents** tab shows the total. Hover a document to see since when:
+"Changed since you read it on 3 Nov", or "New since you last looked". **Unread** in the filter menu
 lists only those documents.
 
 A document counts as read once it has been on screen for 3 seconds, with the

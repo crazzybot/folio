@@ -1160,12 +1160,13 @@ function RowItem({
         <span className={styles.entryTitle}>{row.label}</span>
         {repository !== null && <RepositoryIcon repository={repository} />}
         <LivePill agents={agents} dot />
-        {unread > 0 && (
+        {/* What's inside, only while collapsed: open, the rows below show it */}
+        {!row.expanded && unread > 0 && (
           <span className={styles.folderUnread} aria-label={`${unread} unread`}>
             {unread}
           </span>
         )}
-        {questionCount > 0 && <FolderQuestions count={questionCount} />}
+        {!row.expanded && questionCount > 0 && <FolderQuestions count={questionCount} />}
         {!row.expanded && highlightCount > 0 && (
           <span className={styles.folderMarks} aria-label="Has highlights" />
         )}
