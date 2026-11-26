@@ -10,6 +10,10 @@ turns them into the next release's section.
 
 ### Changed
 
+- The status bar names the open folder, beside its git branch. Click the
+  name to open another folder, reveal it in Finder, copy its path, or switch
+  to a recent folder. The document's path is no longer repeated in the
+  status bar: the breadcrumb shows it.
 - Clicking a highlight in the **Marks** view opens its popover, as
   clicking it in the document does. While the popover is open, its passage
   is underlined, so you can tell it from the highlights around it.

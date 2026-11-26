@@ -26,6 +26,10 @@ Linux.
 <!-- TODO: screenshot of a freshly opened workspace, with the parts labelled -->
 
 Folio remembers the folder, and **File → Open Recent** lists the last 10.
+The open folder's name is at the left of the status bar, beside its git
+branch. Click it to open another folder, reveal this one in Finder (Show in
+Folder on Windows and Linux), copy its path, or switch to a recent folder.
+
 It watches the folder while it's open: save a document in your editor and
 Folio shows the change in place, keeping your scroll position. New, renamed
 and deleted files show up in the list right away.

@@ -27,7 +27,7 @@
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
@@ -210,7 +210,7 @@ for (const [location, entry] of Object.entries(seed.documents ?? {})) {
 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
-writeFileSync(join(out, "bundle.json"), JSON.stringify({ documents, contents, attachments, seedMarks, readVersions }) + "\n");
+writeFileSync(join(out, "bundle.json"), JSON.stringify({ workspaceName: basename(workspace), documents, contents, attachments, seedMarks, readVersions }) + "\n");
 cpSync(workspace, join(out, "workspace"), { recursive: true, filter: (src) => !src.split(/[\\/]/).pop().startsWith(".") });
 
 const marks = Object.values(seedMarks).reduce((n, m) => n + m.bookmarks.length + m.highlights.length, 0);

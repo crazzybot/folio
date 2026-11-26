@@ -15,6 +15,8 @@ import { DemoReads, sha1Of, type ReadVersionSeed } from "./reads";
 import { searchDocuments } from "./search";
 
 export interface DemoBundle {
+  /** The bundled folder's name ("relay"); missing in bundles made before it was added. */
+  workspaceName?: string;
   /** In document-list order, as a workspace scan returns them. */
   documents: DocumentMeta[];
   /** Markdown by document id. */
@@ -72,6 +74,10 @@ export function createDemoSource(base: string, storage: MarksStorage | null = br
   const reads = async () => (await load()).reads;
 
   return {
+    workspace: async () => {
+      const name = (await bundle()).workspaceName;
+      return name === undefined ? null : { name, path: null };
+    },
     listDocuments: async () => structuredClone((await bundle()).documents),
     listAttachments: async () => [...(await bundle()).attachments],
     searchDocuments: async (query) => {

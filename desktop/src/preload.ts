@@ -113,6 +113,8 @@ contextBridge.exposeInMainWorld("markdownApi", {
   openLinkedFile: (location: string) => ipcRenderer.invoke("workspace:open-file", location),
   /** Open a markdown file or a folder, as File → Open Folder… or Open With would. */
   openPath: (target: string) => ipcRenderer.invoke("workspace:open-path", target),
+  /** The status bar's workspace menu (Open Folder…, Reveal, Copy Path, recent folders) at (x, y). */
+  showWorkspaceMenu: (x: number, y: number) => ipcRenderer.invoke("workspace:menu", x, y),
   /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */
   onWorkspaceChange: (callback: () => void) => {
     const listener = () => callback();

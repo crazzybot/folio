@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route, useNavigate, useNavigationType, useParams, useLocation } from "react-router-dom";
-import { fetchAttachments, fetchDocumentContent, fetchLastRead } from "./api";
+import { fetchAttachments, fetchDocumentContent, fetchLastRead, fetchWorkspace } from "./api";
+import type { WorkspaceInfo } from "./dataSource";
 import { savedScrollPosition } from "./scrollHistory";
 import DocumentList from "./components/DocumentList";
 import DocumentNoteEditor from "./components/DocumentNoteEditor";
@@ -183,6 +184,17 @@ function AppInner(): React.ReactElement {
   // folder icons, and the documents changed on the branch
   const git = useGitState();
   const agents = useAgents();
+  // The open folder, named in the status bar (a new workspace reloads the page)
+  const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
+  useEffect(() => {
+    let current = true;
+    fetchWorkspace()
+      .then((info) => current && setWorkspace(info))
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, []);
   const branchChanges = useMemo(() => changesById(git, documents), [git, documents]);
   const changedIds = useMemo(() => (branchChanges === null ? null : new Set(branchChanges.keys())), [branchChanges]);
   const changedInFocus = useMemo(
@@ -1410,6 +1422,26 @@ function AppInner(): React.ReactElement {
             <path d="M8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4M12.6 12.6l-1.4-1.4M4.8 4.8L3.4 3.4" strokeLinecap="round" />
           </svg>
         </button>
+        {/* The open folder, beside its branch (the title bar has no room for it): its menu
+            reveals it, copies its path and switches to a recent folder */}
+        {workspace !== null && (
+          <button
+            type="button"
+            className={styles.statusWorkspace}
+            disabled={window.markdownApi === undefined}
+            onClick={(e) => {
+              const box = e.currentTarget.getBoundingClientRect();
+              void window.markdownApi?.showWorkspaceMenu(box.left, box.top);
+            }}
+            aria-label={`Workspace: ${workspace.name}`}
+            title={workspace.path ?? workspace.name}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round" aria-hidden="true">
+              <path d="M1.5 3.5h4.5l1.5 1.5h7v8.5h-13z" />
+            </svg>
+            <span className={styles.statusBranchName}>{workspace.name}</span>
+          </button>
+        )}
         {gitRepo !== null && (
           <button
             type="button"
@@ -1445,9 +1477,7 @@ function AppInner(): React.ReactElement {
             );
           }}
         />
-        <span className={`${styles.statusItem} ${styles.statusLocation}`} title={selectedDoc?.location}>
-          {selectedDoc ? selectedDoc.location : ""}
-        </span>
+        <span className={styles.statusSpacer} />
         {statusMessage !== null && (
           <span className={styles.statusItem} role="status">
             {statusMessage.text}
