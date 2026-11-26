@@ -26,6 +26,7 @@ describe("outside the desktop app", () => {
     await expect(api.fetchMarks()).rejects.toThrow(api.UNAVAILABLE_MESSAGE);
     await expect(api.addHighlight("d1", anchor, "blue")).rejects.toThrow(api.UNAVAILABLE_MESSAGE);
     expect(api.workspaceFileUrl("img/a.png")).toBe("");
+    expect(await api.fetchWorkspace()).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
@@ -43,6 +44,7 @@ describe("desktop app", () => {
       forget: vi.fn(async () => undefined),
     };
     const bridge = {
+      workspacePath: "C:\\Users\\me\\specs",
       workspaceFileBaseUrl: "app://workspace/",
       listDocuments: vi.fn(async () => []),
       listAttachments: vi.fn(async () => []),
@@ -54,6 +56,7 @@ describe("desktop app", () => {
     vi.stubGlobal("window", { markdownApi: bridge });
     const desktop = await import("./api");
 
+    expect(await desktop.fetchWorkspace()).toEqual({ name: "specs", path: "C:\\Users\\me\\specs" });
     await desktop.fetchDocuments();
     await desktop.fetchAttachments();
     await desktop.searchDocuments("lease");

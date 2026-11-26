@@ -750,6 +750,14 @@ function registerIpcHandlers(): void {
     const branches = await branchesOf(repository.root);
     Menu.buildFromTemplate(branchMenu(win, repository, branches)).popup({ window: win, x: Math.round(x), y: Math.round(y) });
   });
+  // The status bar's workspace menu, above the point (x, y)
+  ipcMain.handle("workspace:menu", (event, x: unknown, y: unknown): void => {
+    assertTrustedSender(event);
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const { workspace } = settings;
+    if (win === null || workspace === null || typeof x !== "number" || typeof y !== "number") return;
+    Menu.buildFromTemplate(workspaceMenu(workspace)).popup({ window: win, x: Math.round(x), y: Math.round(y) });
+  });
   // A document's hover card: the last commit that touched it
   ipcMain.handle("git:last-commit", async (event, docId: unknown): Promise<LastCommit | null> => {
     assertTrustedSender(event);
@@ -1401,18 +1409,42 @@ function folderLabel(folder: string): string {
   return process.platform === "win32" ? label.replaceAll("&", "&&") : label;
 }
 
-/** File → Open Recent: other recently opened folders (the current one is already open). */
-function recentMenu(): MenuItemConstructorOptions[] {
-  const folders = recentWorkspaces.filter((folder) => folder !== settings.workspace);
-  return [
-    ...folders.map(
+/** Other recently opened folders (the current one is already open), most recent first. */
+function recentFolderItems(): MenuItemConstructorOptions[] {
+  return recentWorkspaces
+    .filter((folder) => folder !== settings.workspace)
+    .map(
       (folder): MenuItemConstructorOptions => ({
         label: folderLabel(folder),
         click: withWindow((win) => openWorkspace(win, folder)),
       }),
-    ),
+    );
+}
+
+/** File → Open Recent. */
+function recentMenu(): MenuItemConstructorOptions[] {
+  const folders = recentFolderItems();
+  return [
+    ...folders,
     ...(folders.length > 0 ? [{ type: "separator" } satisfies MenuItemConstructorOptions] : []),
     { label: "Clear Recently Opened", enabled: folders.length > 0, click: clearRecent },
+  ];
+}
+
+/**
+ * The status bar's workspace menu: the open folder's actions, then the
+ * recent folders inline, so switching takes one click. Clearing the list
+ * stays in File → Open Recent.
+ */
+function workspaceMenu(workspace: string): MenuItemConstructorOptions[] {
+  const folders = recentFolderItems();
+  return [
+    { label: "Open Folder…", accelerator: "CmdOrCtrl+O", click: withWindow(chooseWorkspace) },
+    { label: revealLabel(), click: () => shell.showItemInFolder(workspace) },
+    { label: "Copy Path", click: () => clipboard.writeText(workspace) },
+    ...(folders.length > 0
+      ? [{ type: "separator" } satisfies MenuItemConstructorOptions, { label: "Recent", enabled: false }, ...folders]
+      : []),
   ];
 }
 

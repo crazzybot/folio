@@ -1,5 +1,6 @@
-import type { DataSource, HighlightChanges, NoteChanges } from "./dataSource";
+import type { DataSource, HighlightChanges, NoteChanges, WorkspaceInfo } from "./dataSource";
 import { createDemoSource } from "./demo/source";
+import { folderName } from "./git";
 import type {
   Bookmark,
   BookmarkHeading,
@@ -19,7 +20,10 @@ import type {
 // ─── Desktop app (IPC) ────────────────────────────────────────────────────────
 
 function desktopSource(api: NonNullable<Window["markdownApi"]>): DataSource {
+  const path = api.workspacePath;
   return {
+    // Read once: a new workspace reloads the page
+    workspace: async () => (path === null ? null : { name: folderName(path), path }),
     listDocuments: () => api.listDocuments(),
     listAttachments: () => api.listAttachments(),
     searchDocuments: (query) => api.searchDocuments(query),
@@ -64,6 +68,7 @@ function unavailable(): Promise<never> {
 }
 
 const unavailableSource: DataSource = {
+  workspace: async () => null,
   listDocuments: unavailable,
   listAttachments: unavailable,
   searchDocuments: unavailable,
@@ -140,6 +145,11 @@ export async function markFolderRead(folder: string): Promise<void> {
 /** Documents whose text contains `query` (case-insensitive; at least 2 characters). */
 export async function searchDocuments(query: string): Promise<SearchResult[]> {
   return source.searchDocuments(query);
+}
+
+/** The open workspace folder: the status bar's name. */
+export async function fetchWorkspace(): Promise<WorkspaceInfo | null> {
+  return source.workspace();
 }
 
 /** URL of the workspace file at `location` (workspace-relative, "/"-separated). */

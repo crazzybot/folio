@@ -89,6 +89,8 @@ interface MarkdownDesktopApi {
   openLinkedFile(location: string): Promise<void>;
   /** Open a markdown file or a folder (absolute path), as Open With would. */
   openPath(target: string): Promise<void>;
+  /** The status bar's workspace menu (Open Folder…, Reveal, Copy Path, recent folders) at (x, y). */
+  showWorkspaceMenu(x: number, y: number): Promise<void>;
   /** Subscribe to markdown changes in the workspace; returns an unsubscribe function. */
   onWorkspaceChange(callback: () => void): () => void;
   /** Highlights and bookmarks, kept by the main process in ~/.folio/marks (desktop/src/marks.ts). */

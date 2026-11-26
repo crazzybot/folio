@@ -259,8 +259,8 @@
   text-decoration: underline;
 }
 
-/* The path takes the space between the settings gear and the count */
-.statusLocation {
+/* Takes the space between the left items and the messages and count */
+.statusSpacer {
   flex: 1;
   min-width: 0;
 }
@@ -303,7 +303,9 @@
   background: var(--color-hover-bg);
 }
 
-/* The branch of the open document's repository (desktop), after the gear; opens the branch menu */
+/* After the gear: the workspace folder, then the branch of the open
+   document's repository (desktop); each opens its menu */
+.statusWorkspace,
 .statusBranch {
   flex-shrink: 1;
   min-width: 0;
@@ -323,15 +325,30 @@
   gap: 4px;
 }
 
+/* The name gives way before the branch does, down to its folder icon */
+.statusWorkspace {
+  flex-shrink: 3;
+  min-width: calc(14px + 2 * var(--space-1));
+  max-width: 30%;
+}
+
+/* The live demo: a name, without the desktop app's menu */
+.statusWorkspace:disabled {
+  cursor: default;
+}
+
+.statusWorkspace svg,
 .statusBranch svg {
   flex-shrink: 0;
 }
 
+.statusWorkspace:enabled:hover,
 .statusBranch:hover {
   color: var(--color-text);
   background: var(--color-hover-bg);
 }
 
+.statusWorkspace:focus-visible,
 .statusBranch:focus-visible {
   outline: 1px solid var(--color-accent);
 }
@@ -341,7 +358,7 @@
   text-overflow: ellipsis;
 }
 
-/* The document count always stays whole; the path gives way */
+/* The document count always stays whole; the names give way */
 .statusItem:last-child {
   flex-shrink: 0;
 }

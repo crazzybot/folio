@@ -37,7 +37,12 @@ export type HighlightChanges = {
 /** A document's note as set: both null (or blank) removes it. Privacy carries over unless given; so does the state, unless given or the text or status changed (open again). */
 export type NoteChanges = { text: string | null; requestedStatus: string | null; state?: NoteState; private?: boolean | null };
 
+/** The open workspace folder: its name, and its absolute path where there is one (not in the demo). */
+export type WorkspaceInfo = { name: string; path: string | null };
+
 export interface DataSource {
+  /** The open workspace folder; null with none. */
+  workspace(): Promise<WorkspaceInfo | null>;
   listDocuments(): Promise<DocumentMeta[]>;
   listAttachments(): Promise<string[]>;
   searchDocuments(query: string): Promise<SearchResult[]>;

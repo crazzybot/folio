@@ -86,6 +86,15 @@ describe("createDemoSource", () => {
     await expect(createDemoSource("./", null).getDocumentContent("zzz")).rejects.toThrow("not found");
   });
 
+  it("names the bundled folder, without a path", async () => {
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ ...bundle, workspaceName: "relay" }), { status: 200 }));
+    expect(await createDemoSource("./", null).workspace()).toEqual({ name: "relay", path: null });
+  });
+
+  it("names no folder from a bundle made before the name was added", async () => {
+    expect(await createDemoSource("./", null).workspace()).toBeNull();
+  });
+
   it("serves workspace files from the static copy", () => {
     expect(createDemoSource("/folio/demo/", null).workspaceFileUrl("img/a%20b.png")).toBe(
       "/folio/demo/workspace/img/a%20b.png",
