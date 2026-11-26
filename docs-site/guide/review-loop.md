@@ -205,8 +205,12 @@ questions on the spec as notes".
   click it to open each in turn. A question you haven't opened has a dot on
   its margin icon, as a new reply does. The **Documents** list shows how
   many questions wait on you in each document, in a blue pill (such as
-  **?2**). In the **Marks** view, the filter's **The agent's notes** lists
-  only them.
+  **?2**). In the **Marks** view, the filter's **From** › **The agent**
+  lists only them. **Needs your attention** lists every note where the
+  agent wrote last: its questions, decisions and comments, and its answers
+  to your notes. A note stays there after you open it, until you reply or
+  **Resolve** it. Pick both to see only the agent's notes waiting on you,
+  or **You** with it for the answers to your own.
 
 The agent records your answers in the document, and marks each note
 **Addressed**. You can't edit the agent's notes, but you can delete them
