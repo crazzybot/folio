@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { buildMarkRows } from "../marksView";
-import type { Located, MarkKind, MarkRow } from "../marksView";
-import { agentNoteLabel, noteText, filterOf, isCounted, noteFilterOf, shownStates, STATE_FILTERS } from "../sending";
+import { buildMarkRows, fromOf } from "../marksView";
+import type { Located, MarkFrom, MarkKind, MarkRow } from "../marksView";
+import { answeredBy, noteText, filterOf, isCounted, noteFilterOf, shownStates, STATE_FILTERS } from "../sending";
 import type { StateFilter } from "../sending";
 import { isNewAgentNote, newReplies } from "../threads";
 import { noteIconOf } from "./MarksLayer";
@@ -105,8 +105,10 @@ export default function MarksPanel({
   // The states picked in the filter; none picked shows all but resolved notes
   const [picked, setPicked] = useState<ReadonlySet<StateFilter>>(new Set());
   const states = shownStates(picked);
-  // Only the agent's own notes: its questions, decisions and comments
-  const [agentOnly, setAgentOnly] = useState(false);
+  // Whose marks: the user's, the agent's own notes (its questions, decisions and comments); none picked shows both
+  const [from, setFrom] = useState<ReadonlySet<MarkFrom>>(new Set());
+  // Only the notes that need the user: the agent wrote last, and they haven't answered or resolved it
+  const [waitingOnly, setWaitingOnly] = useState(false);
   // States are about highlights and notes: with only bookmarks shown, they don't apply
   const statesApply = (k: ReadonlySet<MarkKind>) => k.size === 0 || k.has("highlights");
   // A new request sets the filter (while rendering, as React suggests for state that follows a prop)
@@ -122,13 +124,13 @@ export default function MarksPanel({
   const [focusKey, setFocusKey] = useState<string | null>(null);
 
   const rows = useMemo(
-    () => buildMarkRows({ documents: scoped, byDoc, query, kinds, states, agentOnly, collapsed, located }),
-    [scoped, byDoc, query, kinds, states, agentOnly, collapsed, located],
+    () => buildMarkRows({ documents: scoped, byDoc, query, kinds, states, from, waitingOnly, collapsed, located }),
+    [scoped, byDoc, query, kinds, states, from, waitingOnly, collapsed, located],
   );
   // What the view shows, folded documents included: the highlights Copy review notes copies, by document
   const copyable = useMemo(() => {
     const byDocShown = new Map<string, ReviewSelection>();
-    for (const row of buildMarkRows({ documents: scoped, byDoc, query, kinds, states, agentOnly, collapsed: NOTHING_FOLDED, located })) {
+    for (const row of buildMarkRows({ documents: scoped, byDoc, query, kinds, states, from, waitingOnly, collapsed: NOTHING_FOLDED, located })) {
       const entry = byDocShown.get(row.doc.id);
       // A note on the document is sent too: its comment, or a status change still to make
       if (row.kind === "note" && (row.note.text !== null || !row.done)) {
@@ -138,12 +140,12 @@ export default function MarksPanel({
       byDocShown.set(row.doc.id, { doc: row.doc, highlights: [...(entry?.highlights ?? []), row.highlight], note: entry?.note ?? false });
     }
     return byDocShown;
-  }, [scoped, byDoc, query, kinds, states, agentOnly, located]);
+  }, [scoped, byDoc, query, kinds, states, from, waitingOnly, located]);
   // How many of the listed documents' marks are of each kind and notes in each state, for the filter
   const { kindCounts, stateCounts } = useMemo(() => {
     const counts = new Map<StateFilter, number>();
     const add = (state: StateFilter) => counts.set(state, (counts.get(state) ?? 0) + 1);
-    const kindsOf = { bookmarks: 0, highlights: 0, agent: 0 };
+    const kindsOf = { bookmarks: 0, highlights: 0, you: 0, agent: 0, waiting: 0 };
     for (const doc of scoped) {
       const marks = byDoc.get(doc.id);
       if (marks === undefined) continue;
@@ -151,9 +153,14 @@ export default function MarksPanel({
       kindsOf.highlights += marks.highlights.length + (marks.note === undefined ? 0 : 1);
       for (const h of marks.highlights) {
         add(filterOf(h));
-        if (agentNoteLabel(h) !== null && states.has(filterOf(h))) kindsOf.agent++;
+        if (states.has(filterOf(h))) kindsOf[fromOf(h)]++;
+        if (answeredBy(h) !== null && states.has(filterOf(h))) kindsOf.waiting++;
       }
-      if (marks.note !== undefined) add(noteFilterOf(marks.note, doc.meta?.status));
+      if (marks.note !== undefined) {
+        add(noteFilterOf(marks.note, doc.meta?.status));
+        if (states.has(noteFilterOf(marks.note, doc.meta?.status))) kindsOf.you++;
+        if (answeredBy(marks.note) !== null && states.has(noteFilterOf(marks.note, doc.meta?.status))) kindsOf.waiting++;
+      }
     }
     return { kindCounts: kindsOf, stateCounts: counts };
   }, [scoped, byDoc, states]);
@@ -165,7 +172,7 @@ export default function MarksPanel({
 
   // Hover card: a document's title and location, a mark in full (rows cut them short)
   const { card, listProps: hoverProps, dismiss: dismissCard } = useRowHoverCard(() => true);
-  useEffect(() => dismissCard(), [dismissCard, query, kinds, states, agentOnly]);
+  useEffect(() => dismissCard(), [dismissCard, query, kinds, states, from, waitingOnly]);
   const cardRow = card === null ? undefined : rows.find((r) => r.key === card.key);
 
   const toggleCollapsed = useCallback((docId: string, open?: boolean) => {
@@ -374,32 +381,60 @@ export default function MarksPanel({
                 ]
               : []),
             // Only when the agent has written notes, or the filter is on
-            ...(statesApply(kinds) && (kindCounts.agent > 0 || agentOnly)
+            ...(statesApply(kinds) && (kindCounts.agent > 0 || from.size > 0)
               ? [
                   {
                     id: "from",
                     heading: "From",
                     options: [
+                      { value: "you", label: "You", icon: <NoteStateIcon kind="open" />, count: kindCounts.you, checked: from.has("you") },
                       {
                         value: "agent",
-                        label: "The agent's notes",
+                        label: "The agent",
                         icon: <NoteStateIcon kind="answered" />,
                         count: kindCounts.agent,
-                        checked: agentOnly,
+                        checked: from.has("agent"),
+                      },
+                    ],
+                  },
+                ]
+              : []),
+            // Only when a note needs the user, or the filter is on
+            ...(statesApply(kinds) && (kindCounts.waiting > 0 || waitingOnly)
+              ? [
+                  {
+                    id: "waiting",
+                    heading: "Your turn",
+                    options: [
+                      {
+                        value: "waiting",
+                        label: "Needs your attention",
+                        icon: <NoteStateIcon kind="answered" />,
+                        count: kindCounts.waiting,
+                        checked: waitingOnly,
                       },
                     ],
                   },
                 ]
               : []),
           ]}
-          active={(openOnly ? 1 : 0) + (agentOnly ? 1 : 0) + kinds.size + picked.size}
+          active={(openOnly ? 1 : 0) + from.size + (waitingOnly ? 1 : 0) + kinds.size + picked.size}
           onToggle={(section, value) => {
             if (section === "scope") {
               setOpenOnly(!openOnly);
               return;
             }
             if (section === "from") {
-              setAgentOnly(!agentOnly);
+              const who = value === "you" || value === "agent" ? value : null;
+              if (who === null) return;
+              const next = new Set(from);
+              if (next.has(who)) next.delete(who);
+              else next.add(who);
+              setFrom(next);
+              return;
+            }
+            if (section === "waiting") {
+              setWaitingOnly(!waitingOnly);
               return;
             }
             if (section === "kind") {
@@ -411,7 +446,8 @@ export default function MarksPanel({
               setKinds(next);
               if (!statesApply(next)) {
                 setPicked(new Set());
-                setAgentOnly(false);
+                setFrom(new Set());
+                setWaitingOnly(false);
               }
               return;
             }
@@ -424,7 +460,8 @@ export default function MarksPanel({
           }}
           onClear={() => {
             setOpenOnly(false);
-            setAgentOnly(false);
+            setFrom(new Set());
+            setWaitingOnly(false);
             setKinds(new Set());
             setPicked(new Set());
           }}

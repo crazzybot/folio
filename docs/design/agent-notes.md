@@ -139,5 +139,11 @@ Besides those:
 - The **Documents** list counts each document's open questions
   (`isOpenQuestion`: the agent spoke last, on its own note or with options
   in its reply) in a pill before the highlight count.
-- The **Marks** view's filter has a **From** section, **The agent's
-  notes**, shown while there are any.
+- The **Marks** view's filter has a **From** section, shown while the
+  agent has notes: **You** (bookmarks, highlights and notes the user made)
+  and **The agent** (its own notes). None picked shows both.
+- And a **Your turn** section, **Needs your attention**: every note
+  the agent spoke last on (`answeredBy`: sent, the agent's own note or its
+  reply last), whether or not the user has seen it. The "New question"
+  marks go once a note is opened; this lists what's still unanswered, until
+  the user replies or resolves it. Shown while there are any.

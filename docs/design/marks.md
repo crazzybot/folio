@@ -306,7 +306,9 @@ MISSING DOCUMENTS (1)
 
 - **Filter** matches quote and note text, heading text and document titles;
   the filter menu (the funnel beside it) picks kinds of marks (bookmarks, or
-  highlights and notes) and note states (sending-notes.md); it
+  highlights and notes) and note states (sending-notes.md), whose marks
+  (the user's or the agent's), and the notes that need the user
+  (agent-notes.md); it
   replaced the earlier **Notes only** toggle.
 - The open document's marks are tinted, and its highlights that can't be
   found in the current text are shown as such.

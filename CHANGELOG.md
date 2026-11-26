@@ -23,6 +23,12 @@ turns them into the next release's section.
   wait on you inside them, in a blue pill (such as **?2**), so you can find
   them with the folders collapsed. A folder's hover card counts them too,
   and so does the bar of the folder you focus on.
+- **Needs your attention** in the **Marks** view's filter lists the notes
+  that wait on you: the agent's questions, decisions and comments, and its
+  answers to your notes, that you haven't answered or resolved yet. Unlike
+  the "New question" mark, a note stays in the list after you open it.
+- The filter's **From** section picks **You** or **The agent** (it was
+  **The agent's notes**), so you can also list only your own notes.
 
 ### Fixed
 

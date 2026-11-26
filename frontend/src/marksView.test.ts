@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildMarkRows } from "./marksView";
 import type { MarkRowsInput } from "./marksView";
 import type { StateFilter } from "./sending";
-import type { Bookmark, DocumentMeta, Highlight } from "./types";
+import type { Author, Bookmark, DocumentMeta, Highlight } from "./types";
 
 const doc = (location: string, headings: { level: number; text: string }[] = []): DocumentMeta => ({
   id: location,
@@ -58,11 +58,30 @@ const base: MarkRowsInput = {
 const keys = (input: Partial<MarkRowsInput>) => buildMarkRows({ ...base, ...input }).map((r) => r.key);
 
 describe("buildMarkRows", () => {
-  it("shows only the agent's own notes when asked", () => {
+  it("shows the agent's own notes, or the user's marks, when asked", () => {
     const asked = { ...highlight("q1", "a question", 20, "Why?"), author: { kind: "agent" as const, name: "Claude Code" }, kind: "question" as const };
     const withAsked = new Map(byDoc);
     withAsked.set("notes.md", { bookmarks: [], highlights: [highlight("h3", "an idea", 5), asked] });
-    expect(keys({ byDoc: withAsked, agentOnly: true })).toEqual(["d:notes.md", "h:notes.md:q1"]);
+    expect(keys({ byDoc: withAsked, from: new Set(["agent"]) })).toEqual(["d:notes.md", "h:notes.md:q1"]);
+    expect(keys({ byDoc: withAsked, from: new Set(["you"]) })).not.toContain("h:notes.md:q1");
+    expect(keys({ byDoc: withAsked, from: new Set(["you"]) })).toContain("h:notes.md:h3");
+    expect(keys({ byDoc: withAsked, from: new Set(["you", "agent"]) })).toEqual(keys({ byDoc: withAsked }));
+  });
+
+  it("shows only the notes that need the user when asked, seen or not", () => {
+    const agent = { kind: "agent" as const, name: "Claude Code" };
+    const reply = (author: Author, at: string) => ({ id: at, author, text: "…", at });
+    const sent = (h: Highlight): Highlight => ({ ...h, state: "sent" });
+    const asked = { ...sent(highlight("q1", "a question", 20, "Why?")), author: agent, kind: "question" as const, seen: "2026-11-20T10:00:00Z" };
+    const answered = { ...sent(highlight("n1", "a note", 30, "Rename it")), replies: [reply(agent, "2026-11-20T10:00:00Z")] };
+    const repliedTo = { ...answered, id: "n2", replies: [...answered.replies, reply({ kind: "user" }, "2026-11-20T11:00:00Z")] };
+    const resolved: Highlight = { ...answered, id: "n3", state: "resolved" };
+    const waiting = new Map(byDoc);
+    waiting.set("notes.md", { bookmarks: [], highlights: [highlight("h3", "an idea", 5), asked, answered, repliedTo, resolved] });
+    expect(keys({ byDoc: waiting, waitingOnly: true })).toEqual(["d:notes.md", "h:notes.md:q1", "h:notes.md:n1"]);
+    // With From: the agent's answers on the user's notes, or its own questions
+    expect(keys({ byDoc: waiting, waitingOnly: true, from: new Set(["you"]) })).toEqual(["d:notes.md", "h:notes.md:n1"]);
+    expect(keys({ byDoc: waiting, waitingOnly: true, from: new Set(["agent"]) })).toEqual(["d:notes.md", "h:notes.md:q1"]);
   });
 
   it("groups marks by document: heading bookmarks in document order, then highlights in text order", () => {
@@ -161,6 +180,13 @@ describe("buildMarkRows with a note on the document", () => {
     expect(keys(buildMarkRows({ ...input, kinds: new Set(["highlights"]) }))).toEqual(["d:adr.md", "n:adr.md", "h:adr.md:h9", "d:notes.md", "h:notes.md:h3"]);
     expect(keys(buildMarkRows({ ...input, query: "rotation" }))).toEqual(["d:adr.md", "n:adr.md"]);
     expect(keys(buildMarkRows({ ...input, query: "accepted" }))).toEqual(["d:adr.md", "n:adr.md"]);
+  });
+
+  it("keeps it when waiting for the user's reply: sent, the agent having answered last", () => {
+    const answered = { ...note, state: "sent" as const, replies: [{ id: "r1", author: { kind: "agent" as const, name: "Claude Code" }, text: "Which date?", at: "" }] };
+    const waiting = (n: typeof note) => keys(buildMarkRows({ ...input, byDoc: new Map([["adr.md", { bookmarks: [], highlights: [], note: n }]]), waitingOnly: true }));
+    expect(waiting(answered)).toEqual(["d:adr.md", "n:adr.md"]);
+    expect(waiting(note)).toEqual([]);
   });
 
   it("knows when the document already has the requested status", () => {
