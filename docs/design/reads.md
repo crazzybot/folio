@@ -84,9 +84,10 @@ a version that wasn't shown is never recorded as read.
 ## UI
 
 - **Document list**: a filled dot after the title for changed, a ring for
-  new; the row's accessible name ends in "changed" or "new". Folders show
-  how many documents under them are unread; the **Documents** tab shows the
-  total in the focused folder ("Documents · 4").
+  new; the row's accessible name ends in "changed" or "new". Collapsed
+  folders show how many documents under them are unread (an expanded one
+  doesn't: its rows show them); the **Documents** tab shows the total in the
+  focused folder ("Documents · 4").
 - **Hover cards**: "Changed since you read it on 3 Nov", "Changed since
   Folio first saw it on 3 Nov" or "New since you last looked"; a folder's
   card adds "N unread".
