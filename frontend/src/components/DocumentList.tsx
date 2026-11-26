@@ -388,18 +388,18 @@ export default function DocumentList({
   }, [documents, highlightCounts]);
 
   // How many unread documents each folder holds, at any depth
-  const unreadByFolder = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const doc of documents) {
-      if (!unreadIds.has(doc.id)) continue;
-      const parts = doc.location.split("/");
-      for (let i = 1; i < parts.length; i++) {
-        const folder = parts.slice(0, i).join("/");
-        counts.set(folder, (counts.get(folder) ?? 0) + 1);
-      }
-    }
-    return counts;
-  }, [documents, unreadIds]);
+  const unreadByFolder = useMemo(() => countByFolder(documents, (doc) => (unreadIds.has(doc.id) ? 1 : 0)), [documents, unreadIds]);
+
+  // How many of the agent's questions wait on the user in each folder, at any
+  // depth, so a collapsed tree still shows where they are
+  const questionsByFolder = useMemo(
+    () => countByFolder(documents, (doc) => questionCounts.get(doc.id) ?? 0),
+    [documents, questionCounts],
+  );
+  const focusQuestions = useMemo(
+    () => documents.reduce((sum, doc) => sum + (questionCounts.get(doc.id) ?? 0), 0),
+    [documents, questionCounts],
+  );
 
   // ── Rows ───────────────────────────────────────────────────────────────────
   const rows: Row[] = [];
@@ -603,6 +603,7 @@ export default function DocumentList({
           </span>
           {focusRepository !== null && <RepositoryIcon repository={focusRepository} />}
           <LivePill agents={focusAgents} dot />
+          {focusQuestions > 0 && <FolderQuestions count={focusQuestions} />}
           <span className={styles.focusSpacer} />
           {window.markdownApi !== undefined && (
             <button
@@ -943,7 +944,13 @@ export default function DocumentList({
                 onMarkUnread={onMarkUnread}
                 onMarkFolderRead={onMarkFolderRead}
                 bookmarked={row.kind === "document" && bookmarkedIds.has(row.doc.id)}
-                questionCount={row.kind === "document" ? (questionCounts.get(row.doc.id) ?? 0) : 0}
+                questionCount={
+                  row.kind === "document"
+                    ? (questionCounts.get(row.doc.id) ?? 0)
+                    : row.kind === "folder"
+                      ? (questionsByFolder.get(row.folderKey) ?? 0)
+                      : 0
+                }
                 highlightCount={
                   row.kind === "document"
                     ? (highlightCounts.get(row.doc.id) ?? 0)
@@ -978,6 +985,7 @@ export default function DocumentList({
               highlightCounts={highlightCounts}
               repository={repositoryOf(git, cardRow.folderKey)}
               unread={unreadByFolder.get(cardRow.folderKey) ?? 0}
+              questions={questionsByFolder.get(cardRow.folderKey) ?? 0}
             />
           )}
         </HoverCard>
@@ -1057,7 +1065,7 @@ interface RowItemProps {
   onFocusFolder: (folder: string) => void;
   /** A document's highlights; for a folder, more than 0 when something inside has any. */
   highlightCount: number;
-  /** A document's questions from the agent waiting on the user. */
+  /** The agent's questions waiting on the user: a document's, or all of a folder's. */
   questionCount: number;
   /** A document bookmarked as a whole. */
   bookmarked: boolean;
@@ -1157,6 +1165,7 @@ function RowItem({
             {unread}
           </span>
         )}
+        {questionCount > 0 && <FolderQuestions count={questionCount} />}
         {!row.expanded && highlightCount > 0 && (
           <span className={styles.folderMarks} aria-label="Has highlights" />
         )}
@@ -1292,6 +1301,31 @@ function RowItem({
       {match.text.slice(match.end)}
     </li>
   );
+}
+
+/** The agent's questions waiting on the user inside a folder: the document rows' pill. */
+function FolderQuestions({ count }: { count: number }): React.ReactElement {
+  const text = `${count} ${count === 1 ? "question" : "questions"} from the agent`;
+  return (
+    <span className={`${styles.questionCount} ${styles.folderQuestions}`} title={`${text}, waiting on you`} aria-label={text}>
+      ?{count}
+    </span>
+  );
+}
+
+/** Sums `countOf` over the documents into every folder above them. */
+function countByFolder(documents: readonly DocumentMeta[], countOf: (doc: DocumentMeta) => number): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const doc of documents) {
+    const n = countOf(doc);
+    if (n === 0) continue;
+    const parts = doc.location.split("/");
+    for (let i = 1; i < parts.length; i++) {
+      const folder = parts.slice(0, i).join("/");
+      counts.set(folder, (counts.get(folder) ?? 0) + n);
+    }
+  }
+  return counts;
 }
 
 const LEAD_CHARS = 12;

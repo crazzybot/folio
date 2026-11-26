@@ -686,6 +686,11 @@
   color: var(--color-accent);
 }
 
+/* A folder's questions from the agent: beside its name, not pushed to the row's end */
+.folderQuestions {
+  margin-left: 6px;
+}
+
 /* A collapsed folder with highlights inside: one dim dot */
 .folderMarks {
   flex-shrink: 0;
