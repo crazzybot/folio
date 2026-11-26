@@ -158,6 +158,7 @@ export function FolderCard({
   highlightCounts,
   repository = null,
   unread = 0,
+  questions = 0,
 }: {
   folder: string;
   label: string;
@@ -166,6 +167,8 @@ export function FolderCard({
   repository?: GitRepository | null;
   /** Documents under it that are new or changed. */
   unread?: number;
+  /** The agent's questions waiting on the user in documents under it. */
+  questions?: number;
 }): React.ReactElement {
   const inside = documentsInFolder(documents, folder);
   const highlighted = inside.filter((doc) => (highlightCounts.get(doc.id) ?? 0) > 0).length;
@@ -176,6 +179,7 @@ export function FolderCard({
       <div className={styles.detail}>
         {plural(inside.length, "document", "documents")}
         {unread > 0 && ` · ${unread} unread`}
+        {questions > 0 && ` · ${plural(questions, "question", "questions")} from the agent`}
         {highlighted > 0 && ` · ${highlighted} with highlights`}
       </div>
       {repository !== null && (
