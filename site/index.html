@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Folio: read and review folders of Markdown</title>
-  <meta name="description" content="Folio opens folders of Markdown specs, ADRs, notes or an Obsidian vault, renders every file properly and lets you search, highlight and annotate them without touching a file. Free for macOS, Windows and Linux.">
+  <meta name="description" content="Folio opens folders of Markdown specs, ADRs and research, renders every file properly and lets you mark them up and send your review to a coding agent, without touching a file. Free for macOS, Windows and Linux.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Folio">
   <meta property="og:url" content="https://crazzybot.github.io/folio/">
   <meta property="og:title" content="Folio: read and review folders of Markdown">
-  <meta property="og:description" content="Read, search and mark up folders of Markdown, from AI-written specs to Obsidian vaults. Free and open source.">
+  <meta property="og:description" content="Read and review folders of Markdown specs, ADRs and research, and send your notes to your coding agent. Free and open source.">
   <meta property="og:image" content="https://crazzybot.github.io/folio/img/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -47,11 +47,12 @@
       <div class="hero-text">
         <h1>Read and review every Markdown doc you're handed.</h1>
         <p class="hero-lede">
-          Specs, ADRs and design proposals pile up in every project, and more
-          of them are written by AI. Folio opens the folder, renders every file
-          properly and lets you search, highlight and annotate as you read,
-          without changing a single file. Free and open source, for macOS,
-          Windows and Linux.
+          Specs, ADRs and research pile up in every project, and more of them
+          are written by coding agents. Folio opens the folder and renders
+          every file properly. Mark up what you read, send your notes to the
+          agent, and answer its questions beside the passages they're about.
+          Folio never changes a file. Free and open source, for macOS, Windows
+          and Linux.
         </p>
         <div class="hero-links">
           <p class="alt-link" data-alt hidden>Intel Mac? <a href="download.html">Download the Intel version</a></p>
@@ -100,8 +101,31 @@
             <dd>Highlight claims, note your doubts beside them, and find every note again in one list.</dd>
           </div>
           <div>
-            <dt>Notes and Obsidian vaults</dt>
-            <dd>Wiki links, embeds and front matter work as they do in Obsidian, in a calm reader.</dd>
+            <dt>A project you're new to</dt>
+            <dd>Learn how a project works from its docs: which decisions still hold, how they link up, and where the term you just met is defined.</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="formats">
+      <div class="wrap">
+        <h2>For the people who decide what gets built</h2>
+        <p class="formats-intro">
+          And for the people who build it, and need to know what was decided.
+        </p>
+        <dl class="format-list format-list-three">
+          <div>
+            <dt>Architects</dt>
+            <dd>Answer the open decisions in a proposal, accept or reject ADRs, and see at a glance which decisions still hold.</dd>
+          </div>
+          <div>
+            <dt>Product creators</dt>
+            <dd>Approve the spec before anything is built, and steer a prototype from it.</dd>
+          </div>
+          <div>
+            <dt>Developers</dt>
+            <dd>Read what was decided and why before you change the code, with search, an outline and links between documents.</dd>
           </div>
         </dl>
       </div>
@@ -201,7 +225,7 @@
           </p>
           <ul>
             <li><strong>Every mark in one place.</strong> The Marks view lists the highlights, notes and bookmarks of the whole workspace, with a filter.</li>
-            <li><strong>Hand your notes to a coding agent.</strong> Copy a document's highlights and notes, and your verdict on the whole document, as Markdown with file paths and line numbers, ready for Claude Code or Cursor.</li>
+            <li><strong>Only me.</strong> Lock a note to keep it to yourself: it's never sent to an agent.</li>
             <li><strong>Highlight</strong> with <kbd>⇧⌘H</kbd>, <strong>bookmark</strong> with <kbd>⌘D</kbd>, <strong>copy notes</strong> with <kbd>⇧⌘C</kbd></li>
           </ul>
         </div>
@@ -211,7 +235,64 @@
         </div>
       </section>
 
+      <section class="spread flip">
+        <div class="spread-text">
+          <h2>Review with your coding agent</h2>
+          <p>
+            Folio is the other end of your coding agent's loop. The agent
+            writes and revises the documents; you read them in Folio, mark
+            them up and send your notes back. Its replies come back on each
+            note, beside the passage.
+          </p>
+          <ul>
+            <li><strong>Send, don't paste.</strong> With the agent waiting for your review, <strong>Send</strong> hands it your notes. Or copy them as Markdown with file paths and lines, for any agent.</li>
+            <li><strong>Its questions, on the passage.</strong> The agent asks where the question belongs. Answer in words, or pick one of its options with a click.</li>
+            <li><strong>Claude Code beside your documents.</strong> The agent panel runs Claude Code in your folder, with your own login, so a round needs no other app.</li>
+            <li><strong>Know when it replied.</strong> A notification and a badge on the app's icon tell you, even while you're in another app.</li>
+          </ul>
+        </div>
+        <div class="spread-shot">
+          <img src="img/app-dark.webp" width="2880" height="1800" loading="lazy"
+               alt="Folio in its dark theme: a proposed ADR with a requested status of accepted, a note with a new reply from Claude Code, and a decision from Claude Code on another passage. The document list counts the questions waiting, and the status bar says Claude Code wrote on 3 notes.">
+        </div>
+      </section>
+
     </div>
+
+    <section class="formats">
+      <div class="wrap">
+        <h2>Prototype from the spec</h2>
+        <p class="formats-intro">
+          For a small project or a proof of concept, the whole cycle can run
+          through the documents, as in the video above: you change the code by
+          changing the spec. Claude Code does the work, in Folio's agent panel,
+          with Folio's plugin.
+        </p>
+        <dl class="format-list">
+          <div>
+            <dt>1. Draft</dt>
+            <dd><code>/folio:draft</code> writes the spec, ADRs and plan, and puts every open decision on its passage.</dd>
+          </div>
+          <div>
+            <dt>2. Decide</dt>
+            <dd>Pick options, answer questions and accept the documents. Send, and the agent records each answer.</dd>
+          </div>
+          <div>
+            <dt>3. Implement</dt>
+            <dd><code>/folio:implement</code> works through the plan and ticks each task as it's done. Its questions come back on the plan or the spec, with the code they're about.</dd>
+          </div>
+          <div>
+            <dt>4. Try it, and revise the spec</dt>
+            <dd>Run it in the agent panel. What you'd change goes on the spec as a note, and the next round builds it.</dd>
+          </div>
+        </dl>
+        <p class="formats-intro">
+          Folio shows the decisions, not the diffs: code review stays in your
+          editor or the pull request.
+          <a href="docs/guide/prototype">How it works</a>
+        </p>
+      </div>
+    </section>
 
     <section class="formats">
       <div class="wrap">

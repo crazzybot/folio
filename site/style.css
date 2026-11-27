@@ -342,6 +342,13 @@ code {
   color: var(--slate);
   font-size: 16px;
 }
+/* Three short items (the readers) sit side by side */
+.format-list-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.format-list + .formats-intro {
+  margin-top: 28px;
+}
 
 /* ─── Keyboard ──────────────────────────────────────────────────────────── */
 
@@ -611,6 +618,9 @@ code {
     order: 0;
   }
   .install-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .format-list-three {
     grid-template-columns: minmax(0, 1fr);
   }
 }

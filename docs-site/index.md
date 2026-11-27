@@ -4,7 +4,7 @@ layout: home
 hero:
   name: Folio
   text: Read and review every Markdown doc you're handed
-  tagline: How to open a folder of specs, ADRs or notes, find what matters, mark it up and send your review back.
+  tagline: How to open a folder of specs, ADRs or research, find what matters, mark it up and send your review to your coding agent.
   image:
     src: /icon.png
     alt: ""
@@ -27,6 +27,9 @@ features:
     details: Highlights, notes and bookmarks as you read, kept in Folio's own folder. Your files are never changed.
     link: /guide/marking-up
   - title: Review with a coding agent
-    details: Send your notes back to Claude Code, Cursor or any agent as Markdown, with file paths and lines.
+    details: Send your notes to Claude Code, Cursor or any agent, and answer its questions beside the passages they're about.
     link: /guide/review-loop
+  - title: Prototype from the spec
+    details: Take a small project from spec to working code, changing the code only by changing the spec.
+    link: /guide/prototype
 ---
