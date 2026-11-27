@@ -95,6 +95,30 @@ export function useOutlineVisible(): [boolean, (visible: boolean) => void] {
   return useStoredFlag("folio.outline", true);
 }
 
+/** How front matter is shown in the document header: as a table of properties, or as written. */
+export const FRONT_MATTER_VIEWS = [
+  { id: "table", label: "Table" },
+  { id: "source", label: "YAML" },
+] as const;
+
+export type FrontMatterView = (typeof FRONT_MATTER_VIEWS)[number];
+
+/**
+ * Whether the document header's front matter properties are open, and how
+ * they're shown: one choice for every document, in the header and under the
+ * pinned bar alike (docs/design/frontmatter-properties.md).
+ */
+export function useFrontMatterPrefs(): {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  view: FrontMatterView;
+  setView: (id: FrontMatterView["id"]) => void;
+} {
+  const [open, setOpen] = useStoredFlag("folio.frontMatterOpen", false);
+  const [view, setView] = useStoredOption(FRONT_MATTER_VIEWS, "folio.frontMatterView", FRONT_MATTER_VIEWS[0]);
+  return { open, setOpen, view, setView };
+}
+
 /** Whether the sidebar groups documents by folder (sidebar header toggle). */
 export function useGroupByFolder(): [boolean, (grouped: boolean) => void] {
   return useStoredFlag("folio.groupByFolder", true);

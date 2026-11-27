@@ -172,10 +172,10 @@
   outline: 2px solid var(--color-accent);
 }
 
-/* The header's card, under the bar */
+/* The header's card, under the bar: never over most of the text */
 .details {
   max-width: var(--reading-width, 880px);
-  max-height: 50vh;
+  max-height: 60vh;
   overflow-y: auto;
   margin: 0 auto;
   padding: 0 var(--space-8) var(--space-3);
