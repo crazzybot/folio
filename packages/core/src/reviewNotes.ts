@@ -170,20 +170,24 @@ const FRONT_MATTER = /^\uFEFF?---[ \t]*\r?\n/;
 /**
  * The status change a document's note asks for, as an instruction naming
  * where the status is written; null when there's none or it's already made.
+ * It says the change is the user's own decision, in their word: projects
+ * often leave approving a document to a person, and an agent that reads the
+ * request as its own idea declines it, or writes a synonym.
  */
 export function statusRequest(doc: Pick<ReviewDocument, "note" | "status" | "statusLine" | "source">): string | null {
   const wanted = doc.note?.requestedStatus?.trim();
   if (wanted == null || wanted === "" || requestDone(doc.status, wanted)) return null;
+  const decided = `Status: I've decided on "${wanted}"`;
   const status = doc.status ?? null;
   if (status === null) {
     return FRONT_MATTER.test(doc.source)
-      ? `Status: add ${code(`status: ${wanted}`)} to its front matter.`
-      : `Status: add a ${code(`Status: ${wanted}`)} line under its title.`;
+      ? `${decided}: add ${code(`status: ${wanted}`)} to its front matter.`
+      : `${decided}: add a ${code(`Status: ${wanted}`)} line under its title.`;
   }
   const line = doc.statusLine == null ? undefined : doc.source.split(/\r\n|\r|\n/)[doc.statusLine - 1]?.trim();
   return line === undefined || line === ""
-    ? `Status: change it to "${wanted}". It is "${status}" now.`
-    : `Status: change it to "${wanted}". It is "${status}" now, on line ${doc.statusLine}: ${code(line)}.`;
+    ? `${decided}: change it to that word. It is "${status}" now.`
+    : `${decided}: change it to that word. It is "${status}" now, on line ${doc.statusLine}: ${code(line)}.`;
 }
 
 /** Who wrote a reply, as the agent is told. */

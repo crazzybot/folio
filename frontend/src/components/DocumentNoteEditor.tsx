@@ -2,7 +2,7 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { NoteChanges } from "../dataSource";
 import { answeredBy, UNRESOLVE_TITLE, type AgentProgress } from "../sending";
-import { normaliseStatus, statusChoices, statusNew } from "../status";
+import { documentNoteUnsent, normaliseStatus, requestPending, statusChoices, statusNew } from "../status";
 import { canReply, newReplies } from "../threads";
 import type { DocumentNote, NoteState } from "../types";
 import { useDragOffset } from "../useDragOffset";
@@ -125,6 +125,8 @@ export default function DocumentNoteEditor({
   };
   const state = note?.state ?? "open";
   const answerer = note === undefined ? null : answeredBy(note);
+  // Asked for and not made yet: the select shows the request, not the document's status
+  const pending = requestPending(currentStatus, note);
   const setState = (next: NoteState) => {
     onSetState(next);
     onClose();
@@ -137,8 +139,8 @@ export default function DocumentNoteEditor({
   const canSend = sendTo !== null && onSaveAndSend !== undefined && note?.private !== true;
   // Save waits for a change: a status, the comment or Only me
   const changed = dirty();
-  // Send also sends a saved note that hasn't gone yet
-  const unsent = changed || (note !== undefined && state === "open");
+  // Send also sends a saved note that hasn't gone yet, or a status change still to make
+  const unsent = changed || documentNoteUnsent(currentStatus, note);
   const saveAndSend = () => {
     if (!canSend || !unsent) return;
     onSaveAndSend(dirty() ? changes() : null);
@@ -238,6 +240,18 @@ export default function DocumentNoteEditor({
         </svg>
         </span>
       </div>
+      {pending && requested !== null && shownStatus === normaliseStatus(requested) && (
+        <p className={styles.pending}>
+          Asked for <strong>{capitalise(shownStatus)}</strong> ·{" "}
+          {currentStatus === null ? (
+            "the document has no status yet"
+          ) : (
+            <>
+              the document is <strong>{capitalise(currentStatus)}</strong>
+            </>
+          )}
+        </p>
+      )}
       {choice === OTHER && (
         <input
           className={styles.input}

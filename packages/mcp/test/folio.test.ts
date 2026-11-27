@@ -113,7 +113,7 @@ describe("reviewNotes", () => {
   it("sends a status change with the document's note", async () => {
     await store.setNote(adr(), { text: null, requestedStatus: "accepted" });
     const result = await folio.reviewNotes({ paths: ["docs/adr.md"] }, "Claude Code");
-    expect(result?.text).toContain('Status: change it to "accepted". It is "proposed" now, on line 3');
+    expect(result?.text).toContain('Status: I\'ve decided on "accepted": change it to that word. It is "proposed" now, on line 3');
     const [record] = await records();
     expect(record?.documentNote?.state).toBe("sent");
   });

@@ -62,7 +62,10 @@ row with **Only me**, and replies under it. **Save** waits until you change
 something. With **Only me** on, the comment is never sent, but a status you
 ask for still is. Changing the comment or the status makes the note **Not
 sent** again. In the **Status** list, the document's own status is marked
-**(current)**: pick it to leave the status as it is.
+**(current)**: pick it to leave the status as it is. Until the document has
+the status you asked for, the list shows your request, and a line under it
+says so: "Asked for **Accepted** · the document is **Draft**". Once the
+agent has answered, **Send** sends that request again.
 
 The note is shown above the text, under the document's status. Once the
 document has the status you asked for, that status is no longer sent, and
