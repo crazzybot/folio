@@ -100,7 +100,10 @@ Loop** stops it. See [Review in a loop](https://crazzybot.github.io/folio/docs/g
 
 To have the agent write documents for you to review, run `/folio:draft`
 with what to write: it puts each open question on the passage it's about,
-as a note you answer in Folio.
+as a note you answer in Folio. Once you've reviewed the plan,
+`/folio:implement` carries it out: it ticks the tasks in the plan as it
+goes, and asks its questions on the plan and specs, quoting the code they're
+about.
 
 Other agents (Cursor, Codex…) use the MCP server directly, waiting with
 `folio_wait_for_review`: see [packages/mcp](packages/mcp/README.md).
