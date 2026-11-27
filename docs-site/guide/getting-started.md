@@ -68,5 +68,9 @@ you open it. Below 768px, the document list slides in from the left too.
 - [Highlights, notes and bookmarks](./marking-up): marking what you read.
 - [Reviewing specs with a coding agent](./review-loop): sending your notes
   back.
+- [From spec to prototype](./prototype): a small project built through its
+  documents.
+- [Getting to know a project's docs](./new-to-a-project): reading your way
+  into a project.
 - [Settings](../reference/settings): skipped folders, your editor, custom
   CSS.

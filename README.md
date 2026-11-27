@@ -5,7 +5,7 @@
 <h1 align="center">Folio</h1>
 
 <p align="center">
-  Read, search and review folders of Markdown — specs, ADRs, notes and Obsidian vaults.<br>
+  Read and review folders of Markdown — specs, ADRs and research — with your coding agent.<br>
   For macOS, Windows and Linux.
 </p>
 
@@ -37,6 +37,14 @@ it up, sends it back and decides what runs. Folio is the editor's desk:
 
 The agent edits the files. Folio only reads them: your highlights, notes and
 read history are kept in its own folder, `~/.folio`.
+
+It's made for architects deciding on proposals and ADRs, product creators
+approving what gets built, and developers learning what was decided before
+they change the code. For a small project or a proof of concept, the loop
+can go all the way to code: the agent implements the plan you reviewed,
+and you change the code by changing the spec. Code review stays in your
+editor or the pull request. Folio also reads Obsidian vaults, wiki links
+and embeds included.
 
 **Try it in your browser:** the [live demo](https://crazzybot.github.io/folio/demo/)
 opens a sample repository of specs and ADRs, with nothing to install.

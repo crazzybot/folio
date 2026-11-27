@@ -50,6 +50,8 @@ export default defineConfig({
           { text: "Reading a folder of docs", link: "/guide/reading" },
           { text: "Highlights, notes and bookmarks", link: "/guide/marking-up" },
           { text: "Reviewing specs with a coding agent", link: "/guide/review-loop" },
+          { text: "From spec to prototype", link: "/guide/prototype" },
+          { text: "Getting to know a project's docs", link: "/guide/new-to-a-project" },
         ],
       },
       {
