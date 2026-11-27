@@ -71,7 +71,8 @@ another folder, choose **Open Agent Here** in the folder's context menu.
   **Copy** button: paste it in the panel and press Enter, and Claude waits
   for the notes you send from Folio. Folio never types into the session.
   The header then shows **Waiting for your notes** or **Working on your
-  notes**. Press Esc in the panel to stop waiting. The command needs
+  notes**. To ask Claude for something else, type it in the panel: it
+  does it, then waits for your notes again. The command needs
   Folio's plugin (above). On Windows, the header needs version 0.4.2 or
   later of Folio's MCP server.
 - **Claude Code not found.** If Claude Code isn't installed, or your shell
@@ -86,6 +87,12 @@ waiting for your notes. In Claude Code, with Folio's plugin, run
 your review notes with `folio_wait_for_review`, address them, and keep going
 until you stop them. The agent only takes notes on documents in the folder
 it works in.
+
+The loop doesn't stop you talking to the agent. In Claude Code, type a
+message while it waits, such as "run the tests": it reaches the agent
+within a minute. Or press Esc and type it, for an answer at once. The agent
+does what you asked, then goes back to waiting for your notes. To end the
+loop, tell the agent to stop, or use **End Review Loop** (below).
 
 - **Live** (desktop). A green **Live** pill in the status bar shows that an
   agent is waiting for your notes, whatever the sidebar shows. Point at it
@@ -215,6 +222,28 @@ questions on the spec as notes".
 The agent records your answers in the document, and marks each note
 **Addressed**. You can't edit the agent's notes, but you can delete them
 with the bin, like your own.
+
+### While the agent implements
+
+Once you've reviewed a plan, run `/folio:implement` in Claude Code, with
+Folio's plugin, to have the agent carry it out: for example
+`/folio:implement phase 1 of docs/plan.md`. The agent works through the
+plan's tasks in order:
+
+- **Progress in the plan.** It ticks each task's checkbox in the plan as
+  soon as the task is done, so the plan in Folio shows how far it got.
+- **Questions on the documents.** A question that comes up goes on the
+  task in the plan, or on the passage of the spec or ADR it's about, as
+  the agent's other notes do. When it's about code, a test or another
+  file, the note quotes the lines it's about, with the file's path, so you
+  can answer it without opening the file.
+- **Changes to the spec.** When the code can't follow the spec, the agent
+  doesn't change the spec on its own: it asks you, with a decision on the
+  passage.
+- **No waiting on you.** While a question is open, the agent goes on with
+  the tasks that don't depend on it. When it's done, it waits for your
+  answers as in a review loop, records them, and carries on with the tasks
+  they unblocked.
 
 ## What the agent receives
 

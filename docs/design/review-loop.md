@@ -44,6 +44,21 @@ The Claude Code plugin's `/folio:review-loop` skill
 reply to each note, wait again with the new `since`, until the user stops
 it. Other agents follow the tool descriptions.
 
+While the agent waits, the session is busy, and the user often wants
+something else from it between rounds: "run the game", "implement the next
+phase". So the skill (plugin 0.5.0):
+
+- Waits 60 s at a time (`timeoutSeconds: 60`), not the server's 240 s
+  default. A message the user types during a wait reaches the agent when
+  the call returns, so within a minute, and the loop goes on. The server's
+  default stays, for clients that don't pass a timeout. The cost is more
+  empty calls in the conversation while nothing is sent.
+- Doesn't take a message, or an interruption with a request (Esc, then a
+  message), as the end of the loop: the agent does what was asked and
+  waits again with the last `since` it had, so notes sent in the meantime
+  still come. The loop ends when the user says so, or a wait returns
+  "ended", "closed" or "quit".
+
 ## 2. Presence
 
 While a session waits or works, its server keeps

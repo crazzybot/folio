@@ -9,11 +9,13 @@ The user reviews this project's Markdown documents in Folio. Rather than
 coming back here after each round, they send their notes from Folio, and you
 pick them up as they arrive.
 
-1. Call `folio_wait_for_review` with no `since`. Tell the user once, before
-   the first call, that you're waiting for notes sent from Folio, and that
-   they can interrupt you to stop.
+1. Call `folio_wait_for_review` with no `since` and `timeoutSeconds: 60`.
+   Tell the user once, before the first call, that you're waiting for notes
+   sent from Folio, and that they can still ask you for anything else here.
 2. When it returns without notes, call it again with the `since` it gave
-   you. Don't say anything to the user between these calls.
+   you and the same timeout. Don't say anything to the user between these
+   calls. The waits are short so that a message the user types meanwhile
+   reaches you within a minute.
 3. When it returns notes, address them as `/folio:review` does:
    - Revise each document with your own editing tools. Keep its structure
      and language, and change only what the notes ask for. When a note
@@ -29,4 +31,10 @@ pick them up as they arrive.
      resolves notes in Folio).
    - Then say in one line what you changed, and call `folio_wait_for_review`
      again with the `since` it gave you.
-4. Stop when the user tells you to, or interrupts you.
+4. A message from the user doesn't end the loop. When they ask for
+   something else, whether while you wait or by interrupting you ("run the
+   tests", "implement the next phase"), do it, then say in one line that
+   you're waiting for notes again and call `folio_wait_for_review` with the
+   last `since` you had: notes sent in the meantime still come.
+5. Stop when the user tells you to stop the loop, or when a wait says the
+   loop has ended.

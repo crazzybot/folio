@@ -35,7 +35,7 @@ What to write: $ARGUMENTS
 
 Questions that come up later, while you implement what the documents
 describe, go on the passage of the spec or plan they're about too, so the
-documents keep every decision.
+documents keep every decision. `/folio:implement` works this way.
 
 If `folio_add_notes` isn't available (an older Folio MCP server), ask your
 questions in the conversation instead, each with the passage it's about.

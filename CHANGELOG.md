@@ -8,7 +8,20 @@ turns them into the next release's section.
 
 ## [Unreleased]
 
+### Added
+
+- Folio's Claude Code plugin has `/folio:implement`: the agent works
+  through a plan's tasks and ticks each one in the plan as it's done. The
+  questions that come up go on the task or the spec passage they're about,
+  with the lines of code they concern, so you can answer them in Folio
+  without opening the files.
+
 ### Changed
+
+- In `/folio:review-loop`, asking the agent for something else no longer
+  ends the loop. Type a message while it waits, or press Esc and type one:
+  the agent does what you asked, then waits for your notes again. A message
+  typed while it waits reaches it within a minute.
 
 - The status bar names the open folder, beside its git branch. Click the
   name to open another folder, reveal it in Finder, copy its path, or switch
