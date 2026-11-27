@@ -1,0 +1,4 @@
+# Branches add CHANGELOG bullets under "## [Unreleased]" side by side; a
+# union merge keeps both instead of stopping on a conflict. Check the result
+# when a rebase crosses a release: a bullet can land in the released section.
+CHANGELOG.md merge=union

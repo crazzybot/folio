@@ -83,7 +83,9 @@ phone width (375px and 320px), with no horizontal scroll.
 ## Git and pull requests
 
 - **Never commit to `main`, and never push to it.** All work happens on a
-  branch and lands through a pull request, squash-merged.
+  branch and lands through a pull request, squash-merged. A hook
+  (`.claude/hooks/guard-main.sh`) blocks `git commit` and `git push` on
+  `main`; make a branch rather than working around it.
 - **One branch per change**, from an up-to-date `main`, named by type:
   `feat/…`, `fix/…`, `docs/…`, `chore/…`, `refactor/…`, `test/…`.
   Releases use `release-X.Y.Z` (made by `scripts/release.mjs`).
@@ -123,3 +125,6 @@ phone width (375px and 320px), with no horizontal scroll.
 - `refresh-demo-media`: re-record the site's demo video, screenshots and
   link preview.
 - `sync-docs-site`: bring `docs-site/` up to date with released features.
+- `verify-desktop`: build the dev app, launch it beside the user's own
+  Folio, drive the change and screenshot its window. Run it before saying
+  a UI change works.
