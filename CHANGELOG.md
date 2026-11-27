@@ -36,6 +36,9 @@ turns them into the next release's section.
 
 - Moving the pointer over a highlight's popover no longer makes the
   highlights under it flicker.
+- With inline notes shown (`⌥⌘N` / `Ctrl+Alt+N`), opening a note with a
+  new question or reply no longer scrolls the document, which could move
+  the popover out of view.
 - Notes sent to an agent in a review loop on several documents at once all
   reach it. Before, Folio's MCP server gave the agent only the first
   document's notes; the others waited until you asked again.

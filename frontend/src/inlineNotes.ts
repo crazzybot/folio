@@ -205,17 +205,24 @@ export function placeInlineNotes(article: HTMLElement, notes: readonly InlineNot
   };
 }
 
+/** Inline notes being kept in place: see `watchInlineNotes`. */
+export interface InlineNotesWatch {
+  /** Places `notes()` again now, as they changed (a note edited, a reply, a thread seen). */
+  update(): void;
+  /** Removes the notes and stops watching. */
+  stop(): void;
+}
+
 /**
  * Keep `notes()` shown under `article`: placed now, and placed again after
  * elements in the document are added or removed by anything but them (React
- * re-rendering, a diagram drawn). Returns a function that removes the notes
- * and stops watching.
+ * re-rendering, a diagram drawn).
  */
 export function watchInlineNotes(
   article: HTMLElement,
   notes: () => readonly InlineNote[],
   onPlaced?: () => void,
-): () => void {
+): InlineNotesWatch {
   let placed: PlacedNotes | null = null;
   // The notes' own changes are made while not observing, so a record is
   // someone else's unless it's inside a note (content rendered into it later)
@@ -234,9 +241,12 @@ export function watchInlineNotes(
   }
 
   place();
-  return () => {
-    observer.disconnect();
-    placed?.remove();
-    placed = null;
+  return {
+    update: place,
+    stop() {
+      observer.disconnect();
+      placed?.remove();
+      placed = null;
+    },
   };
 }
