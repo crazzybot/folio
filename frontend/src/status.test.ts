@@ -7,10 +7,11 @@ import {
   statusChoices,
   statusKind,
   statusNew,
+  documentNoteUnsent,
   statusText,
   supersedingDocument,
 } from "./status";
-import type { DocumentMeta, Metadata } from "./types";
+import type { DocumentMeta, DocumentNote, Metadata } from "./types";
 
 const meta = (status: string | null, statusDetail: string | null = null): Metadata => ({
   status,
@@ -90,6 +91,46 @@ describe("statusNew", () => {
     expect(statusNew("accepted", note("proposed"))).toBe(true);
     expect(statusNew("accepted", note("accepted"))).toBe(false);
     expect(statusNew("accepted", undefined)).toBe(false);
+  });
+});
+
+describe("documentNoteUnsent", () => {
+  const note = (state: NonNullable<DocumentNote["state"]>, replyFrom: "agent" | "user" | null = null): DocumentNote => ({
+    text: null,
+    requestedStatus: "Accepted",
+    created: "2026-11-01T00:00:00Z",
+    updated: "2026-11-01T00:00:00Z",
+    state,
+    ...(replyFrom === null
+      ? {}
+      : {
+          replies: [
+            {
+              id: "r1",
+              text: "I left the status unchanged.",
+              author: replyFrom === "agent" ? { kind: "agent" as const, name: "Claude Code" } : { kind: "user" as const },
+              at: "2026-11-02T00:00:00Z",
+            },
+          ],
+        }),
+  });
+
+  it("sends a note never sent", () => {
+    expect(documentNoteUnsent("accepted", note("open"))).toBe(true);
+    expect(documentNoteUnsent("draft", undefined)).toBe(false);
+  });
+
+  it("sends a status change still to make again, once the agent has answered", () => {
+    expect(documentNoteUnsent("draft", note("sent", "agent"))).toBe(true);
+    expect(documentNoteUnsent("draft", note("addressed"))).toBe(true);
+    expect(documentNoteUnsent(null, note("resolved"))).toBe(true);
+  });
+
+  it("waits while the agent has it, and once the status is made", () => {
+    expect(documentNoteUnsent("draft", note("sent"))).toBe(false);
+    expect(documentNoteUnsent("draft", note("sent", "user"))).toBe(false);
+    expect(documentNoteUnsent("accepted", note("sent", "agent"))).toBe(false);
+    expect(documentNoteUnsent("accepted", note("addressed"))).toBe(false);
   });
 });
 

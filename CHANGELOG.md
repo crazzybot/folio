@@ -42,6 +42,16 @@ turns them into the next release's section.
 - Notes sent to an agent in a review loop on several documents at once all
   reach it. Before, Folio's MCP server gave the agent only the first
   document's notes; the others waited until you asked again.
+- A status you ask for in the note on a document reaches the agent as your
+  decision, in your word. Before, an agent could read it as its own idea:
+  in a project whose rules leave approving documents to a person, it
+  declined the change, or wrote `approved` for `accepted`. This comes with
+  the next MCP server release and the Claude Code plugin 0.4.1.
+- While the document doesn't have the status you asked for, the note says
+  so under the **Status** list ("Asked for **Accepted** · the document is
+  **Draft**"), and **Send** sends the request again once the agent has
+  answered. Before, the list showed your request beside a status marked
+  **(current)**, and **Send** stayed off.
 
 ## [0.12.1] — 2026-11-25
 

@@ -18,8 +18,9 @@ Documents to review: $ARGUMENTS
    not yet sent to you. If there are none, say so and stop.
 2. Revise each document to address its notes, with your own editing tools.
    Keep the document's structure and the language it's written in. Change
-   only what the notes ask for; when a note changes a document's status,
-   change the status line in the document.
+   only what the notes ask for. A status change in a note is the user's
+   own decision (approving a document included): change the status line
+   to the exact word they chose.
 3. Answer every note with `folio_reply`, in a sentence or two:
    - what you changed, with `addressed: true`; when your edit replaced the
      quoted text, also the text that now stands in its place as `passage`,
