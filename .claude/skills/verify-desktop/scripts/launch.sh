@@ -4,7 +4,10 @@
 # folders), its own HOME (so marks go to <scratch>/home/.folio, not
 # ~/.folio), and a CDP port to drive it from puppeteer.
 #
-# Usage: launch.sh <scratch-dir> [workspace] [port]
+# Usage: launch.sh [--agent] [--theme light|dark] <scratch-dir> [workspace] [port]
+#   --agent        Claude Code in the agent panel, signed in as the user
+#                  (for recordings); without it the panel opens bash
+#   --theme        the app's theme (default light)
 #   <scratch-dir>  where its data goes; created if missing
 #   [workspace]    the folder to open (default: the repo's workspace/)
 #   [port]         CDP port (default 9333)
@@ -12,7 +15,18 @@
 # output goes to <scratch-dir>/electron.log.
 
 set -euo pipefail
-scratch=${1:?usage: launch.sh <scratch-dir> [workspace] [port]}
+usage="usage: launch.sh [--agent] [--theme light|dark] <scratch-dir> [workspace] [port]"
+agent=bash
+theme=light
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --agent) agent=claude; shift ;;
+    --theme) theme=${2:?$usage}; shift 2 ;;
+    -*) echo "$usage" >&2; exit 2 ;;
+    *) break ;;
+  esac
+done
+scratch=${1:?$usage}
 repo=$(cd "$(dirname "$0")/../../../.." && pwd)
 workspace=${2:-$repo/workspace}
 port=${3:-9333}
@@ -26,13 +40,21 @@ mkdir -p "$scratch/data" "$scratch/home" "$scratch/shots"
 scratch=$(cd "$scratch" && pwd)
 # Start from the given workspace every time; the rest of the settings keep
 # their defaults
-printf '{\n  "workspace": "%s",\n  "theme": "light"\n}\n' "$workspace" > "$scratch/data/settings.json"
+printf '{\n  "workspace": "%s",\n  "theme": "%s"\n}\n' "$workspace" "$theme" > "$scratch/data/settings.json"
+
+if [ "$agent" = claude ]; then
+  # Claude Code runs with the scratch HOME too, so the Folio MCP server it
+  # starts reads the notes from <scratch>/home/.folio, where this app keeps
+  # them. Links to the user's config give it their sign-in and plugins.
+  ln -sfn "$HOME/.claude" "$scratch/home/.claude"
+  ln -sfn "$HOME/.claude.json" "$scratch/home/.claude.json"
+fi
 
 unset ELECTRON_RUN_AS_NODE
 cd "$desktop"
-# bash as the agent command: the agent panel opens a shell, not a real
-# Claude Code session
-HOME="$scratch/home" FOLIO_AGENT_COMMAND=bash \
+# The panel's login shell finds no profile under the scratch HOME; it keeps
+# this PATH, which has `claude` on it
+HOME="$scratch/home" FOLIO_AGENT_COMMAND=$agent \
   nohup ./node_modules/.bin/electron . --user-data-dir="$scratch/data" --remote-debugging-port="$port" \
   > "$scratch/electron.log" 2>&1 &
 pid=$!

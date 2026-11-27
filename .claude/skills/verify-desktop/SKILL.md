@@ -29,7 +29,7 @@ A new worktree has no `node_modules`: `npm ci` in `frontend/` and
 ## 2. Launch
 
 ```bash
-.claude/skills/verify-desktop/scripts/launch.sh <scratch>/verify [workspace] [port]
+.claude/skills/verify-desktop/scripts/launch.sh [--agent] [--theme dark] <scratch>/verify [workspace] [port]
 ```
 
 - `<scratch>` is your scratchpad directory. The script prints the PID;
@@ -37,8 +37,11 @@ A new worktree has no `node_modules`: `npm ci` in `frontend/` and
 - The workspace defaults to the repo's `workspace/` (two documents). For
   a change that needs more, copy `tests/fixtures/workspace/` or make a
   small folder in the scratchpad: never point it at the user's own folders.
-- The agent command is `bash`, so the agent panel opens a shell, not a
-  Claude Code session.
+- The agent panel opens `bash`, not a Claude Code session. `--agent`
+  starts Claude Code there, signed in as the user (the scratch HOME links
+  to their `~/.claude` and `~/.claude.json`); use it only when the change
+  is about the agent panel with a real agent, since it runs a real session.
+- `--theme dark` for the dark theme (light by default).
 - The port defaults to 9333; give another one when two run at once.
 
 ## 3. Drive and screenshot
