@@ -18,8 +18,9 @@ pick them up as they arrive.
    reaches you within a minute.
 3. When it returns notes, address them as `/folio:review` does:
    - Revise each document with your own editing tools. Keep its structure
-     and language, and change only what the notes ask for. When a note
-     changes a document's status, change its status line.
+     and language, and change only what the notes ask for. A status change
+     in a note is the user's own decision (approving a document included):
+     change the status line to the exact word they chose.
    - Answer every note with `folio_reply`, in a sentence or two: what you
      changed, with `addressed: true`; or why you didn't, or a question, with
      `addressed` left out. A question that's a choice gives 2 to 4 short

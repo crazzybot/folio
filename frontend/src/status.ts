@@ -69,7 +69,7 @@ export function statusChoices(workspaceStatuses: readonly string[], currentStatu
 
 // Shared with the MCP server, which asks for status changes the same way
 export { normaliseStatus, requestDone } from "../../packages/core/src/reviewNotes";
-import { requestDone } from "../../packages/core/src/reviewNotes";
+import { answeredBy, requestDone } from "../../packages/core/src/reviewNotes";
 
 /**
  * The document has the status its note asked for, and the user hasn't
@@ -78,6 +78,24 @@ import { requestDone } from "../../packages/core/src/reviewNotes";
 export function statusNew(status: string | null | undefined, note: DocumentNote | undefined): boolean {
   if (note === undefined || !requestDone(status, note.requestedStatus)) return false;
   return note.statusSeen !== status;
+}
+
+/** The note asks for a status the document doesn't have yet. */
+export function requestPending(status: string | null | undefined, note: DocumentNote | undefined): boolean {
+  const requested = note?.requestedStatus ?? null;
+  return requested !== null && !requestDone(status, requested);
+}
+
+/**
+ * The note has something for the agent that it hasn't been sent: it was
+ * never sent, or its status change is still to make once the agent has
+ * answered (not while the agent has it). A change in the editor is
+ * checked there.
+ */
+export function documentNoteUnsent(status: string | null | undefined, note: DocumentNote | undefined): boolean {
+  if (note === undefined) return false;
+  const state = note.state ?? "open";
+  return state === "open" || (requestPending(status, note) && (state !== "sent" || answeredBy(note) !== null));
 }
 
 /** Rejected, deprecated and superseded documents no longer apply: their titles are dimmed. */

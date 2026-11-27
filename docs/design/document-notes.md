@@ -108,8 +108,8 @@ each quote from the document followed by my comment. Please revise the
 document to address them.
 
 Document: /Users/me/relay/docs/adr/0003-hmac-signatures.md
-Status: change it to "accepted". It is "proposed" now, on line 3:
-`Status: proposed · 2026-10-02`.
+Status: I've decided on "accepted": change it to that word. It is
+"proposed" now, on line 3: `Status: proposed · 2026-10-02`.
 
 Overall: Fine once the rotation question below is answered.
 
@@ -119,11 +119,14 @@ Overall: Fine once the rotation question below is answered.
    How long does a rotation take a tenant today?
 ````
 
-- **Status line**, by where the status is written:
+- **Status line**: it says the change is the user's decision, in their
+  word. Projects often leave approving a document to a person, and an agent
+  that took the request for its own idea declined it, or wrote a synonym
+  ("approved" for "accepted"). Then, by where the status is written:
   - front matter: `…on line 2: \`status: proposed\`.`
   - a `Status:` line or `## Status` section: its line, quoted as above;
-  - none yet, with front matter: `Add \`status: accepted\` to its front matter.`
-  - none yet, without: `Add a \`Status: accepted\` line under its title.`
+  - none yet, with front matter: `…: add \`status: accepted\` to its front matter.`
+  - none yet, without: `…: add a \`Status: accepted\` line under its title.`
 - **Overall**: the text as written; lines after the first are kept as they
   are, below it.
 - A request already done (the document has that status) is left out, and

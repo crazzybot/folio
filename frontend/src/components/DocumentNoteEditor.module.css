@@ -72,6 +72,18 @@
   width: 16px;
 }
 
+/* Under the select, in line with it (past the icon and the gap) */
+.pending {
+  margin: 0 0 0 22px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.pending strong {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 .select,
 .input,
 .textarea {

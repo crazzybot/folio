@@ -174,7 +174,7 @@ describe("formatReviewNotes with a note on the document", () => {
         "Review notes on adr.md. My overall comment comes first, then each quote from the document followed by my comment. Please revise the document to address them.",
         "",
         "Document: docs/adr.md",
-        'Status: change it to "accepted". It is "proposed" now, on line 3: `Status: proposed · 2026-10-02`.',
+        'Status: I\'ve decided on "accepted": change it to that word. It is "proposed" now, on line 3: `Status: proposed · 2026-10-02`.',
         "",
         "Overall: Fine once answered.",
         "Second line.",
@@ -191,16 +191,16 @@ describe("formatReviewNotes with a note on the document", () => {
   it("says where to change or add the status", () => {
     const front = "---\nstatus: proposed\n---\n# T\n";
     expect(statusRequest({ source: front, status: "proposed", statusLine: 2, note: note("Accepted") })).toBe(
-      'Status: change it to "Accepted". It is "proposed" now, on line 2: `status: proposed`.',
+      'Status: I\'ve decided on "Accepted": change it to that word. It is "proposed" now, on line 2: `status: proposed`.',
     );
     expect(statusRequest({ source: "---\ntitle: T\n---\n# T\n", status: null, note: note("accepted") })).toBe(
-      "Status: add `status: accepted` to its front matter.",
+      'Status: I\'ve decided on "accepted": add `status: accepted` to its front matter.',
     );
     expect(statusRequest({ source: "# T\n", status: null, note: note("approved") })).toBe(
-      "Status: add a `Status: approved` line under its title.",
+      'Status: I\'ve decided on "approved": add a `Status: approved` line under its title.',
     );
     expect(statusRequest({ source: "Status: `x`\n", status: "x", statusLine: 1, note: note("y") })).toBe(
-      'Status: change it to "y". It is "x" now, on line 1: `` Status: `x` ``.',
+      'Status: I\'ve decided on "y": change it to that word. It is "x" now, on line 1: `` Status: `x` ``.',
     );
     expect(statusRequest({ source: ADR, status: "proposed", note: note(null, "Text only") })).toBeNull();
   });
@@ -220,7 +220,7 @@ describe("formatReviewNotes with a note on the document", () => {
         "Review notes on adr.md. Please revise the document as described below.",
         "",
         "Document: docs/adr.md",
-        'Status: change it to "rejected". It is "proposed" now, on line 3: `Status: proposed · 2026-10-02`.',
+        'Status: I\'ve decided on "rejected": change it to that word. It is "proposed" now, on line 3: `Status: proposed · 2026-10-02`.',
       ].join("\n"),
     );
   });
@@ -238,7 +238,7 @@ describe("formatReviewNotes with a note on the document", () => {
     expect(lines.slice(2, 8)).toEqual([
       "## docs/a.md",
       "",
-      'Status: change it to "accepted". It is "proposed" now, on line 3: `Status: proposed · 2026-10-02`.',
+      'Status: I\'ve decided on "accepted": change it to that word. It is "proposed" now, on line 3: `Status: proposed · 2026-10-02`.',
       "",
       "Overall: Ship it.",
       "",
