@@ -89,3 +89,29 @@ for f in app-light app-dark status search book marks; do cp out/$f.webp ../../si
 ```
 
 Update "Last made" above when you replace them.
+
+## Recording the desktop app
+
+The stills stay on the browser demo: headless, an exact size, the seed
+marks. A recording of the desktop app with Claude Code in its agent panel
+can run in a separate, clean app instead of your own Folio, with the
+`verify-desktop` skill's launcher:
+
+```bash
+(cd desktop && npm run build)
+node scripts/media/lantern.mjs ~/lantern-drift
+.claude/skills/verify-desktop/scripts/launch.sh --agent --theme dark /tmp/folio-take ~/lantern-drift
+```
+
+- The app keeps its settings, window size and marks in the take folder
+  (`/tmp/folio-take`), and its HOME there too: your own Folio can stay
+  open, and its recent folders and marks don't show. Use a new take folder
+  for each take.
+- `--agent` starts Claude Code in the panel, signed in as you (the take
+  folder links to your `~/.claude` and `~/.claude.json`). Its Folio MCP
+  server reads the notes from the take folder, as the app writes them.
+- The panel's header shows the workspace path: use a short one, as above.
+- Record only that window, never a screen region. The skill's `drive.mjs`
+  shows how to find its window ID (the process on the CDP port, 9333).
+- Stop it with `pkill -P <pid>; kill <pid>`, with the PID the launcher
+  printed.
