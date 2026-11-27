@@ -382,6 +382,8 @@ strip above the document's content, in the reading column:
 - Clicking the status or a tag adds it to the filters.
 - Nothing is shown when the document has no `meta`.
 - In the reader's style and font size; included when printing.
+- The whole front matter opens from the end of this strip
+  (`frontmatter-properties.md`).
 
 ## 6. Demo
 

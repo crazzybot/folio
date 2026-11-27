@@ -43,6 +43,7 @@ import { loadRehypeKatex, loadedRehypeKatex, mayContainMath } from "../katexLoad
 import type { RehypeKatex } from "../katexLoader";
 import remarkObsidian from "../obsidian";
 import { isCounted, unplacedFirst } from "../sending";
+import { frontMatterProperties } from "../frontMatter";
 import DocumentHeader, { hasPinnedSummary } from "./DocumentHeader";
 import type { ChangesBannerProps } from "./ChangesBanner";
 import MermaidDiagram from "./MermaidDiagram";
@@ -1006,6 +1007,9 @@ export default function MarkdownViewer({
     [documents, attachments, currentLocation],
   );
 
+  // The whole front matter, for the header (the rendered text leaves it out)
+  const frontMatter = useMemo(() => (content === null ? null : frontMatterProperties(content)), [content]);
+
   const idsByLocation = useMemo(
     () => new Map(documents.map((doc) => [doc.location, doc.id])),
     [documents],
@@ -1189,6 +1193,7 @@ export default function MarkdownViewer({
               onOpenDocument={onOpenDocument}
               note={documentNote}
               onEditNote={onEditDocumentNote}
+              frontMatter={frontMatter}
               changes={changes}
               notFound={markHandlers === undefined ? 0 : notFound}
               onUnplacedSlot={setUnplacedSlot}

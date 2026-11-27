@@ -1,11 +1,24 @@
-import React from "react";
+import React, { useId } from "react";
+import { propertiesLabel } from "../frontMatter";
+import type { FrontMatter } from "../frontMatter";
+import type { FrontMatterView } from "../readerPrefs";
 import { requestDone, statusNew, statusText, supersedingDocument } from "../status";
 import { newReplies } from "../threads";
 import type { DocumentMeta, DocumentNote } from "../types";
 import DocumentNoteIcon from "./DocumentNoteIcon";
+import FrontMatterPanel from "./FrontMatterPanel";
 import NoteRequest from "./NoteRequest";
 import StatusIcon from "./StatusIcon";
 import styles from "./DocumentProperties.module.css";
+
+/** The document's whole front matter, and whether it's open (useFrontMatterPrefs: shared by the header and the pinned bar). */
+export interface FrontMatterProps {
+  frontMatter: FrontMatter;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  view: FrontMatterView;
+  setView: (id: FrontMatterView["id"]) => void;
+}
 
 interface DocumentPropertiesProps {
   doc: DocumentMeta;
@@ -15,6 +28,8 @@ interface DocumentPropertiesProps {
   note?: DocumentNote | undefined;
   /** Open the note editor under `from` (clicking the status, or Edit). */
   onEditNote?: ((from: HTMLElement) => void) | undefined;
+  /** Front matter to open from the end of the strip; undefined when the document has none. */
+  frontMatter?: FrontMatterProps | undefined;
   className?: string | undefined;
 }
 
@@ -23,8 +38,9 @@ const NO_META = { status: null, statusDetail: null, date: null, people: [], tags
 /**
  * The document's metadata (front matter, or its status line) above its
  * text: status, date and decision makers, then tags; and below them the
- * user's note on the document, if any and not resolved. Outside the article, so highlights'
- * text positions don't count it.
+ * user's note on the document, if any and not resolved; and at the strip's
+ * end, a toggle opening the whole front matter under it. Outside the
+ * article, so highlights' text positions don't count it.
  */
 export default function DocumentProperties({
   doc,
@@ -32,11 +48,13 @@ export default function DocumentProperties({
   onOpenDocument,
   note,
   onEditNote,
+  frontMatter,
   className,
 }: DocumentPropertiesProps): React.ReactElement | null {
+  const panelId = useId();
   // A resolved note is done with: it stays in the Marks view, and the status still opens it
   const shownNote = note?.state === "resolved" ? undefined : note;
-  if (doc.meta === undefined && shownNote === undefined) return null;
+  if (doc.meta === undefined && shownNote === undefined && frontMatter === undefined) return null;
   const meta = doc.meta ?? NO_META;
   const { status, date, people, tags } = meta;
   const done = shownNote !== undefined && requestDone(status, shownNote.requestedStatus);
@@ -115,6 +133,23 @@ export default function DocumentProperties({
             </span>
           ))}
         </span>
+      )}
+      {frontMatter !== undefined && (
+        <button
+          type="button"
+          className={styles.propertiesToggle}
+          onClick={() => frontMatter.setOpen(!frontMatter.open)}
+          aria-expanded={frontMatter.open}
+          aria-controls={frontMatter.open ? panelId : undefined}
+        >
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+            <path d={frontMatter.open ? "M2.5 4.5 6 8l3.5-3.5" : "M4.5 2.5 8 6l-3.5 3.5"} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {frontMatter.open ? "Properties" : propertiesLabel(frontMatter.frontMatter, doc.meta !== undefined)}
+        </button>
+      )}
+      {frontMatter?.open === true && (
+        <FrontMatterPanel id={panelId} frontMatter={frontMatter.frontMatter} view={frontMatter.view} onView={frontMatter.setView} />
       )}
       {shownNote !== undefined && (
         <div className={styles.note}>

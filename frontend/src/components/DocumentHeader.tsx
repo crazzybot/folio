@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 import { statusNew, statusText } from "../status";
 import { newReplies } from "../threads";
+import type { FrontMatter } from "../frontMatter";
+import { useFrontMatterPrefs } from "../readerPrefs";
 import type { DocumentMeta, DocumentNote } from "../types";
 import ChangesBanner, { changedParts } from "./ChangesBanner";
 import type { ChangesBannerProps } from "./ChangesBanner";
 import DocumentNoteIcon from "./DocumentNoteIcon";
 import DocumentProperties from "./DocumentProperties";
+import type { FrontMatterProps } from "./DocumentProperties";
 import StatusIcon from "./StatusIcon";
 import styles from "./DocumentHeader.module.css";
 
@@ -17,6 +20,8 @@ interface DocumentHeaderProps {
   onOpenDocument?: ((id: string, anchor: string | null) => void) | undefined;
   note?: DocumentNote | undefined;
   onEditNote?: ((from: HTMLElement) => void) | undefined;
+  /** The document's front matter, opened from the properties strip; null when it has none. */
+  frontMatter: FrontMatter | null;
   /** What changed since the document was read, while that's shown. */
   changes?: ChangesBannerProps | undefined;
   /** Notes not found in the current text that still need the user (unplacedFirst in sending.ts). */
@@ -60,11 +65,15 @@ export default function DocumentHeader({
   onOpenDocument,
   note,
   onEditNote,
+  frontMatter,
   changes,
   notFound,
   onUnplacedSlot,
   onPinnedSlot,
 }: DocumentHeaderProps): React.ReactElement {
+  // One choice for the header and the details under the pinned bar
+  const frontMatterPrefs = useFrontMatterPrefs();
+  const frontMatterProps: FrontMatterProps | undefined = frontMatter === null ? undefined : { frontMatter, ...frontMatterPrefs };
   const headerRef = useRef<HTMLDivElement>(null);
   const summary = hasPinnedSummary(doc, note, changes, notFound);
   // The header is above the top of the view (not merely below its bottom)
@@ -172,6 +181,7 @@ export default function DocumentHeader({
                     onOpenDocument={onOpenDocument}
                     note={note}
                     onEditNote={onEditNote}
+                    frontMatter={frontMatterProps}
                   />
                 )}
                 <div className={styles.news}>
@@ -199,6 +209,7 @@ export default function DocumentHeader({
             onOpenDocument={onOpenDocument}
             note={note}
             onEditNote={onEditNote}
+            frontMatter={frontMatterProps}
           />
         )}
         <div className={styles.newsColumn}>

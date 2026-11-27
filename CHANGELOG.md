@@ -15,6 +15,11 @@ turns them into the next release's section.
   questions that come up go on the task or the spec passage they're about,
   with the lines of code they concern, so you can answer them in Folio
   without opening the files.
+- The whole front matter of a document can be seen. Click **Properties** at
+  the end of the line above the document to open a table of every field
+  (owner, ticket, links…), or switch to **YAML** to see it as written. A
+  document whose front matter has no status, date or tags shows the button
+  on its own.
 
 ### Changed
 

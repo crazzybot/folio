@@ -11,6 +11,7 @@ import type { Dirent } from "node:fs";
 import path from "node:path";
 import { extractHeadings, FENCE, FRONT_MATTER, HEADING_LINE, plainHeading, splitFrontMatter } from "./headings";
 import type { Heading } from "./headings";
+import { FRONT_MATTER_KEY, frontMatterFields, list, scalar } from "./frontMatter";
 import { IMAGE_TYPES } from "./imageTypes";
 import { normaliseStatus } from "./reviewNotes";
 
@@ -103,60 +104,12 @@ const MAX_TAGS = 20;
 const MAX_TAG_LENGTH = 40;
 const MAX_PEOPLE = 20;
 
-// A top-level key and its value: "status: accepted", "tags:" (a block list follows)
-const FRONT_MATTER_KEY = /^([A-Za-z][\w-]*)[ \t]*:(?:[ \t]+(.*?))?[ \t]*$/;
-const QUOTED = /^(["'])(.*)\1$/;
-const BLOCK_LIST_ITEM = /^[ \t]+-[ \t]+(.*?)[ \t]*$/;
 // "Status: accepted", "* Status: accepted", "**Status:** accepted"
 const STATUS_LINE = /^ {0,3}(?:[*+-][ \t]+)?(?:\*\*|__)?status(?:\*\*|__)?[ \t]*:(?:\*\*|__)?[ \t]*(.+?)[ \t]*$/i;
-
-/** Top-level keys of front matter: a scalar's text, or a block list's items. First of each key wins. */
-function frontMatterFields(block: string): Map<string, string | string[]> {
-  const fields = new Map<string, string | string[]>();
-  const lines = block.split(/\r\n|\r|\n/);
-  for (let i = 0; i < lines.length; i++) {
-    const match = FRONT_MATTER_KEY.exec(lines[i] ?? "");
-    if (match?.[1] === undefined) continue;
-    let value: string | string[] = match[2] ?? "";
-    if (value === "") {
-      const items: string[] = [];
-      for (let item = BLOCK_LIST_ITEM.exec(lines[i + 1] ?? ""); item?.[1] !== undefined; item = BLOCK_LIST_ITEM.exec(lines[i + 1] ?? "")) {
-        items.push(item[1]);
-        i++;
-      }
-      if (items.length > 0) value = items;
-    }
-    if (!fields.has(match[1])) fields.set(match[1], value);
-  }
-  return fields;
-}
 
 /** The index of `key`'s line in front matter, or -1. */
 function keyLine(block: string, key: string): number {
   return block.split(/\r\n|\r|\n/).findIndex((line) => FRONT_MATTER_KEY.exec(line)?.[1] === key);
-}
-
-/** A scalar's text: unquoted, without a trailing comment; null for anything but plain text. */
-function scalar(raw: string): string | null {
-  const value = raw.trim();
-  const quoted = QUOTED.exec(value) ?? QUOTED.exec(value.replace(/[ \t]+#.*$/, ""));
-  if (quoted?.[2] !== undefined) return quoted[2].trim() || null;
-  const plain = value.replace(/[ \t]+#.*$/, "").trim();
-  // Flow collections and block scalars aren't plain text
-  if (plain === "" || /^[[{|>]/.test(plain)) return null;
-  return plain;
-}
-
-/** A list's items: a block list, a flow list ("[a, b]") or comma-separated text. */
-function list(raw: string | string[] | undefined): string[] {
-  if (raw === undefined) return [];
-  if (Array.isArray(raw)) return raw.flatMap((item) => scalar(item) ?? []);
-  let value = raw.trim();
-  if (!/["']/.test(value)) value = value.replace(/[ \t]+#.*$/, "");
-  const flow = /^\[(.*)\](?:[ \t]+#.*)?$/.exec(value);
-  if (flow?.[1] !== undefined) value = flow[1];
-  else if (/^[{|>]/.test(value)) return [];
-  return value.split(",").flatMap((item) => scalar(item) ?? []);
 }
 
 /** "superseded by ADR-0005" → status "superseded", detail as written; null when there's no word (normaliseStatus). */

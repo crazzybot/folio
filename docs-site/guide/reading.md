@@ -47,6 +47,25 @@ superseded documents are dimmed.
 The funnel button in the sidebar header filters the list by status and tags.
 The filters are remembered for each workspace.
 
+## Front matter
+
+The line above the document shows its status, date, decision makers and
+tags. The rest of its front matter is a click away: **4 more properties** at
+the end of that line opens a table of every field, in the order they're
+written. A document whose front matter has none of those fields shows just
+**3 properties**.
+
+- **Table** shows each field and its value. Lists are shown as items, and
+  values Folio can't read as text (a nested map, a multi-line string) are
+  shown as written. A web address is a link.
+- **YAML** shows the front matter exactly as it is in the file.
+
+The values can be selected and copied. Folio remembers whether the
+properties are open, and which view, for every document. In a document with
+a status, a bar with the status stays at the top of the view as you scroll
+down: the arrow at its right opens the same line, and the properties under
+it.
+
 <!-- TODO: front matter example, and how "Superseded by" links work -->
 
 ## New and changed documents

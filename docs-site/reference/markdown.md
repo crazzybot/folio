@@ -7,7 +7,7 @@ Code blocks have a copy button on hover.
 
 ## Front matter
 
-YAML front matter is hidden. Folio reads these fields from it:
+YAML front matter isn't shown in the text. Folio reads these fields from it:
 
 | Field | Used for |
 |---|---|
@@ -16,6 +16,10 @@ YAML front matter is hidden. Folio reads these fields from it:
 | `tags` | Filters and the hover card |
 
 <!-- TODO: the full list (date, decision makers, superseded by), with an example -->
+
+To see all of it, click **Properties** at the end of the line above the
+document (see [Reading](../guide/reading.md#front-matter)). TOML front matter
+(`+++`) is shown as written there too.
 
 ## Obsidian links and embeds
 
