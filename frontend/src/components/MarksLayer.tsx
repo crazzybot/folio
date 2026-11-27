@@ -5,7 +5,7 @@ import { describeSpan, locateAnchor } from "../anchoring";
 import { findBookmark, headingIdentities, sameHeading } from "../bookmarks";
 import { getItem, setItem } from "../storage";
 import { watchInlineNotes } from "../inlineNotes";
-import type { InlineNote } from "../inlineNotes";
+import type { InlineNote, InlineNotesWatch } from "../inlineNotes";
 import { NOTE_ICON_LABELS } from "../noteIcons";
 import type { NoteIconKind } from "../noteIcons";
 import { agentNoteLabel, noteText, agentProgress, type AgentProgress, answeredBy, openOptions, optionsBefore, pickedOption, isPrivate, lastSent, loopKind, pickedUpBy, stateOf, UNRESOLVE_TITLE, unplacedFirst } from "../sending";
@@ -137,16 +137,17 @@ function blockRange(block: Element): Range {
  * Run `change` keeping the text at the top of `container`'s view where it
  * is: the first block starting in view stays at the same height.
  */
-function keepScrollAnchor(container: HTMLElement, article: HTMLElement, change: () => void): void {
+function keepScrollAnchor<T>(container: HTMLElement, article: HTMLElement, change: () => T): T {
   const top = container.getBoundingClientRect().top;
   const anchor = [...article.querySelectorAll(BLOCKS)].find(
     (el) => el.closest("[data-marks-skip]") === null && el.getBoundingClientRect().top >= top,
   );
   const before = anchor?.getBoundingClientRect().top;
-  change();
+  const result = change();
   if (anchor !== undefined && before !== undefined && anchor.isConnected) {
     container.scrollTop += anchor.getBoundingClientRect().top - before;
   }
+  return result;
 }
 
 /** Bring `rect` to the upper third of `container`'s view. */
@@ -556,28 +557,48 @@ export default function MarksLayer({
   useLayoutEffect(() => {
     inlineOn.current = inlineNotes;
   }, [inlineNotes]);
+  // Placed from the latest highlights, which painting has just located
+  const inlineHighlights = useRef(highlights);
+  useLayoutEffect(() => {
+    inlineHighlights.current = highlights;
+  }, [highlights]);
 
+  const inlineWatch = useRef<{ watch: InlineNotesWatch; placed: readonly Highlight[] } | null>(null);
   useEffect(() => {
     const article = articleRef.current;
     const container = containerRef.current;
     if (!ready || !inlineNotes || article === null || container === null) return;
-    const notes = (): InlineNote[] =>
-      highlights.flatMap((h) => {
+    const notes = (): InlineNote[] => {
+      const shown = inlineHighlights.current;
+      if (inlineWatch.current !== null) inlineWatch.current.placed = shown;
+      return shown.flatMap((h) => {
         const range = h.note === null ? undefined : located.current.get(h.id);
         return range === undefined || h.note === null
           ? []
           : [{ id: h.id, range, color: `var(--mark-${h.color}-swatch)`, note: noteText(h) ?? "", by: agentNoteLabel(h), icon: noteIconOf(h), replies: threadSummary(h) }];
       });
+    };
     const relayout = () => setLayoutVersion((v) => v + 1);
-    let stop = () => {};
-    keepScrollAnchor(container, article, () => {
-      stop = watchInlineNotes(article, notes, relayout);
-    });
+    const watch = keepScrollAnchor(container, article, () => watchInlineNotes(article, notes, relayout));
+    const { stop } = watch;
+    inlineWatch.current = { watch, placed: inlineHighlights.current };
     return () => {
+      inlineWatch.current = null;
       if (inlineOn.current) stop();
       else keepScrollAnchor(container, article, stop);
     };
-  }, [articleRef, containerRef, ready, renderKey, highlights, inlineNotes]);
+  }, [articleRef, containerRef, ready, renderKey, inlineNotes]);
+
+  // A note changed (edited, answered, its thread seen as it opens): placed
+  // again in one step, so the text in view doesn't move. Taking them all out
+  // first would shorten the document and scroll it
+  useEffect(() => {
+    const article = articleRef.current;
+    const container = containerRef.current;
+    const shown = inlineWatch.current;
+    if (shown === null || shown.placed === highlights || article === null || container === null) return;
+    keepScrollAnchor(container, article, () => shown.watch.update());
+  }, [articleRef, containerRef, highlights]);
 
   // The hovered note's passage and inline note
   useEffect(() => {

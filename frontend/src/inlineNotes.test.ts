@@ -164,7 +164,7 @@ describe("watchInlineNotes with React", () => {
 
   it("leaves the text React rewrites whole", async () => {
     const { root, react, render, notes } = setup(["gamma"]);
-    const stop = watchInlineNotes(root, notes);
+    const { stop } = watchInlineNotes(root, notes);
     render(["Alpha BETA gamma", "Second paragraph"]);
     await microtasks();
     expect(buildTextModel(root).text).toBe("Alpha BETA gamma boldSecond paragraph bold");
@@ -175,7 +175,7 @@ describe("watchInlineNotes with React", () => {
 
   it("places the notes again when React adds or removes blocks", async () => {
     const { root, react, render, notes } = setup(["gamma", "Second"]);
-    const stop = watchInlineNotes(root, notes);
+    const { stop } = watchInlineNotes(root, notes);
     expect(notesAfter(root)).toEqual(["Alpha beta gamma bold", "Second paragraph bold"]);
 
     render(["New opening", "Alpha beta gamma", "Second paragraph"]);
@@ -194,7 +194,7 @@ describe("watchInlineNotes with React", () => {
   it("doesn't place them again for its own changes", async () => {
     const { root, react, notes } = setup(["gamma"]);
     let placings = 0;
-    const stop = watchInlineNotes(root, notes, () => placings++);
+    const { stop } = watchInlineNotes(root, notes, () => placings++);
     await microtasks();
     expect(placings).toBe(1);
     // A class set on a note (hover) isn't a change to the document
@@ -202,6 +202,22 @@ describe("watchInlineNotes with React", () => {
     await microtasks();
     expect(placings).toBe(1);
     stop();
+    react.unmount();
+  });
+
+  it("places changed notes again on update, without stopping", async () => {
+    const { root, react } = setup([]);
+    let text = "before";
+    const { update, stop } = watchInlineNotes(root, () => [noteOn(root, "gamma", text)]);
+    text = "after";
+    update();
+    expect(notesText(root)).toEqual(["after"]);
+    // Still watching: React adding a block places them again
+    flushSync(() => react.render(createElement("div", null, createElement("p", null, "New"), createElement("p", null, "Alpha beta gamma"))));
+    await microtasks();
+    expect(notesAfter(root)).toEqual(["Alpha beta gamma"]);
+    stop();
+    expect(root.querySelector(".folio-inline-notes")).toBeNull();
     react.unmount();
   });
 });
